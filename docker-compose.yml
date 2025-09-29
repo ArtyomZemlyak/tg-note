@@ -1,0 +1,98 @@
+version: '3.8'
+
+services:
+  app:
+    build: 
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: tg-note-app
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:password@db:5432/tg_note
+      - REDIS_URL=redis://redis:6379/0
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - tg-note-network
+
+  db:
+    image: postgres:15-alpine
+    container_name: tg-note-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tg_note
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - tg-note-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: tg-note-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - tg-note-network
+
+  celery-worker:
+    build: 
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: tg-note-worker
+    restart: unless-stopped
+    command: celery -A src.tasks.celery worker --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:password@db:5432/tg_note
+      - REDIS_URL=redis://redis:6379/0
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - tg-note-network
+
+  celery-beat:
+    build: 
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: tg-note-scheduler
+    restart: unless-stopped
+    command: celery -A src.tasks.celery beat --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:password@db:5432/tg_note
+      - REDIS_URL=redis://redis:6379/0
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - tg-note-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  tg-note-network:
+    driver: bridge
