@@ -1,0 +1,114 @@
+"""
+tg-note: Telegram Bot Entry Point
+Main entry point for the Telegram bot application
+"""
+
+import asyncio
+import logging
+import sys
+from pathlib import Path
+
+from config import settings
+from src.tracker.processing_tracker import ProcessingTracker
+from src.knowledge_base.manager import KnowledgeBaseManager
+from src.knowledge_base.git_ops import GitOperations
+
+# Configure logging
+def setup_logging():
+    """Setup logging configuration"""
+    log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    log_level = getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO)
+    
+    handlers = [logging.StreamHandler(sys.stdout)]
+    
+    # Add file handler if log file is configured
+    if settings.LOG_FILE:
+        settings.LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+        handlers.append(logging.FileHandler(settings.LOG_FILE))
+    
+    logging.basicConfig(
+        level=log_level,
+        format=log_format,
+        handlers=handlers
+    )
+
+
+def validate_configuration():
+    """Validate application configuration"""
+    logger = logging.getLogger(__name__)
+    
+    errors = settings.validate()
+    
+    if errors:
+        logger.error("Configuration validation failed:")
+        for error in errors:
+            logger.error(f"  - {error}")
+        return False
+    
+    logger.info("Configuration validated successfully")
+    logger.info(f"Settings: {settings}")
+    return True
+
+
+async def main():
+    """Main application entry point"""
+    logger = logging.getLogger(__name__)
+    
+    # Setup logging
+    setup_logging()
+    logger.info("Starting tg-note bot...")
+    
+    # Validate configuration
+    if not validate_configuration():
+        logger.error("Exiting due to configuration errors")
+        sys.exit(1)
+    
+    # Initialize components
+    logger.info("Initializing components...")
+    
+    try:
+        # Initialize Processing Tracker
+        tracker = ProcessingTracker(str(settings.PROCESSED_LOG_PATH))
+        logger.info(f"Processing tracker initialized: {settings.PROCESSED_LOG_PATH}")
+        
+        # Initialize Knowledge Base Manager
+        kb_manager = KnowledgeBaseManager(str(settings.KB_PATH))
+        logger.info(f"Knowledge base manager initialized: {settings.KB_PATH}")
+        
+        # Initialize Git Operations
+        git_ops = GitOperations(
+            str(settings.KB_PATH),
+            enabled=settings.KB_GIT_ENABLED
+        )
+        logger.info(f"Git operations initialized (enabled: {settings.KB_GIT_ENABLED})")
+        
+        # Get initial stats
+        stats = tracker.get_stats()
+        logger.info(f"Processing stats: {stats}")
+        
+        # TODO: Initialize Telegram Bot
+        logger.warning("Telegram bot initialization not yet implemented")
+        
+        # TODO: Start message processing loop
+        logger.warning("Message processing loop not yet implemented")
+        
+        logger.info("Bot initialization completed (stub mode)")
+        logger.info("Press Ctrl+C to stop")
+        
+        # Keep running (will be replaced with actual bot polling)
+        while True:
+            await asyncio.sleep(1)
+            
+    except KeyboardInterrupt:
+        logger.info("Received interrupt signal, shutting down...")
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\nShutdown complete")
+        sys.exit(0)

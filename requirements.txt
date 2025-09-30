@@ -1,0 +1,29 @@
+# Core dependencies
+python-dotenv==1.0.0
+
+# Telegram Bot
+pyTelegramBotAPI==4.14.0
+# Alternative: aiogram==3.3.0
+
+# Git operations
+GitPython==3.1.40
+
+# File locking for concurrent access
+filelock==3.13.1
+
+# Agent system (future)
+# langchain==0.1.0
+# openai==1.6.1
+# anthropic==0.8.1
+
+# Utilities
+aiohttp==3.9.1
+requests==2.31.0
+
+# Development dependencies
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+black==23.12.1
+flake8==6.1.0
+mypy==1.7.1
