@@ -3,6 +3,7 @@ Telegram Bot Implementation
 Main bot class using pyTelegramBotAPI
 """
 
+import asyncio
 import logging
 import threading
 import time
@@ -55,6 +56,9 @@ class TelegramBot:
                 self.polling_thread = threading.Thread(target=self._polling_loop, daemon=True)
                 self.polling_thread.start()
                 
+                # Start background tasks for message aggregator
+                self.handlers.start_background_tasks()
+                
                 self.logger.info("Telegram bot started successfully")
                 
             except ApiTelegramException as e:
@@ -80,6 +84,12 @@ class TelegramBot:
         self.logger.info("Stopping Telegram bot...")
         
         self.is_running = False
+        
+        # Stop background tasks
+        try:
+            self.handlers.stop_background_tasks()
+        except Exception as e:
+            self.logger.warning(f"Error stopping background tasks: {e}")
         
         # Stop the bot's internal polling
         try:

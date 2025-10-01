@@ -3,13 +3,14 @@ Telegram Bot Handlers
 Handles all incoming message events from Telegram
 """
 
+import asyncio
 import logging
 from typing import Optional, Dict, Any
 from telebot import TeleBot
 from telebot.types import Message
 
 from config import settings
-from src.processor.message_aggregator import MessageAggregator
+from src.processor.message_aggregator import MessageAggregator, MessageGroup
 from src.processor.content_parser import ContentParser
 from src.agents.stub_agent import StubAgent
 from src.knowledge_base.manager import KnowledgeBaseManager
@@ -27,6 +28,9 @@ class BotHandlers:
         self.content_parser = ContentParser()
         self.agent = StubAgent()
         self.logger = logging.getLogger(__name__)
+        
+        # Set up timeout callback for background task
+        self.message_aggregator.set_timeout_callback(self._handle_timeout)
         
         # Register handlers
         self._register_handlers()
@@ -54,6 +58,33 @@ class BotHandlers:
             message.forward_sender_name is not None or  # Forwarded from privacy-enabled user
             message.forward_date is not None  # Forwarded message (any source)
         )
+    
+    def start_background_tasks(self) -> None:
+        """Start background tasks for message processing"""
+        self.logger.info("Starting background tasks")
+        self.message_aggregator.start_background_task()
+    
+    def stop_background_tasks(self) -> None:
+        """Stop background tasks"""
+        self.logger.info("Stopping background tasks")
+        self.message_aggregator.stop_background_task()
+    
+    def _handle_timeout(self, chat_id: int, group: MessageGroup) -> None:
+        """Handle a timed-out message group"""
+        try:
+            self.logger.info(f"Processing timed-out group for chat {chat_id} with {len(group.messages)} messages")
+            
+            # Send notification about processing the timed-out group
+            processing_msg = self.bot.send_message(
+                chat_id,
+                "🔄 Обрабатываю завершенную группу сообщений..."
+            )
+            
+            # Process the group
+            self._process_message_group(group, processing_msg)
+            
+        except Exception as e:
+            self.logger.error(f"Error handling timed-out group for chat {chat_id}: {e}", exc_info=True)
     
     def handle_start(self, message: Message) -> None:
         """Handle /start command"""

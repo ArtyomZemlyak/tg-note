@@ -97,29 +97,32 @@ async def main():
         logger.info("Press Ctrl+C to stop")
         
         # Keep running until interrupted
-        try:
-            health_check_interval = 30  # Check health every 30 seconds instead of every second
-            last_health_check = asyncio.get_running_loop().time()  # Initialize to current time
+        health_check_interval = 30  # Check health every 30 seconds instead of every second
+        last_health_check = asyncio.get_running_loop().time()  # Initialize to current time
+        
+        while True:
+            await asyncio.sleep(1)
             
-            while True:
-                await asyncio.sleep(1)
+            # Check bot health periodically (every 30 seconds)
+            current_time = asyncio.get_running_loop().time()
+            if current_time - last_health_check >= health_check_interval:
+                last_health_check = current_time
                 
-                # Check bot health periodically (every 30 seconds)
-                current_time = asyncio.get_running_loop().time()
-                if current_time - last_health_check >= health_check_interval:
-                    last_health_check = current_time
-                    
-                    if not telegram_bot.is_healthy():
-                        logger.warning("Bot health check failed, attempting restart...")
+                if not telegram_bot.is_healthy():
+                    logger.warning("Bot health check failed, attempting restart...")
+                    try:
                         await asyncio.to_thread(telegram_bot.stop)
-                        await asyncio.sleep(5)  # Wait for complete shutdown
+                    except Exception as e:
+                        logger.error(f"Error during bot stop in health check: {e}", exc_info=True)
+                    
+                    await asyncio.sleep(5)  # Wait for complete shutdown
+                    
+                    try:
                         await asyncio.to_thread(telegram_bot.start)
                         logger.info("Bot restarted successfully")
-                    
-        except KeyboardInterrupt:
-            logger.info("Received interrupt signal, shutting down...")
-            if telegram_bot:
-                telegram_bot.stop()
+                    except Exception as e:
+                        logger.error(f"Error during bot start in health check: {e}", exc_info=True)
+                        logger.error("Failed to restart bot, continuing with unhealthy state")
             
     except KeyboardInterrupt:
         logger.info("Received interrupt signal during initialization, shutting down...")

@@ -4,8 +4,9 @@ Groups consecutive messages into single content blocks
 """
 
 import asyncio
+import logging
 from datetime import datetime, timedelta
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Callable
 from uuid import uuid4
 
 
@@ -40,6 +41,10 @@ class MessageAggregator:
     def __init__(self, timeout: int = 30):
         self.timeout = timeout
         self.active_groups: Dict[int, MessageGroup] = {}
+        self.logger = logging.getLogger(__name__)
+        self._background_task: Optional[asyncio.Task] = None
+        self._running = False
+        self._timeout_callback: Optional[Callable] = None
     
     def add_message(self, chat_id: int, message: Dict) -> Optional[MessageGroup]:
         """
@@ -87,3 +92,69 @@ class MessageAggregator:
             del self.active_groups[chat_id]
             return group
         return None
+    
+    def set_timeout_callback(self, callback: Callable[[int, MessageGroup], None]) -> None:
+        """
+        Set callback function to be called when a group times out
+        
+        Args:
+            callback: Function that takes chat_id and MessageGroup as arguments
+        """
+        self._timeout_callback = callback
+    
+    def start_background_task(self) -> None:
+        """Start the background task to check for timed-out groups"""
+        if self._background_task is not None:
+            self.logger.warning("Background task already running")
+            return
+        
+        self._running = True
+        try:
+            loop = asyncio.get_running_loop()
+            self._background_task = loop.create_task(self._check_timeouts())
+            self.logger.info("MessageAggregator background task started")
+        except RuntimeError:
+            # No event loop running, will be started later
+            self.logger.warning("No event loop running, background task not started")
+    
+    def stop_background_task(self) -> None:
+        """Stop the background task"""
+        self._running = False
+        if self._background_task is not None:
+            self._background_task.cancel()
+            self._background_task = None
+            self.logger.info("MessageAggregator background task stopped")
+    
+    async def _check_timeouts(self) -> None:
+        """Background task that periodically checks for timed-out groups"""
+        self.logger.info("Starting timeout checker background task")
+        
+        while self._running:
+            try:
+                # Check every 5 seconds
+                await asyncio.sleep(5)
+                
+                # Find timed-out groups
+                timed_out = []
+                for chat_id, group in list(self.active_groups.items()):
+                    if group.should_close() and not group.closed and len(group.messages) > 0:
+                        timed_out.append((chat_id, group))
+                
+                # Process timed-out groups
+                for chat_id, group in timed_out:
+                    self.logger.info(f"Group for chat {chat_id} timed out, processing {len(group.messages)} messages")
+                    group.close()
+                    del self.active_groups[chat_id]
+                    
+                    # Call callback if registered
+                    if self._timeout_callback:
+                        try:
+                            self._timeout_callback(chat_id, group)
+                        except Exception as e:
+                            self.logger.error(f"Error in timeout callback for chat {chat_id}: {e}", exc_info=True)
+                
+            except asyncio.CancelledError:
+                self.logger.info("Timeout checker task cancelled")
+                break
+            except Exception as e:
+                self.logger.error(f"Error in timeout checker: {e}", exc_info=True)
