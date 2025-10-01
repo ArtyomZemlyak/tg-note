@@ -103,22 +103,24 @@ class TelegramBot:
         """Main polling loop"""
         self.logger.info("Starting bot polling loop...")
         
-        try:
-            # Start polling in non-blocking mode
-            self.bot.polling(none_stop=True, timeout=10, long_polling_timeout=10)
-            
-            # Keep the thread alive while polling
-            while self.is_running:
-                time.sleep(1)
-                        
-        except Exception as e:
-            if self.is_running:
-                self.logger.error(f"Polling loop error: {e}")
-                # Wait before retrying
-                time.sleep(5)
-                # Continue the loop to retry instead of recursive call
-            else:
-                self.logger.info("Polling loop interrupted due to shutdown")
+        while self.is_running:
+            try:
+                # Start polling in non-blocking mode
+                self.bot.polling(none_stop=True, timeout=10, long_polling_timeout=10)
+                
+                # Keep the thread alive while polling
+                while self.is_running:
+                    time.sleep(1)
+                            
+            except Exception as e:
+                if self.is_running:
+                    self.logger.error(f"Polling loop error: {e}")
+                    # Wait before retrying
+                    time.sleep(5)
+                    # Continue the loop to retry instead of recursive call
+                else:
+                    self.logger.info("Polling loop interrupted due to shutdown")
+                    break
         
         self.logger.info("Bot polling loop ended")
     
