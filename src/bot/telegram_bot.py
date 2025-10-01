@@ -62,8 +62,16 @@ class TelegramBot:
         
         self.is_running = False
         
+        # Stop the bot's internal polling
+        try:
+            self.bot.stop_polling()
+        except Exception as e:
+            self.logger.warning(f"Error stopping bot polling: {e}")
+        
         if self.polling_thread and self.polling_thread.is_alive():
             self.polling_thread.join(timeout=5)
+            if self.polling_thread.is_alive():
+                self.logger.warning("Polling thread did not stop gracefully")
         
         self.logger.info("Telegram bot stopped")
     
@@ -72,20 +80,23 @@ class TelegramBot:
         self.logger.info("Starting bot polling loop...")
         
         try:
+            # Start polling in non-blocking mode
+            self.bot.polling(none_stop=True, timeout=10, long_polling_timeout=10)
+            
+            # Keep the thread alive while polling
             while self.is_running:
-                try:
-                    self.bot.polling(none_stop=True, timeout=10)
-                except Exception as e:
-                    if self.is_running:
-                        self.logger.error(f"Polling error: {e}")
-                        # Wait before retrying
-                        import time
-                        time.sleep(5)
-                    else:
-                        break
+                import time
+                time.sleep(1)
                         
         except Exception as e:
-            self.logger.error(f"Polling loop error: {e}")
+            if self.is_running:
+                self.logger.error(f"Polling loop error: {e}")
+                # Wait before retrying
+                import time
+                time.sleep(5)
+                # Restart polling if still running
+                if self.is_running:
+                    self._polling_loop()
         finally:
             self.logger.info("Bot polling loop ended")
     

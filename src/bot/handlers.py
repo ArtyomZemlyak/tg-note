@@ -38,13 +38,22 @@ class BotHandlers:
         self.bot.message_handler(commands=['help'])(self.handle_help)
         self.bot.message_handler(commands=['status'])(self.handle_status)
         
-        # Message handlers - use func parameter to avoid conflicts
-        self.bot.message_handler(func=lambda message: message.content_type == 'text' and message.forward_from is None)(self.handle_text_message)
-        self.bot.message_handler(func=lambda message: message.content_type == 'photo')(self.handle_photo_message)
-        self.bot.message_handler(func=lambda message: message.content_type == 'document')(self.handle_document_message)
+        # Forwarded messages - register first to catch all forwarded content
+        self.bot.message_handler(func=self._is_forwarded_message)(self.handle_forwarded_message)
         
-        # Forwarded messages
-        self.bot.message_handler(func=lambda message: message.forward_from is not None)(self.handle_forwarded_message)
+        # Regular message handlers - only for non-forwarded messages
+        self.bot.message_handler(func=lambda message: message.content_type == 'text' and not self._is_forwarded_message(message))(self.handle_text_message)
+        self.bot.message_handler(func=lambda message: message.content_type == 'photo' and not self._is_forwarded_message(message))(self.handle_photo_message)
+        self.bot.message_handler(func=lambda message: message.content_type == 'document' and not self._is_forwarded_message(message))(self.handle_document_message)
+    
+    def _is_forwarded_message(self, message: Message) -> bool:
+        """Check if message is forwarded from any source"""
+        return (
+            message.forward_from is not None or  # Forwarded from user
+            message.forward_from_chat is not None or  # Forwarded from channel/group
+            message.forward_sender_name is not None or  # Forwarded from privacy-enabled user
+            message.forward_date is not None  # Forwarded message (any source)
+        )
     
     def handle_start(self, message: Message) -> None:
         """Handle /start command"""
@@ -145,10 +154,14 @@ class BotHandlers:
             closed_group = self.message_aggregator.add_message(message.chat.id, message_dict)
             
             if closed_group:
-                # Previous group was closed, process it
-                self._process_message_group(closed_group, processing_msg)
-                # Start new group with current message
-                self.message_aggregator.add_message(message.chat.id, message_dict)
+                # Previous group was closed, process it with a separate notification
+                prev_processing_msg = self.bot.send_message(
+                    message.chat.id, 
+                    "🔄 Обрабатываю предыдущую группу сообщений..."
+                )
+                self._process_message_group(closed_group, prev_processing_msg)
+                
+                # Update current message status
                 self.bot.edit_message_text(
                     "🔄 Добавлено к новой группе сообщений...",
                     chat_id=processing_msg.chat.id,
@@ -179,7 +192,10 @@ class BotHandlers:
             'caption': message.caption or '',
             'content_type': message.content_type,
             'forward_from': message.forward_from,
+            'forward_from_chat': message.forward_from_chat,
             'forward_from_message_id': message.forward_from_message_id,
+            'forward_sender_name': message.forward_sender_name,
+            'forward_date': message.forward_date,
             'date': message.date,
             'photo': message.photo,
             'document': message.document
