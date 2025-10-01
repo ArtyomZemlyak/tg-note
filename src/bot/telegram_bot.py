@@ -105,12 +105,13 @@ class TelegramBot:
         
         while self.is_running:
             try:
-                # Start polling in non-blocking mode
+                # Start polling - this blocks until stopped or error occurs
                 self.bot.polling(none_stop=True, timeout=10, long_polling_timeout=10)
                 
-                # Keep the thread alive while polling
-                while self.is_running:
-                    time.sleep(1)
+                # If polling exits without exception, log and retry
+                if self.is_running:
+                    self.logger.warning("Polling exited unexpectedly, restarting...")
+                    time.sleep(5)
                             
             except Exception as e:
                 if self.is_running:
