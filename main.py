@@ -67,6 +67,7 @@ async def main():
     # Initialize components
     logger.info("Initializing components...")
     
+    telegram_bot = None
     try:
         # Initialize Processing Tracker
         tracker = ProcessingTracker(str(settings.PROCESSED_LOG_PATH))
@@ -104,7 +105,7 @@ async def main():
                 await asyncio.sleep(1)
                 
                 # Check bot health periodically (every 30 seconds)
-                current_time = asyncio.get_event_loop().time()
+                current_time = asyncio.get_running_loop().time()
                 if current_time - last_health_check >= health_check_interval:
                     last_health_check = current_time
                     
@@ -117,10 +118,17 @@ async def main():
                     
         except KeyboardInterrupt:
             logger.info("Received interrupt signal, shutting down...")
-            telegram_bot.stop()
+            if telegram_bot:
+                telegram_bot.stop()
             
+    except KeyboardInterrupt:
+        logger.info("Received interrupt signal during initialization, shutting down...")
+        if telegram_bot:
+            telegram_bot.stop()
     except Exception as e:
         logger.error(f"Unexpected error: {e}", exc_info=True)
+        if telegram_bot:
+            telegram_bot.stop()
         sys.exit(1)
 
 
