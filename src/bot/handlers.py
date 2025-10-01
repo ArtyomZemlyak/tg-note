@@ -28,6 +28,7 @@ class BotHandlers:
         self.content_parser = ContentParser()
         self.agent = StubAgent()
         self.logger = logging.getLogger(__name__)
+        self._event_loop: Optional[asyncio.AbstractEventLoop] = None
         
         # Set up timeout callback for background task
         self.message_aggregator.set_timeout_callback(self._handle_timeout)
@@ -62,6 +63,15 @@ class BotHandlers:
     def start_background_tasks(self) -> None:
         """Start background tasks for message processing"""
         self.logger.info("Starting background tasks")
+        
+        # Store reference to the main event loop if not already set
+        if self._event_loop is None:
+            try:
+                self._event_loop = asyncio.get_running_loop()
+                self.logger.info("Event loop reference stored for handlers")
+            except RuntimeError:
+                self.logger.warning("No running event loop found, handlers may not work properly")
+        
         self.message_aggregator.start_background_task()
     
     def stop_background_tasks(self) -> None:
@@ -182,10 +192,18 @@ class BotHandlers:
             message_dict = self._message_to_dict(message)
             
             # Add message to aggregator (run async operation in event loop)
-            loop = asyncio.get_event_loop()
-            closed_group = loop.run_until_complete(
-                self.message_aggregator.add_message(message.chat.id, message_dict)
+            # Use run_coroutine_threadsafe to safely execute async code from the polling thread
+            if self._event_loop is None or self._event_loop.is_closed():
+                self.logger.error("Event loop not available, cannot process message")
+                self.bot.reply_to(message, "❌ Ошибка обработки сообщения: event loop недоступен")
+                return
+            
+            future = asyncio.run_coroutine_threadsafe(
+                self.message_aggregator.add_message(message.chat.id, message_dict),
+                self._event_loop
             )
+            # Wait for the result with a timeout
+            closed_group = future.result(timeout=5.0)
             
             if closed_group:
                 # Previous group was closed, process it with a separate notification
@@ -209,8 +227,14 @@ class BotHandlers:
                     message_id=processing_msg.message_id
                 )
                 
+        except asyncio.TimeoutError:
+            self.logger.error("Timeout while waiting for async operation to complete")
+            try:
+                self.bot.reply_to(message, "❌ Ошибка обработки сообщения: timeout")
+            except:
+                pass
         except Exception as e:
-            self.logger.error(f"Error processing message: {e}")
+            self.logger.error(f"Error processing message: {e}", exc_info=True)
             try:
                 self.bot.reply_to(message, "❌ Ошибка обработки сообщения")
             except:

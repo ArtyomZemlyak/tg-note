@@ -57,6 +57,14 @@ class TelegramBot:
                 self.polling_thread.start()
                 
                 # Start background tasks for message aggregator
+                # Try to get the running event loop from the calling context
+                try:
+                    loop = asyncio.get_running_loop()
+                    self.handlers._event_loop = loop
+                    self.logger.info("Event loop reference passed to handlers")
+                except RuntimeError:
+                    self.logger.warning("No running event loop found in start(), handlers will try later")
+                
                 self.handlers.start_background_tasks()
                 
                 self.logger.info("Telegram bot started successfully")
