@@ -1,12 +1,11 @@
 """
 Telegram Bot Handlers
-Handles all incoming message events from Telegram
+Handles all incoming message events from Telegram (fully async)
 """
 
-import asyncio
 import logging
-from typing import Optional, Dict, Any
-from telebot import TeleBot
+from typing import Dict, Any
+from telebot.async_telebot import AsyncTeleBot
 from telebot.types import Message
 
 from config import settings
@@ -18,9 +17,9 @@ from src.tracker.processing_tracker import ProcessingTracker
 
 
 class BotHandlers:
-    """Telegram bot message handlers"""
+    """Telegram bot message handlers (fully async)"""
     
-    def __init__(self, bot: TeleBot, tracker: ProcessingTracker, kb_manager: KnowledgeBaseManager):
+    def __init__(self, bot: AsyncTeleBot, tracker: ProcessingTracker, kb_manager: KnowledgeBaseManager):
         self.bot = bot
         self.tracker = tracker
         self.kb_manager = kb_manager
@@ -28,16 +27,12 @@ class BotHandlers:
         self.content_parser = ContentParser()
         self.agent = StubAgent()
         self.logger = logging.getLogger(__name__)
-        self._event_loop: Optional[asyncio.AbstractEventLoop] = None
         
         # Set up timeout callback for background task
         self.message_aggregator.set_timeout_callback(self._handle_timeout)
-        
-        # Register handlers
-        self._register_handlers()
     
-    def _register_handlers(self):
-        """Register all bot handlers"""
+    async def register_handlers_async(self):
+        """Register all bot handlers (async)"""
         # Command handlers
         self.bot.message_handler(commands=['start'])(self.handle_start)
         self.bot.message_handler(commands=['help'])(self.handle_help)
@@ -63,15 +58,6 @@ class BotHandlers:
     def start_background_tasks(self) -> None:
         """Start background tasks for message processing"""
         self.logger.info("Starting background tasks")
-        
-        # Store reference to the main event loop if not already set
-        if self._event_loop is None:
-            try:
-                self._event_loop = asyncio.get_running_loop()
-                self.logger.info("Event loop reference stored for handlers")
-            except RuntimeError:
-                self.logger.warning("No running event loop found, handlers may not work properly")
-        
         self.message_aggregator.start_background_task()
     
     def stop_background_tasks(self) -> None:
@@ -80,24 +66,24 @@ class BotHandlers:
         self.message_aggregator.stop_background_task()
     
     async def _handle_timeout(self, chat_id: int, group: MessageGroup) -> None:
-        """Handle a timed-out message group"""
+        """Handle a timed-out message group (async)"""
         try:
             self.logger.info(f"Processing timed-out group for chat {chat_id} with {len(group.messages)} messages")
             
             # Send notification about processing the timed-out group
-            processing_msg = self.bot.send_message(
+            processing_msg = await self.bot.send_message(
                 chat_id,
                 "🔄 Обрабатываю завершенную группу сообщений..."
             )
             
             # Process the group
-            self._process_message_group(group, processing_msg)
+            await self._process_message_group(group, processing_msg)
             
         except Exception as e:
             self.logger.error(f"Error handling timed-out group for chat {chat_id}: {e}", exc_info=True)
     
-    def handle_start(self, message: Message) -> None:
-        """Handle /start command"""
+    async def handle_start(self, message: Message) -> None:
+        """Handle /start command (async)"""
         self.logger.info(f"Start command from user {message.from_user.id}")
         
         welcome_text = (
@@ -114,10 +100,10 @@ class BotHandlers:
             "/status - показать статистику обработки"
         )
         
-        self.bot.reply_to(message, welcome_text)
+        await self.bot.reply_to(message, welcome_text)
     
-    def handle_help(self, message: Message) -> None:
-        """Handle /help command"""
+    async def handle_help(self, message: Message) -> None:
+        """Handle /help command (async)"""
         self.logger.info(f"Help command from user {message.from_user.id}")
         
         help_text = (
@@ -140,10 +126,10 @@ class BotHandlers:
             "Бот работает для всех пользователей без ограничений!"
         )
         
-        self.bot.reply_to(message, help_text)
+        await self.bot.reply_to(message, help_text)
     
-    def handle_status(self, message: Message) -> None:
-        """Handle /status command"""
+    async def handle_status(self, message: Message) -> None:
+        """Handle /status command (async)"""
         self.logger.info(f"Status command from user {message.from_user.id}")
         
         try:
@@ -160,84 +146,67 @@ class BotHandlers:
             self.logger.error(f"Error getting status: {e}")
             status_text = "❌ Ошибка получения статистики"
         
-        self.bot.reply_to(message, status_text)
+        await self.bot.reply_to(message, status_text)
     
-    def handle_text_message(self, message: Message) -> None:
-        """Handle regular text messages"""
+    async def handle_text_message(self, message: Message) -> None:
+        """Handle regular text messages (async)"""
         self.logger.info(f"Text message from user {message.from_user.id}: {message.text[:50]}...")
-        self._process_message(message)
+        await self._process_message(message)
     
-    def handle_photo_message(self, message: Message) -> None:
-        """Handle photo messages"""
+    async def handle_photo_message(self, message: Message) -> None:
+        """Handle photo messages (async)"""
         self.logger.info(f"Photo message from user {message.from_user.id}")
-        self._process_message(message)
+        await self._process_message(message)
     
-    def handle_document_message(self, message: Message) -> None:
-        """Handle document messages"""
+    async def handle_document_message(self, message: Message) -> None:
+        """Handle document messages (async)"""
         self.logger.info(f"Document message from user {message.from_user.id}")
-        self._process_message(message)
+        await self._process_message(message)
     
-    def handle_forwarded_message(self, message: Message) -> None:
-        """Handle forwarded messages"""
+    async def handle_forwarded_message(self, message: Message) -> None:
+        """Handle forwarded messages (async)"""
         self.logger.info(f"Forwarded message from user {message.from_user.id}")
-        self._process_message(message)
+        await self._process_message(message)
     
-    def _process_message(self, message: Message) -> None:
-        """Process any type of message"""
+    async def _process_message(self, message: Message) -> None:
+        """Process any type of message (async)"""
         try:
             # Send processing notification
-            processing_msg = self.bot.reply_to(message, "🔄 Обрабатываю сообщение...")
+            processing_msg = await self.bot.reply_to(message, "🔄 Обрабатываю сообщение...")
             
             # Convert message to dict for aggregator
             message_dict = self._message_to_dict(message)
             
-            # Add message to aggregator (run async operation in event loop)
-            # Use run_coroutine_threadsafe to safely execute async code from the polling thread
-            if self._event_loop is None or self._event_loop.is_closed():
-                self.logger.error("Event loop not available, cannot process message")
-                self.bot.reply_to(message, "❌ Ошибка обработки сообщения: event loop недоступен")
-                return
-            
-            future = asyncio.run_coroutine_threadsafe(
-                self.message_aggregator.add_message(message.chat.id, message_dict),
-                self._event_loop
-            )
-            # Wait for the result with a timeout
-            closed_group = future.result(timeout=5.0)
+            # Add message to aggregator (fully async)
+            closed_group = await self.message_aggregator.add_message(message.chat.id, message_dict)
             
             if closed_group:
                 # Previous group was closed, process it with a separate notification
-                prev_processing_msg = self.bot.send_message(
+                prev_processing_msg = await self.bot.send_message(
                     message.chat.id, 
                     "🔄 Обрабатываю предыдущую группу сообщений..."
                 )
-                self._process_message_group(closed_group, prev_processing_msg)
+                await self._process_message_group(closed_group, prev_processing_msg)
                 
                 # Update current message status
-                self.bot.edit_message_text(
+                await self.bot.edit_message_text(
                     "🔄 Добавлено к новой группе сообщений...",
                     chat_id=processing_msg.chat.id,
                     message_id=processing_msg.message_id
                 )
             else:
                 # Message added to existing group
-                self.bot.edit_message_text(
+                await self.bot.edit_message_text(
                     "🔄 Добавлено к группе сообщений, ожидаю завершения...",
                     chat_id=processing_msg.chat.id,
                     message_id=processing_msg.message_id
                 )
                 
-        except asyncio.TimeoutError:
-            self.logger.error("Timeout while waiting for async operation to complete")
-            try:
-                self.bot.reply_to(message, "❌ Ошибка обработки сообщения: timeout")
-            except:
-                pass
         except Exception as e:
             self.logger.error(f"Error processing message: {e}", exc_info=True)
             try:
-                self.bot.reply_to(message, "❌ Ошибка обработки сообщения")
-            except:
+                await self.bot.reply_to(message, "❌ Ошибка обработки сообщения")
+            except Exception:
                 pass
     
     def _message_to_dict(self, message: Message) -> Dict[str, Any]:
@@ -259,8 +228,8 @@ class BotHandlers:
             'document': message.document
         }
     
-    def _process_message_group(self, group, processing_msg: Message) -> None:
-        """Process a complete message group"""
+    async def _process_message_group(self, group, processing_msg: Message) -> None:
+        """Process a complete message group (async)"""
         try:
             # Parse content
             content = self.content_parser.parse_group(group)
@@ -268,7 +237,7 @@ class BotHandlers:
             
             # Check if already processed
             if self.tracker.is_processed(content_hash):
-                self.bot.edit_message_text(
+                await self.bot.edit_message_text(
                     "✅ Это сообщение уже было обработано ранее",
                     chat_id=processing_msg.chat.id,
                     message_id=processing_msg.message_id
@@ -276,7 +245,7 @@ class BotHandlers:
                 return
             
             # Process with agent
-            self.bot.edit_message_text(
+            await self.bot.edit_message_text(
                 "🤖 Анализирую контент...",
                 chat_id=processing_msg.chat.id,
                 message_id=processing_msg.message_id
@@ -285,7 +254,7 @@ class BotHandlers:
             processed_content = self.agent.process(content)
             
             # Save to knowledge base
-            self.bot.edit_message_text(
+            await self.bot.edit_message_text(
                 "💾 Сохраняю в базу знаний...",
                 chat_id=processing_msg.chat.id,
                 message_id=processing_msg.message_id
@@ -314,7 +283,7 @@ class BotHandlers:
                     self.logger.warning(f"Skipping tracker entry due to missing IDs: message_ids={message_ids}, chat_id={chat_id}")
             
             # Success notification
-            self.bot.edit_message_text(
+            await self.bot.edit_message_text(
                 f"✅ Сообщение успешно обработано и сохранено!\n\n"
                 f"📁 Файл: `{kb_file.name}`\n"
                 f"🔗 Путь: `{kb_file}`",
@@ -326,10 +295,10 @@ class BotHandlers:
         except Exception as e:
             self.logger.error(f"Error processing message group: {e}")
             try:
-                self.bot.edit_message_text(
+                await self.bot.edit_message_text(
                     "❌ Ошибка обработки сообщения",
                     chat_id=processing_msg.chat.id,
                     message_id=processing_msg.message_id
                 )
-            except:
+            except Exception:
                 pass
