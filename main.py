@@ -6,12 +6,13 @@ Main entry point for the Telegram bot application
 import asyncio
 import logging
 import sys
-from pathlib import Path
 
 from config import settings
 from src.tracker.processing_tracker import ProcessingTracker
 from src.knowledge_base.manager import KnowledgeBaseManager
 from src.knowledge_base.git_ops import GitOperations
+from src.bot.telegram_bot import TelegramBot
+
 
 # Configure logging
 def setup_logging():
@@ -51,7 +52,7 @@ def validate_configuration():
 
 
 async def main():
-    """Main application entry point"""
+    """Main application entry point (fully async)"""
     logger = logging.getLogger(__name__)
     
     # Setup logging
@@ -66,6 +67,7 @@ async def main():
     # Initialize components
     logger.info("Initializing components...")
     
+    telegram_bot = None
     try:
         # Initialize Processing Tracker
         tracker = ProcessingTracker(str(settings.PROCESSED_LOG_PATH))
@@ -76,7 +78,7 @@ async def main():
         logger.info(f"Knowledge base manager initialized: {settings.KB_PATH}")
         
         # Initialize Git Operations
-        git_ops = GitOperations(
+        GitOperations(
             str(settings.KB_PATH),
             enabled=settings.KB_GIT_ENABLED
         )
@@ -86,23 +88,50 @@ async def main():
         stats = tracker.get_stats()
         logger.info(f"Processing stats: {stats}")
         
-        # TODO: Initialize Telegram Bot
-        logger.warning("Telegram bot initialization not yet implemented")
+        # Initialize Telegram Bot (async)
+        telegram_bot = TelegramBot(tracker, kb_manager)
+        await telegram_bot.start()
+        logger.info("Telegram bot started successfully")
         
-        # TODO: Start message processing loop
-        logger.warning("Message processing loop not yet implemented")
-        
-        logger.info("Bot initialization completed (stub mode)")
+        logger.info("Bot initialization completed")
         logger.info("Press Ctrl+C to stop")
         
-        # Keep running (will be replaced with actual bot polling)
+        # Keep running until interrupted
+        health_check_interval = 30  # Check health every 30 seconds
+        last_health_check = asyncio.get_running_loop().time()
+        
         while True:
             await asyncio.sleep(1)
             
+            # Check bot health periodically (every 30 seconds)
+            current_time = asyncio.get_running_loop().time()
+            if current_time - last_health_check >= health_check_interval:
+                last_health_check = current_time
+                
+                if not await telegram_bot.is_healthy():
+                    logger.warning("Bot health check failed, attempting restart...")
+                    try:
+                        await telegram_bot.stop()
+                    except Exception as e:
+                        logger.error(f"Error during bot stop in health check: {e}", exc_info=True)
+                    
+                    await asyncio.sleep(5)  # Wait for complete shutdown
+                    
+                    try:
+                        await telegram_bot.start()
+                        logger.info("Bot restarted successfully")
+                    except Exception as e:
+                        logger.error(f"Error during bot start in health check: {e}", exc_info=True)
+                        logger.error("Failed to restart bot, continuing with unhealthy state")
+            
     except KeyboardInterrupt:
         logger.info("Received interrupt signal, shutting down...")
+        if telegram_bot:
+            await telegram_bot.stop()
     except Exception as e:
         logger.error(f"Unexpected error: {e}", exc_info=True)
+        if telegram_bot:
+            await telegram_bot.stop()
         sys.exit(1)
 
 

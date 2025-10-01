@@ -54,8 +54,7 @@ class Settings:
         if not self.TELEGRAM_BOT_TOKEN:
             errors.append("TELEGRAM_BOT_TOKEN is required")
         
-        if not self.ALLOWED_USER_IDS:
-            errors.append("ALLOWED_USER_IDS must contain at least one user ID")
+        # No user validation required - anyone can use the bot
         
         return errors
     
