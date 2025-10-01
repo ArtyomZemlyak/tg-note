@@ -79,26 +79,27 @@ class TelegramBot:
         """Main polling loop"""
         self.logger.info("Starting bot polling loop...")
         
-        try:
-            # Start polling in non-blocking mode
-            self.bot.polling(none_stop=True, timeout=10, long_polling_timeout=10)
-            
-            # Keep the thread alive while polling
-            while self.is_running:
-                import time
-                time.sleep(1)
-                        
-        except Exception as e:
-            if self.is_running:
-                self.logger.error(f"Polling loop error: {e}")
-                # Wait before retrying
-                import time
-                time.sleep(5)
-                # Restart polling if still running
+        while self.is_running:
+            try:
+                # Start polling in non-blocking mode
+                self.bot.polling(none_stop=True, timeout=10, long_polling_timeout=10)
+                
+                # Keep the thread alive while polling
+                while self.is_running:
+                    import time
+                    time.sleep(1)
+                            
+            except Exception as e:
                 if self.is_running:
-                    self._polling_loop()
-        finally:
-            self.logger.info("Bot polling loop ended")
+                    self.logger.error(f"Polling loop error: {e}")
+                    # Wait before retrying
+                    import time
+                    time.sleep(5)
+                    # Continue the loop to retry instead of recursive call
+                else:
+                    break
+        
+        self.logger.info("Bot polling loop ended")
     
     def send_message(self, chat_id: int, text: str, **kwargs) -> None:
         """Send a message to a chat"""
