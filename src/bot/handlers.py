@@ -236,14 +236,24 @@ class BotHandlers:
             kb_file = self.kb_manager.save_content(processed_content, content)
             
             # Mark as processed (use first message from group)
-            first_message = group.messages[0] if group.messages else {}
-            self.tracker.mark_processed(
-                message_id=first_message.get('message_id', 0),
-                chat_id=first_message.get('chat_id', 0),
-                forward_from_message_id=first_message.get('forward_from_message_id'),
-                content_hash=content_hash,
-                kb_file=str(kb_file)
-            )
+            if not group.messages:
+                # Skip tracking for empty groups to avoid invalid entries
+                self.logger.warning("Skipping tracker entry for empty message group")
+            else:
+                first_message = group.messages[0]
+                message_ids = [msg.get('message_id') for msg in group.messages if msg.get('message_id')]
+                chat_id = first_message.get('chat_id')
+                
+                if message_ids and chat_id:
+                    self.tracker.add_processed(
+                        content_hash=content_hash,
+                        message_ids=message_ids,
+                        chat_id=chat_id,
+                        kb_file=str(kb_file),
+                        status="completed"
+                    )
+                else:
+                    self.logger.warning(f"Skipping tracker entry due to missing IDs: message_ids={message_ids}, chat_id={chat_id}")
             
             # Success notification
             self.bot.edit_message_text(
