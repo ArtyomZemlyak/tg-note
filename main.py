@@ -97,16 +97,23 @@ async def main():
         
         # Keep running until interrupted
         try:
+            health_check_interval = 30  # Check health every 30 seconds instead of every second
+            last_health_check = 0
+            
             while True:
                 await asyncio.sleep(1)
                 
-                # Check bot health periodically
-                if not telegram_bot.is_healthy():
-                    logger.warning("Bot health check failed, attempting restart...")
-                    telegram_bot.stop()
-                    await asyncio.sleep(5)
-                    telegram_bot.start()
-                    logger.info("Bot restarted successfully")
+                # Check bot health periodically (every 30 seconds)
+                current_time = asyncio.get_event_loop().time()
+                if current_time - last_health_check >= health_check_interval:
+                    last_health_check = current_time
+                    
+                    if not telegram_bot.is_healthy():
+                        logger.warning("Bot health check failed, attempting restart...")
+                        telegram_bot.stop()
+                        await asyncio.sleep(5)  # Wait for complete shutdown
+                        telegram_bot.start()
+                        logger.info("Bot restarted successfully")
                     
         except KeyboardInterrupt:
             logger.info("Received interrupt signal, shutting down...")
