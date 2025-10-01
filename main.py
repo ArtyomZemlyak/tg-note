@@ -12,6 +12,7 @@ from config import settings
 from src.tracker.processing_tracker import ProcessingTracker
 from src.knowledge_base.manager import KnowledgeBaseManager
 from src.knowledge_base.git_ops import GitOperations
+from src.bot.telegram_bot import TelegramBot
 
 # Configure logging
 def setup_logging():
@@ -86,21 +87,31 @@ async def main():
         stats = tracker.get_stats()
         logger.info(f"Processing stats: {stats}")
         
-        # TODO: Initialize Telegram Bot
-        logger.warning("Telegram bot initialization not yet implemented")
+        # Initialize Telegram Bot
+        telegram_bot = TelegramBot(tracker, kb_manager)
+        telegram_bot.start()
+        logger.info("Telegram bot started successfully")
         
-        # TODO: Start message processing loop
-        logger.warning("Message processing loop not yet implemented")
-        
-        logger.info("Bot initialization completed (stub mode)")
+        logger.info("Bot initialization completed")
         logger.info("Press Ctrl+C to stop")
         
-        # Keep running (will be replaced with actual bot polling)
-        while True:
-            await asyncio.sleep(1)
+        # Keep running until interrupted
+        try:
+            while True:
+                await asyncio.sleep(1)
+                
+                # Check bot health periodically
+                if not telegram_bot.is_healthy():
+                    logger.warning("Bot health check failed, attempting restart...")
+                    telegram_bot.stop()
+                    await asyncio.sleep(5)
+                    telegram_bot.start()
+                    logger.info("Bot restarted successfully")
+                    
+        except KeyboardInterrupt:
+            logger.info("Received interrupt signal, shutting down...")
+            telegram_bot.stop()
             
-    except KeyboardInterrupt:
-        logger.info("Received interrupt signal, shutting down...")
     except Exception as e:
         logger.error(f"Unexpected error: {e}", exc_info=True)
         sys.exit(1)
