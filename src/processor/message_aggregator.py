@@ -46,6 +46,7 @@ class MessageAggregator:
         self._running = False
         self._timeout_callback: Optional[Callable] = None
         self._lock = asyncio.Lock()
+        self._callback_tasks: set = set()  # Track callback tasks to prevent premature GC
     
     async def add_message(self, chat_id: int, message: Dict) -> Optional[MessageGroup]:
         """
@@ -127,6 +128,33 @@ class MessageAggregator:
             self._background_task.cancel()
             self._background_task = None
             self.logger.info("MessageAggregator background task stopped")
+        
+        # Cancel any pending callback tasks
+        for task in self._callback_tasks:
+            if not task.done():
+                task.cancel()
+        self._callback_tasks.clear()
+    
+    def _callback_task_done(self, task: asyncio.Task) -> None:
+        """
+        Callback for when a timeout callback task completes
+        
+        Args:
+            task: The completed task
+        """
+        # Remove task from tracking set
+        self._callback_tasks.discard(task)
+        
+        # Log any exceptions that occurred
+        try:
+            exception = task.exception()
+            if exception is not None:
+                self.logger.error(f"Exception in timeout callback task: {exception}", exc_info=exception)
+        except asyncio.CancelledError:
+            # Task was cancelled, this is expected during shutdown
+            pass
+        except Exception as e:
+            self.logger.error(f"Error retrieving task exception: {e}", exc_info=True)
     
     async def _check_timeouts(self) -> None:
         """Background task that periodically checks for timed-out groups"""
@@ -154,7 +182,11 @@ class MessageAggregator:
                     if self._timeout_callback:
                         try:
                             # Create task to run callback asynchronously without blocking
-                            asyncio.create_task(self._timeout_callback(chat_id, group))
+                            task = asyncio.create_task(self._timeout_callback(chat_id, group))
+                            # Store task reference to prevent premature garbage collection
+                            self._callback_tasks.add(task)
+                            # Add done callback to handle exceptions and cleanup
+                            task.add_done_callback(self._callback_task_done)
                         except Exception as e:
                             self.logger.error(f"Error creating timeout callback task for chat {chat_id}: {e}", exc_info=True)
                 
