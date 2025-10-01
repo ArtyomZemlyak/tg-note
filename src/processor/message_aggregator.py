@@ -45,8 +45,9 @@ class MessageAggregator:
         self._background_task: Optional[asyncio.Task] = None
         self._running = False
         self._timeout_callback: Optional[Callable] = None
+        self._lock = asyncio.Lock()
     
-    def add_message(self, chat_id: int, message: Dict) -> Optional[MessageGroup]:
+    async def add_message(self, chat_id: int, message: Dict) -> Optional[MessageGroup]:
         """
         Add message to aggregator
         
@@ -57,26 +58,27 @@ class MessageAggregator:
         Returns:
             Closed MessageGroup if timeout reached, None otherwise
         """
-        # Get or create group for this chat
-        if chat_id not in self.active_groups:
-            self.active_groups[chat_id] = MessageGroup(self.timeout)
-        
-        group = self.active_groups[chat_id]
-        
-        # Check if current group should be closed
-        if group.should_close():
-            group.close()
-            closed_group = group
-            # Start new group
-            self.active_groups[chat_id] = MessageGroup(self.timeout)
-            self.active_groups[chat_id].add_message(message)
-            return closed_group
-        
-        # Add message to current group
-        group.add_message(message)
-        return None
+        async with self._lock:
+            # Get or create group for this chat
+            if chat_id not in self.active_groups:
+                self.active_groups[chat_id] = MessageGroup(self.timeout)
+            
+            group = self.active_groups[chat_id]
+            
+            # Check if current group should be closed
+            if group.should_close():
+                group.close()
+                closed_group = group
+                # Start new group
+                self.active_groups[chat_id] = MessageGroup(self.timeout)
+                self.active_groups[chat_id].add_message(message)
+                return closed_group
+            
+            # Add message to current group
+            group.add_message(message)
+            return None
     
-    def force_close_group(self, chat_id: int) -> Optional[MessageGroup]:
+    async def force_close_group(self, chat_id: int) -> Optional[MessageGroup]:
         """
         Force close group for a chat
         
@@ -86,19 +88,20 @@ class MessageAggregator:
         Returns:
             Closed MessageGroup if exists, None otherwise
         """
-        if chat_id in self.active_groups:
-            group = self.active_groups[chat_id]
-            group.close()
-            del self.active_groups[chat_id]
-            return group
-        return None
+        async with self._lock:
+            if chat_id in self.active_groups:
+                group = self.active_groups[chat_id]
+                group.close()
+                del self.active_groups[chat_id]
+                return group
+            return None
     
-    def set_timeout_callback(self, callback: Callable[[int, MessageGroup], None]) -> None:
+    def set_timeout_callback(self, callback: Callable) -> None:
         """
         Set callback function to be called when a group times out
         
         Args:
-            callback: Function that takes chat_id and MessageGroup as arguments
+            callback: Async function that takes chat_id and MessageGroup as arguments
         """
         self._timeout_callback = callback
     
@@ -134,24 +137,26 @@ class MessageAggregator:
                 # Check every 5 seconds
                 await asyncio.sleep(5)
                 
-                # Find timed-out groups
+                # Find timed-out groups (with lock protection)
                 timed_out = []
-                for chat_id, group in list(self.active_groups.items()):
-                    if group.should_close() and not group.closed and len(group.messages) > 0:
-                        timed_out.append((chat_id, group))
+                async with self._lock:
+                    for chat_id, group in list(self.active_groups.items()):
+                        if group.should_close() and not group.closed and len(group.messages) > 0:
+                            timed_out.append((chat_id, group))
+                            group.close()
+                            del self.active_groups[chat_id]
                 
-                # Process timed-out groups
+                # Process timed-out groups (outside lock to avoid blocking)
                 for chat_id, group in timed_out:
                     self.logger.info(f"Group for chat {chat_id} timed out, processing {len(group.messages)} messages")
-                    group.close()
-                    del self.active_groups[chat_id]
                     
-                    # Call callback if registered
+                    # Call callback if registered (non-blocking)
                     if self._timeout_callback:
                         try:
-                            self._timeout_callback(chat_id, group)
+                            # Create task to run callback asynchronously without blocking
+                            asyncio.create_task(self._timeout_callback(chat_id, group))
                         except Exception as e:
-                            self.logger.error(f"Error in timeout callback for chat {chat_id}: {e}", exc_info=True)
+                            self.logger.error(f"Error creating timeout callback task for chat {chat_id}: {e}", exc_info=True)
                 
             except asyncio.CancelledError:
                 self.logger.info("Timeout checker task cancelled")

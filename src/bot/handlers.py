@@ -69,7 +69,7 @@ class BotHandlers:
         self.logger.info("Stopping background tasks")
         self.message_aggregator.stop_background_task()
     
-    def _handle_timeout(self, chat_id: int, group: MessageGroup) -> None:
+    async def _handle_timeout(self, chat_id: int, group: MessageGroup) -> None:
         """Handle a timed-out message group"""
         try:
             self.logger.info(f"Processing timed-out group for chat {chat_id} with {len(group.messages)} messages")
@@ -181,8 +181,11 @@ class BotHandlers:
             # Convert message to dict for aggregator
             message_dict = self._message_to_dict(message)
             
-            # Add message to aggregator
-            closed_group = self.message_aggregator.add_message(message.chat.id, message_dict)
+            # Add message to aggregator (run async operation in event loop)
+            loop = asyncio.get_event_loop()
+            closed_group = loop.run_until_complete(
+                self.message_aggregator.add_message(message.chat.id, message_dict)
+            )
             
             if closed_group:
                 # Previous group was closed, process it with a separate notification
