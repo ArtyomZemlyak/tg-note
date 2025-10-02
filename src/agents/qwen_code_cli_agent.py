@@ -94,7 +94,12 @@ Guidelines:
         logger.info(f"CLI path: {self.qwen_cli_path}")
     
     def _check_cli_available(self) -> None:
-        """Check if qwen CLI is available"""
+        """
+        Check if qwen CLI is available and properly configured
+        
+        Raises:
+            RuntimeError: If qwen CLI is not found or not working
+        """
         try:
             result = subprocess.run(
                 [self.qwen_cli_path, "--version"],
@@ -105,18 +110,28 @@ Guidelines:
             if result.returncode == 0:
                 logger.info(f"Qwen CLI found: {result.stdout.strip()}")
             else:
-                logger.warning(f"Qwen CLI check returned non-zero: {result.stderr}")
+                error_msg = result.stderr.strip()
+                logger.warning(f"Qwen CLI check returned non-zero exit code {result.returncode}")
+                logger.warning(f"Qwen CLI stderr: {error_msg}")
+                raise RuntimeError(
+                    f"Qwen CLI check failed with exit code {result.returncode}. "
+                    f"Error: {error_msg}"
+                )
         except FileNotFoundError:
             logger.error(
                 f"Qwen CLI not found at '{self.qwen_cli_path}'. "
                 f"Please install: npm install -g @qwen-code/qwen-code@latest"
             )
             raise RuntimeError(
-                f"Qwen CLI not found. Install with: npm install -g @qwen-code/qwen-code@latest"
+                f"Qwen CLI not found at '{self.qwen_cli_path}'. "
+                f"Install with: npm install -g @qwen-code/qwen-code@latest"
             )
+        except subprocess.TimeoutExpired:
+            logger.error(f"Qwen CLI version check timed out after 10 seconds")
+            raise RuntimeError("Qwen CLI version check timed out")
         except Exception as e:
-            logger.error(f"Error checking qwen CLI: {e}")
-            raise
+            logger.error(f"Unexpected error checking qwen CLI: {e}", exc_info=True)
+            raise RuntimeError(f"Failed to verify qwen CLI installation: {e}") from e
     
     async def process(self, content: Dict) -> Dict:
         """
@@ -127,27 +142,41 @@ Guidelines:
         
         Returns:
             Processed content dictionary with markdown, metadata, and KB structure
+        
+        Raises:
+            ValueError: If input content is invalid
+            RuntimeError: If qwen CLI execution fails
+            Exception: For other processing errors
         """
         if not self.validate_input(content):
-            raise ValueError("Invalid input content")
+            logger.error(f"Invalid input content: {content}")
+            raise ValueError("Invalid input content: must be a dict with 'text' key")
         
         logger.info("Starting autonomous content processing with qwen-code CLI...")
         
         try:
             # Step 1: Prepare prompt for qwen-code
             prompt = self._prepare_prompt(content)
+            logger.debug(f"Prepared prompt length: {len(prompt)} characters")
             
             # Step 2: Execute qwen-code CLI
             result_text = await self._execute_qwen_cli(prompt)
+            logger.debug(f"Received result length: {len(result_text)} characters")
             
             # Step 3: Parse result
             parsed_result = self._parse_qwen_result(result_text)
+            logger.info(f"Parsed result: title='{parsed_result.get('title')}', category='{parsed_result.get('category')}'")
             
-            # Step 4: Extract components
+            # Step 4: Extract components with fallbacks
             markdown_content = parsed_result.get("markdown", result_text)
-            title = parsed_result.get("title", self._extract_title(result_text))
-            category = parsed_result.get("category", self._detect_category(content["text"]))
-            tags = parsed_result.get("tags", self._extract_tags(content["text"]))
+            title = parsed_result.get("title") or self._extract_title(result_text) or "Untitled Note"
+            category = parsed_result.get("category") or self._detect_category(content.get("text", "")) or "general"
+            tags = parsed_result.get("tags") or self._extract_tags(content.get("text", "")) or ["untagged"]
+            
+            # Validate extracted components
+            if not markdown_content:
+                logger.error("No markdown content generated")
+                raise ValueError("Processing failed: no markdown content generated")
             
             # Step 5: Determine KB structure
             kb_structure = KBStructure(
@@ -155,6 +184,8 @@ Guidelines:
                 subcategory=parsed_result.get("subcategory"),
                 tags=tags
             )
+            
+            logger.info(f"Created KB structure: {kb_structure.to_dict()}")
             
             # Generate metadata
             metadata = {
@@ -170,16 +201,30 @@ Guidelines:
                 "todo_plan": parsed_result.get("todo_plan", [])
             }
             
-            return {
+            result = {
                 "markdown": markdown_content,
                 "metadata": metadata,
                 "title": title,
                 "kb_structure": kb_structure
             }
+            
+            logger.info(f"Successfully processed content: title='{title}', category='{category}'")
+            return result
+        
+        except ValueError as ve:
+            # Re-raise validation errors with context
+            logger.error(f"Validation error during processing: {ve}")
+            raise
+        
+        except RuntimeError as re:
+            # Re-raise runtime errors (e.g., CLI failures) with context
+            logger.error(f"Runtime error during processing: {re}")
+            raise
         
         except Exception as e:
-            logger.error(f"Error processing content: {e}", exc_info=True)
-            raise
+            # Log and wrap unexpected errors
+            logger.error(f"Unexpected error processing content: {e}", exc_info=True)
+            raise RuntimeError(f"Failed to process content: {e}") from e
     
     def _prepare_prompt(self, content: Dict) -> str:
         """
@@ -291,14 +336,28 @@ Guidelines:
                 )
                 
                 if process.returncode != 0:
-                    logger.warning(f"Qwen CLI returned non-zero: {stderr.decode()}")
+                    error_msg = stderr.decode().strip()
+                    logger.warning(f"Qwen CLI returned non-zero exit code {process.returncode}")
+                    logger.warning(f"Qwen CLI stderr: {error_msg}")
+                    
+                    # If we have an error message, include it in the result for debugging
+                    if error_msg and not result:
+                        logger.error(f"Qwen CLI failed with: {error_msg}")
+                        raise RuntimeError(f"Qwen CLI execution failed: {error_msg}")
                 
                 result = stdout.decode('utf-8').strip()
                 
                 if not result:
-                    logger.warning("Empty result from qwen CLI")
+                    logger.warning("Empty result from qwen CLI, using fallback processing")
                     # Fallback to simple processing
-                    result = self._fallback_processing(prompt)
+                    try:
+                        result = self._fallback_processing(prompt)
+                    except Exception as fallback_error:
+                        logger.error(f"Fallback processing also failed: {fallback_error}")
+                        raise RuntimeError(
+                            f"Both qwen CLI and fallback processing failed. "
+                            f"CLI error: empty result, Fallback error: {fallback_error}"
+                        )
                 
                 return result
             
@@ -343,10 +402,15 @@ Guidelines:
         
         text = "\n".join(text_content)
         
-        # Generate basic markdown
-        title = self._extract_title(text)
-        category = self._detect_category(text)
-        tags = self._extract_tags(text)
+        # Validate text is not empty
+        if not text.strip():
+            logger.warning("No text content found in prompt, using minimal fallback")
+            text = "No content available"
+        
+        # Generate basic markdown with guaranteed valid values
+        title = self._extract_title(text) or "Untitled Note"
+        category = self._detect_category(text) or "general"
+        tags = self._extract_tags(text) or ["untagged"]
         
         markdown = f"""# {title}
 
@@ -374,7 +438,7 @@ Guidelines:
             result_text: Raw result from CLI
         
         Returns:
-            Parsed result dictionary
+            Parsed result dictionary with validated values
         """
         parsed = {
             "markdown": result_text,
@@ -393,31 +457,50 @@ Guidelines:
         
         # Extract metadata block
         if "```metadata" in result_text:
-            start = result_text.find("```metadata") + 11
-            end = result_text.find("```", start)
-            if end > start:
-                metadata_block = result_text[start:end].strip()
-                for line in metadata_block.split("\n"):
-                    if ":" in line:
-                        key, value = line.split(":", 1)
-                        key = key.strip().lower()
-                        value = value.strip()
-                        
-                        if key == "category":
-                            parsed["category"] = value
-                        elif key == "subcategory":
-                            parsed["subcategory"] = value
-                        elif key == "tags":
-                            parsed["tags"] = [t.strip() for t in value.split(",")]
+            try:
+                start = result_text.find("```metadata") + 11
+                end = result_text.find("```", start)
+                if end > start:
+                    metadata_block = result_text[start:end].strip()
+                    for line in metadata_block.split("\n"):
+                        if ":" in line:
+                            key, value = line.split(":", 1)
+                            key = key.strip().lower()
+                            value = value.strip()
+                            
+                            if key == "category" and value:
+                                parsed["category"] = value
+                            elif key == "subcategory" and value:
+                                parsed["subcategory"] = value
+                            elif key == "tags" and value:
+                                parsed["tags"] = [t.strip() for t in value.split(",") if t.strip()]
+            except Exception as e:
+                logger.warning(f"Error parsing metadata block: {e}")
         
         # Extract TODO plan (look for checklist)
-        todo_items = []
-        for line in result_text.split("\n"):
-            if line.strip().startswith("- [ ]") or line.strip().startswith("- [x]"):
-                todo_items.append(line.strip())
+        try:
+            todo_items = []
+            for line in result_text.split("\n"):
+                if line.strip().startswith("- [ ]") or line.strip().startswith("- [x]"):
+                    todo_items.append(line.strip())
+            
+            if todo_items:
+                parsed["todo_plan"] = todo_items
+        except Exception as e:
+            logger.warning(f"Error parsing TODO plan: {e}")
         
-        if todo_items:
-            parsed["todo_plan"] = todo_items
+        # Ensure we have at least default values
+        if not parsed["title"]:
+            logger.warning("No title found in qwen result, using default")
+            parsed["title"] = "Untitled Note"
+        
+        if not parsed["category"]:
+            logger.warning("No category found in qwen result, using 'general'")
+            parsed["category"] = "general"
+        
+        if not parsed["tags"]:
+            logger.warning("No tags found in qwen result, using default")
+            parsed["tags"] = ["untagged"]
         
         return parsed
     

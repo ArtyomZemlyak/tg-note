@@ -41,9 +41,15 @@ class KBStructure:
         if self.custom_path:
             return self.custom_path
         
-        parts = ["topics", self.category]
+        # Ensure category is valid (not None or empty)
+        category = self.category if self.category else "general"
+        
+        parts = ["topics", category]
         if self.subcategory:
             parts.append(self.subcategory)
+        
+        # Filter out None values to prevent join errors
+        parts = [str(p) for p in parts if p is not None]
         
         return "/".join(parts)
     
