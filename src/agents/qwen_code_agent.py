@@ -100,6 +100,7 @@ Always work autonomously without asking for clarification.
         self,
         config: Optional[Dict] = None,
         instruction: Optional[str] = None,
+        api_key: Optional[str] = None,
         model: str = "qwen-max",
         enable_web_search: bool = True,
         enable_git: bool = True,
@@ -112,6 +113,7 @@ Always work autonomously without asking for clarification.
         Args:
             config: Configuration dictionary
             instruction: Custom instruction for the agent
+            api_key: API key for Qwen service
             model: Model to use (default: qwen-max)
             enable_web_search: Enable web search tool
             enable_git: Enable git command tool
@@ -121,6 +123,7 @@ Always work autonomously without asking for clarification.
         super().__init__(config)
         
         self.instruction = instruction or self.DEFAULT_INSTRUCTION
+        self.api_key = api_key
         self.model = model
         
         # Tool enablement flags

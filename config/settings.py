@@ -78,6 +78,14 @@ class Settings(BaseSettings):
         default=None,
         description="Anthropic API key (from .env or env vars only)"
     )
+    QWEN_API_KEY: Optional[str] = Field(
+        default=None,
+        description="Qwen API key (from .env or env vars only)"
+    )
+    OPENAI_BASE_URL: Optional[str] = Field(
+        default=None,
+        description="OpenAI API base URL for custom endpoints (from .env or env vars only)"
+    )
     GITHUB_TOKEN: Optional[str] = Field(
         default=None,
         description="GitHub personal access token (from .env or env vars only)"

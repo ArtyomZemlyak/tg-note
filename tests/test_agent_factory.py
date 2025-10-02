@@ -60,6 +60,9 @@ class TestAgentFactory:
         """Test creating agent from settings (stub)"""
         mock_settings = MagicMock()
         mock_settings.AGENT_TYPE = "stub"
+        mock_settings.QWEN_API_KEY = None
+        mock_settings.OPENAI_API_KEY = None
+        mock_settings.OPENAI_BASE_URL = None
         mock_settings.GITHUB_TOKEN = None
         mock_settings.AGENT_MODEL = "qwen-max"
         mock_settings.AGENT_INSTRUCTION = None
@@ -67,6 +70,8 @@ class TestAgentFactory:
         mock_settings.AGENT_ENABLE_GIT = True
         mock_settings.AGENT_ENABLE_GITHUB = True
         mock_settings.AGENT_ENABLE_SHELL = False
+        mock_settings.AGENT_QWEN_CLI_PATH = "qwen"
+        mock_settings.AGENT_TIMEOUT = 300
         
         agent = AgentFactory.from_settings(mock_settings)
         
@@ -76,6 +81,9 @@ class TestAgentFactory:
         """Test creating agent from settings (Qwen)"""
         mock_settings = MagicMock()
         mock_settings.AGENT_TYPE = "qwen_code"
+        mock_settings.QWEN_API_KEY = "test-key"
+        mock_settings.OPENAI_API_KEY = None
+        mock_settings.OPENAI_BASE_URL = None
         mock_settings.GITHUB_TOKEN = "github-token"
         mock_settings.AGENT_MODEL = "qwen-plus"
         mock_settings.AGENT_INSTRUCTION = "Custom instruction"
@@ -89,6 +97,7 @@ class TestAgentFactory:
         agent = AgentFactory.from_settings(mock_settings)
         
         assert isinstance(agent, QwenCodeAgent)
+        assert agent.api_key == "test-key"
         assert agent.model == "qwen-plus"
         assert agent.instruction == "Custom instruction"
         assert not agent.enable_web_search

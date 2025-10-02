@@ -135,6 +135,7 @@ ALLOWED_USER_IDS: ""
 #          Use only for development and testing
 #
 # - "qwen_code": Agent based on Qwen AI via API
+#               Requires QWEN_API_KEY in .env file
 #               Less stable, may have issues with tools
 #
 # - "qwen_code_cli": Agent based on Qwen AI via command line (RECOMMENDED)
