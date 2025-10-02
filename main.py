@@ -9,8 +9,8 @@ import sys
 
 from config import settings
 from src.tracker.processing_tracker import ProcessingTracker
-from src.knowledge_base.manager import KnowledgeBaseManager
-from src.knowledge_base.git_ops import GitOperations
+from src.knowledge_base.repository import RepositoryManager
+from src.knowledge_base.user_settings import UserSettings
 from src.bot.telegram_bot import TelegramBot
 
 
@@ -73,23 +73,20 @@ async def main():
         tracker = ProcessingTracker(str(settings.PROCESSED_LOG_PATH))
         logger.info(f"Processing tracker initialized: {settings.PROCESSED_LOG_PATH}")
         
-        # Initialize Knowledge Base Manager
-        kb_manager = KnowledgeBaseManager(str(settings.KB_PATH))
-        logger.info(f"Knowledge base manager initialized: {settings.KB_PATH}")
+        # Initialize Repository Manager
+        repo_manager = RepositoryManager(base_path="./knowledge_bases")
+        logger.info("Repository manager initialized")
         
-        # Initialize Git Operations
-        GitOperations(
-            str(settings.KB_PATH),
-            enabled=settings.KB_GIT_ENABLED
-        )
-        logger.info(f"Git operations initialized (enabled: {settings.KB_GIT_ENABLED})")
+        # Initialize User Settings
+        user_settings = UserSettings(settings_file="./data/user_settings.json")
+        logger.info("User settings manager initialized")
         
         # Get initial stats
         stats = tracker.get_stats()
         logger.info(f"Processing stats: {stats}")
         
         # Initialize Telegram Bot (async)
-        telegram_bot = TelegramBot(tracker, kb_manager)
+        telegram_bot = TelegramBot(tracker, repo_manager, user_settings)
         await telegram_bot.start()
         logger.info("Telegram bot started successfully")
         
