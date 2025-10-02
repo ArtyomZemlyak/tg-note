@@ -111,7 +111,7 @@ class TelegramBot:
                 # Use async polling with infinity_polling
                 await self.bot.infinity_polling(
                     timeout=10,
-                    long_polling_timeout=10,
+                    request_timeout=20,
                     logger_level=logging.INFO
                 )
                 
