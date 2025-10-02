@@ -1,0 +1,39 @@
+# Рефакторинг: Структура базы знаний задаётся агентной системой
+
+## Новые файлы:
+- src/knowledge_base/repository.py - Управление локальными и GitHub репозиториями
+- src/knowledge_base/user_settings.py - Хранение настроек KB пользователей
+- AGENT_KB_REFACTORING.md - Подробная документация рефакторинга
+- REFACTORING_SUMMARY.md - Краткая сводка изменений
+
+## Изменённые файлы:
+- src/agents/base_agent.py - Добавлен класс KBStructure
+- src/agents/stub_agent.py - Агент определяет структуру KB
+- src/knowledge_base/manager.py - Использование KBStructure от агента
+- src/bot/handlers.py - Команды /setkb, /kb и обновлённый workflow
+- src/bot/telegram_bot.py - Обновлённая инициализация
+- main.py - Инициализация RepositoryManager и UserSettings
+- README.md - Документация команд и workflow
+- src/knowledge_base/__init__.py - Экспорт новых классов
+- src/agents/__init__.py - Экспорт KBStructure
+
+## Ключевые возможности:
+1. ✅ Агент автоматически определяет категорию контента (ai, biology, physics, tech, general)
+2. ✅ Каждый пользователь может иметь свою базу знаний
+3. ✅ Поддержка локальных KB (с автоинициализацией git)
+4. ✅ Поддержка GitHub репозиториев (clone/pull)
+5. ✅ Гибкая структура: topics/category/subcategory/
+6. ✅ Теги и метаданные в frontmatter
+7. ✅ Команды: /setkb, /kb, /status
+
+## Команды бота:
+- /setkb <название> - Создать локальную базу знаний
+- /setkb <github_url> - Использовать GitHub репозиторий
+- /kb - Информация о текущей базе знаний
+- /status - Статистика (обновлена с информацией о KB)
+
+## Тесты:
+✅ Все импорты успешны
+✅ KBStructure работает корректно
+✅ Генерация путей работает
+✅ Базовый синтаксис проверен

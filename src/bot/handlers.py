@@ -4,7 +4,7 @@ Handles all incoming message events from Telegram (fully async)
 """
 
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from telebot.async_telebot import AsyncTeleBot
 from telebot.types import Message
 
@@ -13,16 +13,26 @@ from src.processor.message_aggregator import MessageAggregator, MessageGroup
 from src.processor.content_parser import ContentParser
 from src.agents.stub_agent import StubAgent
 from src.knowledge_base.manager import KnowledgeBaseManager
+from src.knowledge_base.repository import RepositoryManager
+from src.knowledge_base.user_settings import UserSettings
+from src.knowledge_base.git_ops import GitOperations
 from src.tracker.processing_tracker import ProcessingTracker
 
 
 class BotHandlers:
     """Telegram bot message handlers (fully async)"""
     
-    def __init__(self, bot: AsyncTeleBot, tracker: ProcessingTracker, kb_manager: KnowledgeBaseManager):
+    def __init__(
+        self, 
+        bot: AsyncTeleBot, 
+        tracker: ProcessingTracker,
+        repo_manager: RepositoryManager,
+        user_settings: UserSettings
+    ):
         self.bot = bot
         self.tracker = tracker
-        self.kb_manager = kb_manager
+        self.repo_manager = repo_manager
+        self.user_settings = user_settings
         self.message_aggregator = MessageAggregator(settings.MESSAGE_GROUP_TIMEOUT)
         self.content_parser = ContentParser()
         self.agent = StubAgent()
@@ -37,6 +47,8 @@ class BotHandlers:
         self.bot.message_handler(commands=['start'])(self.handle_start)
         self.bot.message_handler(commands=['help'])(self.handle_help)
         self.bot.message_handler(commands=['status'])(self.handle_status)
+        self.bot.message_handler(commands=['setkb'])(self.handle_setkb)
+        self.bot.message_handler(commands=['kb'])(self.handle_kb_info)
         
         # Forwarded messages - register first to catch all forwarded content
         self.bot.message_handler(func=self._is_forwarded_message)(self.handle_forwarded_message)
@@ -134,12 +146,18 @@ class BotHandlers:
         
         try:
             stats = self.tracker.get_stats()
+            user_kb = self.user_settings.get_user_kb(message.from_user.id)
+            
+            kb_info = "Не настроена (используйте /setkb)"
+            if user_kb:
+                kb_info = f"{user_kb['kb_name']} ({user_kb['kb_type']})"
+            
             status_text = (
                 f"📊 Статистика обработки\n\n"
                 f"Всего обработано сообщений: {stats['total_processed']}\n"
                 f"Ожидает обработки: {stats['pending_groups']}\n"
                 f"Последняя обработка: {stats.get('last_processed', 'Никогда')}\n\n"
-                f"База знаний: {settings.KB_PATH}\n"
+                f"База знаний: {kb_info}\n"
                 f"Git интеграция: {'Включена' if settings.KB_GIT_ENABLED else 'Отключена'}"
             )
         except Exception as e:
@@ -147,6 +165,99 @@ class BotHandlers:
             status_text = "❌ Ошибка получения статистики"
         
         await self.bot.reply_to(message, status_text)
+    
+    async def handle_setkb(self, message: Message) -> None:
+        """Handle /setkb command - set up knowledge base (async)"""
+        self.logger.info(f"Setkb command from user {message.from_user.id}")
+        
+        # Parse command arguments
+        args = message.text.split(maxsplit=1)
+        if len(args) < 2:
+            help_text = (
+                "📚 Настройка базы знаний\n\n"
+                "Использование:\n"
+                "/setkb <название> - создать локальную базу знаний\n"
+                "/setkb <github_url> - использовать GitHub репозиторий\n\n"
+                "Примеры:\n"
+                "/setkb my-notes\n"
+                "/setkb https://github.com/user/knowledge-base\n"
+            )
+            await self.bot.reply_to(message, help_text)
+            return
+        
+        kb_input = args[1].strip()
+        
+        # Determine if it's a GitHub URL or local name
+        if kb_input.startswith('http://') or kb_input.startswith('https://') or kb_input.startswith('git@'):
+            # GitHub repository
+            success, msg, kb_path = self.repo_manager.clone_github_kb(kb_input)
+            
+            if success:
+                kb_name = kb_path.name
+                self.user_settings.set_user_kb(
+                    message.from_user.id,
+                    kb_name,
+                    kb_type="github",
+                    github_url=kb_input
+                )
+                await self.bot.reply_to(
+                    message,
+                    f"✅ {msg}\n\n"
+                    f"Репозиторий: {kb_input}\n"
+                    f"Локальный путь: {kb_path}"
+                )
+            else:
+                await self.bot.reply_to(message, f"❌ {msg}")
+        else:
+            # Local knowledge base
+            success, msg, kb_path = self.repo_manager.init_local_kb(kb_input)
+            
+            if success:
+                self.user_settings.set_user_kb(
+                    message.from_user.id,
+                    kb_input,
+                    kb_type="local"
+                )
+                await self.bot.reply_to(
+                    message,
+                    f"✅ {msg}\n\n"
+                    f"Локальный путь: {kb_path}\n"
+                    f"Инициализирован git репозиторий"
+                )
+            else:
+                await self.bot.reply_to(message, f"❌ {msg}")
+    
+    async def handle_kb_info(self, message: Message) -> None:
+        """Handle /kb command - show KB info (async)"""
+        self.logger.info(f"KB info command from user {message.from_user.id}")
+        
+        user_kb = self.user_settings.get_user_kb(message.from_user.id)
+        
+        if not user_kb:
+            await self.bot.reply_to(
+                message,
+                "❌ База знаний не настроена\n\n"
+                "Используйте /setkb для настройки"
+            )
+            return
+        
+        kb_path = self.repo_manager.get_kb_path(user_kb['kb_name'])
+        
+        info_text = (
+            f"📚 Информация о базе знаний\n\n"
+            f"Название: {user_kb['kb_name']}\n"
+            f"Тип: {user_kb['kb_type']}\n"
+        )
+        
+        if user_kb['kb_type'] == 'github':
+            info_text += f"GitHub: {user_kb.get('github_url', 'N/A')}\n"
+        
+        if kb_path:
+            info_text += f"Локальный путь: {kb_path}\n"
+        else:
+            info_text += "⚠️ Локальная копия не найдена\n"
+        
+        await self.bot.reply_to(message, info_text)
     
     async def handle_text_message(self, message: Message) -> None:
         """Handle regular text messages (async)"""
@@ -231,6 +342,34 @@ class BotHandlers:
     async def _process_message_group(self, group, processing_msg: Message) -> None:
         """Process a complete message group (async)"""
         try:
+            # Check if user has KB configured
+            user_id = processing_msg.from_user.id
+            user_kb = self.user_settings.get_user_kb(user_id)
+            
+            if not user_kb:
+                await self.bot.edit_message_text(
+                    "❌ База знаний не настроена\n\n"
+                    "Используйте /setkb для настройки базы знаний",
+                    chat_id=processing_msg.chat.id,
+                    message_id=processing_msg.message_id
+                )
+                return
+            
+            # Get KB path
+            kb_path = self.repo_manager.get_kb_path(user_kb['kb_name'])
+            if not kb_path:
+                await self.bot.edit_message_text(
+                    "❌ Локальная копия базы знаний не найдена\n\n"
+                    "Попробуйте настроить базу знаний заново: /setkb",
+                    chat_id=processing_msg.chat.id,
+                    message_id=processing_msg.message_id
+                )
+                return
+            
+            # Create KB manager for user's KB
+            kb_manager = KnowledgeBaseManager(str(kb_path))
+            git_ops = GitOperations(str(kb_path), enabled=settings.KB_GIT_ENABLED)
+            
             # Parse content
             content = self.content_parser.parse_group(group)
             content_hash = self.content_parser.generate_hash(content)
@@ -251,7 +390,7 @@ class BotHandlers:
                 message_id=processing_msg.message_id
             )
             
-            processed_content = self.agent.process(content)
+            processed_content = await self.agent.process(content)
             
             # Save to knowledge base
             await self.bot.edit_message_text(
@@ -260,7 +399,31 @@ class BotHandlers:
                 message_id=processing_msg.message_id
             )
             
-            kb_file = self.kb_manager.save_content(processed_content, content)
+            # Extract KB structure from processed content
+            kb_structure = processed_content.get('kb_structure')
+            title = processed_content.get('title')
+            markdown = processed_content.get('markdown')
+            metadata = processed_content.get('metadata')
+            
+            # Create article using KB structure from agent
+            kb_file = kb_manager.create_article(
+                content=markdown,
+                title=title,
+                kb_structure=kb_structure,
+                metadata=metadata
+            )
+            
+            # Update index
+            kb_manager.update_index(kb_file, title, kb_structure)
+            
+            # Git operations
+            if settings.KB_GIT_ENABLED and git_ops.enabled:
+                git_ops.add(str(kb_file))
+                git_ops.add(str(kb_path / "index.md"))
+                git_ops.commit(f"Add article: {title}")
+                
+                if settings.KB_GIT_AUTO_PUSH:
+                    git_ops.push(settings.KB_GIT_REMOTE, settings.KB_GIT_BRANCH)
             
             # Mark as processed (use first message from group)
             if not group.messages:
@@ -282,21 +445,27 @@ class BotHandlers:
                 else:
                     self.logger.warning(f"Skipping tracker entry due to missing IDs: message_ids={message_ids}, chat_id={chat_id}")
             
-            # Success notification
+            # Success notification with category info
+            category_str = kb_structure.category
+            if kb_structure.subcategory:
+                category_str += f"/{kb_structure.subcategory}"
+            
             await self.bot.edit_message_text(
                 f"✅ Сообщение успешно обработано и сохранено!\n\n"
                 f"📁 Файл: `{kb_file.name}`\n"
-                f"🔗 Путь: `{kb_file}`",
+                f"📂 Категория: `{category_str}`\n"
+                f"🏷 Теги: {', '.join(kb_structure.tags) if kb_structure.tags else 'нет'}\n"
+                f"🔗 Путь: `{kb_file.relative_to(kb_path)}`",
                 chat_id=processing_msg.chat.id,
                 message_id=processing_msg.message_id,
                 parse_mode='Markdown'
             )
             
         except Exception as e:
-            self.logger.error(f"Error processing message group: {e}")
+            self.logger.error(f"Error processing message group: {e}", exc_info=True)
             try:
                 await self.bot.edit_message_text(
-                    "❌ Ошибка обработки сообщения",
+                    f"❌ Ошибка обработки сообщения: {str(e)}",
                     chat_id=processing_msg.chat.id,
                     message_id=processing_msg.message_id
                 )

@@ -9,6 +9,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional
 
+from src.agents.base_agent import KBStructure
+
 
 class KnowledgeBaseManager:
     """Manages knowledge base files and structure"""
@@ -19,24 +21,23 @@ class KnowledgeBaseManager:
     
     def _ensure_structure(self) -> None:
         """Ensure knowledge base directory structure exists"""
-        # Note: We're not creating the KB structure as it's in another repo
-        # This method is kept for future compatibility
-        pass
+        # Create base KB directory if it doesn't exist
+        self.kb_path.mkdir(parents=True, exist_ok=True)
     
     def create_article(
         self,
         content: str,
         title: str,
-        category: str = "general",
+        kb_structure: KBStructure,
         metadata: Optional[Dict] = None
-    ) -> str:
+    ) -> Path:
         """
-        Create a new article in the knowledge base
+        Create a new article in the knowledge base using structure from agent
         
         Args:
             content: Article content (markdown)
             title: Article title
-            category: Article category
+            kb_structure: KB structure object from agent
             metadata: Additional metadata
         
         Returns:
@@ -47,32 +48,33 @@ class KnowledgeBaseManager:
         slug = self._slugify(title)
         filename = f"{date_str}-{slug}.md"
         
-        # Determine file path
-        articles_dir = self.kb_path / "articles"
-        articles_dir.mkdir(parents=True, exist_ok=True)
-        file_path = articles_dir / filename
+        # Determine file path from KB structure
+        relative_path = kb_structure.get_relative_path()
+        article_dir = self.kb_path / relative_path
+        article_dir.mkdir(parents=True, exist_ok=True)
+        file_path = article_dir / filename
         
-        # Create full content with frontmatter
-        full_content = self._create_frontmatter(title, category, metadata)
+        # Create full content with frontmatter including structure info
+        full_content = self._create_frontmatter(title, kb_structure, metadata)
         full_content += "\n\n" + content
         
         # Write file
         file_path.write_text(full_content, encoding="utf-8")
         
-        return str(file_path)
+        return file_path
     
     def _create_frontmatter(
         self,
         title: str,
-        category: str,
+        kb_structure: KBStructure,
         metadata: Optional[Dict]
     ) -> str:
         """
-        Create YAML frontmatter for markdown file
+        Create YAML frontmatter for markdown file with KB structure
         
         Args:
             title: Article title
-            category: Article category
+            kb_structure: KB structure from agent
             metadata: Additional metadata
         
         Returns:
@@ -81,13 +83,22 @@ class KnowledgeBaseManager:
         lines = [
             "---",
             f"title: {title}",
-            f"category: {category}",
-            f"created_at: {datetime.now().isoformat()}",
+            f"category: {kb_structure.category}",
         ]
+        
+        if kb_structure.subcategory:
+            lines.append(f"subcategory: {kb_structure.subcategory}")
+        
+        if kb_structure.tags:
+            tags_str = ", ".join(kb_structure.tags)
+            lines.append(f"tags: [{tags_str}]")
+        
+        lines.append(f"created_at: {datetime.now().isoformat()}")
         
         if metadata:
             for key, value in metadata.items():
-                lines.append(f"{key}: {value}")
+                if key not in ["category", "subcategory", "tags", "created_at"]:
+                    lines.append(f"{key}: {value}")
         
         lines.append("---")
         return "\n".join(lines)
@@ -119,13 +130,14 @@ class KnowledgeBaseManager:
         
         return text or "untitled"
     
-    def update_index(self, article_path: str, title: str) -> None:
+    def update_index(self, article_path: Path, title: str, kb_structure: KBStructure) -> None:
         """
         Update index.md with new article
         
         Args:
             article_path: Path to article file
             title: Article title
+            kb_structure: KB structure from agent
         """
         index_path = self.kb_path / "index.md"
         
@@ -135,10 +147,15 @@ class KnowledgeBaseManager:
         else:
             content = "# Knowledge Base Index\n\n"
         
-        # Add new entry
+        # Add new entry with category info
         relative_path = os.path.relpath(article_path, self.kb_path)
         date_str = datetime.now().strftime("%Y-%m-%d")
-        entry = f"- [{title}]({relative_path}) - {date_str}\n"
+        
+        category_str = kb_structure.category
+        if kb_structure.subcategory:
+            category_str += f"/{kb_structure.subcategory}"
+        
+        entry = f"- [{title}]({relative_path}) - {date_str} - `{category_str}`\n"
         
         content += entry
         

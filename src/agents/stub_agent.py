@@ -5,7 +5,7 @@ Simple placeholder agent for MVP testing
 
 from datetime import datetime
 from typing import Dict
-from .base_agent import BaseAgent
+from .base_agent import BaseAgent, KBStructure
 
 
 class StubAgent(BaseAgent):
@@ -19,7 +19,7 @@ class StubAgent(BaseAgent):
             content: Content dictionary
         
         Returns:
-            Processed content with markdown formatting
+            Processed content with markdown formatting and KB structure
         """
         if not self.validate_input(content):
             raise ValueError("Invalid input content")
@@ -34,14 +34,17 @@ class StubAgent(BaseAgent):
         metadata = {
             "processed_at": datetime.now().isoformat(),
             "agent": "StubAgent",
-            "version": "0.1.0"
+            "version": "0.2.0"
         }
+        
+        # Determine KB structure (simple heuristic for stub)
+        kb_structure = self._determine_kb_structure(text, urls)
         
         return {
             "markdown": markdown_content,
             "metadata": metadata,
             "title": self._generate_title(text),
-            "category": "general"  # Default category for stub
+            "kb_structure": kb_structure
         }
     
     def validate_input(self, content: Dict) -> bool:
@@ -105,3 +108,29 @@ class StubAgent(BaseAgent):
             return first_line[:max_length].strip() + "..."
         
         return first_line or "Untitled Note"
+    
+    def _determine_kb_structure(self, text: str, urls: list) -> KBStructure:
+        """
+        Determine KB structure based on content (simple heuristic for stub)
+        
+        Args:
+            text: Content text
+            urls: List of URLs
+        
+        Returns:
+            KBStructure object
+        """
+        text_lower = text.lower()
+        
+        # Simple keyword-based categorization
+        if any(keyword in text_lower for keyword in ["ai", "artificial intelligence", "machine learning", "neural network", "llm", "gpt"]):
+            return KBStructure(category="ai", subcategory="machine-learning", tags=["ai"])
+        elif any(keyword in text_lower for keyword in ["biology", "gene", "dna", "protein", "cell"]):
+            return KBStructure(category="biology", tags=["biology"])
+        elif any(keyword in text_lower for keyword in ["physics", "quantum", "particle", "relativity"]):
+            return KBStructure(category="physics", tags=["physics"])
+        elif any(keyword in text_lower for keyword in ["programming", "code", "software", "python", "javascript"]):
+            return KBStructure(category="tech", subcategory="programming", tags=["programming"])
+        else:
+            # Default category
+            return KBStructure(category="general", tags=["uncategorized"])

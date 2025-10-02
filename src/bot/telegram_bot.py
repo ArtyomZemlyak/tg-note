@@ -12,22 +12,29 @@ from telebot.apihelper import ApiTelegramException
 from config import settings
 from src.bot.handlers import BotHandlers
 from src.tracker.processing_tracker import ProcessingTracker
-from src.knowledge_base.manager import KnowledgeBaseManager
+from src.knowledge_base.repository import RepositoryManager
+from src.knowledge_base.user_settings import UserSettings
 
 
 class TelegramBot:
     """Main Telegram bot class with async support"""
     
-    def __init__(self, tracker: ProcessingTracker, kb_manager: KnowledgeBaseManager):
+    def __init__(
+        self, 
+        tracker: ProcessingTracker,
+        repo_manager: RepositoryManager,
+        user_settings: UserSettings
+    ):
         self.tracker = tracker
-        self.kb_manager = kb_manager
+        self.repo_manager = repo_manager
+        self.user_settings = user_settings
         self.logger = logging.getLogger(__name__)
         
         # Initialize async bot
         self.bot = AsyncTeleBot(settings.TELEGRAM_BOT_TOKEN)
         
         # Initialize handlers
-        self.handlers = BotHandlers(self.bot, tracker, kb_manager)
+        self.handlers = BotHandlers(self.bot, tracker, repo_manager, user_settings)
         
         # Bot state
         self.is_running = False
