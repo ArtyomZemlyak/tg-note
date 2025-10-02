@@ -42,26 +42,56 @@ class KnowledgeBaseManager:
         
         Returns:
             Path to created file
+        
+        Raises:
+            ValueError: If required parameters are invalid
+            OSError: If file operations fail
         """
-        # Generate filename
-        date_str = datetime.now().strftime("%Y-%m-%d")
-        slug = self._slugify(title)
-        filename = f"{date_str}-{slug}.md"
+        # Validate inputs
+        if not content:
+            raise ValueError("Article content cannot be empty")
         
-        # Determine file path from KB structure
-        relative_path = kb_structure.get_relative_path()
-        article_dir = self.kb_path / relative_path
-        article_dir.mkdir(parents=True, exist_ok=True)
-        file_path = article_dir / filename
+        if not title:
+            raise ValueError("Article title cannot be empty")
         
-        # Create full content with frontmatter including structure info
-        full_content = self._create_frontmatter(title, kb_structure, metadata)
-        full_content += "\n\n" + content
+        if not kb_structure:
+            raise ValueError("KB structure cannot be None")
         
-        # Write file
-        file_path.write_text(full_content, encoding="utf-8")
+        if not isinstance(kb_structure, KBStructure):
+            raise TypeError(f"kb_structure must be KBStructure instance, got {type(kb_structure)}")
         
-        return file_path
+        # Validate KB structure has valid category
+        if not kb_structure.category:
+            raise ValueError("KB structure must have a valid category")
+        
+        try:
+            # Generate filename
+            date_str = datetime.now().strftime("%Y-%m-%d")
+            slug = self._slugify(title)
+            filename = f"{date_str}-{slug}.md"
+            
+            # Determine file path from KB structure
+            try:
+                relative_path = kb_structure.get_relative_path()
+            except Exception as e:
+                raise ValueError(f"Failed to get relative path from KB structure: {e}")
+            
+            article_dir = self.kb_path / relative_path
+            article_dir.mkdir(parents=True, exist_ok=True)
+            file_path = article_dir / filename
+            
+            # Create full content with frontmatter including structure info
+            full_content = self._create_frontmatter(title, kb_structure, metadata)
+            full_content += "\n\n" + content
+            
+            # Write file
+            file_path.write_text(full_content, encoding="utf-8")
+            
+            return file_path
+        
+        except Exception as e:
+            # Log and re-raise with context
+            raise RuntimeError(f"Failed to create article '{title}': {e}") from e
     
     def _create_frontmatter(
         self,

@@ -408,7 +408,17 @@ class BotHandlers:
                 message_id=processing_msg.message_id
             )
             
-            processed_content = await self.agent.process(content)
+            try:
+                processed_content = await self.agent.process(content)
+            except Exception as agent_error:
+                self.logger.error(f"Agent processing failed: {agent_error}", exc_info=True)
+                await self.bot.edit_message_text(
+                    f"❌ Ошибка обработки контента агентом:\n{str(agent_error)}\n\n"
+                    f"Проверьте, что Qwen CLI правильно настроен и инициализирован.",
+                    chat_id=processing_msg.chat.id,
+                    message_id=processing_msg.message_id
+                )
+                return
             
             # Save to knowledge base
             await self.bot.edit_message_text(
@@ -423,13 +433,35 @@ class BotHandlers:
             markdown = processed_content.get('markdown')
             metadata = processed_content.get('metadata')
             
+            # Validate required fields
+            if not kb_structure:
+                self.logger.error("Agent did not return kb_structure")
+                raise ValueError("Agent processing incomplete: missing kb_structure")
+            
+            if not title:
+                self.logger.warning("Agent did not return title, using default")
+                title = "Untitled Note"
+            
+            if not markdown:
+                self.logger.error("Agent did not return markdown content")
+                raise ValueError("Agent processing incomplete: missing markdown content")
+            
             # Create article using KB structure from agent
-            kb_file = kb_manager.create_article(
-                content=markdown,
-                title=title,
-                kb_structure=kb_structure,
-                metadata=metadata
-            )
+            try:
+                kb_file = kb_manager.create_article(
+                    content=markdown,
+                    title=title,
+                    kb_structure=kb_structure,
+                    metadata=metadata
+                )
+            except Exception as kb_error:
+                self.logger.error(f"Failed to create KB article: {kb_error}", exc_info=True)
+                await self.bot.edit_message_text(
+                    f"❌ Ошибка сохранения в базу знаний:\n{str(kb_error)}",
+                    chat_id=processing_msg.chat.id,
+                    message_id=processing_msg.message_id
+                )
+                return
             
             # Update index
             kb_manager.update_index(kb_file, title, kb_structure)
