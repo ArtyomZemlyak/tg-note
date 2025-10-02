@@ -83,3 +83,28 @@ class ContentParser:
             "message_ids": message_ids,
             "content_hash": content_hash
         }
+    
+    def parse_group(self, group) -> Dict:
+        """
+        Parse a MessageGroup into structured content
+        
+        Args:
+            group: MessageGroup object with messages attribute
+        
+        Returns:
+            Parsed content dictionary
+        """
+        return self.parse_message_group(group.messages)
+    
+    def generate_hash(self, content: Dict) -> str:
+        """
+        Generate hash from parsed content dictionary
+        
+        Args:
+            content: Parsed content dictionary (must have 'text' key)
+        
+        Returns:
+            SHA256 hash hex string
+        """
+        text = content.get('text', '')
+        return self.generate_content_hash(text)
