@@ -62,6 +62,7 @@ Perfect for:
 - **🔍 Deduplication**: Tracks processed messages to avoid duplicates
 - **🎯 Flexible Agents**: Choose between stub, custom Python, or Qwen Code CLI agents
 - **⚡ Async Architecture**: Fast, non-blocking message processing
+- **⚙️ Telegram Settings Management**: Configure bot settings directly via Telegram commands (NEW!)
 
 ---
 
@@ -213,6 +214,54 @@ Press `Ctrl+C` in the terminal
 | `/setkb <name\|url>` | Setup knowledge base | `/setkb my-notes` or `/setkb https://github.com/user/repo` |
 | `/kb` | Show current KB info | `/kb` |
 | `/status` | Display processing statistics | `/status` |
+| `/settings` | Open settings menu | Interactive menu with all categories |
+| `/viewsettings [category]` | View all or filtered settings | `/viewsettings knowledge_base` |
+| `/setsetting <name> <value>` | Change a setting | `/setsetting KB_GIT_ENABLED true` |
+| `/resetsetting <name>` | Reset to default | `/resetsetting AGENT_TIMEOUT` |
+| `/kbsettings` | KB settings quick access | View and modify KB configuration |
+| `/agentsettings` | Agent settings quick access | View and modify agent configuration |
+
+### ⚙️ Settings Management (NEW!)
+
+**Per-User Configuration**
+
+Each user can customize bot behavior via Telegram commands:
+
+```bash
+# Open interactive settings menu
+/settings
+
+# View all settings or filter by category
+/viewsettings
+/viewsettings knowledge_base
+
+# Change specific settings
+/setsetting KB_GIT_ENABLED true
+/setsetting AGENT_TIMEOUT 600
+/setsetting MESSAGE_GROUP_TIMEOUT 60
+
+# Reset to global defaults
+/resetsetting KB_GIT_AUTO_PUSH
+
+# Quick access to categories
+/kbsettings       # Knowledge Base settings
+/agentsettings    # Agent configuration
+```
+
+**Features:**
+- ✅ **Interactive UI**: Inline keyboards with category navigation
+- ✅ **Type Safety**: Automatic validation and type conversion
+- ✅ **Per-User Overrides**: Each user can customize their settings
+- ✅ **Auto-Generated**: New settings automatically appear in UI
+- ✅ **Secure**: Credentials cannot be changed via Telegram
+
+**Available Settings Categories:**
+- 📚 Knowledge Base (Git, paths, auto-push)
+- 🤖 Agent (model, timeout, tools enabled)
+- ⚙️ Processing (message grouping, deduplication)
+- 📝 Logging (level, file path)
+
+See [Settings Management Documentation](docs/SETTINGS_MANAGEMENT.md) for details.
 
 ### Working with Content
 
@@ -554,6 +603,7 @@ sudo systemctl status tg-note
 - ✅ Multi-user support with personal KBs
 - ✅ Deduplication tracking
 - ✅ Comprehensive test suite
+- ✅ **Settings management via Telegram** (NEW!)
 
 ### 🚧 In Progress
 
@@ -604,6 +654,23 @@ pytest
 # Format code
 black src/ tests/
 ```
+
+---
+
+## 📚 Documentation
+
+### Settings Management (NEW!)
+- 🎯 **[Settings Index](SETTINGS_INDEX.md)** - Complete documentation navigator
+- 📖 [Settings Management Guide](docs/SETTINGS_MANAGEMENT.md) - Configure bot via Telegram
+- 🏗️ [Settings Architecture](docs/SETTINGS_ARCHITECTURE.md) - Technical design details
+- 🚀 [Settings Quick Start](docs/SETTINGS_QUICK_START.md) - 5-minute tutorial
+- 📊 [Settings Visual Guide](docs/SETTINGS_VISUAL_GUIDE.md) - Diagrams and flows
+
+### General Documentation
+- 🔧 [Quick Start Guide](docs/QUICK_START.md) - Getting started
+- ⚙️ [Configuration Reference](docs/CONFIG_RU.md) - All settings explained
+- 🎯 [Qwen CLI Integration](docs/QWEN_CODE_CLI_INTEGRATION.md) - Agent setup
+- 🧪 [Examples](examples/) - Code examples and tutorials
 
 ---
 
