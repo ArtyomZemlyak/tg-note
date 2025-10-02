@@ -346,8 +346,22 @@ class BotHandlers:
     async def _process_message_group(self, group, processing_msg: Message) -> None:
         """Process a complete message group (async)"""
         try:
+            # Get user_id from the first message in the group (original user message, not bot's processing_msg)
+            if not group.messages:
+                self.logger.warning("Empty message group, skipping processing")
+                return
+            
+            user_id = group.messages[0].get('user_id')
+            if not user_id:
+                self.logger.error("Cannot determine user_id from message group")
+                await self.bot.edit_message_text(
+                    "❌ Ошибка: не удалось определить пользователя",
+                    chat_id=processing_msg.chat.id,
+                    message_id=processing_msg.message_id
+                )
+                return
+            
             # Check if user has KB configured
-            user_id = processing_msg.from_user.id
             user_kb = self.user_settings.get_user_kb(user_id)
             
             if not user_kb:
