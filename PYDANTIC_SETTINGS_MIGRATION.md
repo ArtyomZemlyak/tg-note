@@ -125,9 +125,54 @@ if errors:
     print("Configuration errors:", errors)
 ```
 
+## YAML Configuration Support (NEW)
+
+### Multi-Source Configuration
+
+The application now supports loading configuration from multiple sources with the following priority:
+
+1. **Environment Variables** (highest priority)
+2. **CLI Arguments** (future feature)
+3. **.env file**
+4. **config.yaml** (lowest priority)
+
+### Usage
+
+Create a `config.yaml` file for non-sensitive settings:
+
+```yaml
+KB_PATH: ./knowledge_base
+KB_GIT_ENABLED: true
+MESSAGE_GROUP_TIMEOUT: 30
+LOG_LEVEL: INFO
+```
+
+Keep sensitive data in `.env`:
+
+```bash
+TELEGRAM_BOT_TOKEN=your_token_here
+OPENAI_API_KEY=your_key_here
+```
+
+Override anything with environment variables:
+
+```bash
+export LOG_LEVEL=DEBUG
+python main.py
+```
+
+**Priority Example:**
+- `config.yaml`: `LOG_LEVEL: INFO`
+- `.env`: `LOG_LEVEL=WARNING`
+- ENV: `export LOG_LEVEL=DEBUG`
+- **Result**: `LOG_LEVEL=DEBUG` (ENV wins)
+
+See [YAML_CONFIGURATION.md](YAML_CONFIGURATION.md) for detailed documentation.
+
 ## Notes
 
 - The global `settings` instance is created automatically at import time
-- Environment variables are read from the `.env` file if present
+- Configuration sources are checked in priority order (ENV > CLI > .env > YAML)
 - All existing functionality is preserved
 - No changes required in code that uses settings
+- YAML file is optional - .env and ENV variables still work as before

@@ -30,9 +30,17 @@ pip install -r requirements.txt
 
 ## ⚙️ Настройка
 
-### 1. Создайте файл конфигурации
+### 1. Создайте файлы конфигурации
+
+**config.yaml** (для основных настроек):
 ```bash
-cp .env.example .env
+cp config.example.yaml config.yaml
+```
+
+**.env** (для credentials):
+```bash
+cp .env.example .env  # если есть .env.example
+# или создайте новый .env файл
 ```
 
 ### 2. Получите Telegram Bot Token
@@ -41,31 +49,67 @@ cp .env.example .env
 3. Следуйте инструкциям
 4. Скопируйте токен
 
-### 3. Получите свой User ID
+### 3. Получите свой User ID (опционально)
 1. Откройте [@userinfobot](https://t.me/userinfobot) в Telegram
 2. Отправьте любое сообщение
 3. Скопируйте свой ID
 
-### 4. Отредактируйте .env
+### 4. Настройте config.yaml (основные настройки)
+```bash
+nano config.yaml  # или любой другой редактор
+```
+
+```yaml
+# Knowledge Base Settings
+KB_PATH: ./knowledge_base  # или путь к вашему KB репозиторию
+KB_GIT_ENABLED: true
+KB_GIT_AUTO_PUSH: true
+
+# Processing Settings
+MESSAGE_GROUP_TIMEOUT: 30
+
+# Logging Settings
+LOG_LEVEL: INFO
+LOG_FILE: ./logs/bot.log
+
+# User Access Control (опционально)
+ALLOWED_USER_IDS: ""  # пусто = все пользователи разрешены
+```
+
+### 5. Настройте .env (credentials)
 ```bash
 nano .env  # или любой другой редактор
 ```
 
-Минимальная конфигурация:
+**Обязательно:**
 ```env
 TELEGRAM_BOT_TOKEN=your_bot_token_here
-ALLOWED_USER_IDS=your_user_id_here
-KB_PATH=/path/to/your/knowledge_base_repo
 ```
 
-### 5. Настройте Knowledge Base репозиторий
+**Опционально:**
+```env
+# API ключи для будущих агентов
+OPENAI_API_KEY=your_openai_key
+ANTHROPIC_API_KEY=your_anthropic_key
+
+# Переопределение настроек из config.yaml (если нужно)
+# LOG_LEVEL=DEBUG
+# MESSAGE_GROUP_TIMEOUT=60
+```
+
+### 6. Настройте Knowledge Base репозиторий
 ```bash
 # Клонируйте или создайте отдельный репозиторий для базы знаний
 git clone https://github.com/your/knowledge-base.git
 
-# Укажите путь в .env
-KB_PATH=/path/to/knowledge-base
+# Укажите путь в config.yaml
+KB_PATH: /path/to/knowledge-base
 ```
+
+**💡 Подсказка по приоритету настроек:**
+- **ENV переменные** > **.env файл** > **config.yaml**
+- Храните чувствительные данные в `.env`, остальное в `config.yaml`
+- См. [YAML_CONFIGURATION.md](YAML_CONFIGURATION.md) для деталей
 
 ---
 
