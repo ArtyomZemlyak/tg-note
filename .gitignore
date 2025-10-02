@@ -38,8 +38,9 @@ venv.bak/
 *~
 .DS_Store
 
-# Environment variables
+# Environment variables and local config
 .env
+config.yaml
 
 # Data files
 data/processed.json

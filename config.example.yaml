@@ -1,0 +1,25 @@
+# Example Application Configuration
+# Copy this file to config.yaml and adjust as needed
+# This file contains non-sensitive settings
+# Credentials should be set in .env file or environment variables
+
+# Knowledge Base Settings
+KB_PATH: ./knowledge_base
+KB_GIT_ENABLED: true
+KB_GIT_AUTO_PUSH: true
+KB_GIT_REMOTE: origin
+KB_GIT_BRANCH: main
+
+# Processing Settings
+MESSAGE_GROUP_TIMEOUT: 30  # seconds
+PROCESSED_LOG_PATH: ./data/processed.json
+
+# Logging Settings
+LOG_LEVEL: INFO  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+LOG_FILE: ./logs/bot.log
+
+# User Access Control
+# Comma-separated list of allowed Telegram user IDs
+# Empty string means all users are allowed
+# Example: "123456789,987654321"
+ALLOWED_USER_IDS: ""
