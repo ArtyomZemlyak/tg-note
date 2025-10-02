@@ -1,502 +1,638 @@
 # tg-note
 
-Telegram bot для автоматического создания заметок в базе знаний GitHub с использованием агентных систем.
+> **Intelligent Knowledge Base Builder** - Telegram bot that automatically transforms your messages, reposts, and articles into a structured knowledge base using AI agents.
 
-## Описание
-
-Бот принимает репосты и сообщения (новости, разборы научных статей), анализирует их с помощью агентной системы и автоматически сохраняет важную информацию в базу знаний в формате Markdown файлов.
-
-## Архитектура v0 (MVP)
-
-### Общая схема
-
-```
-┌─────────────────┐
-│  Telegram Bot   │
-│   (pyTelegramBotAPI/aiogram)
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  Message Queue  │ ◄───┐
-│  (in-memory)    │     │
-└────────┬────────┘     │
-         │              │
-         ▼              │
-┌─────────────────┐     │
-│  Agent System   │     │
-│  (LangChain/    │     │
-│   CrewAI/       │     │
-│   Custom)       │     │
-└────────┬────────┘     │
-         │              │
-         ▼              │
-┌─────────────────┐     │
-│ Knowledge Base  │     │
-│  (.md files)    │     │
-│  Git/Local      │     │
-└─────────────────┘     │
-         │              │
-         ▼              │
-┌─────────────────┐     │
-│ Processing Log  │─────┘
-│ (processed.json)│
-└─────────────────┘
-```
-
-### Компоненты
-
-#### 1. Telegram Bot Layer
-- **Библиотека**: pyTelegramBotAPI (telebot) или aiogram
-- **Функции**:
-  - Прием входящих сообщений и репостов
-  - Группировка последовательных сообщений в единый контент
-  - Базовая валидация и фильтрация
-  - Отправка статусов обработки пользователю
-
-#### 2. Message Processor
-- **Функции**:
-  - Определение границ многосообщенного контента
-  - Агрегация текста, медиа, ссылок
-  - Передача контента в агентную систему
-  - Управление очередью обработки
-
-#### 3. Agent System
-- **Реализованные варианты**:
-  - **qwen_code_cli** (Рекомендуется) - интеграция с [Qwen Code CLI](https://github.com/QwenLM/qwen-code)
-    - Автономная обработка с Qwen3-Coder моделями
-    - TODO планирование и выполнение
-    - Встроенные инструменты: web search, git, github, shell
-    - 2000 бесплатных запросов в день
-  - **qwen_code** - Python агент с кастомными инструментами
-    - Гибкая настройка инструментов
-    - Автономный режим работы
-    - Встроенная система TODO планов
-  - **stub** - простая заглушка для тестирования
-    - Минимальная обработка текста
-    - Базовое форматирование Markdown
-    - Без внешних зависимостей
-- **Функции**:
-  - Анализ контента на важность и новизну
-  - Извлечение ключевой информации
-  - Структурирование в формат базы знаний
-  - Категоризация по темам (AI, tech, biology, physics, science, business)
-
-#### 4. Knowledge Base Manager
-- **Структура**:
-  ```
-  knowledge_base/
-  ├── topics/
-  │   ├── ai/
-  │   ├── biology/
-  │   └── physics/
-  ├── articles/
-  │   └── YYYY-MM-DD-title.md
-  └── index.md
-  ```
-- **Функции**:
-  - Создание и обновление .md файлов
-  - Управление структурой директорий
-  - Git operations (add, commit, push)
-  - Генерация метаданных
-
-#### 5. Processing Tracker
-- **Формат хранения**: JSON файл (`processed.json`)
-- **Структура**:
-  ```json
-  {
-    "processed_messages": [
-      {
-        "message_id": 12345,
-        "chat_id": -100123456789,
-        "forward_from_message_id": 67890,
-        "content_hash": "sha256_hash",
-        "processed_at": "2025-09-30T10:30:00Z",
-        "status": "completed",
-        "kb_file": "knowledge_base/articles/2025-09-30-new-discovery.md"
-      }
-    ],
-    "pending_groups": [
-      {
-        "group_id": "temp_uuid",
-        "message_ids": [12346, 12347],
-        "started_at": "2025-09-30T10:35:00Z"
-      }
-    ]
-  }
-  ```
-
-**Решение**: Используем JSON файл с file locking для MVP.
-
-### Структура проекта
-
-```
-tg-note/
-├── README.md
-├── requirements.txt
-├── .env.example
-├── .gitignore
-├── pytest.ini
-├── config/
-│   ├── __init__.py
-│   └── settings.py          # Конфигурация
-├── src/
-│   ├── __init__.py
-│   ├── bot/
-│   │   ├── __init__.py
-│   │   ├── handlers.py      # Обработчики событий Telegram
-│   │   └── utils.py         # Вспомогательные функции
-│   ├── processor/
-│   │   ├── __init__.py
-│   │   ├── message_aggregator.py  # Группировка сообщений
-│   │   └── content_parser.py      # Парсинг контента
-│   ├── agents/
-│   │   ├── __init__.py
-│   │   ├── base_agent.py    # Базовый класс агента
-│   │   └── stub_agent.py    # Заглушка для MVP
-│   ├── knowledge_base/
-│   │   ├── __init__.py
-│   │   ├── manager.py       # Управление KB
-│   │   └── git_ops.py       # Git операции
-│   └── tracker/
-│       ├── __init__.py
-│       └── processing_tracker.py  # Отслеживание обработки
-├── data/
-│   └── processed.json       # История обработки (создаётся автоматически)
-├── tests/
-│   ├── __init__.py
-│   ├── test_tracker.py
-│   ├── test_content_parser.py
-│   └── test_stub_agent.py
-└── main.py                  # Точка входа
-```
-
-### Конфигурация
-
-Переменные окружения (`.env`):
-```env
-# Telegram
-TELEGRAM_BOT_TOKEN=your_bot_token
-ALLOWED_USER_IDS=123456789,987654321
-
-# Agent System (для будущего)
-OPENAI_API_KEY=your_openai_key
-ANTHROPIC_API_KEY=your_anthropic_key
-
-# Knowledge Base
-KB_PATH=./knowledge_base
-KB_GIT_ENABLED=true
-KB_GIT_AUTO_PUSH=true
-KB_GIT_REMOTE=origin
-KB_GIT_BRANCH=main
-
-# Processing
-MESSAGE_GROUP_TIMEOUT=30  # секунды
-PROCESSED_LOG_PATH=./data/processed.json
-
-# Logging
-LOG_LEVEL=INFO
-LOG_FILE=./logs/bot.log
-```
-
-### Технологический стек
-
-- **Python**: 3.11+
-- **Telegram Bot**: pyTelegramBotAPI или aiogram
-- **Agent System** (будущее): LangChain, CrewAI, или Custom
-- **Git**: GitPython
-- **Config**: python-dotenv
-- **Data**: JSON (stdlib), filelock
-
-### Безопасность
-
-1. **Аутентификация**: Проверка `ALLOWED_USER_IDS`
-2. **Rate limiting**: Базовое ограничение на количество сообщений
-3. **Валидация входных данных**: Проверка типов сообщений
-4. **Git credentials**: Использование SSH keys или tokens из env
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 ---
 
-## Типы агентов
+## 📑 Table of Contents
 
-Система поддерживает три типа агентов:
+- [Overview](#-overview)
+- [Key Features](#-key-features)
+- [Quick Start](#-quick-start)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+  - [Configuration](#configuration)
+  - [Running the Bot](#running-the-bot)
+- [Usage](#-usage)
+  - [Bot Commands](#bot-commands)
+  - [Working with Content](#working-with-content)
+- [Agent Types](#-agent-types)
+  - [qwen_code_cli (Recommended)](#1-qwen_code_cli-recommended-)
+  - [qwen_code](#2-qwen_code)
+  - [stub](#3-stub)
+- [Architecture](#-architecture)
+  - [System Components](#system-components)
+  - [Data Flow](#data-flow)
+  - [Project Structure](#project-structure)
+- [Configuration Reference](#-configuration-reference)
+- [Development](#-development)
+  - [Running Tests](#running-tests)
+  - [Code Quality](#code-quality)
+- [Deployment](#-deployment)
+- [Roadmap](#-roadmap)
+- [Contributing](#-contributing)
+- [License](#-license)
 
-### 1. qwen_code_cli (Рекомендуется) ✅
+---
 
-Использует [Qwen Code CLI](https://github.com/QwenLM/qwen-code) для обработки контента.
+## 🎯 Overview
 
-**Установка:**
-```bash
-# Установить Node.js 20+ (если не установлен)
-curl -qL https://www.npmjs.com/install.sh | sh
+**tg-note** is a Telegram bot that acts as your personal knowledge curator. It receives messages, reposts, and articles through Telegram, analyzes them using AI agent systems, and automatically saves the important information to your GitHub-based knowledge base in structured Markdown format.
 
-# Установить qwen-code CLI
-npm install -g @qwen-code/qwen-code@latest
+Perfect for:
+- 📚 Building a personal knowledge base from Telegram channels
+- 🔬 Organizing research papers and scientific articles
+- 📰 Archiving news and insights from multiple sources
+- 🧠 Creating a searchable second brain
 
-# Аутентификация (2000 бесплатных запросов/день)
-qwen  # следовать инструкциям
-```
+---
 
-**Настройка:**
-```yaml
-# config.yaml
-AGENT_TYPE: "qwen_code_cli"
-```
+## ✨ Key Features
 
-**Возможности:**
-- ✅ Полная интеграция с Qwen3-Coder
-- ✅ Автоматическое TODO планирование
-- ✅ Все встроенные инструменты qwen-code
-- ✅ Бесплатный tier: 2000 req/day
-- ✅ Поддержка vision моделей
+- **🤖 AI-Powered Analysis**: Intelligent content categorization and structuring using agent systems
+- **📝 Automatic Markdown Generation**: Converts any content into well-formatted Markdown files
+- **🗂️ Smart Organization**: Automatic categorization by topics (AI, biology, physics, tech, etc.)
+- **🔄 GitHub Integration**: Direct commits to your knowledge base repository
+- **👥 Multi-User Support**: Each user can have their own knowledge base
+- **📦 Message Grouping**: Intelligently combines related messages into single notes
+- **🔍 Deduplication**: Tracks processed messages to avoid duplicates
+- **🎯 Flexible Agents**: Choose between stub, custom Python, or Qwen Code CLI agents
+- **⚡ Async Architecture**: Fast, non-blocking message processing
 
-[Подробная документация →](./QWEN_CODE_CLI_INTEGRATION.md)
+---
 
-### 2. qwen_code
+## 🚀 Quick Start
 
-Python агент с кастомными инструментами.
+### Prerequisites
 
-**Настройка:**
-```yaml
-# config.yaml
-AGENT_TYPE: "qwen_code"
-```
+- **Python 3.11+**
+- **Git**
+- **Telegram Account**
+- **Node.js 20+** (optional, for qwen_code_cli agent)
 
-**Возможности:**
-- ✅ Pure Python реализация
-- ✅ Гибкая настройка инструментов
-- ✅ Кастомные TODO планы
-- ✅ Веб-поиск, Git, GitHub API
+### Installation
 
-[Подробная документация →](./QWEN_CODE_AGENT.md)
-
-### 3. stub
-
-Простая заглушка для тестирования.
-
-**Настройка:**
-```yaml
-# config.yaml
-AGENT_TYPE: "stub"
-```
-
-**Использование:**
-- Быстрое тестирование
-- MVP без внешних зависимостей
-- Базовая категоризация
-
-## Быстрый старт
-
-### 1. Клонировать репозиторий
+1. **Clone the repository**
 
 ```bash
 git clone https://github.com/ArtyomZemlyak/tg-note.git
 cd tg-note
 ```
 
-### 2. Создать виртуальное окружение
+2. **Create virtual environment**
 
 ```bash
 python -m venv venv
 source venv/bin/activate  # Linux/Mac
-# или venv\Scripts\activate  # Windows
+# or: venv\Scripts\activate  # Windows
 ```
 
-### 3. Установить зависимости
+3. **Install dependencies**
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Настроить `.env`
+### Configuration
+
+1. **Create configuration files**
 
 ```bash
-cp .env.example .env
-# Отредактировать .env и добавить токены
+# Copy example configuration
+cp config.example.yaml config.yaml
 ```
 
-Минимально необходимые настройки:
-- `TELEGRAM_BOT_TOKEN` - токен бота из @BotFather
-- `ALLOWED_USER_IDS` - ID пользователей через запятую
+2. **Get Telegram Bot Token**
 
-### 5. Запустить бота
+- Open [@BotFather](https://t.me/botfather) in Telegram
+- Send `/newbot` and follow instructions
+- Copy the token provided
+
+3. **Create `.env` file** (for sensitive credentials)
+
+```bash
+cat > .env << EOF
+# Required: Telegram Bot Token
+TELEGRAM_BOT_TOKEN=your_bot_token_here
+
+# Optional: API keys for advanced agents (future)
+# OPENAI_API_KEY=your_openai_key
+# ANTHROPIC_API_KEY=your_anthropic_key
+EOF
+```
+
+4. **Configure `config.yaml`** (basic settings)
+
+```yaml
+# Knowledge Base Settings
+KB_PATH: ./knowledge_base
+KB_GIT_ENABLED: true
+KB_GIT_AUTO_PUSH: true
+KB_GIT_REMOTE: origin
+KB_GIT_BRANCH: main
+
+# Agent Configuration
+AGENT_TYPE: "stub"  # Options: stub, qwen_code, qwen_code_cli
+
+# Processing Settings
+MESSAGE_GROUP_TIMEOUT: 30  # seconds
+
+# Logging
+LOG_LEVEL: INFO
+LOG_FILE: ./logs/bot.log
+
+# User Access Control (empty = all users allowed)
+ALLOWED_USER_IDS: ""
+```
+
+5. **(Optional) Install Qwen Code CLI** for advanced AI processing
+
+```bash
+# Install Node.js 20+ first, then:
+npm install -g @qwen-code/qwen-code@latest
+
+# Authenticate (2000 free requests/day)
+qwen
+
+# Update config.yaml
+AGENT_TYPE: "qwen_code_cli"
+```
+
+### Running the Bot
+
+1. **Start the bot**
 
 ```bash
 python main.py
 ```
 
-### 6. Настроить базу знаний в Telegram
-
-После запуска бота:
-1. Отправьте `/start` боту
-2. Настройте базу знаний одним из способов:
-   - **Локальная KB**: `/setkb my-notes` - создаст новую базу знаний
-   - **GitHub KB**: `/setkb https://github.com/user/knowledge-base` - клонирует существующий репозиторий
-3. Проверьте настройки: `/kb`
-4. Начните отправлять сообщения - они будут автоматически сохраняться в вашу базу знаний!
-
-### 7. Запустить тесты
-
-```bash
-pytest
+You should see:
+```
+INFO - Starting tg-note bot...
+INFO - Configuration validated successfully
+INFO - Processing tracker initialized
+INFO - Repository manager initialized
+INFO - Telegram bot started successfully
+INFO - Bot initialization completed
+INFO - Press Ctrl+C to stop
 ```
 
-## Использование
+2. **Configure your knowledge base in Telegram**
 
-### Команды бота
+Open your bot in Telegram and:
 
-- `/start` - Начать работу с ботом
-- `/help` - Показать справку
-- `/setkb <название|github_url>` - Настроить базу знаний
-  - Локальная: `/setkb my-notes`
-  - GitHub: `/setkb https://github.com/user/repo`
-- `/kb` - Информация о текущей базе знаний
-- `/status` - Статистика обработки
+```
+/start                    # Initialize the bot
+/setkb my-notes           # Create local knowledge base
+# or
+/setkb https://github.com/username/kb-repo  # Use GitHub repository
+```
 
-### Работа с контентом
+3. **Start sending messages!**
 
-Просто отправляйте боту:
-- Текстовые сообщения
-- Репосты из каналов
-- Фотографии с описанием
-- Документы
+Just forward any message or write text - the bot will automatically process and save it to your knowledge base.
 
-Бот автоматически:
-1. Проанализирует контент
-2. Определит категорию (AI, biology, physics, tech, general)
-3. Создаст структурированную заметку в Markdown
-4. Сохранит в соответствующую категорию базы знаний
-5. Создаст git commit (если включено)
+4. **Stop the bot**
+
+Press `Ctrl+C` in the terminal
 
 ---
 
-## Статус реализации
+## 📖 Usage
 
-### ✅ Phase 1: Базовая инфраструктура (ЗАВЕРШЕНО)
-- ✅ Создана структура проекта (директории, файлы)
-- ✅ Настроен `requirements.txt` с зависимостями
-- ✅ Создан `.env.example` и конфигурация
-- ✅ Реализован `config/settings.py` для загрузки настроек
-- ✅ Настроен `.gitignore`
-- ✅ Созданы базовые модули для всех компонентов
-- ✅ Добавлены unit тесты
+### Bot Commands
 
-### ✅ Phase 2: Processing Tracker (ЗАВЕРШЕНО)
-- ✅ Реализован `ProcessingTracker` класс
-- ✅ Добавлены методы сохранения/загрузки из JSON
-- ✅ Реализован file locking для concurrent access
-- ✅ Добавлены методы проверки обработки по hash
-- ✅ Написаны unit тесты для tracker
+| Command | Description | Example |
+|---------|-------------|---------|
+| `/start` | Initialize bot interaction | `/start` |
+| `/help` | Display help information | `/help` |
+| `/setkb <name\|url>` | Setup knowledge base | `/setkb my-notes` or `/setkb https://github.com/user/repo` |
+| `/kb` | Show current KB info | `/kb` |
+| `/status` | Display processing statistics | `/status` |
 
-### ✅ Phase 3: Telegram Bot (ЗАВЕРШЕНО)
-- ✅ Инициализирован Telegram bot (pyTelegramBotAPI)
-- ✅ Реализованы базовые handlers (start, help, status)
-- ✅ Добавлена проверка ALLOWED_USER_IDS
-- ✅ Реализован прием текстовых сообщений
-- ✅ Реализован прием репостов (forwarded messages)
-- ✅ Добавлены уведомления о статусе обработки
-- ✅ Полная async поддержка
+### Working with Content
 
-### ✅ Phase 4: Message Processor (ЗАВЕРШЕНО)
-- ✅ Реализован `MessageAggregator` для группировки сообщений
-- ✅ Добавлена логика timeout для закрытия группы
-- ✅ Реализован `ContentParser` для извлечения текста, ссылок
-- ✅ Добавлена генерация content hash (SHA256)
-- ✅ Реализована очередь обработки с background tasks
+**Supported Content Types:**
+- ✅ Text messages
+- ✅ Forwarded messages from channels
+- ✅ Photos with captions
+- ✅ Documents
+- ✅ Multiple consecutive messages (auto-grouped)
 
-### ✅ Phase 5: Agent System (ЗАВЕРШЕНО)
-- ✅ Создан `BaseAgent` абстрактный класс
-- ✅ Добавлен `KBStructure` для определения структуры KB
-- ✅ Реализован `StubAgent` для MVP
-- ✅ Реализован `QwenCodeAgent` с кастомными инструментами
-- ✅ Реализован `QwenCodeCLIAgent` для интеграции с qwen-code CLI
-- ✅ Создан `AgentFactory` для управления агентами
-- ✅ Агенты работают в автономном режиме
-- ✅ Поддержка TODO планирования
-- ✅ Интеграция инструментов: web search, git, github, shell
-- ✅ Настраиваемые инструкции для агентов
+**Processing Workflow:**
 
-### ✅ Phase 6: Knowledge Base Manager (ЗАВЕРШЕНО)
-- ✅ Реализован `KnowledgeBaseManager` класс
-- ✅ Добавлено создание .md файлов с метаданными
-- ✅ Структура определяется агентной системой
-- ✅ Добавлена генерация имен файлов (YYYY-MM-DD-title.md)
-- ✅ Реализовано обновление index.md
-- ✅ Поддержка категорий, подкатегорий и тегов
+1. Send or forward content to the bot
+2. Bot analyzes and categorizes the content
+3. Creates a structured Markdown note
+4. Saves to appropriate category in your KB
+5. Commits to Git (if enabled)
+6. Notifies you of completion
 
-### ✅ Phase 7: Git Integration (ЗАВЕРШЕНО)
-- ✅ Добавлен GitPython в зависимости
-- ✅ Реализован `GitOperations` класс
-- ✅ Добавлены методы: add, commit, push
-- ✅ Добавлена проверка git credentials
-- ✅ Реализован error handling для git операций
-- ✅ Добавлена опциональность git (KB_GIT_ENABLED)
+**Example Output Structure:**
 
-### ✅ Phase 8: Integration & Main Loop (ЗАВЕРШЕНО)
-- ✅ Создан `main.py` с точкой входа
-- ✅ Интегрированы все компоненты
-- ✅ Реализован полный workflow: прием → группировка → обработка → сохранение
-- ✅ Добавлен graceful shutdown
-- ✅ Добавлено полное логирование
-
-### ✅ Phase 9: Repository Management (НОВОЕ - ЗАВЕРШЕНО)
-- ✅ Реализован `RepositoryManager` для управления KB
-- ✅ Поддержка локальных баз знаний
-- ✅ Поддержка GitHub репозиториев (clone/pull)
-- ✅ Реализован `UserSettings` для персональных настроек
-- ✅ Команды `/setkb`, `/kb` для управления KB
-- ✅ Каждый пользователь может иметь свою KB
-- ✅ Автоматическая инициализация git для локальных KB
+```
+knowledge_base/
+├── topics/
+│   ├── ai/
+│   │   └── 2025-10-02-neural-networks-breakthrough.md
+│   ├── biology/
+│   │   └── 2025-10-01-crispr-advancement.md
+│   └── physics/
+│       └── 2025-09-30-quantum-computing.md
+└── index.md
+```
 
 ---
 
-## TODO
+## 🤖 Agent Types
 
-### Следующие шаги
+The system supports three types of agents for content processing:
 
-1. **Интеграция Telegram Bot**
-   - Выбрать между pyTelegramBotAPI vs aiogram
-   - Реализовать базовые обработчики команд
-   - Добавить обработку сообщений и репостов
+### 1. qwen_code_cli (Recommended) ✅
 
-2. **Завершение основного workflow**
-   - Связать все компоненты вместе
-   - Реализовать цикл: прием → группировка → обработка → сохранение
-   - Добавить обработку ошибок
+Uses [Qwen Code CLI](https://github.com/QwenLM/qwen-code) for advanced AI processing.
 
-3. **Тестирование**
-   - Интеграционные тесты
-   - Тестирование с реальным Telegram ботом
-   - Проверка группировки сообщений
+**Features:**
+- ✅ Full integration with Qwen3-Coder models
+- ✅ Automatic TODO planning
+- ✅ Built-in tools: web search, git, github, shell
+- ✅ Free tier: 2000 requests/day
+- ✅ Vision model support
 
-### ✅ Phase 10: Qwen Code Integration (ЗАВЕРШЕНО)
-- ✅ Интеграция с qwen-code CLI через subprocess
-- ✅ Python wrapper для qwen CLI
-- ✅ Автономная обработка с TODO планированием
-- ✅ Поддержка всех инструментов qwen-code
-- ✅ Fallback режим при недоступности CLI
-- ✅ Конфигурация через YAML/ENV
-- ✅ Полная документация и тесты
+**Setup:**
+```bash
+npm install -g @qwen-code/qwen-code@latest
+qwen  # authenticate
+```
 
-### Future Enhancements
-- [ ] Поддержка изображений через vision models
-- [ ] Обработка PDF файлов
-- [ ] Веб-интерфейс для просмотра KB
-- [ ] PostgreSQL вместо JSON
-- [ ] Система backup
-- [ ] Поиск по базе знаний
-- [ ] Метрики и мониторинг
-- [ ] CI/CD pipeline
-- [ ] Векторное хранилище для semantic search
-- [ ] Streaming результатов от qwen CLI
-- [ ] Batch обработка сообщений
+**Configuration:**
+```yaml
+AGENT_TYPE: "qwen_code_cli"
+AGENT_QWEN_CLI_PATH: "qwen"
+AGENT_ENABLE_WEB_SEARCH: true
+```
+
+📚 [Detailed Documentation →](./QWEN_CODE_CLI_INTEGRATION.md)
+
+### 2. qwen_code
+
+Pure Python agent with custom tools.
+
+**Features:**
+- ✅ Python-native implementation
+- ✅ Flexible tool configuration
+- ✅ Custom TODO planning
+- ✅ Web search, Git, GitHub API support
+
+**Configuration:**
+```yaml
+AGENT_TYPE: "qwen_code"
+AGENT_MODEL: "qwen-max"
+```
+
+📚 [Detailed Documentation →](./QWEN_CODE_AGENT.md)
+
+### 3. stub
+
+Simple stub agent for testing and MVP.
+
+**Features:**
+- ⚡ Fast and lightweight
+- 🔧 No external dependencies
+- 📋 Basic categorization
+- 🧪 Perfect for testing
+
+**Configuration:**
+```yaml
+AGENT_TYPE: "stub"
+```
+
+**Best for:** Quick testing, MVP demos, development without API keys
 
 ---
 
-## Лицензия
+## 🏗️ Architecture
 
-MIT License - см. LICENSE файл
+### System Components
 
-## Контрибуция
+```
+┌─────────────────┐
+│  Telegram Bot   │  ← User interface
+│   (aiogram)     │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│Message Processor│  ← Grouping & parsing
+│  (aggregator)   │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  Agent System   │  ← AI analysis
+│ (qwen/stub)     │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│Knowledge Base   │  ← Markdown files
+│   Manager       │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│   Git Ops       │  ← Version control
+│ (auto commit)   │
+└─────────────────┘
+```
 
-Проект в активной разработке. Pull requests приветствуются!
+### Data Flow
+
+1. **Input**: User sends message/repost to Telegram bot
+2. **Aggregation**: Related messages grouped together (30s timeout)
+3. **Parsing**: Extract text, media, links, generate hash
+4. **Deduplication**: Check if already processed
+5. **Agent Processing**: AI analyzes and structures content
+6. **KB Storage**: Save as Markdown in appropriate category
+7. **Git Commit**: Auto-commit to repository
+8. **Notification**: Inform user of completion
+
+### Project Structure
+
+```
+tg-note/
+├── config/
+│   ├── __init__.py
+│   └── settings.py              # Pydantic settings
+├── src/
+│   ├── bot/
+│   │   ├── handlers.py          # Telegram event handlers
+│   │   ├── telegram_bot.py      # Main bot class
+│   │   └── utils.py             # Helper functions
+│   ├── processor/
+│   │   ├── message_aggregator.py  # Message grouping
+│   │   └── content_parser.py      # Content extraction
+│   ├── agents/
+│   │   ├── base_agent.py        # Abstract base class
+│   │   ├── stub_agent.py        # Simple stub
+│   │   ├── qwen_code_agent.py   # Python agent
+│   │   ├── qwen_code_cli_agent.py  # CLI integration
+│   │   └── agent_factory.py     # Agent factory
+│   ├── knowledge_base/
+│   │   ├── manager.py           # KB management
+│   │   ├── git_ops.py           # Git operations
+│   │   ├── repository.py        # Repo manager
+│   │   └── user_settings.py     # User preferences
+│   └── tracker/
+│       └── processing_tracker.py  # Deduplication
+├── tests/                       # Unit tests
+├── data/                        # Runtime data (auto-created)
+├── logs/                        # Log files
+├── config.yaml                  # Main configuration
+├── .env                         # Credentials (git-ignored)
+├── requirements.txt             # Dependencies
+└── main.py                      # Entry point
+```
+
+---
+
+## ⚙️ Configuration Reference
+
+### Environment Variables (`.env`)
+
+```env
+# Required
+TELEGRAM_BOT_TOKEN=your_token_here
+
+# Optional API Keys
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+### YAML Configuration (`config.yaml`)
+
+```yaml
+# Knowledge Base
+KB_PATH: ./knowledge_base
+KB_GIT_ENABLED: true
+KB_GIT_AUTO_PUSH: true
+KB_GIT_REMOTE: origin
+KB_GIT_BRANCH: main
+
+# Agent
+AGENT_TYPE: "qwen_code_cli"  # stub, qwen_code, qwen_code_cli
+AGENT_MODEL: "qwen-max"
+AGENT_TIMEOUT: 300
+AGENT_ENABLE_WEB_SEARCH: true
+AGENT_ENABLE_GIT: true
+AGENT_ENABLE_GITHUB: true
+AGENT_ENABLE_SHELL: false
+
+# Processing
+MESSAGE_GROUP_TIMEOUT: 30
+PROCESSED_LOG_PATH: ./data/processed.json
+
+# Logging
+LOG_LEVEL: INFO  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+LOG_FILE: ./logs/bot.log
+
+# Security
+ALLOWED_USER_IDS: ""  # Comma-separated user IDs (empty = all allowed)
+```
+
+**Priority:** Environment Variables > `.env` file > `config.yaml`
+
+📚 [Full Configuration Guide →](./YAML_CONFIGURATION.md)
+
+---
+
+## 🛠️ Development
+
+### Running Tests
+
+```bash
+# Run all tests
+pytest
+
+# With coverage report
+pytest --cov=src --cov-report=html
+
+# Specific test file
+pytest tests/test_tracker.py -v
+
+# Watch mode
+pytest-watch
+```
+
+### Code Quality
+
+```bash
+# Format code
+black src/ tests/
+
+# Lint
+flake8 src/ tests/
+
+# Type checking
+mypy src/
+```
+
+### Project Commands
+
+```bash
+# Check configuration
+python -c "from config import settings; print(settings)"
+
+# View processing stats
+python -c "from src.tracker.processing_tracker import ProcessingTracker; \
+           t = ProcessingTracker('./data/processed.json'); \
+           print(t.get_stats())"
+
+# Verify structure
+python verify_structure.py
+```
+
+---
+
+## 🚀 Deployment
+
+### Docker (Coming Soon)
+
+```bash
+docker build -t tg-note .
+docker run -d \
+  --env-file .env \
+  -v $(pwd)/knowledge_base:/app/knowledge_base \
+  tg-note
+```
+
+### Systemd Service (Linux)
+
+```bash
+# Create service file
+sudo nano /etc/systemd/system/tg-note.service
+```
+
+```ini
+[Unit]
+Description=TG-Note Telegram Bot
+After=network.target
+
+[Service]
+Type=simple
+User=youruser
+WorkingDirectory=/path/to/tg-note
+Environment="PATH=/path/to/tg-note/venv/bin"
+ExecStart=/path/to/tg-note/venv/bin/python main.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl enable tg-note
+sudo systemctl start tg-note
+sudo systemctl status tg-note
+```
+
+---
+
+## 🗺️ Roadmap
+
+### ✅ Completed
+
+- ✅ Core infrastructure and project structure
+- ✅ Telegram bot with async support
+- ✅ Message aggregation and parsing
+- ✅ Agent system (stub, qwen_code, qwen_code_cli)
+- ✅ Knowledge base management with Git
+- ✅ Multi-user support with personal KBs
+- ✅ Deduplication tracking
+- ✅ Comprehensive test suite
+
+### 🚧 In Progress
+
+- 🚧 Enhanced error handling and recovery
+- 🚧 Docker deployment
+- 🚧 CI/CD pipeline
+
+### 📋 Planned
+
+- 📋 Vision model support for image analysis
+- 📋 PDF document processing
+- 📋 Web interface for KB browsing
+- 📋 Vector database for semantic search
+- 📋 PostgreSQL storage option
+- 📋 Backup and restore system
+- 📋 Advanced analytics and metrics
+- 📋 Batch message processing
+- 📋 Real-time streaming results
+- 📋 Custom agent plugins
+- 📋 Multi-language support
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+### Guidelines
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+### Development Setup
+
+```bash
+# Install development dependencies
+pip install -r requirements.txt
+
+# Install pre-commit hooks
+pre-commit install
+
+# Run tests before committing
+pytest
+
+# Format code
+black src/ tests/
+```
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 🙏 Acknowledgments
+
+- [Qwen Code](https://github.com/QwenLM/qwen-code) - AI agent framework
+- [pyTelegramBotAPI](https://github.com/eternnoir/pyTelegramBotAPI) - Telegram bot library
+- [GitPython](https://github.com/gitpython-developers/GitPython) - Git integration
+
+---
+
+## 📞 Support & Contact
+
+- 📖 [Full Documentation](./README.md)
+- 🐛 [Issue Tracker](https://github.com/ArtyomZemlyak/tg-note/issues)
+- 💬 [Discussions](https://github.com/ArtyomZemlyak/tg-note/discussions)
+
+---
+
+<div align="center">
+
+**Built with ❤️ by [Artem Zemliak](https://github.com/ArtyomZemlyak)**
+
+⭐ Star this repository if you find it helpful!
+
+</div>
