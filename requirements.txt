@@ -13,10 +13,11 @@ GitPython==3.1.40
 # File locking for concurrent access
 filelock==3.13.1
 
-# Agent system (future)
+# Agent system
 # langchain==0.1.0
 # openai==1.6.1
 # anthropic==0.8.1
+qwen-agent==0.0.31  # Qwen agent framework (optional - can use direct API)
 
 # Utilities
 aiohttp==3.9.1
