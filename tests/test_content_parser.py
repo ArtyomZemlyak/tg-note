@@ -56,3 +56,45 @@ def test_parse_message_group():
     assert len(result["urls"]) == 2
     assert len(result["message_ids"]) == 3
     assert "content_hash" in result
+
+
+def test_parse_group():
+    """Test parsing MessageGroup object"""
+    # Create a mock MessageGroup object
+    class MockMessageGroup:
+        def __init__(self, messages):
+            self.messages = messages
+    
+    messages = [
+        {"message_id": 1, "text": "Test message"},
+        {"message_id": 2, "caption": "Test caption"}
+    ]
+    
+    group = MockMessageGroup(messages)
+    parser = ContentParser()
+    result = parser.parse_group(group)
+    
+    assert "Test message" in result["text"]
+    assert "Test caption" in result["text"]
+    assert len(result["message_ids"]) == 2
+    assert "content_hash" in result
+
+
+def test_generate_hash():
+    """Test generating hash from content dictionary"""
+    parser = ContentParser()
+    
+    content1 = {"text": "Same content", "urls": []}
+    content2 = {"text": "Same content", "urls": ["http://example.com"]}
+    content3 = {"text": "Different content", "urls": []}
+    
+    hash1 = parser.generate_hash(content1)
+    hash2 = parser.generate_hash(content2)
+    hash3 = parser.generate_hash(content3)
+    
+    # Same text = same hash (urls are ignored)
+    assert hash1 == hash2
+    # Different text = different hash
+    assert hash1 != hash3
+    # Valid SHA256 hash
+    assert len(hash1) == 64
