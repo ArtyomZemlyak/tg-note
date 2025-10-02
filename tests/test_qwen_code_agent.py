@@ -413,9 +413,3 @@ class TestAgentWithDifferentConfigurations:
         agent = QwenCodeAgent(model="qwen-plus")
         
         assert agent.model == "qwen-plus"
-    
-    def test_with_api_key(self):
-        """Test agent with API key"""
-        agent = QwenCodeAgent(api_key="test-key-123")
-        
-        assert agent.api_key == "test-key-123"

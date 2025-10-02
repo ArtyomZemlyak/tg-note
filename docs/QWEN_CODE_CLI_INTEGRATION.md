@@ -126,9 +126,6 @@ AGENT_ENABLE_SHELL: false
 # GitHub токен (для GitHub API)
 GITHUB_TOKEN=your_github_token
 
-# Qwen API ключ (если используется)
-QWEN_API_KEY=your_qwen_api_key
-
 # OpenAI-совместимый API (опционально)
 OPENAI_API_KEY=your_api_key
 OPENAI_BASE_URL=your_base_url

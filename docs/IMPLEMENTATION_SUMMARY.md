@@ -143,7 +143,6 @@ AGENT_ENABLE_SHELL: false  # Security
 
 ```bash
 # API Keys
-QWEN_API_KEY=your_qwen_api_key
 GITHUB_TOKEN=your_github_token
 
 # OpenAI-compatible (optional)

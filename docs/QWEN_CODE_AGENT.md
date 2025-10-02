@@ -200,7 +200,6 @@ AGENT_ENABLE_SHELL: false
 **.env:**
 ```bash
 # API ключи (НЕ в YAML!)
-QWEN_API_KEY=your_qwen_api_key
 GITHUB_TOKEN=your_github_token
 ```
 
@@ -216,7 +215,6 @@ agent = AgentFactory.from_settings(settings)
 agent = AgentFactory.create_agent(
     agent_type="qwen_code",
     config={
-        "api_key": "your_key",
         "model": "qwen-max",
         "instruction": "Custom instruction",
         "enable_web_search": True,
@@ -237,7 +235,6 @@ cp config.example.yaml config.yaml
 nano config.yaml  # установить AGENT_TYPE: "qwen_code"
 
 # 2. Настроить .env
-echo "QWEN_API_KEY=your_key" >> .env
 echo "GITHUB_TOKEN=your_token" >> .env
 
 # 3. Запустить бота

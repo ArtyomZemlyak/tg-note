@@ -76,7 +76,6 @@ class AgentFactory:
         return QwenCodeAgent(
             config=config,
             instruction=config.get("instruction"),
-            api_key=config.get("api_key"),
             model=config.get("model", "qwen-max"),
             enable_web_search=config.get("enable_web_search", True),
             enable_git=config.get("enable_git", True),
@@ -118,7 +117,6 @@ class AgentFactory:
             Agent instance
         """
         config = {
-            "api_key": settings.QWEN_API_KEY,
             "github_token": settings.GITHUB_TOKEN,
             "model": settings.AGENT_MODEL,
             "instruction": settings.AGENT_INSTRUCTION,
