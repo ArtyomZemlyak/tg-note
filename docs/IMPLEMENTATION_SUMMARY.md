@@ -146,9 +146,9 @@ AGENT_ENABLE_SHELL: false  # Security
 QWEN_API_KEY=your_qwen_api_key
 GITHUB_TOKEN=your_github_token
 
-# OpenAI-compatible (optional)
+# OpenAI-compatible (optional, for agents with OpenAI API support)
 OPENAI_API_KEY=your_openai_key
-OPENAI_BASE_URL=your_base_url
+OPENAI_BASE_URL=https://api.openai.com/v1
 ```
 
 ## Интеграция с системой

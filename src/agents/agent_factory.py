@@ -119,6 +119,8 @@ class AgentFactory:
         """
         config = {
             "api_key": settings.QWEN_API_KEY,
+            "openai_api_key": settings.OPENAI_API_KEY,
+            "openai_base_url": settings.OPENAI_BASE_URL,
             "github_token": settings.GITHUB_TOKEN,
             "model": settings.AGENT_MODEL,
             "instruction": settings.AGENT_INSTRUCTION,

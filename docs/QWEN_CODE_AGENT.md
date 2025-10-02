@@ -201,6 +201,8 @@ AGENT_ENABLE_SHELL: false
 ```bash
 # API ключи (НЕ в YAML!)
 QWEN_API_KEY=your_qwen_api_key
+OPENAI_API_KEY=your_openai_key
+OPENAI_BASE_URL=https://api.openai.com/v1
 GITHUB_TOKEN=your_github_token
 ```
 
@@ -216,7 +218,7 @@ agent = AgentFactory.from_settings(settings)
 agent = AgentFactory.create_agent(
     agent_type="qwen_code",
     config={
-        "api_key": "your_key",
+        "api_key": "your_qwen_api_key",
         "model": "qwen-max",
         "instruction": "Custom instruction",
         "enable_web_search": True,
