@@ -11,7 +11,7 @@ from telebot.types import Message
 from config import settings
 from src.processor.message_aggregator import MessageAggregator, MessageGroup
 from src.processor.content_parser import ContentParser
-from src.agents.stub_agent import StubAgent
+from src.agents.agent_factory import AgentFactory
 from src.knowledge_base.manager import KnowledgeBaseManager
 from src.knowledge_base.repository import RepositoryManager
 from src.knowledge_base.user_settings import UserSettings
@@ -35,8 +35,12 @@ class BotHandlers:
         self.user_settings = user_settings
         self.message_aggregator = MessageAggregator(settings.MESSAGE_GROUP_TIMEOUT)
         self.content_parser = ContentParser()
-        self.agent = StubAgent()
+        
+        # Initialize agent using factory based on settings
+        self.agent = AgentFactory.from_settings(settings)
         self.logger = logging.getLogger(__name__)
+        
+        self.logger.info(f"Initialized agent: {type(self.agent).__name__}")
         
         # Set up timeout callback for background task
         self.message_aggregator.set_timeout_callback(self._handle_timeout)

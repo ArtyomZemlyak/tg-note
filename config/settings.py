@@ -78,6 +78,44 @@ class Settings(BaseSettings):
         default=None,
         description="Anthropic API key (from .env or env vars only)"
     )
+    QWEN_API_KEY: Optional[str] = Field(
+        default=None,
+        description="Qwen API key (from .env or env vars only)"
+    )
+    GITHUB_TOKEN: Optional[str] = Field(
+        default=None,
+        description="GitHub personal access token (from .env or env vars only)"
+    )
+    
+    # Agent Configuration (can be in YAML)
+    AGENT_TYPE: str = Field(
+        default="stub",
+        description="Agent type: stub, qwen_code"
+    )
+    AGENT_MODEL: str = Field(
+        default="qwen-max",
+        description="Model to use for agent (e.g., qwen-max, qwen-plus)"
+    )
+    AGENT_INSTRUCTION: Optional[str] = Field(
+        default=None,
+        description="Custom instruction for the agent"
+    )
+    AGENT_ENABLE_WEB_SEARCH: bool = Field(
+        default=True,
+        description="Enable web search tool for agent"
+    )
+    AGENT_ENABLE_GIT: bool = Field(
+        default=True,
+        description="Enable git command tool for agent"
+    )
+    AGENT_ENABLE_GITHUB: bool = Field(
+        default=True,
+        description="Enable GitHub API tool for agent"
+    )
+    AGENT_ENABLE_SHELL: bool = Field(
+        default=False,
+        description="Enable shell command tool for agent (security risk)"
+    )
     
     # Knowledge Base Settings (can be in YAML)
     KB_PATH: Path = Field(

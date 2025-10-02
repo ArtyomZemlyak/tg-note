@@ -23,3 +23,11 @@ LOG_FILE: ./logs/bot.log
 # Empty string means all users are allowed
 # Example: "123456789,987654321"
 ALLOWED_USER_IDS: ""
+
+# Agent Configuration
+AGENT_TYPE: "qwen_code"  # Options: stub, qwen_code
+AGENT_MODEL: "qwen-max"  # Model for Qwen agent
+AGENT_ENABLE_WEB_SEARCH: true
+AGENT_ENABLE_GIT: true
+AGENT_ENABLE_GITHUB: true
+AGENT_ENABLE_SHELL: false  # Security risk - keep disabled
