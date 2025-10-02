@@ -90,7 +90,15 @@ class Settings(BaseSettings):
     # Agent Configuration (can be in YAML)
     AGENT_TYPE: str = Field(
         default="stub",
-        description="Agent type: stub, qwen_code"
+        description="Agent type: stub, qwen_code, qwen_code_cli"
+    )
+    AGENT_QWEN_CLI_PATH: str = Field(
+        default="qwen",
+        description="Path to qwen CLI executable"
+    )
+    AGENT_TIMEOUT: int = Field(
+        default=300,
+        description="Timeout in seconds for agent operations"
     )
     AGENT_MODEL: str = Field(
         default="qwen-max",

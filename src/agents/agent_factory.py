@@ -9,6 +9,7 @@ from typing import Dict, Optional
 from .base_agent import BaseAgent
 from .stub_agent import StubAgent
 from .qwen_code_agent import QwenCodeAgent
+from .qwen_code_cli_agent import QwenCodeCLIAgent
 
 
 logger = logging.getLogger(__name__)
@@ -20,6 +21,7 @@ class AgentFactory:
     AGENT_TYPES = {
         "stub": StubAgent,
         "qwen_code": QwenCodeAgent,
+        "qwen_code_cli": QwenCodeCLIAgent,
     }
     
     @classmethod
@@ -55,6 +57,8 @@ class AgentFactory:
         # Create agent with appropriate parameters
         if agent_type == "qwen_code":
             return cls._create_qwen_agent(config)
+        elif agent_type == "qwen_code_cli":
+            return cls._create_qwen_cli_agent(config)
         else:
             return agent_class(config=config)
     
@@ -81,6 +85,28 @@ class AgentFactory:
         )
     
     @classmethod
+    def _create_qwen_cli_agent(cls, config: Dict) -> QwenCodeCLIAgent:
+        """
+        Create Qwen Code CLI agent with full configuration
+        
+        Args:
+            config: Configuration dictionary
+        
+        Returns:
+            QwenCodeCLIAgent instance
+        """
+        return QwenCodeCLIAgent(
+            config=config,
+            instruction=config.get("instruction"),
+            qwen_cli_path=config.get("qwen_cli_path", "qwen"),
+            working_directory=config.get("working_directory"),
+            enable_web_search=config.get("enable_web_search", True),
+            enable_git=config.get("enable_git", True),
+            enable_github=config.get("enable_github", True),
+            timeout=config.get("timeout", 300)
+        )
+    
+    @classmethod
     def from_settings(cls, settings) -> BaseAgent:
         """
         Create agent from application settings
@@ -100,6 +126,8 @@ class AgentFactory:
             "enable_git": settings.AGENT_ENABLE_GIT,
             "enable_github": settings.AGENT_ENABLE_GITHUB,
             "enable_shell": settings.AGENT_ENABLE_SHELL,
+            "qwen_cli_path": settings.AGENT_QWEN_CLI_PATH,
+            "timeout": settings.AGENT_TIMEOUT,
         }
         
         return cls.create_agent(

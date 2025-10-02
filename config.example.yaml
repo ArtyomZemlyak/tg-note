@@ -25,8 +25,10 @@ LOG_FILE: ./logs/bot.log
 ALLOWED_USER_IDS: ""
 
 # Agent Configuration
-AGENT_TYPE: "qwen_code"  # Options: stub, qwen_code
-AGENT_MODEL: "qwen-max"  # Model for Qwen agent
+AGENT_TYPE: "qwen_code_cli"  # Options: stub, qwen_code, qwen_code_cli (recommended)
+AGENT_MODEL: "qwen-max"  # Model for Qwen agent (for qwen_code type)
+AGENT_QWEN_CLI_PATH: "qwen"  # Path to qwen CLI (for qwen_code_cli type)
+AGENT_TIMEOUT: 300  # Timeout in seconds for agent operations
 AGENT_ENABLE_WEB_SEARCH: true
 AGENT_ENABLE_GIT: true
 AGENT_ENABLE_GITHUB: true
