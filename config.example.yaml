@@ -1,35 +1,379 @@
+# ═══════════════════════════════════════════════════════════════════════════════
 # Example Application Configuration
-# Copy this file to config.yaml and adjust as needed
-# This file contains non-sensitive settings
-# Credentials should be set in .env file or environment variables
+# ═══════════════════════════════════════════════════════════════════════════════
+# ВАЖНО: Скопируйте этот файл в config.yaml и настройте под свои нужды
+# IMPORTANT: Copy this file to config.yaml and adjust according to your needs
+#
+# Этот файл содержит основные настройки приложения, не включающие конфиденциальные данные.
+# This file contains main application settings that do not include sensitive data.
+#
+# Все конфиденциальные данные (токены, API ключи, пароли) должны храниться в .env файле
+# или передаваться через переменные окружения для обеспечения безопасности.
+# All sensitive data (tokens, API keys, passwords) should be stored in .env file
+# or passed through environment variables to ensure security.
+# ═══════════════════════════════════════════════════════════════════════════════
 
-# Knowledge Base Settings
+
+# ───────────────────────────────────────────────────────────────────────────────
+# Knowledge Base Settings (Настройки базы знаний)
+# ───────────────────────────────────────────────────────────────────────────────
+# База знаний используется для хранения и управления документами, которые
+# обрабатываются ботом. Поддерживается интеграция с Git для версионирования.
+# The knowledge base is used to store and manage documents processed by the bot.
+# Git integration is supported for versioning.
+
+# KB_PATH: Путь к директории базы знаний
+# Path to the knowledge base directory
+# - Может быть относительным (./knowledge_base) или абсолютным (/path/to/kb)
+# - Can be relative (./knowledge_base) or absolute (/path/to/kb)
+# - Директория будет создана автоматически, если не существует
+# - Directory will be created automatically if it doesn't exist
 KB_PATH: ./knowledge_base
+
+# KB_GIT_ENABLED: Включить интеграцию с Git
+# Enable Git integration
+# - true: Все изменения в базе знаний будут коммититься в Git репозиторий
+# - true: All changes in the knowledge base will be committed to Git repository
+# - false: База знаний работает как обычная файловая система без версионирования
+# - false: Knowledge base works as regular file system without versioning
 KB_GIT_ENABLED: true
+
+# KB_GIT_AUTO_PUSH: Автоматически отправлять изменения в удалённый репозиторий
+# Automatically push changes to remote repository
+# - true: После каждого коммита изменения автоматически отправляются на удалённый сервер
+# - true: After each commit, changes are automatically pushed to remote server
+# - false: Коммиты остаются локальными, требуется ручная синхронизация
+# - false: Commits remain local, manual synchronization required
+# - ВАЖНО: Работает только если KB_GIT_ENABLED=true
+# - IMPORTANT: Only works if KB_GIT_ENABLED=true
 KB_GIT_AUTO_PUSH: true
+
+# KB_GIT_REMOTE: Имя удалённого Git репозитория
+# Name of the remote Git repository
+# - По умолчанию "origin" - стандартное имя для основного удалённого репозитория
+# - Default "origin" - standard name for the main remote repository
+# - Можно изменить на другое имя, если используется нестандартная настройка
+# - Can be changed to another name if using non-standard setup
 KB_GIT_REMOTE: origin
+
+# KB_GIT_BRANCH: Ветка Git для работы с базой знаний
+# Git branch for working with knowledge base
+# - Все коммиты будут создаваться и отправляться в эту ветку
+# - All commits will be created and pushed to this branch
+# - Убедитесь, что ветка существует или будет создана
+# - Make sure the branch exists or will be created
 KB_GIT_BRANCH: main
 
-# Processing Settings
+
+# ───────────────────────────────────────────────────────────────────────────────
+# Processing Settings (Настройки обработки сообщений)
+# ───────────────────────────────────────────────────────────────────────────────
+# Параметры, контролирующие логику обработки входящих сообщений и их группировку.
+# Parameters controlling the logic of processing incoming messages and their grouping.
+
+# MESSAGE_GROUP_TIMEOUT: Таймаут группировки сообщений (в секундах)
+# Message grouping timeout (in seconds)
+# - Время ожидания перед обработкой группы сообщений
+# - Wait time before processing a group of messages
+# - Если пользователь отправляет несколько сообщений подряд, бот подождёт указанное
+#   количество секунд для их группировки и обработки вместе
+# - If user sends multiple messages in a row, bot will wait specified number of
+#   seconds to group them and process together
+# - Рекомендуемое значение: 30-60 секунд
+# - Recommended value: 30-60 seconds
+# - Минимум: 10 секунд, максимум: 300 секунд (5 минут)
+# - Minimum: 10 seconds, maximum: 300 seconds (5 minutes)
 MESSAGE_GROUP_TIMEOUT: 30  # seconds
+
+# PROCESSED_LOG_PATH: Путь к файлу логирования обработанных сообщений
+# Path to the processed messages log file
+# - JSON файл для отслеживания истории обработанных сообщений
+# - JSON file for tracking history of processed messages
+# - Используется для предотвращения повторной обработки и восстановления после сбоев
+# - Used to prevent duplicate processing and recovery after failures
+# - Файл создаётся автоматически, директория должна существовать
+# - File is created automatically, directory must exist
 PROCESSED_LOG_PATH: ./data/processed.json
 
-# Logging Settings
-LOG_LEVEL: INFO  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+
+# ───────────────────────────────────────────────────────────────────────────────
+# Logging Settings (Настройки логирования)
+# ───────────────────────────────────────────────────────────────────────────────
+# Конфигурация системы логирования для отладки и мониторинга работы бота.
+# Logging system configuration for debugging and monitoring bot operations.
+
+# LOG_LEVEL: Уровень детализации логов
+# Log detail level
+# Доступные значения (от наименее детального к наиболее детальному):
+# Available values (from least detailed to most detailed):
+#
+# - CRITICAL: Только критические ошибки, приводящие к остановке приложения
+#            Only critical errors that lead to application shutdown
+#
+# - ERROR:   Ошибки, которые нарушают работу функций, но не останавливают приложение
+#            Errors that break function operations but don't stop the application
+#
+# - WARNING: Предупреждения о потенциальных проблемах (рекомендуется для production)
+#            Warnings about potential issues (recommended for production)
+#
+# - INFO:    Общая информация о ходе работы приложения (по умолчанию)
+#            General information about application flow (default)
+#
+# - DEBUG:   Детальная информация для отладки, включая переменные и трассировки
+#            Detailed information for debugging, including variables and traces
+#            ВНИМАНИЕ: Может содержать чувствительные данные, не использовать в production
+#            WARNING: May contain sensitive data, do not use in production
+#
+# Рекомендации:
+# Recommendations:
+# - Разработка/отладка: DEBUG или INFO
+# - Development/debugging: DEBUG or INFO
+# - Production: WARNING или ERROR
+# - Production: WARNING or ERROR
+LOG_LEVEL: INFO
+
+# LOG_FILE: Путь к файлу логов
+# Path to log file
+# - Все логи записываются в этот файл
+# - All logs are written to this file
+# - Поддерживается автоматическая ротация файлов при достижении определённого размера
+# - Automatic file rotation is supported when reaching certain size
+# - Убедитесь, что директория существует и приложение имеет права на запись
+# - Make sure directory exists and application has write permissions
+# - Формат логов: временная метка, уровень, модуль, сообщение
+# - Log format: timestamp, level, module, message
 LOG_FILE: ./logs/bot.log
 
-# User Access Control
-# Comma-separated list of allowed Telegram user IDs
-# Empty string means all users are allowed
-# Example: "123456789,987654321"
+
+# ───────────────────────────────────────────────────────────────────────────────
+# User Access Control (Контроль доступа пользователей)
+# ───────────────────────────────────────────────────────────────────────────────
+# Настройки безопасности для ограничения доступа к боту.
+# Security settings to restrict access to the bot.
+
+# ALLOWED_USER_IDS: Список разрешённых Telegram ID пользователей
+# List of allowed Telegram user IDs
+#
+# Формат:
+# Format:
+# - Пустая строка ("") - доступ разрешён всем пользователям (небезопасно для production!)
+# - Empty string ("") - access allowed for all users (unsafe for production!)
+#
+# - Один ID: "123456789"
+# - Single ID: "123456789"
+#
+# - Несколько ID (через запятую): "123456789,987654321,555555555"
+# - Multiple IDs (comma-separated): "123456789,987654321,555555555"
+#
+# Как узнать свой Telegram ID:
+# How to find your Telegram ID:
+# 1. Напишите боту @userinfobot в Telegram
+# 1. Message @userinfobot bot in Telegram
+# 2. Или используйте @getmyid_bot
+# 2. Or use @getmyid_bot
+# 3. ID будет показан в ответном сообщении
+# 3. ID will be shown in response message
+#
+# ВАЖНО: В production окружении ВСЕГДА указывайте конкретные ID пользователей!
+# IMPORTANT: In production environment ALWAYS specify specific user IDs!
+#
+# Пример для нескольких пользователей:
+# Example for multiple users:
+# ALLOWED_USER_IDS: "123456789,987654321"
 ALLOWED_USER_IDS: ""
 
-# Agent Configuration
-AGENT_TYPE: "qwen_code_cli"  # Options: stub, qwen_code, qwen_code_cli (recommended)
-AGENT_MODEL: "qwen-max"  # Model for Qwen agent (for qwen_code type)
-AGENT_QWEN_CLI_PATH: "qwen"  # Path to qwen CLI (for qwen_code_cli type)
-AGENT_TIMEOUT: 300  # Timeout in seconds for agent operations
+
+# ───────────────────────────────────────────────────────────────────────────────
+# Agent Configuration (Конфигурация AI-агента)
+# ───────────────────────────────────────────────────────────────────────────────
+# Настройки AI-агента, который обрабатывает запросы пользователей и выполняет задачи.
+# AI agent settings that process user requests and perform tasks.
+
+# AGENT_TYPE: Тип используемого агента
+# Type of agent to use
+#
+# Доступные варианты:
+# Available options:
+#
+# - "stub": Заглушка для тестирования без реального AI
+#          Stub for testing without real AI
+#          Возвращает фиксированные ответы, не требует API ключей
+#          Returns fixed responses, doesn't require API keys
+#          Использовать только для разработки и тестирования
+#          Use only for development and testing
+#
+# - "qwen_code": Агент на базе Qwen AI через API
+#               Agent based on Qwen AI via API
+#               Требует QWEN_API_KEY в .env файле
+#               Requires QWEN_API_KEY in .env file
+#               Менее стабилен, может иметь проблемы с инструментами
+#               Less stable, may have issues with tools
+#
+# - "qwen_code_cli": Агент на базе Qwen AI через командную строку (РЕКОМЕНДУЕТСЯ)
+#                   Agent based on Qwen AI via command line (RECOMMENDED)
+#                   Требует установленного qwen CLI инструмента
+#                   Requires installed qwen CLI tool
+#                   Наиболее стабильный вариант с полной поддержкой инструментов
+#                   Most stable option with full tool support
+#                   Поддерживает работу с кодом, файлами, веб-поиском
+#                   Supports code, files, web search operations
+AGENT_TYPE: "qwen_code_cli"
+
+# AGENT_MODEL: Модель AI для использования (для типа qwen_code)
+# AI model to use (for qwen_code type)
+#
+# Доступные модели Qwen:
+# Available Qwen models:
+#
+# - "qwen-max": Наиболее продвинутая модель, лучшее качество ответов
+#              Most advanced model, best response quality
+#              Рекомендуется для сложных задач
+#              Recommended for complex tasks
+#
+# - "qwen-plus": Сбалансированная модель, хорошее соотношение качество/скорость
+#               Balanced model, good quality/speed ratio
+#
+# - "qwen-turbo": Быстрая модель для простых задач
+#                Fast model for simple tasks
+#
+# ПРИМЕЧАНИЕ: Эта настройка используется только если AGENT_TYPE="qwen_code"
+# NOTE: This setting is only used if AGENT_TYPE="qwen_code"
+# Для qwen_code_cli модель задаётся в конфигурации CLI инструмента
+# For qwen_code_cli the model is set in CLI tool configuration
+AGENT_MODEL: "qwen-max"
+
+# AGENT_QWEN_CLI_PATH: Путь к исполняемому файлу qwen CLI
+# Path to qwen CLI executable
+#
+# - "qwen": CLI доступен через PATH (рекомендуется)
+# - "qwen": CLI available through PATH (recommended)
+#
+# - "/usr/local/bin/qwen": Абсолютный путь к исполняемому файлу
+# - "/usr/local/bin/qwen": Absolute path to executable
+#
+# - "./bin/qwen": Относительный путь от корня проекта
+# - "./bin/qwen": Relative path from project root
+#
+# Установка qwen CLI:
+# Installing qwen CLI:
+# 1. Следуйте инструкциям на https://github.com/QwenLM/Qwen-Agent
+# 1. Follow instructions at https://github.com/QwenLM/Qwen-Agent
+# 2. После установки проверьте: qwen --version
+# 2. After installation check: qwen --version
+#
+# ПРИМЕЧАНИЕ: Используется только если AGENT_TYPE="qwen_code_cli"
+# NOTE: Only used if AGENT_TYPE="qwen_code_cli"
+AGENT_QWEN_CLI_PATH: "qwen"
+
+# AGENT_TIMEOUT: Максимальное время выполнения операции агента (в секундах)
+# Maximum time for agent operation execution (in seconds)
+#
+# - Предотвращает зависание при выполнении долгих операций
+# - Prevents hanging during long operations
+#
+# - Если операция превышает это время, она будет прервана
+# - If operation exceeds this time, it will be interrupted
+#
+# - Рекомендуемые значения:
+# - Recommended values:
+#   * Простые запросы: 60-120 секунд
+#   * Simple requests: 60-120 seconds
+#   * Сложные задачи с кодом: 300-600 секунд (5-10 минут)
+#   * Complex tasks with code: 300-600 seconds (5-10 minutes)
+#   * Очень сложная обработка: 900-1800 секунд (15-30 минут)
+#   * Very complex processing: 900-1800 seconds (15-30 minutes)
+#
+# ВАЖНО: Слишком короткий таймаут может привести к прерыванию полезных операций
+# IMPORTANT: Too short timeout may interrupt useful operations
+AGENT_TIMEOUT: 300
+
+# AGENT_ENABLE_WEB_SEARCH: Разрешить агенту использовать веб-поиск
+# Allow agent to use web search
+#
+# - true: Агент может искать информацию в интернете для ответов на вопросы
+# - true: Agent can search information online to answer questions
+#         Полезно для получения актуальной информации и справочных данных
+#         Useful for getting up-to-date information and reference data
+#
+# - false: Агент работает только с локальными данными
+# - false: Agent works only with local data
+#          Более безопасно, но ограничивает возможности
+#          More secure, but limits capabilities
+#
+# ПРИМЕЧАНИЕ: Требует подключения к интернету и может увеличить время ответа
+# NOTE: Requires internet connection and may increase response time
 AGENT_ENABLE_WEB_SEARCH: true
+
+# AGENT_ENABLE_GIT: Разрешить агенту работу с Git репозиториями
+# Allow agent to work with Git repositories
+#
+# - true: Агент может выполнять Git операции (clone, pull, commit, push и т.д.)
+# - true: Agent can perform Git operations (clone, pull, commit, push, etc.)
+#         Необходимо для работы с версионированием и репозиториями
+#         Required for working with versioning and repositories
+#
+# - false: Git функции отключены
+# - false: Git functions disabled
+#
+# ВАЖНО: Убедитесь, что Git установлен в системе и настроен
+# IMPORTANT: Make sure Git is installed in the system and configured
+# (git config user.name и git config user.email должны быть установлены)
+# (git config user.name and git config user.email must be set)
 AGENT_ENABLE_GIT: true
+
+# AGENT_ENABLE_GITHUB: Разрешить агенту взаимодействие с GitHub API
+# Allow agent to interact with GitHub API
+#
+# - true: Агент может работать с GitHub (создавать issues, PR, читать код и т.д.)
+# - true: Agent can work with GitHub (create issues, PRs, read code, etc.)
+#         Требует GITHUB_TOKEN в .env файле для авторизации
+#         Requires GITHUB_TOKEN in .env file for authorization
+#
+# - false: GitHub интеграция отключена
+# - false: GitHub integration disabled
+#
+# Использование:
+# Usage:
+# - Создание и управление issues
+# - Creating and managing issues
+# - Работа с pull requests
+# - Working with pull requests
+# - Чтение кода из публичных и приватных репозиториев
+# - Reading code from public and private repositories
+# - Анализ истории коммитов
+# - Analyzing commit history
 AGENT_ENABLE_GITHUB: true
-AGENT_ENABLE_SHELL: false  # Security risk - keep disabled
+
+# AGENT_ENABLE_SHELL: Разрешить агенту выполнение shell команд
+# Allow agent to execute shell commands
+#
+# ⚠️ КРИТИЧЕСКОЕ ПРЕДУПРЕЖДЕНИЕ О БЕЗОПАСНОСТИ ⚠️
+# ⚠️ CRITICAL SECURITY WARNING ⚠️
+#
+# - true: Агент может выполнять ЛЮБЫЕ команды в операционной системе
+# - true: Agent can execute ANY commands in the operating system
+#         КРАЙНЕ ОПАСНО! Может привести к:
+#         EXTREMELY DANGEROUS! Can lead to:
+#         * Удалению файлов и данных
+#         * File and data deletion
+#         * Компрометации системы
+#         * System compromise
+#         * Несанкционированному доступу
+#         * Unauthorized access
+#         * Выполнению вредоносного кода
+#         * Malicious code execution
+#
+# - false: Shell команды запрещены (РЕКОМЕНДУЕТСЯ)
+# - false: Shell commands forbidden (RECOMMENDED)
+#
+# ВАЖНО:
+# IMPORTANT:
+# - НИКОГДА не включайте эту опцию в production окружении
+# - NEVER enable this option in production environment
+# - Используйте только в изолированных тестовых средах
+# - Use only in isolated test environments
+# - Даже в development режиме используйте с крайней осторожностью
+# - Even in development mode use with extreme caution
+# - Всегда проверяйте, что агент выполняет только безопасные команды
+# - Always verify that agent executes only safe commands
+AGENT_ENABLE_SHELL: false
