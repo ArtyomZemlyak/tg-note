@@ -6,7 +6,17 @@ Setup and manage your knowledge base.
 
 ## Creating a Knowledge Base
 
-### Option 1: Local KB
+### Option 1: Local KB (via bot)
+
+Recommended: create and initialize a local KB directly from Telegram using the command:
+
+```
+/setkb my-kb
+```
+
+This will create a new KB under the bot's KB root and initialize Git.
+
+Alternatively, you can prepare one manually:
 
 ```bash
 mkdir my-kb
@@ -27,7 +37,13 @@ KB_GIT_AUTO_PUSH: false
 
 1. Create repo on GitHub
 2. Clone locally
-3. Configure path
+3. Configure path or simply use the Telegram command:
+
+```
+/setkb https://github.com/yourusername/my-kb
+```
+
+Alternatively, configure the path manually:
 
 ```yaml
 KB_PATH: ./my-kb

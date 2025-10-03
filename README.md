@@ -271,7 +271,7 @@ Each user can customize bot behavior via Telegram commands:
 - ⚙️ Processing (message grouping, deduplication)
 - 📝 Logging (level, file path)
 
-See [Settings Management Documentation](docs/SETTINGS_MANAGEMENT.md) for details.
+See [Settings Management guide](https://artyomzemlyak.github.io/tg-note/user-guide/settings-management/) for details.
 
 ### Working with Content
 
@@ -353,6 +353,8 @@ AGENT_TYPE: "qwen_code"
 AGENT_MODEL: "qwen-max"
 ```
 
+Note: `qwen_code` uses the Python autonomous agent under the hood (`src/agents/autonomous_agent.py`) via `AgentFactory`. An alias `openai` also maps to the same autonomous implementation. If `OPENAI_API_KEY` (and optional `OPENAI_BASE_URL`) are provided, it will use an OpenAI-compatible connector; otherwise it falls back to a rule-based mode.
+
 📚 [Detailed Documentation →](https://artyomzemlyak.github.io/tg-note/agents/qwen-code/)
 
 ### 3. stub
@@ -381,7 +383,7 @@ AGENT_TYPE: "stub"
 ```
 ┌─────────────────┐
 │  Telegram Bot   │  ← User interface
-│   (aiogram)     │
+│ (pyTelegramBotAPI) │
 └────────┬────────┘
          │
          ▼
@@ -438,7 +440,7 @@ tg-note/
 │   ├── agents/
 │   │   ├── base_agent.py        # Abstract base class
 │   │   ├── stub_agent.py        # Simple stub
-│   │   ├── qwen_code_agent.py   # Python agent
+│   │   ├── autonomous_agent.py  # Python agent (OpenAI-compatible)
 │   │   ├── qwen_code_cli_agent.py  # CLI integration
 │   │   └── agent_factory.py     # Agent factory
 │   ├── knowledge_base/
@@ -453,7 +455,8 @@ tg-note/
 ├── logs/                        # Log files
 ├── config.yaml                  # Main configuration
 ├── .env                         # Credentials (git-ignored)
-├── requirements.txt             # Dependencies
+├── pyproject.toml               # Project metadata and dependencies
+├── poetry.lock                  # Locked dependency versions
 └── main.py                      # Entry point
 ```
 

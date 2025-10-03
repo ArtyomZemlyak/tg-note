@@ -36,8 +36,10 @@ The settings management system allows you to customize bot behavior without edit
 
 ### Change a Setting
 
+Use the interactive menu and inline buttons:
+
 ```
-/setsetting AGENT_TIMEOUT 600
+/settings → choose category → select setting → use buttons or send value
 ```
 
 ### Reset to Default
@@ -94,21 +96,15 @@ The `/settings` command provides:
 
 ### Change Timeout
 
-```
-/setsetting AGENT_TIMEOUT 600
-```
+Open `/settings`, navigate to Agent category, select `AGENT_TIMEOUT`, and set it to `600`.
 
 ### Disable Auto-Push
 
-```
-/setsetting KB_GIT_AUTO_PUSH false
-```
+Open `/settings`, navigate to Knowledge Base category, and toggle `KB_GIT_AUTO_PUSH` to off.
 
 ### Enable Debug Logging
 
-```
-/setsetting LOG_LEVEL DEBUG
-```
+Open `/settings`, navigate to Logging, select `LOG_LEVEL`, and choose `DEBUG`.
 
 ---
 

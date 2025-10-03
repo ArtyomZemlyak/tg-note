@@ -16,7 +16,7 @@ tg-note supports three types of agents, each with different capabilities and use
 
 ### Comparison Table
 
-| Feature | Qwen Code CLI | Qwen Code | Stub |
+| Feature | Qwen Code CLI | Qwen Code (Autonomous) | Stub |
 |---------|---------------|-----------|------|
 | **AI Processing** | ✅ Advanced | ✅ Good | ❌ Basic |
 | **Auto Planning** | ✅ Yes | ⚠️ Limited | ❌ No |
@@ -64,7 +64,7 @@ AGENT_TYPE: "qwen_code_cli"
 
 ---
 
-## 2. Qwen Code Agent
+## 2. Qwen Code Agent (Python Autonomous)
 
 Pure Python agent with customizable tools.
 
@@ -81,6 +81,8 @@ Pure Python agent with customizable tools.
 AGENT_TYPE: "qwen_code"
 AGENT_MODEL: "qwen-max"
 ```
+
+Note: Internally this maps to the Python autonomous agent implemented in `src/agents/autonomous_agent.py` via `AgentFactory`. It can optionally use an OpenAI-compatible API when `OPENAI_API_KEY`/`OPENAI_BASE_URL` are provided; otherwise it falls back to rule-based processing.
 
 ### When to Use
 
@@ -242,8 +244,6 @@ Users can override via Telegram:
 
 ```
 /agentsettings
-# Or
-/setsetting AGENT_TIMEOUT 600
 ```
 
 ---

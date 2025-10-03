@@ -72,6 +72,8 @@ AGENT_ENABLE_GITHUB: true
 AGENT_ENABLE_SHELL: false
 ```
 
+Tip: The CLI path is configurable via `AGENT_QWEN_CLI_PATH` and defaults to `qwen`. Ensure `qwen --version` succeeds on your system before enabling this agent.
+
 ---
 
 ## How It Works
