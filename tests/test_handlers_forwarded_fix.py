@@ -76,8 +76,18 @@ class TestHandlersForwardedMessageFix:
         """Test forwarded message detection"""
         assert not handlers._is_forwarded_message(test_message)
         
+        # Test with forward_from
         test_message.forward_from = Mock()
         assert handlers._is_forwarded_message(test_message)
+        
+        # Test with forward_date (most reliable indicator)
+        test_message.forward_from = None
+        test_message.forward_date = 1234567890
+        assert handlers._is_forwarded_message(test_message)
+        
+        # Test with empty forward_date (should be False)
+        test_message.forward_date = 0
+        assert not handlers._is_forwarded_message(test_message)
     
     @pytest.mark.asyncio
     async def test_forwarded_message_ignored_during_settings_input(self, handlers, test_message, mock_bot):
@@ -85,8 +95,9 @@ class TestHandlersForwardedMessageFix:
         # Set user as waiting for settings input
         handlers.settings_handlers.waiting_for_input[456] = ("KB_PATH", "knowledge_base")
         
-        # Make message forwarded
+        # Make message forwarded (with forward_date for reliability)
         test_message.forward_from = Mock()
+        test_message.forward_date = 1234567890
         
         # Call handler
         await handlers.handle_forwarded_message(test_message)
@@ -104,8 +115,9 @@ class TestHandlersForwardedMessageFix:
         # Make sure user is NOT waiting for input
         assert 456 not in handlers.settings_handlers.waiting_for_input
         
-        # Make message forwarded
+        # Make message forwarded (with forward_date for reliability)
         test_message.forward_from = Mock()
+        test_message.forward_date = 1234567890
         
         # Mock reply_to to return processing message
         processing_msg = Mock(spec=Message)
