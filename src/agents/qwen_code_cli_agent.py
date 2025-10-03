@@ -201,7 +201,11 @@ class QwenCodeCLIAgent(BaseAgent):
                     "git": self.enable_git,
                     "github": self.enable_github
                 },
-                "todo_plan": parsed_result.get("todo_plan", [])
+                "todo_plan": parsed_result.get("todo_plan", []),
+                "files_created": parsed_result.get("files_created", []),
+                "folders_created": parsed_result.get("folders_created", []),
+                "files_edited": parsed_result.get("files_edited", []),
+                "summary_of_changes": parsed_result.get("summary_of_changes", "No file operations detected")
             }
             
             result = {
@@ -413,6 +417,9 @@ class QwenCodeCLIAgent(BaseAgent):
         """
         Parse result from qwen-code CLI
         
+        The CLI is fully autonomous and creates files itself during execution.
+        We parse its output to understand what it did.
+        
         Args:
             result_text: Raw result from CLI
         
@@ -425,7 +432,11 @@ class QwenCodeCLIAgent(BaseAgent):
             "category": None,
             "subcategory": None,
             "tags": [],
-            "todo_plan": []
+            "todo_plan": [],
+            "files_created": [],
+            "folders_created": [],
+            "files_edited": [],
+            "summary_of_changes": ""
         }
         
         # Extract title (first # heading)
@@ -467,6 +478,49 @@ class QwenCodeCLIAgent(BaseAgent):
                 parsed["todo_plan"] = todo_items
         except Exception as e:
             logger.warning(f"Error parsing TODO plan: {e}")
+        
+        # Parse file operations from result
+        # The CLI may output what it did in various formats
+        # Look for common patterns like "Created file:", "✓ Created:", etc.
+        try:
+            lines = result_text.split("\n")
+            for i, line in enumerate(lines):
+                line_lower = line.lower()
+                
+                # Look for file creation indicators
+                if any(pattern in line_lower for pattern in ["created file", "✓ created", "file created", "создан файл", "✓ создан"]):
+                    # Try to extract file path
+                    # Common patterns: "Created file: path.md", "✓ Created path.md", etc.
+                    for part in line.split():
+                        if part.endswith(".md") or "/" in part:
+                            parsed["files_created"].append(part.strip("`:,"))
+                
+                # Look for folder creation
+                if any(pattern in line_lower for pattern in ["created folder", "created directory", "folder created", "создана папка"]):
+                    for part in line.split():
+                        if "/" in part and not part.endswith(".md"):
+                            parsed["folders_created"].append(part.strip("`:,"))
+                
+                # Look for file edits
+                if any(pattern in line_lower for pattern in ["edited file", "updated file", "✓ edited", "обновлён файл"]):
+                    for part in line.split():
+                        if part.endswith(".md") or "/" in part:
+                            parsed["files_edited"].append(part.strip("`:,"))
+        except Exception as e:
+            logger.warning(f"Error parsing file operations: {e}")
+        
+        # Generate summary of changes
+        changes = []
+        if parsed["files_created"]:
+            changes.append(f"Created {len(parsed['files_created'])} file(s)")
+        if parsed["folders_created"]:
+            changes.append(f"Created {len(parsed['folders_created'])} folder(s)")
+        if parsed["files_edited"]:
+            changes.append(f"Edited {len(parsed['files_edited'])} file(s)")
+        
+        if changes:
+            parsed["summary_of_changes"] = ", ".join(changes)
+            logger.info(f"[QwenCodeCLIAgent] Changes detected: {parsed['summary_of_changes']}")
         
         # Ensure we have at least default values
         if not parsed["title"]:

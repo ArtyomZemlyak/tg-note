@@ -64,23 +64,6 @@ class TodoPlan:
         return {"tasks": self.tasks}
 
 
-class ToolResult:
-    """Result from tool execution"""
-    
-    def __init__(self, success: bool, output: Any, error: Optional[str] = None):
-        self.success = success
-        self.output = output
-        self.error = error
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary"""
-        return {
-            "success": self.success,
-            "output": self.output,
-            "error": self.error
-        }
-
-
 class QwenCodeAgent(AutonomousAgent):
     """
     Qwen Code Agent with autonomous processing capabilities
@@ -313,12 +296,24 @@ class QwenCodeAgent(AutonomousAgent):
         # Collect all analysis results
         analysis_results = []
         web_results = []
+        files_created = []
+        folders_created = []
+        files_modified = []
         
         for execution in context.executions:
             if execution.tool_name == "analyze_content" and execution.success:
                 analysis_results.append(execution.result)
             elif execution.tool_name == "web_search" and execution.success:
                 web_results.append(execution.result)
+            elif execution.tool_name == "file_create" and execution.success:
+                if isinstance(execution.result, dict):
+                    files_created.append(execution.result.get("path", "unknown"))
+            elif execution.tool_name == "folder_create" and execution.success:
+                if isinstance(execution.result, dict):
+                    folders_created.append(execution.result.get("path", "unknown"))
+            elif execution.tool_name == "file_edit" and execution.success:
+                if isinstance(execution.result, dict):
+                    files_modified.append(execution.result.get("path", "unknown"))
         
         # Extract text from task
         text = self._extract_text_from_task(context.task)
@@ -340,6 +335,26 @@ class QwenCodeAgent(AutonomousAgent):
             lines.append(f"- **Tags**: {', '.join(tags)}")
         lines.append(f"- **Processed**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         lines.append("")
+        
+        # Report on files/folders created during execution
+        if files_created or folders_created or files_modified:
+            lines.append("## Changes Applied")
+            lines.append("")
+            if files_created:
+                lines.append("**Files Created:**")
+                for path in files_created:
+                    lines.append(f"- \u2713 {path}")
+                lines.append("")
+            if folders_created:
+                lines.append("**Folders Created:**")
+                for path in folders_created:
+                    lines.append(f"- \u2713 {path}")
+                lines.append("")
+            if files_modified:
+                lines.append("**Files Modified:**")
+                for path in files_modified:
+                    lines.append(f"- \u2713 {path}")
+                lines.append("")
         
         if summary:
             lines.append("## Summary")
@@ -702,7 +717,7 @@ class QwenCodeAgent(AutonomousAgent):
     
     # Tool implementations
     
-    async def _tool_web_search(self, params: Dict[str, Any]) -> ToolResult:
+    async def _tool_web_search(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         Web search tool
         
@@ -710,7 +725,7 @@ class QwenCodeAgent(AutonomousAgent):
             params: Dictionary with 'query' parameter
         
         Returns:
-            ToolResult object
+            Result dictionary
         """
         query = params.get("query", "")
         
@@ -729,28 +744,27 @@ class QwenCodeAgent(AutonomousAgent):
                                 if end > start:
                                     title = text[start:end].strip()
                             
-                            return ToolResult(
-                                success=True,
-                                output={
-                                    "url": query,
-                                    "title": title,
-                                    "status": response.status
-                                }
-                            )
+                            logger.info(f"[web_search] ✓ Fetched URL: {query}")
+                            return {
+                                "success": True,
+                                "url": query,
+                                "title": title,
+                                "status": response.status
+                            }
             
             # For non-URL queries, return placeholder
-            return ToolResult(
-                success=True,
-                output={
-                    "query": query,
-                    "message": "Web search executed (placeholder)"
-                }
-            )
+            logger.info(f"[web_search] Executed search: {query}")
+            return {
+                "success": True,
+                "query": query,
+                "message": "Web search executed (placeholder)"
+            }
         
         except Exception as e:
-            return ToolResult(success=False, output=None, error=str(e))
+            logger.error(f"[web_search] Failed: {e}", exc_info=True)
+            return {"success": False, "error": str(e)}
     
-    async def _tool_git_command(self, params: Dict[str, Any]) -> ToolResult:
+    async def _tool_git_command(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         Git command tool
         
@@ -758,7 +772,7 @@ class QwenCodeAgent(AutonomousAgent):
             params: Dictionary with 'command' and optional 'cwd' parameters
         
         Returns:
-            ToolResult object
+            Result dictionary
         """
         command = params.get("command", "")
         cwd = params.get("cwd", ".")
@@ -769,18 +783,15 @@ class QwenCodeAgent(AutonomousAgent):
             
             cmd_parts = command.split()
             if not cmd_parts or cmd_parts[0] != "git":
-                return ToolResult(
-                    success=False,
-                    output=None,
-                    error="Command must start with 'git'"
-                )
+                logger.error("[git_command] Command must start with 'git'")
+                return {"success": False, "error": "Command must start with 'git'"}
             
             if len(cmd_parts) < 2 or cmd_parts[1] not in safe_commands:
-                return ToolResult(
-                    success=False,
-                    output=None,
-                    error=f"Git command not allowed. Allowed: {safe_commands}"
-                )
+                logger.error(f"[git_command] Command not allowed: {cmd_parts[1]}")
+                return {
+                    "success": False,
+                    "error": f"Git command not allowed. Allowed: {safe_commands}"
+                }
             
             # Execute command
             result = subprocess.run(
@@ -791,19 +802,24 @@ class QwenCodeAgent(AutonomousAgent):
                 timeout=30
             )
             
-            return ToolResult(
-                success=result.returncode == 0,
-                output={
-                    "stdout": result.stdout,
-                    "stderr": result.stderr,
-                    "returncode": result.returncode
-                }
-            )
+            success = result.returncode == 0
+            if success:
+                logger.info(f"[git_command] ✓ Executed: {command}")
+            else:
+                logger.warning(f"[git_command] Failed: {command} (code {result.returncode})")
+            
+            return {
+                "success": success,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "returncode": result.returncode
+            }
         
         except Exception as e:
-            return ToolResult(success=False, output=None, error=str(e))
+            logger.error(f"[git_command] Error: {e}", exc_info=True)
+            return {"success": False, "error": str(e)}
     
-    async def _tool_github_api(self, params: Dict[str, Any]) -> ToolResult:
+    async def _tool_github_api(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         GitHub API tool
         
@@ -811,7 +827,7 @@ class QwenCodeAgent(AutonomousAgent):
             params: Dictionary with 'endpoint' and optional 'method', 'data' parameters
         
         Returns:
-            ToolResult object
+            Result dictionary
         """
         endpoint = params.get("endpoint", "")
         method = params.get("method", "GET").upper()
@@ -840,19 +856,24 @@ class QwenCodeAgent(AutonomousAgent):
                     timeout=30
                 ) as response:
                     result = await response.json()
+                    success = response.status < 400
                     
-                    return ToolResult(
-                        success=response.status < 400,
-                        output={
-                            "status": response.status,
-                            "data": result
-                        }
-                    )
+                    if success:
+                        logger.info(f"[github_api] ✓ {method} {endpoint}")
+                    else:
+                        logger.warning(f"[github_api] Failed: {method} {endpoint} (status {response.status})")
+                    
+                    return {
+                        "success": success,
+                        "status": response.status,
+                        "data": result
+                    }
         
         except Exception as e:
-            return ToolResult(success=False, output=None, error=str(e))
+            logger.error(f"[github_api] Error: {e}", exc_info=True)
+            return {"success": False, "error": str(e)}
     
-    async def _tool_shell_command(self, params: Dict[str, Any]) -> ToolResult:
+    async def _tool_shell_command(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         Shell command tool (SECURITY RISK - disabled by default)
         
@@ -860,14 +881,11 @@ class QwenCodeAgent(AutonomousAgent):
             params: Dictionary with 'command' and optional 'cwd' parameters
         
         Returns:
-            ToolResult object
+            Result dictionary
         """
         if not self.enable_shell:
-            return ToolResult(
-                success=False,
-                output=None,
-                error="Shell command tool is disabled for security"
-            )
+            logger.warning("[shell_command] Tool is disabled for security")
+            return {"success": False, "error": "Shell command tool is disabled for security"}
         
         command = params.get("command", "")
         cwd = params.get("cwd", ".")
@@ -877,11 +895,8 @@ class QwenCodeAgent(AutonomousAgent):
             dangerous_patterns = DANGEROUS_SHELL_PATTERNS
             
             if any(pattern in command for pattern in dangerous_patterns):
-                return ToolResult(
-                    success=False,
-                    output=None,
-                    error="Command contains dangerous patterns"
-                )
+                logger.error(f"[shell_command] Dangerous pattern detected in: {command}")
+                return {"success": False, "error": "Command contains dangerous patterns"}
             
             # Execute command
             result = subprocess.run(
@@ -893,27 +908,32 @@ class QwenCodeAgent(AutonomousAgent):
                 timeout=30
             )
             
-            return ToolResult(
-                success=result.returncode == 0,
-                output={
-                    "stdout": result.stdout,
-                    "stderr": result.stderr,
-                    "returncode": result.returncode
-                }
-            )
+            success = result.returncode == 0
+            if success:
+                logger.info(f"[shell_command] ✓ Executed: {command}")
+            else:
+                logger.warning(f"[shell_command] Failed: {command} (code {result.returncode})")
+            
+            return {
+                "success": success,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "returncode": result.returncode
+            }
         
         except Exception as e:
-            return ToolResult(success=False, output=None, error=str(e))
+            logger.error(f"[shell_command] Error: {e}", exc_info=True)
+            return {"success": False, "error": str(e)}
     
-    async def _tool_file_create(self, params: Dict[str, Any]) -> ToolResult:
+    async def _tool_file_create(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Create a new file
+        Create a new file (DURING agent execution)
         
         Args:
             params: Dictionary with 'path' (relative to KB root) and 'content' parameters
         
         Returns:
-            ToolResult object
+            Result dictionary (not ToolResult - this is for autonomous agent tools)
         """
         relative_path = params.get("path", "")
         content = params.get("content", "")
@@ -921,7 +941,8 @@ class QwenCodeAgent(AutonomousAgent):
         # Validate path
         is_valid, full_path, error = self._validate_safe_path(relative_path)
         if not is_valid:
-            return ToolResult(success=False, output=None, error=error)
+            logger.error(f"[file_create] Path validation failed: {error}")
+            return {"success": False, "error": error}
         
         try:
             # Create parent directories if needed
@@ -929,37 +950,35 @@ class QwenCodeAgent(AutonomousAgent):
             
             # Check if file already exists
             if full_path.exists():
-                return ToolResult(
-                    success=False,
-                    output=None,
-                    error=f"File already exists: {relative_path}"
-                )
+                error_msg = f"File already exists: {relative_path}"
+                logger.warning(f"[file_create] {error_msg}")
+                return {"success": False, "error": error_msg}
             
-            # Write file
+            # Write file - ACTUALLY CREATE IT DURING EXECUTION!
             full_path.write_text(content, encoding="utf-8")
             
-            logger.info(f"Created file: {relative_path}")
-            return ToolResult(
-                success=True,
-                output={
-                    "path": relative_path,
-                    "full_path": str(full_path),
-                    "size": len(content)
-                }
-            )
+            logger.info(f"[file_create] ✓ Created file: {relative_path} ({len(content)} bytes)")
+            return {
+                "success": True,
+                "path": relative_path,
+                "full_path": str(full_path),
+                "size": len(content),
+                "message": f"File created successfully: {relative_path}"
+            }
             
         except Exception as e:
-            return ToolResult(success=False, output=None, error=f"Failed to create file: {e}")
+            logger.error(f"[file_create] Failed to create file: {e}", exc_info=True)
+            return {"success": False, "error": f"Failed to create file: {e}"}
     
-    async def _tool_file_edit(self, params: Dict[str, Any]) -> ToolResult:
+    async def _tool_file_edit(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Edit an existing file
+        Edit an existing file (DURING agent execution)
         
         Args:
             params: Dictionary with 'path' (relative to KB root) and 'content' parameters
         
         Returns:
-            ToolResult object
+            Result dictionary (not ToolResult - this is for autonomous agent tools)
         """
         relative_path = params.get("path", "")
         content = params.get("content", "")
@@ -967,101 +986,95 @@ class QwenCodeAgent(AutonomousAgent):
         # Validate path
         is_valid, full_path, error = self._validate_safe_path(relative_path)
         if not is_valid:
-            return ToolResult(success=False, output=None, error=error)
+            logger.error(f"[file_edit] Path validation failed: {error}")
+            return {"success": False, "error": error}
         
         try:
             # Check if file exists
             if not full_path.exists():
-                return ToolResult(
-                    success=False,
-                    output=None,
-                    error=f"File does not exist: {relative_path}"
-                )
+                error_msg = f"File does not exist: {relative_path}"
+                logger.warning(f"[file_edit] {error_msg}")
+                return {"success": False, "error": error_msg}
             
             if not full_path.is_file():
-                return ToolResult(
-                    success=False,
-                    output=None,
-                    error=f"Path is not a file: {relative_path}"
-                )
+                error_msg = f"Path is not a file: {relative_path}"
+                logger.warning(f"[file_edit] {error_msg}")
+                return {"success": False, "error": error_msg}
             
             # Backup old content
             old_content = full_path.read_text(encoding="utf-8")
             
-            # Write new content
+            # Write new content - ACTUALLY EDIT IT DURING EXECUTION!
             full_path.write_text(content, encoding="utf-8")
             
-            logger.info(f"Edited file: {relative_path}")
-            return ToolResult(
-                success=True,
-                output={
-                    "path": relative_path,
-                    "full_path": str(full_path),
-                    "old_size": len(old_content),
-                    "new_size": len(content)
-                }
-            )
+            logger.info(f"[file_edit] ✓ Edited file: {relative_path} ({len(old_content)} → {len(content)} bytes)")
+            return {
+                "success": True,
+                "path": relative_path,
+                "full_path": str(full_path),
+                "old_size": len(old_content),
+                "new_size": len(content),
+                "message": f"File edited successfully: {relative_path}"
+            }
             
         except Exception as e:
-            return ToolResult(success=False, output=None, error=f"Failed to edit file: {e}")
+            logger.error(f"[file_edit] Failed to edit file: {e}", exc_info=True)
+            return {"success": False, "error": f"Failed to edit file: {e}"}
     
-    async def _tool_file_delete(self, params: Dict[str, Any]) -> ToolResult:
+    async def _tool_file_delete(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Delete a file
+        Delete a file (DURING agent execution)
         
         Args:
             params: Dictionary with 'path' (relative to KB root) parameter
         
         Returns:
-            ToolResult object
+            Result dictionary
         """
         relative_path = params.get("path", "")
         
         # Validate path
         is_valid, full_path, error = self._validate_safe_path(relative_path)
         if not is_valid:
-            return ToolResult(success=False, output=None, error=error)
+            logger.error(f"[file_delete] Path validation failed: {error}")
+            return {"success": False, "error": error}
         
         try:
             # Check if file exists
             if not full_path.exists():
-                return ToolResult(
-                    success=False,
-                    output=None,
-                    error=f"File does not exist: {relative_path}"
-                )
+                error_msg = f"File does not exist: {relative_path}"
+                logger.warning(f"[file_delete] {error_msg}")
+                return {"success": False, "error": error_msg}
             
             if not full_path.is_file():
-                return ToolResult(
-                    success=False,
-                    output=None,
-                    error=f"Path is not a file: {relative_path}"
-                )
+                error_msg = f"Path is not a file: {relative_path}"
+                logger.warning(f"[file_delete] {error_msg}")
+                return {"success": False, "error": error_msg}
             
-            # Delete file
+            # Delete file - ACTUALLY DELETE IT DURING EXECUTION!
             full_path.unlink()
             
-            logger.info(f"Deleted file: {relative_path}")
-            return ToolResult(
-                success=True,
-                output={
-                    "path": relative_path,
-                    "full_path": str(full_path)
-                }
-            )
+            logger.info(f"[file_delete] ✓ Deleted file: {relative_path}")
+            return {
+                "success": True,
+                "path": relative_path,
+                "full_path": str(full_path),
+                "message": f"File deleted successfully: {relative_path}"
+            }
             
         except Exception as e:
-            return ToolResult(success=False, output=None, error=f"Failed to delete file: {e}")
+            logger.error(f"[file_delete] Failed to delete file: {e}", exc_info=True)
+            return {"success": False, "error": f"Failed to delete file: {e}"}
     
-    async def _tool_file_move(self, params: Dict[str, Any]) -> ToolResult:
+    async def _tool_file_move(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Move/rename a file
+        Move/rename a file (DURING agent execution)
         
         Args:
             params: Dictionary with 'source' and 'destination' (both relative to KB root)
         
         Returns:
-            ToolResult object
+            Result dictionary
         """
         source_path = params.get("source", "")
         dest_path = params.get("destination", "")
@@ -1069,114 +1082,107 @@ class QwenCodeAgent(AutonomousAgent):
         # Validate source path
         is_valid, full_source, error = self._validate_safe_path(source_path)
         if not is_valid:
-            return ToolResult(success=False, output=None, error=f"Invalid source: {error}")
+            logger.error(f"[file_move] Invalid source: {error}")
+            return {"success": False, "error": f"Invalid source: {error}"}
         
         # Validate destination path
         is_valid, full_dest, error = self._validate_safe_path(dest_path)
         if not is_valid:
-            return ToolResult(success=False, output=None, error=f"Invalid destination: {error}")
+            logger.error(f"[file_move] Invalid destination: {error}")
+            return {"success": False, "error": f"Invalid destination: {error}"}
         
         try:
             # Check if source exists
             if not full_source.exists():
-                return ToolResult(
-                    success=False,
-                    output=None,
-                    error=f"Source file does not exist: {source_path}"
-                )
+                error_msg = f"Source file does not exist: {source_path}"
+                logger.warning(f"[file_move] {error_msg}")
+                return {"success": False, "error": error_msg}
             
             if not full_source.is_file():
-                return ToolResult(
-                    success=False,
-                    output=None,
-                    error=f"Source is not a file: {source_path}"
-                )
+                error_msg = f"Source is not a file: {source_path}"
+                logger.warning(f"[file_move] {error_msg}")
+                return {"success": False, "error": error_msg}
             
             # Check if destination already exists
             if full_dest.exists():
-                return ToolResult(
-                    success=False,
-                    output=None,
-                    error=f"Destination already exists: {dest_path}"
-                )
+                error_msg = f"Destination already exists: {dest_path}"
+                logger.warning(f"[file_move] {error_msg}")
+                return {"success": False, "error": error_msg}
             
             # Create parent directories if needed
             full_dest.parent.mkdir(parents=True, exist_ok=True)
             
-            # Move file
+            # Move file - ACTUALLY MOVE IT DURING EXECUTION!
             full_source.rename(full_dest)
             
-            logger.info(f"Moved file: {source_path} -> {dest_path}")
-            return ToolResult(
-                success=True,
-                output={
-                    "source": source_path,
-                    "destination": dest_path,
-                    "full_source": str(full_source),
-                    "full_destination": str(full_dest)
-                }
-            )
+            logger.info(f"[file_move] ✓ Moved file: {source_path} → {dest_path}")
+            return {
+                "success": True,
+                "source": source_path,
+                "destination": dest_path,
+                "full_source": str(full_source),
+                "full_destination": str(full_dest),
+                "message": f"File moved successfully: {source_path} → {dest_path}"
+            }
             
         except Exception as e:
-            return ToolResult(success=False, output=None, error=f"Failed to move file: {e}")
+            logger.error(f"[file_move] Failed to move file: {e}", exc_info=True)
+            return {"success": False, "error": f"Failed to move file: {e}"}
     
-    async def _tool_folder_create(self, params: Dict[str, Any]) -> ToolResult:
+    async def _tool_folder_create(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Create a new folder
+        Create a new folder (DURING agent execution)
         
         Args:
             params: Dictionary with 'path' (relative to KB root) parameter
         
         Returns:
-            ToolResult object
+            Result dictionary
         """
         relative_path = params.get("path", "")
         
         # Validate path
         is_valid, full_path, error = self._validate_safe_path(relative_path)
         if not is_valid:
-            return ToolResult(success=False, output=None, error=error)
+            logger.error(f"[folder_create] Path validation failed: {error}")
+            return {"success": False, "error": error}
         
         try:
             # Check if already exists
             if full_path.exists():
                 if full_path.is_dir():
-                    return ToolResult(
-                        success=False,
-                        output=None,
-                        error=f"Folder already exists: {relative_path}"
-                    )
+                    error_msg = f"Folder already exists: {relative_path}"
+                    logger.warning(f"[folder_create] {error_msg}")
+                    return {"success": False, "error": error_msg}
                 else:
-                    return ToolResult(
-                        success=False,
-                        output=None,
-                        error=f"Path exists but is not a folder: {relative_path}"
-                    )
+                    error_msg = f"Path exists but is not a folder: {relative_path}"
+                    logger.warning(f"[folder_create] {error_msg}")
+                    return {"success": False, "error": error_msg}
             
-            # Create folder
+            # Create folder - ACTUALLY CREATE IT DURING EXECUTION!
             full_path.mkdir(parents=True, exist_ok=False)
             
-            logger.info(f"Created folder: {relative_path}")
-            return ToolResult(
-                success=True,
-                output={
-                    "path": relative_path,
-                    "full_path": str(full_path)
-                }
-            )
+            logger.info(f"[folder_create] ✓ Created folder: {relative_path}")
+            return {
+                "success": True,
+                "path": relative_path,
+                "full_path": str(full_path),
+                "message": f"Folder created successfully: {relative_path}"
+            }
             
         except Exception as e:
-            return ToolResult(success=False, output=None, error=f"Failed to create folder: {e}")
+            logger.error(f"[folder_create] Failed to create folder: {e}", exc_info=True)
+            return {"success": False, "error": f"Failed to create folder: {e}"}
     
-    async def _tool_folder_delete(self, params: Dict[str, Any]) -> ToolResult:
+    async def _tool_folder_delete(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Delete a folder and its contents
+        Delete a folder and its contents (DURING agent execution)
         
         Args:
             params: Dictionary with 'path' (relative to KB root) parameter
         
         Returns:
-            ToolResult object
+            Result dictionary
         """
         import shutil
         
@@ -1185,56 +1191,51 @@ class QwenCodeAgent(AutonomousAgent):
         # Validate path
         is_valid, full_path, error = self._validate_safe_path(relative_path)
         if not is_valid:
-            return ToolResult(success=False, output=None, error=error)
+            logger.error(f"[folder_delete] Path validation failed: {error}")
+            return {"success": False, "error": error}
         
         try:
             # Check if exists
             if not full_path.exists():
-                return ToolResult(
-                    success=False,
-                    output=None,
-                    error=f"Folder does not exist: {relative_path}"
-                )
+                error_msg = f"Folder does not exist: {relative_path}"
+                logger.warning(f"[folder_delete] {error_msg}")
+                return {"success": False, "error": error_msg}
             
             if not full_path.is_dir():
-                return ToolResult(
-                    success=False,
-                    output=None,
-                    error=f"Path is not a folder: {relative_path}"
-                )
+                error_msg = f"Path is not a folder: {relative_path}"
+                logger.warning(f"[folder_delete] {error_msg}")
+                return {"success": False, "error": error_msg}
             
             # Prevent deleting KB root itself
             if full_path == self.kb_root_path:
-                return ToolResult(
-                    success=False,
-                    output=None,
-                    error="Cannot delete knowledge base root folder"
-                )
+                error_msg = "Cannot delete knowledge base root folder"
+                logger.error(f"[folder_delete] {error_msg}")
+                return {"success": False, "error": error_msg}
             
-            # Delete folder and contents
+            # Delete folder and contents - ACTUALLY DELETE IT DURING EXECUTION!
             shutil.rmtree(full_path)
             
-            logger.info(f"Deleted folder: {relative_path}")
-            return ToolResult(
-                success=True,
-                output={
-                    "path": relative_path,
-                    "full_path": str(full_path)
-                }
-            )
+            logger.info(f"[folder_delete] ✓ Deleted folder: {relative_path}")
+            return {
+                "success": True,
+                "path": relative_path,
+                "full_path": str(full_path),
+                "message": f"Folder deleted successfully: {relative_path}"
+            }
             
         except Exception as e:
-            return ToolResult(success=False, output=None, error=f"Failed to delete folder: {e}")
+            logger.error(f"[folder_delete] Failed to delete folder: {e}", exc_info=True)
+            return {"success": False, "error": f"Failed to delete folder: {e}"}
     
-    async def _tool_folder_move(self, params: Dict[str, Any]) -> ToolResult:
+    async def _tool_folder_move(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Move/rename a folder
+        Move/rename a folder (DURING agent execution)
         
         Args:
             params: Dictionary with 'source' and 'destination' (both relative to KB root)
         
         Returns:
-            ToolResult object
+            Result dictionary
         """
         import shutil
         
@@ -1244,64 +1245,58 @@ class QwenCodeAgent(AutonomousAgent):
         # Validate source path
         is_valid, full_source, error = self._validate_safe_path(source_path)
         if not is_valid:
-            return ToolResult(success=False, output=None, error=f"Invalid source: {error}")
+            logger.error(f"[folder_move] Invalid source: {error}")
+            return {"success": False, "error": f"Invalid source: {error}"}
         
         # Validate destination path
         is_valid, full_dest, error = self._validate_safe_path(dest_path)
         if not is_valid:
-            return ToolResult(success=False, output=None, error=f"Invalid destination: {error}")
+            logger.error(f"[folder_move] Invalid destination: {error}")
+            return {"success": False, "error": f"Invalid destination: {error}"}
         
         try:
             # Check if source exists
             if not full_source.exists():
-                return ToolResult(
-                    success=False,
-                    output=None,
-                    error=f"Source folder does not exist: {source_path}"
-                )
+                error_msg = f"Source folder does not exist: {source_path}"
+                logger.warning(f"[folder_move] {error_msg}")
+                return {"success": False, "error": error_msg}
             
             if not full_source.is_dir():
-                return ToolResult(
-                    success=False,
-                    output=None,
-                    error=f"Source is not a folder: {source_path}"
-                )
+                error_msg = f"Source is not a folder: {source_path}"
+                logger.warning(f"[folder_move] {error_msg}")
+                return {"success": False, "error": error_msg}
             
             # Prevent moving KB root itself
             if full_source == self.kb_root_path:
-                return ToolResult(
-                    success=False,
-                    output=None,
-                    error="Cannot move knowledge base root folder"
-                )
+                error_msg = "Cannot move knowledge base root folder"
+                logger.error(f"[folder_move] {error_msg}")
+                return {"success": False, "error": error_msg}
             
             # Check if destination already exists
             if full_dest.exists():
-                return ToolResult(
-                    success=False,
-                    output=None,
-                    error=f"Destination already exists: {dest_path}"
-                )
+                error_msg = f"Destination already exists: {dest_path}"
+                logger.warning(f"[folder_move] {error_msg}")
+                return {"success": False, "error": error_msg}
             
             # Create parent directories if needed
             full_dest.parent.mkdir(parents=True, exist_ok=True)
             
-            # Move folder
+            # Move folder - ACTUALLY MOVE IT DURING EXECUTION!
             shutil.move(str(full_source), str(full_dest))
             
-            logger.info(f"Moved folder: {source_path} -> {dest_path}")
-            return ToolResult(
-                success=True,
-                output={
-                    "source": source_path,
-                    "destination": dest_path,
-                    "full_source": str(full_source),
-                    "full_destination": str(full_dest)
-                }
-            )
+            logger.info(f"[folder_move] ✓ Moved folder: {source_path} → {dest_path}")
+            return {
+                "success": True,
+                "source": source_path,
+                "destination": dest_path,
+                "full_source": str(full_source),
+                "full_destination": str(full_dest),
+                "message": f"Folder moved successfully: {source_path} → {dest_path}"
+            }
             
         except Exception as e:
-            return ToolResult(success=False, output=None, error=f"Failed to move folder: {e}")
+            logger.error(f"[folder_move] Failed to move folder: {e}", exc_info=True)
+            return {"success": False, "error": f"Failed to move folder: {e}"}
     
     def validate_input(self, content: Dict) -> bool:
         """
