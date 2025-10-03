@@ -3,7 +3,7 @@ Telegram Bot Handlers
 Handles all incoming message events from Telegram (fully async)
 """
 
-import logging
+from loguru import logger
 from typing import Dict, Any, Optional
 from telebot.async_telebot import AsyncTeleBot
 from telebot.types import Message
@@ -43,8 +43,7 @@ class BotHandlers:
         # Store per-user agents
         self.user_agents: Dict[int, Any] = {}
         self.content_parser = ContentParser()
-        self.logger = logging.getLogger(__name__)
-        
+        self.        
         self.logger.info(f"BotHandlers initialized with user-specific settings support")
     
     async def register_handlers_async(self):

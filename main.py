@@ -4,40 +4,20 @@ Main entry point for the Telegram bot application
 """
 
 import asyncio
-import logging
 import sys
 
+from loguru import logger
+
 from config import settings
+from config.logging_config import setup_logging
 from src.tracker.processing_tracker import ProcessingTracker
 from src.knowledge_base.repository import RepositoryManager
 from src.knowledge_base.user_settings import UserSettings
 from src.bot.telegram_bot import TelegramBot
 
 
-# Configure logging
-def setup_logging():
-    """Setup logging configuration"""
-    log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    log_level = getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO)
-    
-    handlers = [logging.StreamHandler(sys.stdout)]
-    
-    # Add file handler if log file is configured
-    if settings.LOG_FILE:
-        settings.LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
-        handlers.append(logging.FileHandler(settings.LOG_FILE))
-    
-    logging.basicConfig(
-        level=log_level,
-        format=log_format,
-        handlers=handlers
-    )
-
-
 def validate_configuration():
     """Validate application configuration"""
-    logger = logging.getLogger(__name__)
-    
     errors = settings.validate()
     
     if errors:
@@ -53,10 +33,12 @@ def validate_configuration():
 
 async def main():
     """Main application entry point (fully async)"""
-    logger = logging.getLogger(__name__)
-    
-    # Setup logging
-    setup_logging()
+    # Setup logging with loguru
+    setup_logging(
+        log_level=settings.LOG_LEVEL.upper(),
+        log_file=settings.LOG_FILE,
+        enable_debug_trace=settings.LOG_LEVEL.upper() == "DEBUG"
+    )
     logger.info("Starting tg-note bot...")
     
     # Validate configuration

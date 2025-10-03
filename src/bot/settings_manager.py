@@ -3,7 +3,7 @@ Settings Manager for Telegram Bot
 Automatically generates Telegram commands and handlers from pydantic-settings
 """
 
-import logging
+from loguru import logger
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Type, get_args, get_origin
 from pydantic import BaseModel, Field
@@ -12,7 +12,6 @@ from pydantic_settings import BaseSettings
 
 from config.settings import Settings
 
-logger = logging.getLogger(__name__)
 
 
 class SettingInfo(BaseModel):

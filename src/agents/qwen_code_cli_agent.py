@@ -5,13 +5,14 @@ Python wrapper for qwen-code CLI tool with autonomous agent capabilities
 
 import asyncio
 import json
-import logging
 import os
 import subprocess
 import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+from loguru import logger
 
 from .base_agent import BaseAgent, KBStructure
 from config.agent_prompts import (
@@ -26,9 +27,6 @@ from config.agent_prompts import (
     MAX_TAG_COUNT,
     MIN_KEYWORD_LENGTH,
 )
-
-
-logger = logging.getLogger(__name__)
 
 
 class QwenCodeCLIAgent(BaseAgent):
@@ -143,26 +141,34 @@ class QwenCodeCLIAgent(BaseAgent):
             RuntimeError: If qwen CLI execution fails
             Exception: For other processing errors
         """
+        logger.debug(f"[QwenCodeCLIAgent] Starting process with content keys: {list(content.keys())}")
+        
         if not self.validate_input(content):
-            logger.error(f"Invalid input content: {content}")
+            logger.error(f"[QwenCodeCLIAgent] Invalid input content: {content}")
             raise ValueError("Invalid input content: must be a dict with 'text' key")
         
-        logger.info("Starting autonomous content processing with qwen-code CLI...")
+        logger.info("[QwenCodeCLIAgent] Starting autonomous content processing with qwen-code CLI...")
+        logger.debug(f"[QwenCodeCLIAgent] Content preview: {content.get('text', '')[:100]}...")
         
         try:
             # Step 1: Prepare prompt for qwen-code
+            logger.debug("[QwenCodeCLIAgent] STEP 1: Preparing prompt for qwen-code")
             prompt = self._prepare_prompt(content)
-            logger.debug(f"Prepared prompt length: {len(prompt)} characters")
+            logger.debug(f"[QwenCodeCLIAgent] Prepared prompt length: {len(prompt)} characters")
             
             # Step 2: Execute qwen-code CLI
+            logger.debug("[QwenCodeCLIAgent] STEP 2: Executing qwen-code CLI")
             result_text = await self._execute_qwen_cli(prompt)
-            logger.debug(f"Received result length: {len(result_text)} characters")
+            logger.debug(f"[QwenCodeCLIAgent] Received result length: {len(result_text)} characters")
             
             # Step 3: Parse result
+            logger.debug("[QwenCodeCLIAgent] STEP 3: Parsing qwen-code result")
             parsed_result = self._parse_qwen_result(result_text)
-            logger.info(f"Parsed result: title='{parsed_result.get('title')}', category='{parsed_result.get('category')}'")
+            logger.info(f"[QwenCodeCLIAgent] Parsed result: title='{parsed_result.get('title')}', category='{parsed_result.get('category')}'")
+            logger.debug(f"[QwenCodeCLIAgent] Parsed result keys: {list(parsed_result.keys())}")
             
             # Step 4: Extract components with fallbacks
+            logger.debug("[QwenCodeCLIAgent] STEP 4: Extracting components with fallbacks")
             markdown_content = parsed_result.get("markdown", result_text)
             title = parsed_result.get("title") or self._extract_title(result_text) or "Untitled Note"
             category = parsed_result.get("category") or self._detect_category(content.get("text", "")) or "general"
@@ -174,13 +180,15 @@ class QwenCodeCLIAgent(BaseAgent):
                 raise ValueError("Processing failed: no markdown content generated")
             
             # Step 5: Determine KB structure
+            logger.debug("[QwenCodeCLIAgent] STEP 5: Creating KB structure")
             kb_structure = KBStructure(
                 category=category,
                 subcategory=parsed_result.get("subcategory"),
                 tags=tags
             )
             
-            logger.info(f"Created KB structure: {kb_structure.to_dict()}")
+            logger.info(f"[QwenCodeCLIAgent] Created KB structure: {kb_structure.to_dict()}")
+            logger.debug(f"[QwenCodeCLIAgent] KB structure path: {kb_structure.get_relative_path()}")
             
             # Generate metadata
             metadata = {
@@ -203,7 +211,9 @@ class QwenCodeCLIAgent(BaseAgent):
                 "kb_structure": kb_structure
             }
             
-            logger.info(f"Successfully processed content: title='{title}', category='{category}'")
+            logger.info(f"[QwenCodeCLIAgent] Successfully processed content: title='{title}', category='{category}'")
+            logger.debug(f"[QwenCodeCLIAgent] Final result keys: {list(result.keys())}")
+            logger.debug(f"[QwenCodeCLIAgent] Markdown preview: {markdown_content[:200]}...")
             return result
         
         except ValueError as ve:
@@ -257,7 +267,9 @@ class QwenCodeCLIAgent(BaseAgent):
         Returns:
             CLI output as string
         """
-        logger.info("Executing qwen-code CLI...")
+        logger.info("[QwenCodeCLIAgent._execute_qwen_cli] Executing qwen-code CLI...")
+        logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] Working directory: {self.working_directory}")
+        logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] Timeout: {self.timeout}s")
         
         # Create temporary file for prompt
         with tempfile.NamedTemporaryFile(
@@ -299,10 +311,12 @@ class QwenCodeCLIAgent(BaseAgent):
                     timeout=self.timeout
                 )
                 
+                logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] Process completed with return code: {process.returncode}")
+                
                 if process.returncode != 0:
                     error_msg = stderr.decode().strip()
-                    logger.warning(f"Qwen CLI returned non-zero exit code {process.returncode}")
-                    logger.warning(f"Qwen CLI stderr: {error_msg}")
+                    logger.warning(f"[QwenCodeCLIAgent._execute_qwen_cli] Qwen CLI returned non-zero exit code {process.returncode}")
+                    logger.warning(f"[QwenCodeCLIAgent._execute_qwen_cli] Qwen CLI stderr: {error_msg}")
                     
                     # If we have an error message, include it in the result for debugging
                     if error_msg and not result:
@@ -310,9 +324,10 @@ class QwenCodeCLIAgent(BaseAgent):
                         raise RuntimeError(f"Qwen CLI execution failed: {error_msg}")
                 
                 result = stdout.decode('utf-8').strip()
+                logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] Raw result preview: {result[:200]}...")
                 
                 if not result:
-                    logger.warning("Empty result from qwen CLI, using fallback processing")
+                    logger.warning("[QwenCodeCLIAgent._execute_qwen_cli] Empty result from qwen CLI, using fallback processing")
                     # Fallback to simple processing
                     try:
                         result = self._fallback_processing(prompt)

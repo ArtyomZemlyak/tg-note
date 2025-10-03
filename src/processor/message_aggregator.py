@@ -4,7 +4,7 @@ Groups consecutive messages into single content blocks
 """
 
 import asyncio
-import logging
+from loguru import logger
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Callable
 from uuid import uuid4
@@ -41,8 +41,7 @@ class MessageAggregator:
     def __init__(self, timeout: int = 30):
         self.timeout = timeout
         self.active_groups: Dict[int, MessageGroup] = {}
-        self.logger = logging.getLogger(__name__)
-        self._background_task: Optional[asyncio.Task] = None
+        self.        self._background_task: Optional[asyncio.Task] = None
         self._running = False
         self._timeout_callback: Optional[Callable] = None
         self._lock = asyncio.Lock()
