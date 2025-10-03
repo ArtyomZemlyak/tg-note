@@ -6,7 +6,7 @@ import pytest
 from unittest.mock import MagicMock
 from src.agents.agent_factory import AgentFactory
 from src.agents.stub_agent import StubAgent
-from src.agents.qwen_code_agent import QwenCodeAgent
+from src.agents import AutonomousAgent, QwenCodeAgent  # QwenCodeAgent is now alias
 from src.agents.base_agent import BaseAgent
 
 
@@ -21,7 +21,7 @@ class TestAgentFactory:
         assert isinstance(agent, BaseAgent)
     
     def test_create_qwen_agent(self):
-        """Test creating Qwen Code agent"""
+        """Test creating Qwen Code agent (now AutonomousAgent)"""
         config = {
             "model": "qwen-max",
             "enable_web_search": True,
@@ -32,9 +32,9 @@ class TestAgentFactory:
         
         agent = AgentFactory.create_agent("qwen_code", config)
         
-        assert isinstance(agent, QwenCodeAgent)
+        assert isinstance(agent, AutonomousAgent)
+        assert isinstance(agent, QwenCodeAgent)  # QwenCodeAgent is alias
         assert isinstance(agent, BaseAgent)
-        assert agent.model == "qwen-max"
     
     def test_create_unknown_agent(self):
         """Test creating unknown agent type"""
@@ -91,14 +91,16 @@ class TestAgentFactory:
         mock_settings.AGENT_ENABLE_GIT = True
         mock_settings.AGENT_ENABLE_GITHUB = False
         mock_settings.AGENT_ENABLE_SHELL = False
+        mock_settings.AGENT_ENABLE_FILE_MANAGEMENT = True
+        mock_settings.AGENT_ENABLE_FOLDER_MANAGEMENT = True
         mock_settings.AGENT_QWEN_CLI_PATH = "qwen"
         mock_settings.AGENT_TIMEOUT = 300
+        mock_settings.KB_PATH = "./knowledge_base"
         
         agent = AgentFactory.from_settings(mock_settings)
         
-        assert isinstance(agent, QwenCodeAgent)
-        assert agent.api_key == "test-key"
-        assert agent.model == "qwen-plus"
+        assert isinstance(agent, AutonomousAgent)
+        assert isinstance(agent, QwenCodeAgent)  # QwenCodeAgent is alias
         assert agent.instruction == "Custom instruction"
         assert not agent.enable_web_search
         assert agent.enable_git
@@ -109,15 +111,16 @@ class TestAgentFactory:
         """Test that all agent types are registered"""
         assert "stub" in AgentFactory.AGENT_TYPES
         assert "qwen_code" in AgentFactory.AGENT_TYPES
+        assert "autonomous" in AgentFactory.AGENT_TYPES
         assert AgentFactory.AGENT_TYPES["stub"] == StubAgent
-        assert AgentFactory.AGENT_TYPES["qwen_code"] == QwenCodeAgent
+        assert AgentFactory.AGENT_TYPES["qwen_code"] == AutonomousAgent
+        assert AgentFactory.AGENT_TYPES["autonomous"] == AutonomousAgent
     
     def test_qwen_agent_default_config(self):
         """Test Qwen agent with default configuration"""
         config = {}
         agent = AgentFactory.create_agent("qwen_code", config)
         
-        assert agent.model == "qwen-max"  # Default model
         assert agent.enable_web_search  # Default True
         assert agent.enable_git  # Default True
         assert agent.enable_github  # Default True
@@ -126,12 +129,10 @@ class TestAgentFactory:
     def test_qwen_agent_partial_config(self):
         """Test Qwen agent with partial configuration"""
         config = {
-            "model": "qwen-turbo",
             "enable_shell": True
         }
         agent = AgentFactory.create_agent("qwen_code", config)
         
-        assert agent.model == "qwen-turbo"
         assert agent.enable_shell
         # Other settings should use defaults
         assert agent.enable_web_search

@@ -12,7 +12,8 @@ import asyncio
 import os
 from pathlib import Path
 
-from src.agents.openai_agent import OpenAIAgent
+from src.agents import AutonomousAgent
+from src.agents.llm_connectors import OpenAIConnector
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -109,11 +110,16 @@ async def example_basic():
     print("ПРИМЕР 1: Базовое использование")
     print("="*80 + "\n")
     
-    # Создать агента
-    agent = OpenAIAgent(
+    # Создать LLM коннектор
+    llm_connector = OpenAIConnector(
         api_key=os.getenv("OPENAI_API_KEY", "test-key"),
         base_url=os.getenv("OPENAI_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
-        model="qwen-max",
+        model="qwen-max"
+    )
+    
+    # Создать агента
+    agent = AutonomousAgent(
+        llm_connector=llm_connector,
         max_iterations=5
     )
     
@@ -183,10 +189,15 @@ async def example_with_custom_instruction():
 Работай систематично и автономно.
 """
     
-    agent = OpenAIAgent(
+    # Создать LLM коннектор
+    llm_connector = OpenAIConnector(
         api_key=os.getenv("OPENAI_API_KEY", "test-key"),
         base_url=os.getenv("OPENAI_BASE_URL"),
-        model="qwen-max",
+        model="qwen-max"
+    )
+    
+    agent = AutonomousAgent(
+        llm_connector=llm_connector,
         instruction=custom_instruction,
         max_iterations=8
     )
@@ -243,10 +254,15 @@ async def example_error_handling():
         """Тулз который всегда падает"""
         raise Exception("This tool always fails!")
     
-    agent = OpenAIAgent(
+    # Создать LLM коннектор
+    llm_connector = OpenAIConnector(
         api_key=os.getenv("OPENAI_API_KEY", "test-key"),
         base_url=os.getenv("OPENAI_BASE_URL"),
-        model="qwen-max",
+        model="qwen-max"
+    )
+    
+    agent = AutonomousAgent(
+        llm_connector=llm_connector,
         max_iterations=3
     )
     
