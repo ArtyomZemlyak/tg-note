@@ -52,7 +52,8 @@ class QwenCodeCLIAgent(BaseAgent):
         enable_web_search: bool = True,
         enable_git: bool = True,
         enable_github: bool = True,
-        timeout: int = 300  # 5 minutes default timeout
+        timeout: int = 300,  # 5 minutes default timeout
+        kb_root_path: Optional[str] = None  # Added for tracking
     ):
         """
         Initialize Qwen Code CLI Agent
@@ -66,12 +67,20 @@ class QwenCodeCLIAgent(BaseAgent):
             enable_git: Enable git command tool
             enable_github: Enable GitHub API tool
             timeout: Timeout in seconds for CLI commands
+            kb_root_path: KB root path for tracking created files
         """
         super().__init__(config)
         
         self.instruction = instruction or self.DEFAULT_INSTRUCTION
         self.qwen_cli_path = qwen_cli_path
-        self.working_directory = working_directory or os.getcwd()
+        
+        # KB root path - CLI will work in this directory
+        self.kb_root_path = Path(kb_root_path) if kb_root_path else Path("./knowledge_base")
+        self.kb_root_path = self.kb_root_path.resolve()
+        
+        # Working directory = KB root (so CLI creates files directly there)
+        self.working_directory = str(self.kb_root_path)
+        
         self.timeout = timeout
         
         # Tool settings
@@ -79,11 +88,14 @@ class QwenCodeCLIAgent(BaseAgent):
         self.enable_git = enable_git
         self.enable_github = enable_github
         
+        # Track files before CLI execution
+        self.files_before_execution = set()
+        
         # Check if qwen CLI is available
         self._check_cli_available()
         
         logger.info(f"QwenCodeCLIAgent initialized")
-        logger.info(f"Working directory: {self.working_directory}")
+        logger.info(f"Working directory (KB root): {self.working_directory}")
         logger.info(f"CLI path: {self.qwen_cli_path}")
     
     def _check_cli_available(self) -> None:
@@ -151,6 +163,10 @@ class QwenCodeCLIAgent(BaseAgent):
         logger.debug(f"[QwenCodeCLIAgent] Content preview: {content.get('text', '')[:100]}...")
         
         try:
+            # Step 0: Snapshot files before execution
+            logger.debug("[QwenCodeCLIAgent] STEP 0: Taking snapshot of KB files")
+            self._snapshot_kb_files()
+            
             # Step 1: Prepare prompt for qwen-code
             logger.debug("[QwenCodeCLIAgent] STEP 1: Preparing prompt for qwen-code")
             prompt = self._prepare_prompt(content)
@@ -190,6 +206,10 @@ class QwenCodeCLIAgent(BaseAgent):
             logger.info(f"[QwenCodeCLIAgent] Created KB structure: {kb_structure.to_dict()}")
             logger.debug(f"[QwenCodeCLIAgent] KB structure path: {kb_structure.get_relative_path()}")
             
+            # Step 6: Check for files created by CLI
+            logger.debug("[QwenCodeCLIAgent] STEP 6: Detecting files created by CLI")
+            created_files = self._detect_created_files()
+            
             # Generate metadata
             metadata = {
                 "processed_at": datetime.now().isoformat(),
@@ -201,19 +221,29 @@ class QwenCodeCLIAgent(BaseAgent):
                     "git": self.enable_git,
                     "github": self.enable_github
                 },
-                "todo_plan": parsed_result.get("todo_plan", [])
+                "todo_plan": parsed_result.get("todo_plan", []),
+                "files_created_by_cli": len(created_files)
             }
             
-            result = {
-                "markdown": markdown_content,
-                "metadata": metadata,
-                "title": title,
-                "kb_structure": kb_structure
-            }
+            # If CLI created files, return them
+            if created_files:
+                logger.info(f"[QwenCodeCLIAgent] CLI created {len(created_files)} files")
+                result = {
+                    "files": created_files,
+                    "metadata": metadata
+                }
+            else:
+                # No files created - use traditional single file approach
+                logger.info(f"[QwenCodeCLIAgent] No files created by CLI, using traditional approach")
+                result = {
+                    "markdown": markdown_content,
+                    "metadata": metadata,
+                    "title": title,
+                    "kb_structure": kb_structure
+                }
             
             logger.info(f"[QwenCodeCLIAgent] Successfully processed content: title='{title}', category='{category}'")
             logger.debug(f"[QwenCodeCLIAgent] Final result keys: {list(result.keys())}")
-            logger.debug(f"[QwenCodeCLIAgent] Markdown preview: {markdown_content[:200]}...")
             return result
         
         except ValueError as ve:
@@ -568,6 +598,119 @@ class QwenCodeCLIAgent(BaseAgent):
             return result.returncode == 0
         except (FileNotFoundError, subprocess.TimeoutExpired):
             return False
+    
+    def _snapshot_kb_files(self) -> None:
+        """Take snapshot of files in KB before CLI execution"""
+        self.files_before_execution = set()
+        
+        try:
+            if not self.kb_root_path.exists():
+                logger.debug(f"KB root path does not exist: {self.kb_root_path}")
+                return
+            
+            # Walk through all .md files in KB
+            for md_file in self.kb_root_path.rglob("*.md"):
+                if md_file.is_file():
+                    relative_path = md_file.relative_to(self.kb_root_path)
+                    self.files_before_execution.add(str(relative_path))
+            
+            logger.debug(f"Snapshot: {len(self.files_before_execution)} files before execution")
+            
+        except Exception as e:
+            logger.error(f"Error taking KB snapshot: {e}")
+            self.files_before_execution = set()
+    
+    def _detect_created_files(self) -> List[Dict]:
+        """
+        Detect files created by CLI
+        
+        Returns:
+            List of file dicts with markdown, title, kb_structure
+        """
+        created_files = []
+        
+        try:
+            if not self.kb_root_path.exists():
+                logger.warning(f"KB root path does not exist: {self.kb_root_path}")
+                return created_files
+            
+            # Find all current .md files
+            current_files = set()
+            for md_file in self.kb_root_path.rglob("*.md"):
+                if md_file.is_file():
+                    relative_path = md_file.relative_to(self.kb_root_path)
+                    current_files.add(str(relative_path))
+            
+            # Find new files (created by CLI)
+            new_files = current_files - self.files_before_execution
+            
+            logger.info(f"Detected {len(new_files)} new files created by CLI")
+            
+            # Parse each new file
+            for relative_path_str in new_files:
+                try:
+                    file_path = self.kb_root_path / relative_path_str
+                    
+                    # Read content
+                    content = file_path.read_text(encoding="utf-8")
+                    
+                    # Extract title (first H1 or filename)
+                    title = self._extract_title_from_markdown(content, relative_path_str)
+                    
+                    # Infer KB structure from path
+                    kb_structure = self._infer_kb_structure_from_path(relative_path_str)
+                    
+                    created_files.append({
+                        "path": relative_path_str,
+                        "markdown": content,
+                        "title": title,
+                        "kb_structure": kb_structure,
+                        "metadata": {
+                            "created_by": "qwen_cli"
+                        }
+                    })
+                    
+                    logger.debug(f"Parsed created file: {relative_path_str} -> {title}")
+                    
+                except Exception as e:
+                    logger.error(f"Error parsing created file {relative_path_str}: {e}")
+                    continue
+            
+        except Exception as e:
+            logger.error(f"Error detecting created files: {e}")
+        
+        return created_files
+    
+    def _extract_title_from_markdown(self, content: str, fallback_path: str) -> str:
+        """Extract title from markdown content or use filename"""
+        lines = content.split("\n")
+        
+        # Look for first H1
+        for line in lines:
+            line = line.strip()
+            if line.startswith("# "):
+                return line[2:].strip()
+        
+        # Use filename as fallback
+        filename = Path(fallback_path).stem
+        return filename.replace("-", " ").replace("_", " ").title()
+    
+    def _infer_kb_structure_from_path(self, path: str) -> KBStructure:
+        """Infer KB structure from file path"""
+        parts = Path(path).parts
+        
+        # Remove filename
+        if len(parts) > 0 and parts[-1].endswith(".md"):
+            parts = parts[:-1]
+        
+        if len(parts) == 0:
+            return KBStructure(category="general")
+        elif len(parts) == 1:
+            return KBStructure(category=parts[0])
+        elif len(parts) >= 2:
+            return KBStructure(category=parts[0], subcategory=parts[1])
+        
+        return KBStructure(category="general")
     
     @staticmethod
     def get_installation_instructions() -> str:

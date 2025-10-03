@@ -7,7 +7,7 @@ import os
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 
 from src.agents.base_agent import KBStructure
 from config.kb_structure import (
@@ -136,3 +136,62 @@ class KnowledgeBaseManager:
         
         # Write updated index
         index_path.write_text(content, encoding="utf-8")
+    
+    def create_multiple_articles(
+        self,
+        files: List[Dict]
+    ) -> List[Path]:
+        """
+        Create multiple articles in the knowledge base
+        
+        Args:
+            files: List of file dictionaries, each containing:
+                - content/markdown: str - article content (markdown)
+                - title: str - article title
+                - kb_structure: KBStructure - KB structure object
+                - metadata: Optional[Dict] - additional metadata
+        
+        Returns:
+            List of paths to created files
+        
+        Raises:
+            ValueError: If required parameters are invalid
+            OSError: If file operations fail
+        """
+        created_files = []
+        errors = []
+        
+        for i, file_info in enumerate(files):
+            try:
+                # Support both 'markdown' and 'content' keys
+                content = file_info.get('markdown') or file_info.get('content')
+                title = file_info.get('title')
+                kb_structure = file_info.get('kb_structure')
+                metadata = file_info.get('metadata')
+                
+                if not content:
+                    raise ValueError(f"File {i+1}: content is required")
+                if not title:
+                    raise ValueError(f"File {i+1}: title is required")
+                if not kb_structure:
+                    raise ValueError(f"File {i+1}: kb_structure is required")
+                
+                # Create single article using existing method
+                file_path = self.create_article(content, title, kb_structure, metadata)
+                created_files.append(file_path)
+                
+            except Exception as e:
+                error_msg = f"Failed to create file {i+1} ('{file_info.get('title', 'unknown')}'): {e}"
+                errors.append(error_msg)
+                # Continue creating other files even if one fails
+        
+        if errors and not created_files:
+            # All files failed to create
+            raise RuntimeError("Failed to create all articles:\\n" + "\\n".join(errors))
+        elif errors:
+            # Some files failed, log warnings
+            from loguru import logger
+            for error in errors:
+                logger.warning(error)
+        
+        return created_files

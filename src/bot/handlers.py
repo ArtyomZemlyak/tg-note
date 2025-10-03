@@ -544,44 +544,80 @@ class BotHandlers:
                 message_id=processing_msg.message_id
             )
             
-            # Extract KB structure from processed content
-            kb_structure = processed_content.get('kb_structure')
-            title = processed_content.get('title')
-            markdown = processed_content.get('markdown')
-            metadata = processed_content.get('metadata')
+            # Check if agent returned multiple files or single file
+            files_to_create = processed_content.get('files', [])
             
-            # Validate required fields
-            if not kb_structure:
-                self.logger.error("Agent did not return kb_structure")
-                raise ValueError("Agent processing incomplete: missing kb_structure")
+            # Collect created files for reporting
+            created_files = []
             
-            if not title:
-                self.logger.warning("Agent did not return title, using default")
-                title = "Untitled Note"
-            
-            if not markdown:
-                self.logger.error("Agent did not return markdown content")
-                raise ValueError("Agent processing incomplete: missing markdown content")
-            
-            # Create article using KB structure from agent
-            try:
-                kb_file = kb_manager.create_article(
-                    content=markdown,
-                    title=title,
-                    kb_structure=kb_structure,
-                    metadata=metadata
-                )
-            except Exception as kb_error:
-                self.logger.error(f"Failed to create KB article: {kb_error}", exc_info=True)
-                await self.bot.edit_message_text(
-                    f"❌ Ошибка сохранения в базу знаний:\n{str(kb_error)}",
-                    chat_id=processing_msg.chat.id,
-                    message_id=processing_msg.message_id
-                )
-                return
-            
-            # Update index
-            kb_manager.update_index(kb_file, title, kb_structure)
+            if files_to_create:
+                # Multiple files mode
+                self.logger.info(f"Agent returned {len(files_to_create)} files to create")
+                
+                try:
+                    kb_files = kb_manager.create_multiple_articles(files_to_create)
+                    created_files = kb_files
+                    
+                    # Update index for each file
+                    for kb_file in kb_files:
+                        # Find corresponding file info to get title and kb_structure
+                        for file_info in files_to_create:
+                            file_title = file_info.get('title')
+                            file_kb_structure = file_info.get('kb_structure')
+                            # Match by checking if the file path contains the expected path
+                            if file_kb_structure and file_title:
+                                kb_manager.update_index(kb_file, file_title, file_kb_structure)
+                                break
+                    
+                except Exception as kb_error:
+                    self.logger.error(f"Failed to create KB articles: {kb_error}", exc_info=True)
+                    await self.bot.edit_message_text(
+                        f"❌ Ошибка сохранения в базу знаний:\n{str(kb_error)}",
+                        chat_id=processing_msg.chat.id,
+                        message_id=processing_msg.message_id
+                    )
+                    return
+            else:
+                # Single file mode (backward compatibility)
+                kb_structure = processed_content.get('kb_structure')
+                title = processed_content.get('title')
+                markdown = processed_content.get('markdown')
+                metadata = processed_content.get('metadata')
+                
+                # Validate required fields
+                if not kb_structure:
+                    self.logger.error("Agent did not return kb_structure")
+                    raise ValueError("Agent processing incomplete: missing kb_structure")
+                
+                if not title:
+                    self.logger.warning("Agent did not return title, using default")
+                    title = "Untitled Note"
+                
+                if not markdown:
+                    self.logger.error("Agent did not return markdown content")
+                    raise ValueError("Agent processing incomplete: missing markdown content")
+                
+                # Create article using KB structure from agent
+                try:
+                    kb_file = kb_manager.create_article(
+                        content=markdown,
+                        title=title,
+                        kb_structure=kb_structure,
+                        metadata=metadata
+                    )
+                    created_files = [kb_file]
+                    
+                    # Update index
+                    kb_manager.update_index(kb_file, title, kb_structure)
+                    
+                except Exception as kb_error:
+                    self.logger.error(f"Failed to create KB article: {kb_error}", exc_info=True)
+                    await self.bot.edit_message_text(
+                        f"❌ Ошибка сохранения в базу знаний:\n{str(kb_error)}",
+                        chat_id=processing_msg.chat.id,
+                        message_id=processing_msg.message_id
+                    )
+                    return
             
             # Git operations (use user-specific settings)
             kb_git_auto_push = self.settings_manager.get_setting(user_id, "KB_GIT_AUTO_PUSH")
@@ -589,9 +625,20 @@ class BotHandlers:
             kb_git_branch = self.settings_manager.get_setting(user_id, "KB_GIT_BRANCH")
             
             if kb_git_enabled and git_ops.enabled:
-                git_ops.add(str(kb_file))
+                # Add all created files to git
+                for kb_file in created_files:
+                    git_ops.add(str(kb_file))
                 git_ops.add(str(kb_path / "index.md"))
-                git_ops.commit(f"Add article: {title}")
+                
+                # Create commit message
+                if len(created_files) == 1:
+                    # Get title from single file mode or first file in multiple mode
+                    commit_title = processed_content.get('title', 'article')
+                    if not commit_title and files_to_create:
+                        commit_title = files_to_create[0].get('title', 'articles')
+                    git_ops.commit(f"Add article: {commit_title}")
+                else:
+                    git_ops.commit(f"Add {len(created_files)} articles")
                 
                 if kb_git_auto_push:
                     git_ops.push(kb_git_remote, kb_git_branch)
@@ -606,31 +653,59 @@ class BotHandlers:
                 chat_id = first_message.get('chat_id')
                 
                 if message_ids and chat_id:
+                    # Store all created files in tracker
+                    kb_files_str = ", ".join([str(f) for f in created_files])
                     self.tracker.add_processed(
                         content_hash=content_hash,
                         message_ids=message_ids,
                         chat_id=chat_id,
-                        kb_file=str(kb_file),
+                        kb_file=kb_files_str,
                         status="completed"
                     )
                 else:
                     self.logger.warning(f"Skipping tracker entry due to missing IDs: message_ids={message_ids}, chat_id={chat_id}")
             
-            # Success notification with category info
-            category_str = kb_structure.category
-            if kb_structure.subcategory:
-                category_str += f"/{kb_structure.subcategory}"
-            
-            await self.bot.edit_message_text(
-                f"✅ Сообщение успешно обработано и сохранено!\n\n"
-                f"📁 Файл: `{kb_file.name}`\n"
-                f"📂 Категория: `{category_str}`\n"
-                f"🏷 Теги: {', '.join(kb_structure.tags) if kb_structure.tags else 'нет'}\n"
-                f"🔗 Путь: `{kb_file.relative_to(kb_path)}`",
-                chat_id=processing_msg.chat.id,
-                message_id=processing_msg.message_id,
-                parse_mode='Markdown'
-            )
+            # Success notification with info about all created files
+            if len(created_files) == 1:
+                # Single file - show detailed info
+                kb_file = created_files[0]
+                kb_structure = processed_content.get('kb_structure')
+                if not kb_structure and files_to_create:
+                    kb_structure = files_to_create[0].get('kb_structure')
+                
+                category_str = kb_structure.category if kb_structure else 'unknown'
+                if kb_structure and kb_structure.subcategory:
+                    category_str += f"/{kb_structure.subcategory}"
+                
+                tags_str = ', '.join(kb_structure.tags) if kb_structure and kb_structure.tags else 'нет'
+                
+                await self.bot.edit_message_text(
+                    f"✅ Сообщение успешно обработано и сохранено!\n\n"
+                    f"📁 Файл: `{kb_file.name}`\n"
+                    f"📂 Категория: `{category_str}`\n"
+                    f"🏷 Теги: {tags_str}\n"
+                    f"🔗 Путь: `{kb_file.relative_to(kb_path)}`",
+                    chat_id=processing_msg.chat.id,
+                    message_id=processing_msg.message_id,
+                    parse_mode='Markdown'
+                )
+            else:
+                # Multiple files - show summary
+                files_info = []
+                for kb_file in created_files:
+                    rel_path = kb_file.relative_to(kb_path)
+                    files_info.append(f"  • `{rel_path}`")
+                
+                files_list = "\n".join(files_info)
+                
+                await self.bot.edit_message_text(
+                    f"✅ Сообщение успешно обработано и сохранено!\n\n"
+                    f"📁 Создано файлов: {len(created_files)}\n\n"
+                    f"{files_list}",
+                    chat_id=processing_msg.chat.id,
+                    message_id=processing_msg.message_id,
+                    parse_mode='Markdown'
+                )
             
         except Exception as e:
             self.logger.error(f"Error processing message group: {e}", exc_info=True)

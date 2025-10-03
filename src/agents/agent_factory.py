@@ -112,7 +112,8 @@ class AgentFactory:
             enable_web_search=config.get("enable_web_search", True),
             enable_git=config.get("enable_git", True),
             enable_github=config.get("enable_github", True),
-            timeout=config.get("timeout", 300)
+            timeout=config.get("timeout", 300),
+            kb_root_path=config.get("kb_path", "./knowledge_base")
         )
     
     @classmethod
@@ -126,13 +127,16 @@ class AgentFactory:
         Returns:
             OpenAIAgent instance
         """
+        from pathlib import Path
+        
         return OpenAIAgent(
             config=config,
             instruction=config.get("instruction"),
             api_key=config.get("openai_api_key") or config.get("api_key"),
             base_url=config.get("openai_base_url"),
             model=config.get("model", "qwen-max"),
-            max_iterations=config.get("max_iterations", 10)
+            max_iterations=config.get("max_iterations", 10),
+            kb_root_path=Path(config.get("kb_path", "./knowledge_base"))
         )
     
     @classmethod

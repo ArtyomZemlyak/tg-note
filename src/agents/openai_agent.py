@@ -4,6 +4,7 @@ OpenAI Agent
 """
 
 import json
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from loguru import logger
@@ -21,6 +22,8 @@ from .autonomous_agent import (
     AgentDecision,
     AutonomousAgent
 )
+from .base_agent import KBStructure
+from config.agent_prompts import MAX_TITLE_LENGTH
 
 
 class OpenAIAgent(AutonomousAgent):
@@ -40,7 +43,8 @@ class OpenAIAgent(AutonomousAgent):
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
         model: str = "qwen-max",
-        max_iterations: int = 10
+        max_iterations: int = 10,
+        kb_root_path: Optional = None
     ):
         """
         Initialize OpenAI Agent
@@ -52,6 +56,7 @@ class OpenAIAgent(AutonomousAgent):
             base_url: API base URL (for compatible APIs)
             model: Model name
             max_iterations: Maximum iterations in agent loop
+            kb_root_path: Knowledge base root path for tracking changes
         """
         if not OPENAI_AVAILABLE:
             raise ImportError(
@@ -59,7 +64,8 @@ class OpenAIAgent(AutonomousAgent):
                 "Install with: pip install openai"
             )
         
-        super().__init__(config, instruction, max_iterations)
+        from pathlib import Path
+        super().__init__(config, instruction, max_iterations, kb_root_path=kb_root_path or Path("./knowledge_base"))
         
         self.api_key = api_key
         self.base_url = base_url
@@ -70,6 +76,11 @@ class OpenAIAgent(AutonomousAgent):
             api_key=self.api_key,
             base_url=self.base_url
         )
+        
+        # Register file/folder management tools
+        # These tools are inherited from QwenCodeAgent
+        # We need to register tools from parent or import them
+        self._register_kb_tools()
         
         logger.info(
             f"OpenAIAgent initialized with model={model}, "
@@ -367,3 +378,25 @@ class OpenAIAgent(AutonomousAgent):
         # Добавляем plan_todo если еще не добавлен
         if "plan_todo" not in self.tools:
             self.tools["plan_todo"] = self._handle_plan_todo
+    
+    def _register_kb_tools(self) -> None:
+        """Register KB management tools (file_create, folder_create, etc.)"""
+        # Import tools from QwenCodeAgent to reuse implementation
+        from .qwen_code_agent import QwenCodeAgent
+        
+        # Create temporary instance to get tool methods
+        # This is a workaround - ideally tools should be in a separate module
+        temp_agent = QwenCodeAgent(
+            config=self.config,
+            kb_root_path=self.kb_root_path,
+            enable_file_management=True,
+            enable_folder_management=True
+        )
+        
+        # Register file management tools
+        self.register_tool("file_create", temp_agent._tool_file_create)
+        self.register_tool("file_edit", temp_agent._tool_file_edit)
+        self.register_tool("folder_create", temp_agent._tool_folder_create)
+        self.register_tool("analyze_content", temp_agent._tool_analyze_content)
+        
+        logger.info("Registered KB management tools for OpenAIAgent")
