@@ -20,7 +20,7 @@ class SettingInfo(BaseModel):
     name: str
     field_name: str
     description: str
-    type: Type
+    type: Any  # Changed from Type to Any to accept generic aliases like List[int], Union, etc.
     default: Any
     is_secret: bool = False
     is_readonly: bool = False
