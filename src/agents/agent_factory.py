@@ -89,7 +89,8 @@ class AgentFactory:
             enable_shell=config.get("enable_shell", False),
             enable_file_management=config.get("enable_file_management", True),
             enable_folder_management=config.get("enable_folder_management", True),
-            kb_root_path=Path(config.get("kb_path", "./knowledge_base"))
+            kb_root_path=Path(config.get("kb_path", "./knowledge_base")),
+            max_iterations=config.get("max_iterations", 10)
         )
     
     @classmethod
