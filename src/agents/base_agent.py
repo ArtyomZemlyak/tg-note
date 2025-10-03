@@ -79,10 +79,16 @@ class BaseAgent(ABC):
         
         Returns:
             Processed content dictionary with:
-            - markdown: str - formatted markdown content
-            - title: str - article title
+            - markdown: str - formatted markdown content (for single file mode)
+            - title: str - article title (for single file mode)
             - metadata: Dict - article metadata
-            - kb_structure: KBStructure - where to save the article
+            - kb_structure: KBStructure - where to save the article (for single file mode)
+            - files: List[Dict] - list of files to create (for multiple files mode)
+                Each file dict contains:
+                - markdown: str - file content
+                - title: str - file title
+                - kb_structure: KBStructure - where to save this file
+                - metadata: Dict - optional file-specific metadata
         """
         pass
     
