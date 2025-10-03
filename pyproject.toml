@@ -1,0 +1,109 @@
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[project]
+name = "tg-note"
+version = "0.1.0"
+description = "Intelligent Knowledge Base Builder - Telegram bot that automatically transforms your messages, reposts, and articles into a structured knowledge base using AI agents"
+readme = "README.md"
+license = "MIT"
+authors = [
+    { name = "Artem Zemliak", email = "artyom.zemlyak@gmail.com" }
+]
+keywords = ["telegram", "bot", "knowledge-base", "ai", "qwen", "note-taking"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+requires-python = ">=3.11"
+dependencies = [
+    # Core dependencies
+    "pydantic==2.10.4",
+    "pydantic-settings==2.7.0",
+    "PyYAML==6.0.1",
+    # Telegram Bot
+    "pyTelegramBotAPI==4.14.0",
+    # Git operations
+    "GitPython==3.1.40",
+    # File locking for concurrent access
+    "filelock==3.13.1",
+    # Agent system
+    "qwen-agent==0.0.31",
+    # Utilities
+    "aiohttp==3.9.1",
+    "requests==2.31.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==7.4.3",
+    "pytest-asyncio==0.21.1",
+    "pytest-cov==4.1.0",
+    "black==23.12.1",
+    "flake8==6.1.0",
+    "mypy==1.7.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/ArtyomZemlyak/tg-note"
+Repository = "https://github.com/ArtyomZemlyak/tg-note"
+
+[project.scripts]
+tg-note = "main:main"
+
+[tool.poetry]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --strict-markers"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["src", "config"]
+omit = ["*/tests/*", "*/test_*.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]

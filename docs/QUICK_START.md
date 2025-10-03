@@ -14,17 +14,19 @@ git clone https://github.com/ArtyomZemlyak/tg-note.git
 cd tg-note
 ```
 
-### 2. Создайте виртуальное окружение
+### 2. Установите Poetry
 ```bash
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# или: venv\Scripts\activate  # Windows
+curl -sSL https://install.python-poetry.org | python3 -
+# или используя pipx:
+# pipx install poetry
 ```
 
 ### 3. Установите зависимости
 ```bash
-pip install -r requirements.txt
+poetry install
 ```
+
+Poetry автоматически создаст виртуальное окружение и установит все зависимости.
 
 ---
 
@@ -117,6 +119,9 @@ KB_PATH: /path/to/knowledge-base
 
 ### Запустить бота
 ```bash
+poetry run python main.py
+# или активируйте окружение Poetry:
+poetry shell
 python main.py
 ```
 
@@ -140,17 +145,17 @@ INFO - Press Ctrl+C to stop
 
 ### Запустить все тесты
 ```bash
-pytest
+poetry run pytest
 ```
 
 ### Тесты с покрытием
 ```bash
-pytest --cov=src --cov-report=html
+poetry run pytest --cov=src --cov-report=html
 ```
 
 ### Запустить конкретный тест
 ```bash
-pytest tests/test_tracker.py -v
+poetry run pytest tests/test_tracker.py -v
 ```
 
 ---
@@ -206,19 +211,19 @@ tg-note/
 
 ```bash
 # Проверить конфигурацию
-python -c "from config import settings; print(settings)"
+poetry run python -c "from config import settings; print(settings)"
 
 # Посмотреть статистику обработки
-python -c "from src.tracker.processing_tracker import ProcessingTracker; t = ProcessingTracker('./data/processed.json'); print(t.get_stats())"
+poetry run python -c "from src.tracker.processing_tracker import ProcessingTracker; t = ProcessingTracker('./data/processed.json'); print(t.get_stats())"
 
 # Запустить конкретный модуль
-python -m pytest tests/test_tracker.py -v
+poetry run pytest tests/test_tracker.py -v
 
 # Форматировать код
-black src/ tests/
+poetry run black src/ tests/
 
 # Проверить типы
-mypy src/
+poetry run mypy src/
 ```
 
 ---
@@ -232,10 +237,10 @@ mypy src/
 → Проверьте `KB_PATH` в `.env`, путь должен быть git репозиторием
 
 ### Ошибка: "ModuleNotFoundError"
-→ Активируйте виртуальное окружение: `source venv/bin/activate`
+→ Активируйте виртуальное окружение Poetry: `poetry shell`
 
 ### Тесты не запускаются
-→ Установите dev зависимости: `pip install -r requirements.txt`
+→ Установите зависимости: `poetry install`
 
 ---
 

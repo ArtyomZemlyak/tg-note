@@ -71,6 +71,7 @@ Perfect for:
 ### Prerequisites
 
 - **Python 3.11+**
+- **Poetry** (Python dependency manager)
 - **Git**
 - **Telegram Account**
 - **Node.js 20+** (optional, for qwen_code_cli agent)
@@ -84,19 +85,21 @@ git clone https://github.com/ArtyomZemlyak/tg-note.git
 cd tg-note
 ```
 
-2. **Create virtual environment**
+2. **Install Poetry** (if not already installed)
 
 ```bash
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# or: venv\Scripts\activate  # Windows
+curl -sSL https://install.python-poetry.org | python3 -
+# or using pipx:
+# pipx install poetry
 ```
 
 3. **Install dependencies**
 
 ```bash
-pip install -r requirements.txt
+poetry install
 ```
+
+This will automatically create a virtual environment and install all dependencies.
 
 ### Configuration
 
@@ -168,6 +171,9 @@ AGENT_TYPE: "qwen_code_cli"
 1. **Start the bot**
 
 ```bash
+poetry run python main.py
+# or activate the virtual environment first:
+poetry shell
 python main.py
 ```
 
@@ -508,44 +514,45 @@ ALLOWED_USER_IDS: ""  # Comma-separated user IDs (empty = all allowed)
 
 ```bash
 # Run all tests
-pytest
+poetry run pytest
 
 # With coverage report
-pytest --cov=src --cov-report=html
+poetry run pytest --cov=src --cov-report=html
 
 # Specific test file
-pytest tests/test_tracker.py -v
+poetry run pytest tests/test_tracker.py -v
 
-# Watch mode
-pytest-watch
+# Or activate shell first:
+poetry shell
+pytest
 ```
 
 ### Code Quality
 
 ```bash
 # Format code
-black src/ tests/
+poetry run black src/ tests/
 
 # Lint
-flake8 src/ tests/
+poetry run flake8 src/ tests/
 
 # Type checking
-mypy src/
+poetry run mypy src/
 ```
 
 ### Project Commands
 
 ```bash
 # Check configuration
-python -c "from config import settings; print(settings)"
+poetry run python -c "from config import settings; print(settings)"
 
 # View processing stats
-python -c "from src.tracker.processing_tracker import ProcessingTracker; \
+poetry run python -c "from src.tracker.processing_tracker import ProcessingTracker; \
            t = ProcessingTracker('./data/processed.json'); \
            print(t.get_stats())"
 
 # Verify structure
-python verify_structure.py
+poetry run python verify_structure.py
 ```
 
 ---
@@ -578,8 +585,7 @@ After=network.target
 Type=simple
 User=youruser
 WorkingDirectory=/path/to/tg-note
-Environment="PATH=/path/to/tg-note/venv/bin"
-ExecStart=/path/to/tg-note/venv/bin/python main.py
+ExecStart=/usr/local/bin/poetry run python main.py
 Restart=always
 
 [Install]
@@ -645,17 +651,17 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ### Development Setup
 
 ```bash
-# Install development dependencies
-pip install -r requirements.txt
+# Install all dependencies (including dev)
+poetry install
 
-# Install pre-commit hooks
-pre-commit install
+# Activate virtual environment
+poetry shell
 
 # Run tests before committing
-pytest
+poetry run pytest
 
 # Format code
-black src/ tests/
+poetry run black src/ tests/
 ```
 
 ---
