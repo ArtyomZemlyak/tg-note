@@ -10,6 +10,7 @@ from .base_agent import BaseAgent
 from .stub_agent import StubAgent
 from .qwen_code_agent import QwenCodeAgent
 from .qwen_code_cli_agent import QwenCodeCLIAgent
+from .openai_agent import OpenAIAgent
 
 
 
@@ -21,6 +22,7 @@ class AgentFactory:
         "stub": StubAgent,
         "qwen_code": QwenCodeAgent,
         "qwen_code_cli": QwenCodeCLIAgent,
+        "openai": OpenAIAgent,
     }
     
     @classmethod
@@ -58,6 +60,8 @@ class AgentFactory:
             return cls._create_qwen_agent(config)
         elif agent_type == "qwen_code_cli":
             return cls._create_qwen_cli_agent(config)
+        elif agent_type == "openai":
+            return cls._create_openai_agent(config)
         else:
             return agent_class(config=config)
     
@@ -108,6 +112,26 @@ class AgentFactory:
             enable_git=config.get("enable_git", True),
             enable_github=config.get("enable_github", True),
             timeout=config.get("timeout", 300)
+        )
+    
+    @classmethod
+    def _create_openai_agent(cls, config: Dict) -> OpenAIAgent:
+        """
+        Create OpenAI Agent with full configuration
+        
+        Args:
+            config: Configuration dictionary
+        
+        Returns:
+            OpenAIAgent instance
+        """
+        return OpenAIAgent(
+            config=config,
+            instruction=config.get("instruction"),
+            api_key=config.get("openai_api_key") or config.get("api_key"),
+            base_url=config.get("openai_base_url"),
+            model=config.get("model", "qwen-max"),
+            max_iterations=config.get("max_iterations", 10)
         )
     
     @classmethod
