@@ -93,13 +93,24 @@ class QwenCodeCLIAgent(BaseAgent):
         Raises:
             RuntimeError: If qwen CLI is not found or not working
         """
+        logger.debug(f"[QwenCodeCLIAgent._check_cli_available] Checking qwen CLI availability...")
+        logger.debug(f"[QwenCodeCLIAgent._check_cli_available] CLI path: {self.qwen_cli_path}")
+        
         try:
+            cmd = [self.qwen_cli_path, "--version"]
+            logger.debug(f"[QwenCodeCLIAgent._check_cli_available] Running command: {' '.join(cmd)}")
+            
             result = subprocess.run(
-                [self.qwen_cli_path, "--version"],
+                cmd,
                 capture_output=True,
                 text=True,
                 timeout=10
             )
+            
+            logger.debug(f"[QwenCodeCLIAgent._check_cli_available] Return code: {result.returncode}")
+            logger.debug(f"[QwenCodeCLIAgent._check_cli_available] STDOUT: {result.stdout.strip()}")
+            logger.debug(f"[QwenCodeCLIAgent._check_cli_available] STDERR: {result.stderr.strip()}")
+            
             if result.returncode == 0:
                 logger.info(f"Qwen CLI found: {result.stdout.strip()}")
             else:
@@ -267,6 +278,8 @@ class QwenCodeCLIAgent(BaseAgent):
         Returns:
             CLI output as string
         """
+        import time
+        
         logger.info("[QwenCodeCLIAgent._execute_qwen_cli] Executing qwen-code CLI...")
         logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] Working directory: {self.working_directory}")
         logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] Timeout: {self.timeout}s")
@@ -281,20 +294,50 @@ class QwenCodeCLIAgent(BaseAgent):
             tmp_file.write(prompt)
             tmp_file_path = tmp_file.name
         
+        logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] Temp file created: {tmp_file_path}")
+        
         try:
             # Prepare environment
             env = os.environ.copy()
+            
+            # Log relevant environment variables (without sensitive data)
+            logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] Environment variables:")
+            for key in ['OPENAI_API_KEY', 'OPENAI_BASE_URL', 'PATH']:
+                if key in env:
+                    value = env[key]
+                    if 'KEY' in key or 'TOKEN' in key:
+                        # Mask sensitive values
+                        value = value[:8] + '...' if len(value) > 8 else '***'
+                    logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli]   {key}={value}")
             
             # Build command
             # Use non-interactive mode and pass prompt via stdin
             cmd = [self.qwen_cli_path]
             
+            # Log command details
+            logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] === CLI EXECUTION TRACE START ===")
+            logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] Command: {' '.join(cmd)}")
+            logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] Working dir: {self.working_directory}")
+            
             # Read prompt from file
             with open(tmp_file_path, 'r', encoding='utf-8') as f:
                 prompt_text = f.read()
             
+            # Log prompt details (full in DEBUG mode)
+            logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] === STDIN (PROMPT) ===")
+            logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] Prompt length: {len(prompt_text)} characters")
+            logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] Prompt preview (first 500 chars):\n{prompt_text[:500]}")
+            if len(prompt_text) > 500:
+                logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] Prompt preview (last 200 chars):\n{prompt_text[-200:]}")
+            logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] === FULL PROMPT ===")
+            logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli]\n{prompt_text}")
+            logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] === END FULL PROMPT ===")
+            
             # Execute qwen CLI in non-interactive mode
             # We'll use subprocess with input to send the prompt
+            start_time = time.time()
+            logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] Starting subprocess at {start_time}")
+            
             process = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdin=asyncio.subprocess.PIPE,
@@ -304,17 +347,46 @@ class QwenCodeCLIAgent(BaseAgent):
                 env=env
             )
             
+            logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] Process created with PID: {process.pid}")
+            
             try:
                 # Send prompt and get response
+                logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] Sending prompt to stdin...")
                 stdout, stderr = await asyncio.wait_for(
                     process.communicate(input=prompt_text.encode('utf-8')),
                     timeout=self.timeout
                 )
                 
-                logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] Process completed with return code: {process.returncode}")
+                execution_time = time.time() - start_time
+                logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] Process completed in {execution_time:.2f}s")
+                logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] Process return code: {process.returncode}")
                 
+                # Log stderr output
+                stderr_text = stderr.decode().strip()
+                if stderr_text:
+                    logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] === STDERR OUTPUT ===")
+                    logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] STDERR length: {len(stderr_text)} characters")
+                    logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli]\n{stderr_text}")
+                    logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] === END STDERR OUTPUT ===")
+                else:
+                    logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] STDERR is empty")
+                
+                # Decode stdout
+                result = stdout.decode('utf-8').strip()
+                
+                # Log stdout output
+                logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] === STDOUT OUTPUT ===")
+                logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] STDOUT length: {len(result)} characters")
+                logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] STDOUT preview (first 500 chars):\n{result[:500]}")
+                if len(result) > 500:
+                    logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] STDOUT preview (last 200 chars):\n{result[-200:]}")
+                logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] === FULL STDOUT ===")
+                logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli]\n{result}")
+                logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] === END FULL STDOUT ===")
+                
+                # Check for errors
                 if process.returncode != 0:
-                    error_msg = stderr.decode().strip()
+                    error_msg = stderr_text
                     logger.warning(f"[QwenCodeCLIAgent._execute_qwen_cli] Qwen CLI returned non-zero exit code {process.returncode}")
                     logger.warning(f"[QwenCodeCLIAgent._execute_qwen_cli] Qwen CLI stderr: {error_msg}")
                     
@@ -322,9 +394,6 @@ class QwenCodeCLIAgent(BaseAgent):
                     if error_msg and not result:
                         logger.error(f"Qwen CLI failed with: {error_msg}")
                         raise RuntimeError(f"Qwen CLI execution failed: {error_msg}")
-                
-                result = stdout.decode('utf-8').strip()
-                logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] Raw result preview: {result[:200]}...")
                 
                 if not result:
                     logger.warning("[QwenCodeCLIAgent._execute_qwen_cli] Empty result from qwen CLI, using fallback processing")
@@ -338,18 +407,22 @@ class QwenCodeCLIAgent(BaseAgent):
                             f"CLI error: empty result, Fallback error: {fallback_error}"
                         )
                 
+                logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] === CLI EXECUTION TRACE END ===")
                 return result
             
             except asyncio.TimeoutError:
                 process.kill()
                 await process.wait()
-                logger.error(f"Qwen CLI timeout after {self.timeout} seconds")
+                execution_time = time.time() - start_time
+                logger.error(f"Qwen CLI timeout after {execution_time:.2f}s (limit: {self.timeout}s)")
+                logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] === CLI EXECUTION TRACE END (TIMEOUT) ===")
                 raise TimeoutError(f"Qwen CLI execution timeout after {self.timeout}s")
         
         finally:
             # Clean up temp file
             try:
                 os.unlink(tmp_file_path)
+                logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] Temp file deleted: {tmp_file_path}")
             except Exception as e:
                 logger.warning(f"Failed to delete temp file: {e}")
     

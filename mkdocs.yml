@@ -97,6 +97,7 @@ nav:
   - Agent System:
     - Overview: agents/overview.md
     - Qwen Code CLI: agents/qwen-code-cli.md
+    - Qwen CLI Debug Trace: agents/qwen-cli-debug-trace.md
     - Qwen Code Agent: agents/qwen-code.md
     - Autonomous Agent: agents/autonomous-agent.md
     - Stub Agent: agents/stub-agent.md
