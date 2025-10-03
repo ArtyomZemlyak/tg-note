@@ -214,9 +214,8 @@ Press `Ctrl+C` in the terminal
 | `/setkb <name\|url>` | Setup knowledge base | `/setkb my-notes` or `/setkb https://github.com/user/repo` |
 | `/kb` | Show current KB info | `/kb` |
 | `/status` | Display processing statistics | `/status` |
-| `/settings` | Open settings menu | Interactive menu with all categories |
+| `/settings` | Open interactive settings menu | Navigate through categories and settings |
 | `/viewsettings [category]` | View all or filtered settings | `/viewsettings knowledge_base` |
-| `/setsetting <name> <value>` | Change a setting | `/setsetting KB_GIT_ENABLED true` |
 | `/resetsetting <name>` | Reset to default | `/resetsetting AGENT_TIMEOUT` |
 | `/kbsettings` | KB settings quick access | View and modify KB configuration |
 | `/agentsettings` | Agent settings quick access | View and modify agent configuration |
@@ -230,15 +229,11 @@ Each user can customize bot behavior via Telegram commands:
 ```bash
 # Open interactive settings menu
 /settings
+# Navigate through categories → Select setting → Enter new value
 
 # View all settings or filter by category
 /viewsettings
 /viewsettings knowledge_base
-
-# Change specific settings
-/setsetting KB_GIT_ENABLED true
-/setsetting AGENT_TIMEOUT 600
-/setsetting MESSAGE_GROUP_TIMEOUT 60
 
 # Reset to global defaults
 /resetsetting KB_GIT_AUTO_PUSH
@@ -247,6 +242,14 @@ Each user can customize bot behavior via Telegram commands:
 /kbsettings       # Knowledge Base settings
 /agentsettings    # Agent configuration
 ```
+
+**How Settings Work:**
+1. Use `/settings` to open the interactive menu
+2. Choose a category (Knowledge Base, Agent, Processing, etc.)
+3. Click on any setting to view its details
+4. For boolean settings: Click Enable/Disable buttons
+5. For other settings: Send the new value as a text message
+6. Settings include descriptions, types, and allowed values
 
 **Features:**
 - ✅ **Interactive UI**: Inline keyboards with category navigation

@@ -4,7 +4,8 @@ Auto-generated command handlers for settings management
 """
 
 import logging
-from typing import Optional
+from pathlib import Path
+from typing import Dict, Optional
 from telebot.async_telebot import AsyncTeleBot
 from telebot.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 
@@ -21,18 +22,24 @@ class SettingsHandlers:
         self.bot = bot
         self.settings_manager = SettingsManager(settings)
         self.inspector = SettingsInspector(type(settings))
+        # Track users waiting for input: user_id -> (setting_name, category)
+        self.waiting_for_input: Dict[int, tuple[str, str]] = {}
     
     async def register_handlers_async(self):
         """Register all settings handlers"""
         # Main settings commands
         self.bot.message_handler(commands=['settings'])(self.handle_settings_menu)
         self.bot.message_handler(commands=['viewsettings'])(self.handle_view_settings)
-        self.bot.message_handler(commands=['setsetting'])(self.handle_set_setting)
         self.bot.message_handler(commands=['resetsetting'])(self.handle_reset_setting)
         
         # Category-specific commands
         self.bot.message_handler(commands=['kbsettings'])(self.handle_kb_settings)
         self.bot.message_handler(commands=['agentsettings'])(self.handle_agent_settings)
+        
+        # Text message handler for setting input
+        self.bot.message_handler(func=lambda m: m.from_user.id in self.waiting_for_input)(
+            self.handle_setting_input
+        )
         
         # Callback query handlers for inline keyboards
         self.bot.callback_query_handler(func=lambda call: call.data.startswith('settings:'))(
@@ -74,8 +81,7 @@ class SettingsHandlers:
             "Choose a category to view and modify settings:\n\n"
             "• Settings are stored per-user\n"
             "• You can override global defaults\n"
-            "• Use /viewsettings to see all settings\n"
-            "• Use /setsetting <name> <value> to change a setting\n"
+            "• Click on any setting to change its value\n"
             "• Use /resetsetting <name> to restore default"
         )
         
@@ -155,42 +161,6 @@ class SettingsHandlers:
                 parse_mode='Markdown'
             )
     
-    async def handle_set_setting(self, message: Message) -> None:
-        """Handle /setsetting command - set a specific setting"""
-        logger.info(f"Set setting requested by user {message.from_user.id}")
-        
-        # Parse command arguments
-        args = message.text.split(maxsplit=2)
-        
-        if len(args) < 3:
-            help_text = (
-                "⚙️ **Set Setting**\n\n"
-                "Usage: `/setsetting <setting_name> <value>`\n\n"
-                "Examples:\n"
-                "```\n"
-                "/setsetting KB_GIT_ENABLED true\n"
-                "/setsetting AGENT_TIMEOUT 600\n"
-                "/setsetting MESSAGE_GROUP_TIMEOUT 60\n"
-                "```\n\n"
-                "Use /viewsettings to see available settings"
-            )
-            await self.bot.reply_to(message, help_text, parse_mode='Markdown')
-            return
-        
-        setting_name = args[1].strip().upper()
-        value_str = args[2].strip()
-        
-        # Set the setting
-        success, msg = self.settings_manager.set_user_setting(
-            message.from_user.id,
-            setting_name,
-            value_str
-        )
-        
-        if success:
-            await self.bot.reply_to(message, f"✅ {msg}")
-        else:
-            await self.bot.reply_to(message, f"❌ {msg}")
     
     async def handle_reset_setting(self, message: Message) -> None:
         """Handle /resetsetting command - reset setting to default"""
@@ -345,10 +315,19 @@ class SettingsHandlers:
             
             action = parts[1]
             
-            if action == "category":
+            if action == "menu":
+                # Show main settings menu
+                await self._show_main_menu(call)
+            
+            elif action == "category":
                 # Show settings for category
                 category = parts[2]
                 await self._show_category_settings(call, category)
+            
+            elif action == "setting":
+                # Show individual setting with description
+                setting_name = parts[2]
+                await self._show_setting_detail(call, setting_name)
             
             elif action == "set":
                 # Set a setting value
@@ -368,13 +347,76 @@ class SettingsHandlers:
             logger.error(f"Error handling settings callback: {e}", exc_info=True)
             await self.bot.answer_callback_query(call.id, f"Error: {str(e)}")
     
+    async def _show_main_menu(self, call: CallbackQuery) -> None:
+        """Show main settings menu"""
+        categories = self.inspector.get_all_categories()
+        
+        # Create inline keyboard with categories
+        keyboard = InlineKeyboardMarkup()
+        keyboard.row_width = 2
+        
+        category_labels = {
+            "knowledge_base": "📚 Knowledge Base",
+            "agent": "🤖 Agent",
+            "processing": "⚙️ Processing",
+            "logging": "📝 Logging",
+            "security": "🔒 Security",
+            "credentials": "🔑 Credentials",
+            "telegram": "💬 Telegram",
+            "general": "🔧 General"
+        }
+        
+        for category in sorted(categories):
+            label = category_labels.get(category, category.title())
+            keyboard.add(
+                InlineKeyboardButton(
+                    label,
+                    callback_data=f"settings:category:{category}"
+                )
+            )
+        
+        menu_text = (
+            "⚙️ **Settings Menu**\n\n"
+            "Choose a category to view and modify settings:\n\n"
+            "• Settings are stored per-user\n"
+            "• You can override global defaults\n"
+            "• Click on any setting to change its value\n"
+            "• Use /resetsetting <name> to restore default"
+        )
+        
+        await self.bot.edit_message_text(
+            menu_text,
+            call.message.chat.id,
+            call.message.message_id,
+            reply_markup=keyboard,
+            parse_mode='Markdown'
+        )
+        
+        await self.bot.answer_callback_query(call.id)
+    
     async def _show_category_settings(self, call: CallbackQuery, category: str) -> None:
         """Show settings for a specific category"""
         user_id = call.from_user.id
         
         settings_dict = self.settings_manager.get_user_settings_summary(user_id, category=category)
         
-        lines = [f"⚙️ **{category.upper()} Settings**\n"]
+        category_labels = {
+            "knowledge_base": "📚 Knowledge Base",
+            "agent": "🤖 Agent",
+            "processing": "⚙️ Processing",
+            "logging": "📝 Logging",
+            "security": "🔒 Security",
+            "credentials": "🔑 Credentials",
+            "telegram": "💬 Telegram",
+            "general": "🔧 General"
+        }
+        
+        label = category_labels.get(category, category.title())
+        lines = [f"{label} Settings\n"]
+        lines.append("Click on any setting to view details and change its value:\n")
+        
+        # Create keyboard with setting buttons
+        keyboard = InlineKeyboardMarkup()
         
         for name, value in sorted(settings_dict.items()):
             info = self.inspector.get_setting_info(name)
@@ -382,32 +424,21 @@ class SettingsHandlers:
                 if isinstance(value, bool):
                     value_str = "✅" if value else "❌"
                 else:
-                    value_str = str(value)
+                    value_str = str(value)[:20]  # Truncate long values
                 
-                lines.append(f"• `{name}`: {value_str}")
-        
-        text = "\n".join(lines)
-        
-        # Create keyboard with setting toggles
-        keyboard = InlineKeyboardMarkup()
-        
-        for name, value in sorted(settings_dict.items()):
-            info = self.inspector.get_setting_info(name)
-            if info and not info.is_secret and not info.is_readonly:
-                if isinstance(value, bool):
-                    # Toggle button
-                    new_value = "false" if value else "true"
-                    button_text = f"{'✅' if value else '❌'} {name}"
-                    keyboard.add(
-                        InlineKeyboardButton(
-                            button_text,
-                            callback_data=f"settings:set:{name}:{new_value}"
-                        )
+                button_text = f"{name}: {value_str}"
+                keyboard.add(
+                    InlineKeyboardButton(
+                        button_text,
+                        callback_data=f"settings:setting:{name}"
                     )
+                )
         
         keyboard.add(
             InlineKeyboardButton("« Back to Menu", callback_data="settings:menu")
         )
+        
+        text = "\n".join(lines)
         
         await self.bot.edit_message_text(
             text,
@@ -448,6 +479,157 @@ class SettingsHandlers:
                 await self._show_category_settings(call, info.category)
         else:
             await self.bot.answer_callback_query(call.id, f"❌ {msg}", show_alert=True)
+    
+    async def _show_setting_detail(self, call: CallbackQuery, setting_name: str) -> None:
+        """Show detailed information about a setting and prompt for input"""
+        user_id = call.from_user.id
+        
+        info = self.inspector.get_setting_info(setting_name)
+        if not info:
+            await self.bot.answer_callback_query(call.id, "Setting not found", show_alert=True)
+            return
+        
+        # Get current value
+        current_value = self.settings_manager.get_setting(user_id, setting_name)
+        
+        # Build description text
+        lines = [f"⚙️ **{setting_name}**\n"]
+        lines.append(f"📝 {info.description}\n")
+        
+        # Add type information
+        type_str = self._format_type(info.type)
+        lines.append(f"**Type:** `{type_str}`")
+        
+        # Add current value
+        if isinstance(current_value, bool):
+            value_str = "✅ enabled" if current_value else "❌ disabled"
+        else:
+            value_str = str(current_value)
+        lines.append(f"**Current value:** `{value_str}`")
+        
+        # Add default value
+        if isinstance(info.default, bool):
+            default_str = "✅ enabled" if info.default else "❌ disabled"
+        else:
+            default_str = str(info.default)
+        lines.append(f"**Default value:** `{default_str}`\n")
+        
+        # Add allowed values or examples
+        if info.type == bool or (hasattr(info.type, '__origin__') and str(info.type).startswith('typing.Union') and bool in str(info.type)):
+            lines.append("**Allowed values:** `true`, `false`")
+        elif info.allowed_values:
+            allowed_str = ", ".join([f"`{v}`" for v in info.allowed_values])
+            lines.append(f"**Allowed values:** {allowed_str}")
+        elif info.min_value is not None or info.max_value is not None:
+            if info.min_value is not None and info.max_value is not None:
+                lines.append(f"**Range:** `{info.min_value}` to `{info.max_value}`")
+            elif info.min_value is not None:
+                lines.append(f"**Minimum:** `{info.min_value}`")
+            elif info.max_value is not None:
+                lines.append(f"**Maximum:** `{info.max_value}`")
+        
+        text = "\n".join(lines)
+        
+        # Create keyboard
+        keyboard = InlineKeyboardMarkup()
+        
+        # For boolean settings, add toggle buttons
+        if info.type == bool or (hasattr(info.type, '__origin__') and str(info.type).startswith('typing.Union') and bool in str(info.type)):
+            keyboard.add(
+                InlineKeyboardButton("✅ Enable", callback_data=f"settings:set:{setting_name}:true"),
+                InlineKeyboardButton("❌ Disable", callback_data=f"settings:set:{setting_name}:false")
+            )
+        
+        # Add reset and back buttons
+        keyboard.add(
+            InlineKeyboardButton("🔄 Reset to Default", callback_data=f"settings:reset:{setting_name}")
+        )
+        keyboard.add(
+            InlineKeyboardButton("« Back", callback_data=f"settings:category:{info.category}")
+        )
+        
+        await self.bot.edit_message_text(
+            text,
+            call.message.chat.id,
+            call.message.message_id,
+            reply_markup=keyboard,
+            parse_mode='Markdown'
+        )
+        
+        # If not a boolean, prompt for text input
+        if info.type != bool and not (hasattr(info.type, '__origin__') and str(info.type).startswith('typing.Union') and bool in str(info.type)):
+            # Store that we're waiting for input
+            self.waiting_for_input[user_id] = (setting_name, info.category)
+            
+            # Send a prompt message
+            prompt_text = f"💬 Please send the new value for `{setting_name}`\n\nSend /cancel to cancel."
+            await self.bot.send_message(call.message.chat.id, prompt_text, parse_mode='Markdown')
+        
+        await self.bot.answer_callback_query(call.id)
+    
+    async def handle_setting_input(self, message: Message) -> None:
+        """Handle text input for setting values"""
+        user_id = message.from_user.id
+        
+        # Check if user is waiting for input
+        if user_id not in self.waiting_for_input:
+            return
+        
+        # Check for cancel
+        if message.text and message.text.strip().lower() in ['/cancel', 'cancel']:
+            del self.waiting_for_input[user_id]
+            await self.bot.reply_to(message, "❌ Cancelled")
+            return
+        
+        setting_name, category = self.waiting_for_input[user_id]
+        value_str = message.text.strip()
+        
+        # Set the setting
+        success, msg = self.settings_manager.set_user_setting(user_id, setting_name, value_str)
+        
+        # Clear waiting state
+        del self.waiting_for_input[user_id]
+        
+        if success:
+            await self.bot.reply_to(message, f"✅ {msg}")
+        else:
+            await self.bot.reply_to(message, f"❌ {msg}")
+    
+    def _format_type(self, type_annotation) -> str:
+        """Format type annotation as a readable string"""
+        import typing
+        
+        # Handle simple types
+        if type_annotation == bool:
+            return "boolean"
+        elif type_annotation == int:
+            return "integer"
+        elif type_annotation == float:
+            return "float"
+        elif type_annotation == str:
+            return "string"
+        elif type_annotation == Path:
+            return "path"
+        
+        # Handle Optional types
+        origin = getattr(type_annotation, '__origin__', None)
+        if origin is typing.Union:
+            args = getattr(type_annotation, '__args__', ())
+            # Check if it's Optional (Union with None)
+            if type(None) in args:
+                inner_type = next((arg for arg in args if arg is not type(None)), None)
+                if inner_type:
+                    return f"optional {self._format_type(inner_type)}"
+        
+        # Handle List types
+        if origin is list:
+            args = getattr(type_annotation, '__args__', ())
+            if args:
+                return f"list of {self._format_type(args[0])}"
+            return "list"
+        
+        # Fallback
+        return str(type_annotation).replace('typing.', '').replace('<class ', '').replace('>', '').replace("'", '')
     
     def _split_message(self, text: str, max_length: int = 4000) -> list[str]:
         """Split long message into chunks"""
