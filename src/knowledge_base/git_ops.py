@@ -56,12 +56,37 @@ class GitOperations:
         if not self.enabled or not self.repo:
             return False
         
+        # Convert to Path and check if file exists
+        file_path_obj = Path(file_path)
+        if not file_path_obj.exists():
+            logger.warning(
+                f"Cannot add file to git - file does not exist: {file_path}"
+            )
+            return False
+        
         try:
-            self.repo.index.add([file_path])
-            logger.info(f"Added file to git: {file_path}")
+            # Convert to relative path from repo root for better git compatibility
+            try:
+                relative_path = file_path_obj.relative_to(self.repo_path)
+                path_to_add = str(relative_path)
+            except ValueError:
+                # File is outside repo, use absolute path
+                path_to_add = str(file_path_obj.absolute())
+            
+            self.repo.index.add([path_to_add])
+            logger.info(f"Added file to git: {path_to_add}")
             return True
+        except FileNotFoundError as e:
+            logger.error(
+                f"File not found when adding to git: {file_path}. "
+                f"Error: {e}"
+            )
+            return False
         except Exception as e:
-            logger.error(f"Failed to add file to git: {e}")
+            logger.error(
+                f"Failed to add file to git: {file_path}. "
+                f"Error type: {type(e).__name__}, Error: {e}"
+            )
             return False
     
     def commit(self, message: str) -> bool:
