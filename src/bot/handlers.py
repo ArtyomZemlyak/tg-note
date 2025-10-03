@@ -43,7 +43,7 @@ class BotHandlers:
         # Store per-user agents
         self.user_agents: Dict[int, Any] = {}
         self.content_parser = ContentParser()
-        self.        
+        self.logger = logger
         self.logger.info(f"BotHandlers initialized with user-specific settings support")
     
     async def register_handlers_async(self):
