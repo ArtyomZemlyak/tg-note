@@ -3,10 +3,10 @@ Repository Manager
 Manages local and GitHub repositories for knowledge base
 """
 
-import logging
 import re
 from pathlib import Path
 from typing import Optional, Tuple
+from loguru import logger
 
 from config.kb_structure import (
     KB_BASE_STRUCTURE,
@@ -22,8 +22,6 @@ except ImportError:
     Repo = None
     GitCommandError = Exception
     InvalidGitRepositoryError = Exception
-
-logger = logging.getLogger(__name__)
 
 
 class RepositoryManager:

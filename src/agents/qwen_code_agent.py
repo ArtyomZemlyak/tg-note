@@ -5,7 +5,6 @@ Autonomous agent using Qwen-Agent for processing content with tools
 
 import asyncio
 import json
-import logging
 import subprocess
 from datetime import datetime
 from pathlib import Path
@@ -13,6 +12,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import aiohttp
 import requests
+from loguru import logger
 
 from .base_agent import BaseAgent, KBStructure
 from config.agent_prompts import (
@@ -27,9 +27,6 @@ from config.agent_prompts import (
     MAX_KEYWORD_COUNT,
     MIN_KEYWORD_LENGTH,
 )
-
-
-logger = logging.getLogger(__name__)
 
 
 class TodoPlan:
@@ -190,27 +187,41 @@ class QwenCodeAgent(BaseAgent):
         Returns:
             Processed content dictionary with markdown, metadata, and KB structure
         """
+        logger.debug(f"[QwenCodeAgent] Starting process with content keys: {list(content.keys())}")
+        
         if not self.validate_input(content):
+            logger.error(f"[QwenCodeAgent] Invalid input content: {content}")
             raise ValueError("Invalid input content")
         
-        logger.info("Starting autonomous content processing...")
+        logger.info("[QwenCodeAgent] Starting autonomous content processing...")
+        logger.debug(f"[QwenCodeAgent] Content preview: {content.get('text', '')[:100]}...")
         
         # Step 1: Create TODO plan
+        logger.debug("[QwenCodeAgent] STEP 1: Creating TODO plan")
         self.current_plan = await self._create_todo_plan(content)
-        logger.info(f"Created TODO plan with {len(self.current_plan.tasks)} tasks")
+        logger.info(f"[QwenCodeAgent] Created TODO plan with {len(self.current_plan.tasks)} tasks")
+        logger.debug(f"[QwenCodeAgent] TODO plan: {self.current_plan.to_dict()}")
         
         # Step 2: Execute plan autonomously
+        logger.debug("[QwenCodeAgent] STEP 2: Executing TODO plan")
         execution_results = await self._execute_plan(content)
-        logger.info(f"Plan execution completed with {len(execution_results)} results")
+        logger.info(f"[QwenCodeAgent] Plan execution completed with {len(execution_results)} results")
+        logger.debug(f"[QwenCodeAgent] Execution results summary: {[r.keys() if isinstance(r, dict) else type(r).__name__ for r in execution_results]}")
         
         # Step 3: Analyze and structure content
+        logger.debug("[QwenCodeAgent] STEP 3: Structuring content")
         structured_content = await self._structure_content(content, execution_results)
+        logger.debug(f"[QwenCodeAgent] Structured content keys: {list(structured_content.keys())}")
         
         # Step 4: Generate markdown
+        logger.debug("[QwenCodeAgent] STEP 4: Generating markdown")
         markdown_content = await self._generate_markdown(structured_content)
+        logger.debug(f"[QwenCodeAgent] Generated markdown length: {len(markdown_content)} chars")
         
         # Step 5: Determine KB structure
+        logger.debug("[QwenCodeAgent] STEP 5: Determining KB structure")
         kb_structure = await self._determine_kb_structure(structured_content)
+        logger.debug(f"[QwenCodeAgent] KB structure: {kb_structure.to_dict()}")
         
         # Generate metadata
         metadata = {
@@ -280,18 +291,23 @@ class QwenCodeAgent(BaseAgent):
             return results
         
         for i, task in enumerate(self.current_plan.tasks):
-            logger.info(f"Executing task {i+1}/{len(self.current_plan.tasks)}: {task['task']}")
+            logger.info(f"[QwenCodeAgent] Executing task {i+1}/{len(self.current_plan.tasks)}: {task['task']}")
+            logger.debug(f"[QwenCodeAgent] Task {i+1} details: {task}")
             
             try:
                 # Mark as in progress
                 self.current_plan.update_task_status(i, "in_progress")
+                logger.debug(f"[QwenCodeAgent] Task {i+1} marked as in_progress")
                 
                 # Execute task based on description
+                logger.debug(f"[QwenCodeAgent] Executing task {i+1}: {task['task']}")
                 result = await self._execute_task(task, content)
                 results.append(result)
+                logger.debug(f"[QwenCodeAgent] Task {i+1} result: {result}")
                 
                 # Mark as completed
                 self.current_plan.update_task_status(i, "completed")
+                logger.debug(f"[QwenCodeAgent] Task {i+1} marked as completed")
                 
                 # Log execution
                 self.execution_log.append({
@@ -302,7 +318,8 @@ class QwenCodeAgent(BaseAgent):
                 })
                 
             except Exception as e:
-                logger.error(f"Task execution failed: {e}", exc_info=True)
+                logger.error(f"[QwenCodeAgent] Task {i+1} execution failed: {e}", exc_info=True)
+                logger.debug(f"[QwenCodeAgent] Task {i+1} error details: {type(e).__name__}: {str(e)}")
                 self.current_plan.update_task_status(i, "failed")
                 
                 self.execution_log.append({
@@ -326,25 +343,35 @@ class QwenCodeAgent(BaseAgent):
             Task execution result
         """
         task_desc = task["task"].lower()
+        logger.debug(f"[QwenCodeAgent] Routing task: {task_desc}")
         
         # Route task to appropriate handler
         if "analyze content" in task_desc:
+            logger.debug("[QwenCodeAgent] -> Analyzing content")
             return await self._analyze_content(content)
         elif "search web" in task_desc:
+            logger.debug("[QwenCodeAgent] -> Searching web context")
             return await self._search_web_context(content)
         elif "extract metadata" in task_desc:
+            logger.debug("[QwenCodeAgent] -> Extracting metadata")
             return await self._extract_metadata(content)
         elif "structure content" in task_desc:
+            logger.debug("[QwenCodeAgent] -> Structuring content")
             return await self._structure_content_task(content)
         elif "generate markdown" in task_desc:
+            logger.debug("[QwenCodeAgent] -> Markdown generation (deferred)")
             return {"status": "ready"}  # Will be done in final step
         else:
+            logger.debug(f"[QwenCodeAgent] -> Unknown task type, skipping")
             return {"status": "skipped", "reason": "Unknown task type"}
     
     async def _analyze_content(self, content: Dict) -> Dict[str, Any]:
         """Analyze content and extract key information"""
+        logger.debug("[QwenCodeAgent._analyze_content] Starting content analysis")
         text = content.get("text", "")
         urls = content.get("urls", [])
+        
+        logger.debug(f"[QwenCodeAgent._analyze_content] Text length: {len(text)}, URLs: {len(urls)}")
         
         # Simple analysis (can be enhanced with LLM)
         analysis = {
@@ -356,9 +383,12 @@ class QwenCodeAgent(BaseAgent):
         }
         
         # Extract key topics using simple keyword extraction
+        logger.debug("[QwenCodeAgent._analyze_content] Extracting keywords")
         keywords = self._extract_keywords(text)
         analysis["keywords"] = keywords
+        logger.debug(f"[QwenCodeAgent._analyze_content] Found {len(keywords)} keywords: {keywords}")
         
+        logger.debug(f"[QwenCodeAgent._analyze_content] Analysis complete: {analysis}")
         return analysis
     
     async def _search_web_context(self, content: Dict) -> Dict[str, Any]:

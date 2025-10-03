@@ -4,13 +4,11 @@ Manages history of processed messages using JSON storage
 """
 
 import json
-import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 from filelock import FileLock
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 class ProcessingTracker:

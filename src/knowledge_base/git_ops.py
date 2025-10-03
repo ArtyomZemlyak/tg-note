@@ -3,9 +3,9 @@ Git Operations
 Handles git operations for knowledge base
 """
 
-import logging
 from pathlib import Path
 from typing import Optional
+from loguru import logger
 
 try:
     from git import Repo, InvalidGitRepositoryError
@@ -14,8 +14,6 @@ except ImportError:
     GIT_AVAILABLE = False
     Repo = None
     InvalidGitRepositoryError = Exception
-
-logger = logging.getLogger(__name__)
 
 
 class GitOperations:

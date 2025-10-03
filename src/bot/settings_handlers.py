@@ -3,7 +3,7 @@ Telegram Settings Handlers
 Auto-generated command handlers for settings management
 """
 
-import logging
+from loguru import logger
 from pathlib import Path
 from typing import Dict, Optional
 from telebot.async_telebot import AsyncTeleBot
@@ -12,7 +12,6 @@ from telebot.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, C
 from config import settings
 from src.bot.settings_manager import SettingsManager, SettingsInspector, UserSettingsStorage
 
-logger = logging.getLogger(__name__)
 
 
 class SettingsHandlers:

@@ -3,7 +3,7 @@ Agent Factory
 Factory for creating agent instances based on configuration
 """
 
-import logging
+from loguru import logger
 from typing import Dict, Optional
 
 from .base_agent import BaseAgent
@@ -12,7 +12,6 @@ from .qwen_code_agent import QwenCodeAgent
 from .qwen_code_cli_agent import QwenCodeCLIAgent
 
 
-logger = logging.getLogger(__name__)
 
 
 class AgentFactory:
