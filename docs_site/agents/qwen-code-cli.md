@@ -17,6 +17,7 @@ The Qwen Code CLI agent is the most powerful option, using the official [qwen-co
 - ✅ Built-in tools: web search, git, github, shell
 - ✅ Free tier: 2000 requests/day
 - ✅ Vision model support
+- ✅ **DEBUG трейсинг выполнения CLI** - [Подробнее →](qwen-cli-debug-trace.md)
 
 ---
 
