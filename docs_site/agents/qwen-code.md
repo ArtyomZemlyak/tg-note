@@ -26,6 +26,8 @@ AGENT_TYPE: "qwen_code"
 AGENT_MODEL: "qwen-max"
 ```
 
+Note: `qwen_code` agent type is routed by `AgentFactory` to the Python autonomous agent (`src/agents/autonomous_agent.py`). If `OPENAI_API_KEY` (and optional `OPENAI_BASE_URL`) are set, it will use an OpenAI-compatible connector; otherwise it operates in a lightweight rule-based mode.
+
 ---
 
 ## See Also
