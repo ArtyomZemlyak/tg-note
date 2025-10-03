@@ -163,10 +163,18 @@ class QwenCodeCLIAgent(BaseAgent):
             
             # Step 3: Parse agent response using BaseAgent method
             logger.debug("[QwenCodeCLIAgent] STEP 3: Parsing agent response with standard parser")
-            agent_result = self.parse_agent_response(result_text)
-            logger.info(f"[QwenCodeCLIAgent] Parsed result: {agent_result.summary}")
-            logger.debug(f"[QwenCodeCLIAgent] Files created: {agent_result.files_created}")
-            logger.debug(f"[QwenCodeCLIAgent] Folders created: {agent_result.folders_created}")
+            logger.debug(f"[QwenCodeCLIAgent] Result text preview (first 500 chars): {result_text[:500]}")
+            logger.debug(f"[QwenCodeCLIAgent] Result text preview (last 500 chars): {result_text[-500:]}")
+            
+            try:
+                agent_result = self.parse_agent_response(result_text)
+                logger.info(f"[QwenCodeCLIAgent] Parsed result: {agent_result.summary}")
+                logger.debug(f"[QwenCodeCLIAgent] Files created: {agent_result.files_created}")
+                logger.debug(f"[QwenCodeCLIAgent] Folders created: {agent_result.folders_created}")
+            except Exception as parse_error:
+                logger.error(f"[QwenCodeCLIAgent] Failed to parse agent response: {parse_error}", exc_info=True)
+                logger.debug(f"[QwenCodeCLIAgent] Full response text: {result_text}")
+                raise
             
             # Step 4: Extract KB structure from response
             logger.debug("[QwenCodeCLIAgent] STEP 4: Extracting KB structure from response")
