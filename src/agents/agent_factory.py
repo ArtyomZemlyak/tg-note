@@ -73,6 +73,8 @@ class AgentFactory:
         Returns:
             QwenCodeAgent instance
         """
+        from pathlib import Path
+        
         return QwenCodeAgent(
             config=config,
             instruction=config.get("instruction"),
@@ -81,7 +83,10 @@ class AgentFactory:
             enable_web_search=config.get("enable_web_search", True),
             enable_git=config.get("enable_git", True),
             enable_github=config.get("enable_github", True),
-            enable_shell=config.get("enable_shell", False)
+            enable_shell=config.get("enable_shell", False),
+            enable_file_management=config.get("enable_file_management", True),
+            enable_folder_management=config.get("enable_folder_management", True),
+            kb_root_path=Path(config.get("kb_path", "./knowledge_base"))
         )
     
     @classmethod
@@ -128,8 +133,11 @@ class AgentFactory:
             "enable_git": settings.AGENT_ENABLE_GIT,
             "enable_github": settings.AGENT_ENABLE_GITHUB,
             "enable_shell": settings.AGENT_ENABLE_SHELL,
+            "enable_file_management": settings.AGENT_ENABLE_FILE_MANAGEMENT,
+            "enable_folder_management": settings.AGENT_ENABLE_FOLDER_MANAGEMENT,
             "qwen_cli_path": settings.AGENT_QWEN_CLI_PATH,
             "timeout": settings.AGENT_TIMEOUT,
+            "kb_path": settings.KB_PATH,
         }
         
         return cls.create_agent(

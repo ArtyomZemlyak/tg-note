@@ -128,6 +128,14 @@ class Settings(BaseSettings):
         default=False,
         description="Enable shell command tool for agent (security risk)"
     )
+    AGENT_ENABLE_FILE_MANAGEMENT: bool = Field(
+        default=True,
+        description="Enable file operations (create, edit, delete, move files)"
+    )
+    AGENT_ENABLE_FOLDER_MANAGEMENT: bool = Field(
+        default=True,
+        description="Enable folder operations (create, delete, move folders)"
+    )
     
     # Knowledge Base Settings (can be in YAML)
     KB_PATH: Path = Field(
