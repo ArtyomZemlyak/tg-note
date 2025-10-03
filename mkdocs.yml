@@ -5,7 +5,10 @@ site_url: https://artyomzemlyak.github.io/tg-note/
 
 repo_name: ArtyomZemlyak/tg-note
 repo_url: https://github.com/ArtyomZemlyak/tg-note
-edit_uri: edit/main/docs/
+edit_uri: edit/main/docs_site/
+
+docs_dir: docs_site
+
 
 theme:
   name: material
