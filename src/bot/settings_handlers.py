@@ -18,12 +18,14 @@ logger = logging.getLogger(__name__)
 class SettingsHandlers:
     """Telegram handlers for settings management"""
     
-    def __init__(self, bot: AsyncTeleBot):
+    def __init__(self, bot: AsyncTeleBot, handlers=None):
         self.bot = bot
         self.settings_manager = SettingsManager(settings)
         self.inspector = SettingsInspector(type(settings))
         # Track users waiting for input: user_id -> (setting_name, category)
         self.waiting_for_input: Dict[int, tuple[str, str]] = {}
+        # Reference to bot handlers for cache invalidation
+        self.handlers = handlers
     
     async def register_handlers_async(self):
         """Register all settings handlers"""
@@ -191,6 +193,10 @@ class SettingsHandlers:
         )
         
         if success:
+            # Invalidate user cache in handlers
+            if self.handlers:
+                self.handlers.invalidate_user_cache(message.from_user.id)
+            
             await self.bot.reply_to(message, f"✅ {msg}")
         else:
             await self.bot.reply_to(message, f"❌ {msg}")
@@ -457,6 +463,10 @@ class SettingsHandlers:
         success, msg = self.settings_manager.set_user_setting(user_id, setting_name, value)
         
         if success:
+            # Invalidate user cache in handlers
+            if self.handlers:
+                self.handlers.invalidate_user_cache(user_id)
+            
             await self.bot.answer_callback_query(call.id, f"✅ {msg}", show_alert=True)
             # Refresh the display
             info = self.inspector.get_setting_info(setting_name)
@@ -472,6 +482,10 @@ class SettingsHandlers:
         success, msg = self.settings_manager.reset_user_setting(user_id, setting_name)
         
         if success:
+            # Invalidate user cache in handlers
+            if self.handlers:
+                self.handlers.invalidate_user_cache(user_id)
+            
             await self.bot.answer_callback_query(call.id, f"✅ {msg}", show_alert=True)
             # Refresh the display
             info = self.inspector.get_setting_info(setting_name)
@@ -591,6 +605,10 @@ class SettingsHandlers:
         del self.waiting_for_input[user_id]
         
         if success:
+            # Invalidate user cache in handlers
+            if self.handlers:
+                self.handlers.invalidate_user_cache(user_id)
+            
             await self.bot.reply_to(message, f"✅ {msg}")
         else:
             await self.bot.reply_to(message, f"❌ {msg}")

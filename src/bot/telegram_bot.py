@@ -34,9 +34,11 @@ class TelegramBot:
         # Initialize async bot
         self.bot = AsyncTeleBot(settings.TELEGRAM_BOT_TOKEN)
         
-        # Initialize handlers
-        self.settings_handlers = SettingsHandlers(self.bot)
-        self.handlers = BotHandlers(self.bot, tracker, repo_manager, user_settings, self.settings_handlers)
+        # Initialize handlers (with cross-references for cache invalidation)
+        self.handlers = BotHandlers(self.bot, tracker, repo_manager, user_settings, None)
+        self.settings_handlers = SettingsHandlers(self.bot, self.handlers)
+        # Update the settings_handlers reference in handlers
+        self.handlers.settings_handlers = self.settings_handlers
         
         # Bot state
         self.is_running = False

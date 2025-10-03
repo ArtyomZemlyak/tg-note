@@ -17,6 +17,7 @@ from src.knowledge_base.repository import RepositoryManager
 from src.knowledge_base.user_settings import UserSettings
 from src.knowledge_base.git_ops import GitOperations
 from src.tracker.processing_tracker import ProcessingTracker
+from src.bot.settings_manager import SettingsManager
 
 
 class BotHandlers:
@@ -35,17 +36,16 @@ class BotHandlers:
         self.repo_manager = repo_manager
         self.user_settings = user_settings
         self.settings_handlers = settings_handlers
-        self.message_aggregator = MessageAggregator(settings.MESSAGE_GROUP_TIMEOUT)
+        # Create settings manager for user-specific settings
+        self.settings_manager = SettingsManager(settings)
+        # Store per-user message aggregators
+        self.user_message_aggregators: Dict[int, MessageAggregator] = {}
+        # Store per-user agents
+        self.user_agents: Dict[int, Any] = {}
         self.content_parser = ContentParser()
-        
-        # Initialize agent using factory based on settings
-        self.agent = AgentFactory.from_settings(settings)
         self.logger = logging.getLogger(__name__)
         
-        self.logger.info(f"Initialized agent: {type(self.agent).__name__}")
-        
-        # Set up timeout callback for background task
-        self.message_aggregator.set_timeout_callback(self._handle_timeout)
+        self.logger.info(f"BotHandlers initialized with user-specific settings support")
     
     async def register_handlers_async(self):
         """Register all bot handlers (async)"""
@@ -77,15 +77,69 @@ class BotHandlers:
         """Check if message is a command (starts with /)"""
         return message.text and message.text.startswith('/')
     
+    def _get_or_create_user_aggregator(self, user_id: int) -> MessageAggregator:
+        """Get or create message aggregator for a user with their settings"""
+        if user_id not in self.user_message_aggregators:
+            # Get user-specific timeout setting
+            timeout = self.settings_manager.get_setting(user_id, "MESSAGE_GROUP_TIMEOUT")
+            self.logger.info(f"Creating MessageAggregator for user {user_id} with timeout {timeout}s")
+            aggregator = MessageAggregator(timeout)
+            aggregator.set_timeout_callback(self._handle_timeout)
+            aggregator.start_background_task()
+            self.user_message_aggregators[user_id] = aggregator
+        return self.user_message_aggregators[user_id]
+    
+    def _get_or_create_user_agent(self, user_id: int):
+        """Get or create agent for a user with their settings"""
+        if user_id not in self.user_agents:
+            # Get user-specific agent settings
+            config = {
+                "api_key": self.settings_manager.get_setting(user_id, "QWEN_API_KEY"),
+                "openai_api_key": self.settings_manager.get_setting(user_id, "OPENAI_API_KEY"),
+                "openai_base_url": self.settings_manager.get_setting(user_id, "OPENAI_BASE_URL"),
+                "github_token": self.settings_manager.get_setting(user_id, "GITHUB_TOKEN"),
+                "model": self.settings_manager.get_setting(user_id, "AGENT_MODEL"),
+                "instruction": self.settings_manager.get_setting(user_id, "AGENT_INSTRUCTION"),
+                "enable_web_search": self.settings_manager.get_setting(user_id, "AGENT_ENABLE_WEB_SEARCH"),
+                "enable_git": self.settings_manager.get_setting(user_id, "AGENT_ENABLE_GIT"),
+                "enable_github": self.settings_manager.get_setting(user_id, "AGENT_ENABLE_GITHUB"),
+                "enable_shell": self.settings_manager.get_setting(user_id, "AGENT_ENABLE_SHELL"),
+                "qwen_cli_path": self.settings_manager.get_setting(user_id, "AGENT_QWEN_CLI_PATH"),
+                "timeout": self.settings_manager.get_setting(user_id, "AGENT_TIMEOUT"),
+            }
+            
+            agent_type = self.settings_manager.get_setting(user_id, "AGENT_TYPE")
+            self.logger.info(f"Creating agent for user {user_id}: {agent_type}")
+            agent = AgentFactory.create_agent(agent_type=agent_type, config=config)
+            self.user_agents[user_id] = agent
+        return self.user_agents[user_id]
+    
+    def invalidate_user_cache(self, user_id: int) -> None:
+        """Invalidate cached user-specific components when settings change"""
+        self.logger.info(f"Invalidating cache for user {user_id}")
+        
+        # Stop and remove user's message aggregator
+        if user_id in self.user_message_aggregators:
+            self.user_message_aggregators[user_id].stop_background_task()
+            del self.user_message_aggregators[user_id]
+        
+        # Remove user's agent
+        if user_id in self.user_agents:
+            del self.user_agents[user_id]
+    
     def start_background_tasks(self) -> None:
         """Start background tasks for message processing"""
         self.logger.info("Starting background tasks")
-        self.message_aggregator.start_background_task()
+        # Background tasks are now started per-user when needed
     
     def stop_background_tasks(self) -> None:
         """Stop background tasks"""
         self.logger.info("Stopping background tasks")
-        self.message_aggregator.stop_background_task()
+        # Stop all user aggregators
+        for aggregator in self.user_message_aggregators.values():
+            aggregator.stop_background_task()
+        self.user_message_aggregators.clear()
+        self.user_agents.clear()
     
     async def _handle_timeout(self, chat_id: int, group: MessageGroup) -> None:
         """Handle a timed-out message group (async)"""
@@ -170,13 +224,16 @@ class BotHandlers:
             if user_kb:
                 kb_info = f"{user_kb['kb_name']} ({user_kb['kb_type']})"
             
+            # Get user-specific git setting
+            kb_git_enabled = self.settings_manager.get_setting(message.from_user.id, "KB_GIT_ENABLED")
+            
             status_text = (
                 f"📊 Статистика обработки\n\n"
                 f"Всего обработано сообщений: {stats['total_processed']}\n"
                 f"Ожидает обработки: {stats['pending_groups']}\n"
                 f"Последняя обработка: {stats.get('last_processed', 'Никогда')}\n\n"
                 f"База знаний: {kb_info}\n"
-                f"Git интеграция: {'Включена' if settings.KB_GIT_ENABLED else 'Отключена'}"
+                f"Git интеграция: {'Включена' if kb_git_enabled else 'Отключена'}"
             )
         except Exception as e:
             self.logger.error(f"Error getting status: {e}")
@@ -312,8 +369,11 @@ class BotHandlers:
             # Convert message to dict for aggregator
             message_dict = self._message_to_dict(message)
             
+            # Get user-specific aggregator
+            user_aggregator = self._get_or_create_user_aggregator(message.from_user.id)
+            
             # Add message to aggregator (fully async)
-            closed_group = await self.message_aggregator.add_message(message.chat.id, message_dict)
+            closed_group = await user_aggregator.add_message(message.chat.id, message_dict)
             
             if closed_group:
                 # Previous group was closed, process it with a separate notification
@@ -406,7 +466,9 @@ class BotHandlers:
             
             # Create KB manager for user's KB
             kb_manager = KnowledgeBaseManager(str(kb_path))
-            git_ops = GitOperations(str(kb_path), enabled=settings.KB_GIT_ENABLED)
+            # Get user-specific git settings
+            kb_git_enabled = self.settings_manager.get_setting(user_id, "KB_GIT_ENABLED")
+            git_ops = GitOperations(str(kb_path), enabled=kb_git_enabled)
             
             # Parse content
             content = self.content_parser.parse_group(group)
@@ -428,8 +490,11 @@ class BotHandlers:
                 message_id=processing_msg.message_id
             )
             
+            # Get user-specific agent
+            user_agent = self._get_or_create_user_agent(user_id)
+            
             try:
-                processed_content = await self.agent.process(content)
+                processed_content = await user_agent.process(content)
             except Exception as agent_error:
                 self.logger.error(f"Agent processing failed: {agent_error}", exc_info=True)
                 await self.bot.edit_message_text(
@@ -486,14 +551,18 @@ class BotHandlers:
             # Update index
             kb_manager.update_index(kb_file, title, kb_structure)
             
-            # Git operations
-            if settings.KB_GIT_ENABLED and git_ops.enabled:
+            # Git operations (use user-specific settings)
+            kb_git_auto_push = self.settings_manager.get_setting(user_id, "KB_GIT_AUTO_PUSH")
+            kb_git_remote = self.settings_manager.get_setting(user_id, "KB_GIT_REMOTE")
+            kb_git_branch = self.settings_manager.get_setting(user_id, "KB_GIT_BRANCH")
+            
+            if kb_git_enabled and git_ops.enabled:
                 git_ops.add(str(kb_file))
                 git_ops.add(str(kb_path / "index.md"))
                 git_ops.commit(f"Add article: {title}")
                 
-                if settings.KB_GIT_AUTO_PUSH:
-                    git_ops.push(settings.KB_GIT_REMOTE, settings.KB_GIT_BRANCH)
+                if kb_git_auto_push:
+                    git_ops.push(kb_git_remote, kb_git_branch)
             
             # Mark as processed (use first message from group)
             if not group.messages:
