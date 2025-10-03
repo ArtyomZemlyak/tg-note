@@ -126,8 +126,17 @@ class QwenCodeAgent(AutonomousAgent):
             kb_root_path: Root path for knowledge base (for safe file/folder operations)
             max_iterations: Maximum iterations in autonomous agent loop
         """
-        # Initialize parent AutonomousAgent
-        super().__init__(config, instruction or self.DEFAULT_INSTRUCTION, max_iterations)
+        # Knowledge base root path for safe file operations
+        kb_root = kb_root_path or Path("./knowledge_base")
+        kb_root = kb_root.resolve()  # Get absolute path
+        
+        # Initialize parent AutonomousAgent with kb_root_path
+        super().__init__(
+            config, 
+            instruction or self.DEFAULT_INSTRUCTION, 
+            max_iterations,
+            kb_root_path=kb_root
+        )
         
         self.api_key = api_key
         self.model = model
@@ -139,10 +148,6 @@ class QwenCodeAgent(AutonomousAgent):
         self.enable_shell = enable_shell
         self.enable_file_management = enable_file_management
         self.enable_folder_management = enable_folder_management
-        
-        # Knowledge base root path for safe file operations
-        self.kb_root_path = kb_root_path or Path("./knowledge_base")
-        self.kb_root_path = self.kb_root_path.resolve()  # Get absolute path
         
         # Register tools with autonomous agent
         self._register_all_tools()
@@ -939,6 +944,18 @@ class QwenCodeAgent(AutonomousAgent):
             full_path.write_text(content, encoding="utf-8")
             
             logger.info(f"Created file: {relative_path}")
+            
+            # Extract metadata from content and path
+            title = self._extract_title_from_markdown(content)
+            kb_structure = self._infer_kb_structure_from_path(relative_path)
+            
+            # Register in tracker
+            self.kb_changes.add_file_created(
+                path=relative_path,
+                title=title,
+                kb_structure=kb_structure
+            )
+            
             return ToolResult(
                 success=True,
                 output={
@@ -992,6 +1009,10 @@ class QwenCodeAgent(AutonomousAgent):
             full_path.write_text(content, encoding="utf-8")
             
             logger.info(f"Edited file: {relative_path}")
+            
+            # Register in tracker
+            self.kb_changes.add_file_edited(relative_path)
+            
             return ToolResult(
                 success=True,
                 output={
@@ -1157,6 +1178,10 @@ class QwenCodeAgent(AutonomousAgent):
             full_path.mkdir(parents=True, exist_ok=False)
             
             logger.info(f"Created folder: {relative_path}")
+            
+            # Register in tracker
+            self.kb_changes.add_folder_created(relative_path)
+            
             return ToolResult(
                 success=True,
                 output={
@@ -1314,6 +1339,57 @@ class QwenCodeAgent(AutonomousAgent):
             True if valid, False otherwise
         """
         return isinstance(content, dict) and "text" in content
+    
+    def _extract_title_from_markdown(self, content: str) -> str:
+        """
+        Extract title from markdown content
+        
+        Args:
+            content: Markdown content
+        
+        Returns:
+            Extracted title or default
+        """
+        lines = content.split("\n")
+        
+        for line in lines:
+            line = line.strip()
+            if line.startswith("# "):
+                # Found h1 heading
+                return line[2:].strip()
+        
+        # No h1 found, use first non-empty line
+        for line in lines:
+            line = line.strip()
+            if line and not line.startswith("#"):
+                return line[:MAX_TITLE_LENGTH] + ("..." if len(line) > MAX_TITLE_LENGTH else "")
+        
+        return "Untitled"
+    
+    def _infer_kb_structure_from_path(self, path: str) -> KBStructure:
+        """
+        Infer KB structure from file path
+        
+        Args:
+            path: Relative file path (e.g., "ai/models/gpt4.md")
+        
+        Returns:
+            KBStructure object
+        """
+        parts = path.split("/")
+        
+        # Remove filename
+        if parts and parts[-1].endswith(".md"):
+            parts = parts[:-1]
+        
+        if len(parts) == 0:
+            return KBStructure(category="general")
+        elif len(parts) == 1:
+            return KBStructure(category=parts[0])
+        elif len(parts) >= 2:
+            return KBStructure(category=parts[0], subcategory=parts[1])
+        
+        return KBStructure(category="general")
     
     def set_instruction(self, instruction: str) -> None:
         """

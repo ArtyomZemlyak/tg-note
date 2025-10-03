@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional
 from loguru import logger
 
 from .base_agent import BaseAgent, KBStructure
+from .kb_changes_tracker import KBChangesTracker
 
 
 class ActionType(Enum):
@@ -148,7 +149,8 @@ class AutonomousAgent(BaseAgent):
         self,
         config: Optional[Dict] = None,
         instruction: Optional[str] = None,
-        max_iterations: int = 10
+        max_iterations: int = 10,
+        kb_root_path: Optional[Path] = None
     ):
         """
         Initialize autonomous agent
@@ -157,13 +159,19 @@ class AutonomousAgent(BaseAgent):
             config: Configuration dictionary
             instruction: Agent instruction
             max_iterations: Maximum iterations in agent loop
+            kb_root_path: Knowledge base root path for tracking changes
         """
         super().__init__(config)
         self.instruction = instruction or self._get_default_instruction()
         self.max_iterations = max_iterations
         self.tools: Dict[str, callable] = {}
         
+        # Initialize KB changes tracker
+        self.kb_root_path = kb_root_path or Path("./knowledge_base")
+        self.kb_changes = KBChangesTracker(self.kb_root_path)
+        
         logger.info(f"AutonomousAgent initialized with max_iterations={max_iterations}")
+        logger.info(f"KB tracking enabled at: {self.kb_root_path}")
     
     def _get_default_instruction(self) -> str:
         """Get default instruction for the agent"""
@@ -226,17 +234,41 @@ class AutonomousAgent(BaseAgent):
         # Подготовить задачу
         task = self._prepare_task(content)
         
+        # Reset tracker before starting
+        self.kb_changes.reset()
+        
         # Запустить агентский цикл
         result = await self._agent_loop(task)
         
         logger.info(f"[AutonomousAgent] Completed in {result.iterations} iterations")
         
-        return {
-            "markdown": result.markdown,
-            "title": result.title,
-            "kb_structure": result.kb_structure,
-            "metadata": result.metadata
-        }
+        # Check if agent created files through tools
+        if self.kb_changes.has_changes():
+            logger.info(f"[AutonomousAgent] Agent made KB changes:")
+            logger.info(self.kb_changes.get_summary())
+            
+            # Return files created by agent
+            files = self.kb_changes.get_files_report()
+            
+            return {
+                "files": files,
+                "metadata": {
+                    **result.metadata,
+                    "kb_changes_summary": self.kb_changes.get_summary(),
+                    "kb_changes_stats": self.kb_changes.get_stats()
+                }
+            }
+        else:
+            # No files created through tools - use traditional flow
+            # (backward compatibility)
+            logger.info("[AutonomousAgent] No KB changes detected, returning single result")
+            
+            return {
+                "markdown": result.markdown,
+                "title": result.title,
+                "kb_structure": result.kb_structure,
+                "metadata": result.metadata
+            }
     
     def _prepare_task(self, content: Dict) -> str:
         """
