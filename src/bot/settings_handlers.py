@@ -28,11 +28,16 @@ class SettingsHandlers:
     
     def _is_forwarded_message(self, message: Message) -> bool:
         """Check if message is forwarded from any source"""
-        return (
-            message.forward_from is not None or  # Forwarded from user
-            message.forward_from_chat is not None or  # Forwarded from channel/group
-            message.forward_sender_name is not None or  # Forwarded from privacy-enabled user
-            message.forward_date is not None  # Forwarded message (any source)
+        # Check forward_date first as it's the most reliable indicator
+        # forward_date is an integer timestamp, so we check it's not None and > 0
+        if message.forward_date is not None and message.forward_date > 0:
+            return True
+        
+        # Check other forward fields (objects or strings)
+        return bool(
+            message.forward_from or
+            message.forward_from_chat or
+            (message.forward_sender_name and message.forward_sender_name.strip())
         )
     
     async def register_handlers_async(self):

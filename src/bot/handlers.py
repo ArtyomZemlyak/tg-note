@@ -65,11 +65,16 @@ class BotHandlers:
     
     def _is_forwarded_message(self, message: Message) -> bool:
         """Check if message is forwarded from any source"""
-        return (
-            message.forward_from is not None or  # Forwarded from user
-            message.forward_from_chat is not None or  # Forwarded from channel/group
-            message.forward_sender_name is not None or  # Forwarded from privacy-enabled user
-            message.forward_date is not None  # Forwarded message (any source)
+        # Check forward_date first as it's the most reliable indicator
+        # forward_date is an integer timestamp, so we check it's not None and > 0
+        if message.forward_date is not None and message.forward_date > 0:
+            return True
+        
+        # Check other forward fields (objects or strings)
+        return bool(
+            message.forward_from or
+            message.forward_from_chat or
+            (message.forward_sender_name and message.forward_sender_name.strip())
         )
     
     def _is_command_message(self, message: Message) -> bool:
@@ -378,7 +383,7 @@ class BotHandlers:
     
     async def handle_forwarded_message(self, message: Message) -> None:
         """Handle forwarded messages (async)"""
-        # Check if user is waiting for settings input
+        # Check if user is waiting for settings input - SHOULD NOT PROCESS forwarded messages during settings input
         if self.settings_handlers and message.from_user.id in self.settings_handlers.waiting_for_input:
             # User is in settings input mode, ignore forwarded messages
             self.logger.info(f"Ignoring forwarded message from user {message.from_user.id} - waiting for settings input")

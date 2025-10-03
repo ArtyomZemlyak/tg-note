@@ -49,17 +49,29 @@ class TestSettingsForwardedMessageFix:
     def test_is_forwarded_message_from_user(self, settings_handlers, test_message):
         """Test forwarded message from user detection"""
         test_message.forward_from = Mock()
+        test_message.forward_date = 1234567890
         assert settings_handlers._is_forwarded_message(test_message)
     
     def test_is_forwarded_message_from_chat(self, settings_handlers, test_message):
         """Test forwarded message from chat/channel detection"""
         test_message.forward_from_chat = Mock()
+        test_message.forward_date = 1234567890
         assert settings_handlers._is_forwarded_message(test_message)
     
     def test_is_forwarded_message_from_privacy_user(self, settings_handlers, test_message):
         """Test forwarded message from privacy-enabled user detection"""
         test_message.forward_sender_name = "Anonymous User"
+        test_message.forward_date = 1234567890
         assert settings_handlers._is_forwarded_message(test_message)
+        
+        # Test that empty string is NOT considered forwarded
+        test_message.forward_sender_name = ""
+        test_message.forward_date = None
+        assert not settings_handlers._is_forwarded_message(test_message)
+        
+        # Test that whitespace-only string is NOT considered forwarded
+        test_message.forward_sender_name = "   "
+        assert not settings_handlers._is_forwarded_message(test_message)
     
     def test_is_forwarded_message_by_date(self, settings_handlers, test_message):
         """Test forwarded message detection by forward_date"""
@@ -79,11 +91,13 @@ class TestSettingsForwardedMessageFix:
         
         # Forwarded message should NOT pass filter
         test_message.forward_from = Mock()
+        test_message.forward_date = 1234567890
         assert handler_filter(test_message) is False
         
         # Even with user waiting for input, forwarded messages are excluded
         test_message.forward_from_chat = Mock()
         test_message.forward_from = None
+        test_message.forward_date = 1234567890
         assert handler_filter(test_message) is False
 
 
