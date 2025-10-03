@@ -64,8 +64,8 @@ class Settings(BaseSettings):
         default="",
         description="Telegram bot token (from .env or env vars only)"
     )
-    ALLOWED_USER_IDS: Union[str, List[int]] = Field(
-        default="",
+    ALLOWED_USER_IDS: List[int] = Field(
+        default_factory=list,
         description="Comma-separated list of allowed user IDs"
     )
     
