@@ -65,6 +65,7 @@ TELEGRAM_BOT_TOKEN=your_bot_token_here
 
 # Optional API Keys
 OPENAI_API_KEY=sk-...
+OPENAI_BASE_URL=https://api.openai.com/v1  # Optional, for custom endpoints
 ANTHROPIC_API_KEY=sk-ant-...
 QWEN_API_KEY=your_qwen_key
 
@@ -125,6 +126,18 @@ GITHUB_TOKEN=ghp_...
 - **Description:** AI model to use
 - **Examples:** `qwen-max`, `qwen-turbo`, `gpt-4`
 
+#### AGENT_QWEN_CLI_PATH
+- **Type:** String
+- **Default:** `qwen`
+- **Description:** Path to qwen CLI executable
+- **Examples:** `qwen`, `/usr/local/bin/qwen`, `./bin/qwen`
+
+#### AGENT_INSTRUCTION
+- **Type:** String (Optional)
+- **Default:** `None`
+- **Description:** Custom instruction for the agent
+- **Example:** `"Always be concise and use bullet points"`
+
 #### AGENT_TIMEOUT
 - **Type:** Integer (seconds)
 - **Default:** `300`
@@ -155,6 +168,18 @@ GITHUB_TOKEN=ghp_...
 - **Description:** Allow shell command execution
 - **Warning:** ⚠️ Security risk, use with caution
 - **Example:** `false`
+
+#### AGENT_ENABLE_FILE_MANAGEMENT
+- **Type:** Boolean
+- **Default:** `true`
+- **Description:** Enable file operations (create, edit, delete, move files)
+- **Example:** `true` or `false`
+
+#### AGENT_ENABLE_FOLDER_MANAGEMENT
+- **Type:** Boolean
+- **Default:** `true`
+- **Description:** Enable folder operations (create, delete, move folders)
+- **Example:** `true` or `false`
 
 ---
 
@@ -206,6 +231,41 @@ GITHUB_TOKEN=ghp_...
 - **Description:** Whitelist of allowed Telegram user IDs
 - **Example:** `12345678,87654321`
 
+#### OPENAI_API_KEY
+- **Type:** String (Secret)
+- **Required:** No
+- **Source:** `.env` or environment variable only
+- **Description:** OpenAI API key for autonomous agent
+- **Example:** `sk-...`
+
+#### OPENAI_BASE_URL
+- **Type:** String (Secret)
+- **Required:** No
+- **Source:** `.env` or environment variable only
+- **Description:** OpenAI API base URL for custom endpoints
+- **Example:** `https://api.openai.com/v1`
+
+#### QWEN_API_KEY
+- **Type:** String (Secret)
+- **Required:** No
+- **Source:** `.env` or environment variable only
+- **Description:** Qwen API key for qwen_code agent
+- **Example:** `your_qwen_key`
+
+#### ANTHROPIC_API_KEY
+- **Type:** String (Secret)
+- **Required:** No
+- **Source:** `.env` or environment variable only
+- **Description:** Anthropic API key (future use)
+- **Example:** `sk-ant-...`
+
+#### GITHUB_TOKEN
+- **Type:** String (Secret)
+- **Required:** No
+- **Source:** `.env` or environment variable only
+- **Description:** GitHub personal access token for API operations
+- **Example:** `ghp_...`
+
 ---
 
 ## Configuration Examples
@@ -246,6 +306,8 @@ AGENT_ENABLE_WEB_SEARCH: true
 AGENT_ENABLE_GIT: true
 AGENT_ENABLE_GITHUB: true
 AGENT_ENABLE_SHELL: false
+AGENT_ENABLE_FILE_MANAGEMENT: true
+AGENT_ENABLE_FOLDER_MANAGEMENT: true
 
 MESSAGE_GROUP_TIMEOUT: 30
 PROCESSED_LOG_PATH: /var/data/processed.json

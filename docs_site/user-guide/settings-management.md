@@ -64,10 +64,15 @@ Use the interactive menu and inline buttons:
 
 - `AGENT_TYPE` - Agent implementation
 - `AGENT_MODEL` - AI model to use
+- `AGENT_QWEN_CLI_PATH` - Path to qwen CLI executable
+- `AGENT_INSTRUCTION` - Custom instruction for agent
 - `AGENT_TIMEOUT` - Operation timeout
 - `AGENT_ENABLE_WEB_SEARCH` - Enable web search
 - `AGENT_ENABLE_GIT` - Enable Git operations
 - `AGENT_ENABLE_GITHUB` - Enable GitHub API
+- `AGENT_ENABLE_SHELL` - Enable shell commands (⚠️ security risk)
+- `AGENT_ENABLE_FILE_MANAGEMENT` - Enable file operations
+- `AGENT_ENABLE_FOLDER_MANAGEMENT` - Enable folder operations
 
 ### ⚙️ Processing
 

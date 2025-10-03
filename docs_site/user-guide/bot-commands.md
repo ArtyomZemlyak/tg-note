@@ -159,39 +159,6 @@ View all settings or filtered by category.
 
 ---
 
-### /setsetting
-
-Change a specific setting value.
-
-**Usage:**
-```
-/setsetting <name> <value>
-```
-
-**Examples:**
-
-```
-# Boolean settings
-/setsetting KB_GIT_ENABLED true
-/setsetting KB_GIT_AUTO_PUSH false
-
-# Numeric settings
-/setsetting AGENT_TIMEOUT 600
-/setsetting MESSAGE_GROUP_TIMEOUT 60
-
-# String settings
-/setsetting AGENT_TYPE qwen_code_cli
-/setsetting LOG_LEVEL DEBUG
-```
-
-**Supported Types:**
-- Boolean: `true`, `false`, `1`, `0`, `yes`, `no`
-- Integer: Any number
-- String: Any text
-- Path: File system paths
-
----
-
 ### /resetsetting
 
 Reset a setting to its default value.
@@ -333,7 +300,6 @@ https://arxiv.org/abs/12345
 | `/status` | - | Show statistics | `/status` |
 | `/settings` | - | Settings menu | `/settings` |
 | `/viewsettings` | `[category]` | View settings | `/viewsettings agent` |
-| `/setsetting` | `<name> <value>` | Change setting | `/setsetting LOG_LEVEL DEBUG` |
 | `/resetsetting` | `<name>` | Reset setting | `/resetsetting AGENT_TIMEOUT` |
 | `/kbsettings` | - | KB settings | `/kbsettings` |
 | `/agentsettings` | - | Agent settings | `/agentsettings` |
@@ -348,20 +314,22 @@ https://arxiv.org/abs/12345
 /settings → Choose category → Select setting → Change value
 ```
 
-### Batch Changes
+### View Settings
 
 ```
-/setsetting AGENT_TIMEOUT 600
-/setsetting KB_GIT_AUTO_PUSH true
-/setsetting LOG_LEVEL DEBUG
-```
-
-### View Before Change
-
-```
+/viewsettings
 /viewsettings agent
-# Review current values
-/setsetting AGENT_TYPE qwen_code_cli
+/viewsettings knowledge_base
+```
+
+### Interactive Changes
+
+```
+/settings
+# Navigate through categories
+# Click on setting to change
+# For boolean: Use Enable/Disable buttons
+# For others: Send new value
 ```
 
 ### Reset All (Individual)
