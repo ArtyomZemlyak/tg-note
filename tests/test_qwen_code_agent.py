@@ -1,11 +1,19 @@
 """
-Tests for Qwen Code Agent
+Tests for Autonomous Agent (formerly Qwen Code Agent)
 """
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from src.agents.qwen_code_agent import QwenCodeAgent, TodoPlan, ToolResult
-from src.agents.base_agent import KBStructure
+from src.agents import (
+    AutonomousAgent,
+    QwenCodeAgent,  # Backward compatibility alias
+    TodoPlan,
+    ToolExecution,
+    AgentContext,
+    ActionType,
+    AgentDecision
+)
+from src.agents.base_agent import KBStructure, BaseAgent
 
 
 class TestTodoPlan:
@@ -51,42 +59,59 @@ class TestTodoPlan:
         assert len(result["tasks"]) == 1
 
 
-class TestToolResult:
-    """Test ToolResult class"""
+class TestToolExecution:
+    """Test ToolExecution class"""
     
-    def test_success_result(self):
-        """Test successful tool result"""
-        result = ToolResult(success=True, output="Success")
+    def test_success_execution(self):
+        """Test successful tool execution"""
+        execution = ToolExecution(
+            tool_name="analyze_content",
+            params={"text": "test"},
+            result={"success": True},
+            success=True
+        )
         
-        assert result.success
-        assert result.output == "Success"
-        assert result.error is None
+        assert execution.success
+        assert execution.tool_name == "analyze_content"
+        assert execution.error is None
     
-    def test_error_result(self):
-        """Test error tool result"""
-        result = ToolResult(success=False, output=None, error="Failed")
+    def test_error_execution(self):
+        """Test error tool execution"""
+        execution = ToolExecution(
+            tool_name="web_search",
+            params={"query": "test"},
+            result=None,
+            success=False,
+            error="Connection failed"
+        )
         
-        assert not result.success
-        assert result.output is None
-        assert result.error == "Failed"
+        assert not execution.success
+        assert execution.result is None
+        assert execution.error == "Connection failed"
     
     def test_to_dict(self):
-        """Test converting result to dictionary"""
-        result = ToolResult(success=True, output="Data")
+        """Test converting execution to dictionary"""
+        execution = ToolExecution(
+            tool_name="test",
+            params={},
+            result="data",
+            success=True
+        )
         
-        data = result.to_dict()
+        data = execution.to_dict()
         assert data["success"]
-        assert data["output"] == "Data"
-        assert data["error"] is None
+        assert data["tool_name"] == "test"
+        assert data["result"] == "data"
 
 
-class TestQwenCodeAgent:
-    """Test QwenCodeAgent class"""
+class TestAutonomousAgent:
+    """Test AutonomousAgent class"""
     
     @pytest.fixture
     def agent(self):
-        """Create test agent"""
-        return QwenCodeAgent(
+        """Create test agent without LLM connector (rule-based)"""
+        return AutonomousAgent(
+            llm_connector=None,  # Use rule-based decision making
             config={},
             enable_web_search=True,
             enable_git=True,
@@ -115,11 +140,17 @@ class TestQwenCodeAgent:
         assert "git_command" in agent.tools
         assert "github_api" in agent.tools
         assert "shell_command" not in agent.tools
+        assert "plan_todo" in agent.tools
+        assert "analyze_content" in agent.tools
+    
+    def test_backward_compatibility_alias(self):
+        """Test that QwenCodeAgent is alias for AutonomousAgent"""
+        assert QwenCodeAgent == AutonomousAgent
     
     def test_custom_instruction(self):
         """Test custom instruction setting"""
         custom_instruction = "Custom instruction for testing"
-        agent = QwenCodeAgent(instruction=custom_instruction)
+        agent = AutonomousAgent(instruction=custom_instruction)
         
         assert agent.get_instruction() == custom_instruction
     
@@ -149,54 +180,54 @@ class TestQwenCodeAgent:
         assert len(plan.tasks) > 0
         assert all(task["status"] == "pending" for task in plan.tasks)
     
-    def test_extract_keywords(self, agent):
+    def test_extract_keywords(self):
         """Test keyword extraction"""
         text = "machine learning neural networks deep learning AI artificial intelligence"
-        keywords = agent._extract_keywords(text, top_n=3)
+        keywords = BaseAgent.extract_keywords(text, top_n=3)
         
         assert len(keywords) <= 3
         assert "machine" in keywords or "learning" in keywords
     
-    def test_detect_category_ai(self, agent):
+    def test_detect_category_ai(self):
         """Test category detection for AI content"""
         text = "This article discusses machine learning and neural networks in AI"
-        category = agent._detect_category(text)
+        category = BaseAgent.detect_category(text)
         
         assert category == "ai"
     
-    def test_detect_category_tech(self, agent):
+    def test_detect_category_tech(self):
         """Test category detection for tech content"""
         text = "Python programming and software development with APIs"
-        category = agent._detect_category(text)
+        category = BaseAgent.detect_category(text)
         
         assert category == "tech"
     
-    def test_detect_category_general(self, agent):
+    def test_detect_category_general(self):
         """Test category detection for general content"""
         text = "This is some random text without specific keywords"
-        category = agent._detect_category(text)
+        category = BaseAgent.detect_category(text)
         
         assert category == "general"
     
-    def test_generate_title(self, agent):
+    def test_generate_title(self):
         """Test title generation"""
         text = "Machine Learning Fundamentals\n\nThis is the content..."
-        title = agent._generate_title(text)
+        title = BaseAgent.generate_title(text)
         
         assert title == "Machine Learning Fundamentals"
     
-    def test_generate_title_long(self, agent):
+    def test_generate_title_long(self):
         """Test title generation with long text"""
         text = "A" * 100
-        title = agent._generate_title(text, max_length=50)
+        title = BaseAgent.generate_title(text, max_length=50)
         
         assert len(title) <= 53  # 50 + "..."
         assert title.endswith("...")
     
-    def test_generate_summary(self, agent):
+    def test_generate_summary(self):
         """Test summary generation"""
         text = "First paragraph with summary.\n\nSecond paragraph."
-        summary = agent._generate_summary(text)
+        summary = BaseAgent.generate_summary(text)
         
         assert summary == "First paragraph with summary."
     
@@ -287,9 +318,9 @@ class TestQwenCodeAgent:
         assert "kb_structure" in result
         
         assert isinstance(result["kb_structure"], KBStructure)
-        assert result["metadata"]["agent"] == "QwenCodeAgent"
-        assert "plan" in result["metadata"]
-        assert "execution_log" in result["metadata"]
+        assert result["metadata"]["agent"] == "AutonomousAgent"
+        assert "iterations" in result["metadata"]
+        assert "executions" in result["metadata"]
     
     @pytest.mark.asyncio
     async def test_tool_web_search(self, agent):
@@ -303,8 +334,8 @@ class TestQwenCodeAgent:
             
             result = await agent._tool_web_search({"query": "https://example.com"})
             
-            assert result.success
-            assert "url" in result.output
+            assert result["success"]
+            assert "url" in result
     
     @pytest.mark.asyncio
     async def test_tool_git_command_safe(self, agent):
@@ -318,16 +349,16 @@ class TestQwenCodeAgent:
             
             result = await agent._tool_git_command({"command": "git status"})
             
-            assert result.success
-            assert "stdout" in result.output
+            assert result["success"]
+            assert "stdout" in result
     
     @pytest.mark.asyncio
     async def test_tool_git_command_unsafe(self, agent):
         """Test git command tool with unsafe command"""
         result = await agent._tool_git_command({"command": "git push"})
         
-        assert not result.success
-        assert "not allowed" in result.error
+        assert not result["success"]
+        assert "not allowed" in result["error"]
     
     @pytest.mark.asyncio
     async def test_tool_github_api(self, agent):
@@ -341,21 +372,21 @@ class TestQwenCodeAgent:
             
             result = await agent._tool_github_api({"endpoint": "/repos/user/repo"})
             
-            assert result.success
-            assert result.output["status"] == 200
+            assert result["success"]
+            assert result["status"] == 200
     
     @pytest.mark.asyncio
     async def test_tool_shell_command_disabled(self, agent):
         """Test shell command tool when disabled"""
         result = await agent._tool_shell_command({"command": "echo test"})
         
-        assert not result.success
-        assert "disabled" in result.error
+        assert not result["success"]
+        assert "disabled" in result["error"]
     
     @pytest.mark.asyncio
     async def test_tool_shell_command_enabled(self):
         """Test shell command tool when enabled"""
-        agent = QwenCodeAgent(enable_shell=True)
+        agent = AutonomousAgent(enable_shell=True)
         
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
@@ -366,17 +397,38 @@ class TestQwenCodeAgent:
             
             result = await agent._tool_shell_command({"command": "echo test"})
             
-            assert result.success
+            assert result["success"]
     
     @pytest.mark.asyncio
     async def test_tool_shell_command_dangerous(self):
         """Test shell command tool blocks dangerous commands"""
-        agent = QwenCodeAgent(enable_shell=True)
+        agent = AutonomousAgent(enable_shell=True)
         
         result = await agent._tool_shell_command({"command": "rm -rf /"})
         
-        assert not result.success
-        assert "dangerous" in result.error
+        assert not result["success"]
+        assert "dangerous" in result["error"]
+    
+    @pytest.mark.asyncio
+    async def test_tool_plan_todo(self, agent):
+        """Test plan_todo tool"""
+        tasks = ["Task 1", "Task 2", "Task 3"]
+        result = await agent._tool_plan_todo({"tasks": tasks})
+        
+        assert result["success"]
+        assert agent.current_plan is not None
+        assert len(agent.current_plan.tasks) == 3
+    
+    @pytest.mark.asyncio
+    async def test_tool_analyze_content(self, agent):
+        """Test analyze_content tool"""
+        text = "This is test content about AI and machine learning"
+        result = await agent._tool_analyze_content({"text": text})
+        
+        assert "text_length" in result
+        assert "word_count" in result
+        assert "keywords" in result
+        assert "category" in result
 
 
 class TestAgentWithDifferentConfigurations:
@@ -384,38 +436,47 @@ class TestAgentWithDifferentConfigurations:
     
     def test_minimal_tools(self):
         """Test agent with minimal tools"""
-        agent = QwenCodeAgent(
+        agent = AutonomousAgent(
             enable_web_search=False,
             enable_git=False,
             enable_github=False,
-            enable_shell=False
+            enable_shell=False,
+            enable_file_management=False,
+            enable_folder_management=False
         )
         
-        assert len(agent.tools) == 0
+        # Should still have plan_todo and analyze_content
+        assert "plan_todo" in agent.tools
+        assert "analyze_content" in agent.tools
+        assert "web_search" not in agent.tools
     
     def test_all_tools_enabled(self):
         """Test agent with all tools enabled"""
-        agent = QwenCodeAgent(
+        agent = AutonomousAgent(
             enable_web_search=True,
             enable_git=True,
             enable_github=True,
-            enable_shell=True
+            enable_shell=True,
+            enable_file_management=True,
+            enable_folder_management=True
         )
         
-        assert len(agent.tools) == 4
         assert "web_search" in agent.tools
         assert "git_command" in agent.tools
         assert "github_api" in agent.tools
         assert "shell_command" in agent.tools
+        assert "file_create" in agent.tools
+        assert "folder_create" in agent.tools
     
-    def test_custom_model(self):
-        """Test agent with custom model"""
-        agent = QwenCodeAgent(model="qwen-plus")
+    def test_with_llm_connector(self):
+        """Test agent with mock LLM connector"""
+        from unittest.mock import Mock
         
-        assert agent.model == "qwen-plus"
-    
-    def test_with_api_key(self):
-        """Test agent with API key"""
-        agent = QwenCodeAgent(api_key="test-key-123")
+        mock_connector = Mock()
+        mock_connector.get_model_name.return_value = "test-model"
         
-        assert agent.api_key == "test-key-123"
+        agent = AutonomousAgent(
+            llm_connector=mock_connector
+        )
+        
+        assert agent.llm_connector == mock_connector

@@ -33,6 +33,8 @@ dependencies = [
     "filelock==3.13.1",
     # Agent system
     "qwen-agent==0.0.31",
+    # LLM APIs
+    "openai>=1.0.0",
     # Utilities
     "aiohttp==3.9.1",
     "requests==2.31.0",
