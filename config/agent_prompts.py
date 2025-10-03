@@ -45,17 +45,17 @@ STANDARDIZED RESULT FORMAT:
 After completing all actions, you MUST return the result in this format:
 
 ```agent-result
-{
+{{
   "summary": "Brief description of what you did (3-5 sentences)",
   "files_created": ["path/to/file1.md", "path/to/file2.md"],
   "files_edited": ["path/to/file3.md"],
   "folders_created": ["path/to/folder1", "path/to/folder2"],
-  "metadata": {
+  "metadata": {{
     "category": "main_category",
     "topics": ["topic1", "topic2"],
     "sources_analyzed": 3
-  }
-}
+  }}
+}}
 ```
 
 And also add KB metadata block:
@@ -172,17 +172,17 @@ QWEN_CODE_CLI_AGENT_INSTRUCTION = """Ты автономный агент для
 В конце своего ответа добавь блок:
 
 ```agent-result
-{
+{{
   "summary": "Краткое описание что ты сделал (3-5 предложений)",
   "files_created": ["путь/к/файлу1.md", "путь/к/файлу2.md"],
   "files_edited": ["путь/к/файлу3.md"],
   "folders_created": ["путь/к/папке1", "путь/к/папке2"],
-  "metadata": {
+  "metadata": {{
     "category": "основная_категория",
     "topics": ["тема1", "тема2"],
     "sources_analyzed": 3
-  }
-}
+  }}
+}}
 ```
 
 И также добавь блок с метаданными KB:
@@ -307,16 +307,16 @@ CONTENT_PROCESSING_PROMPT_TEMPLATE = """
 ОБЯЗАТЕЛЬНО верни результат в конце в СТАНДАРТИЗИРОВАННОМ ФОРМАТЕ:
 
 ```agent-result
-{
+{{
   "summary": "Краткое описание что ты сделал",
   "files_created": ["путь/к/файлу1.md", "путь/к/файлу2.md"],
   "files_edited": ["путь/к/файлу3.md"],
   "folders_created": ["путь/к/папке1"],
-  "metadata": {
+  "metadata": {{
     "category": "основная_категория",
     "topics": ["тема1", "тема2"]
-  }
-}
+  }}
+}}
 ```
 
 ```metadata
