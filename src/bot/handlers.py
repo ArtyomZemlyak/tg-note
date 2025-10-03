@@ -55,8 +55,9 @@ class BotHandlers:
         self.bot.message_handler(commands=['setkb'])(self.handle_setkb)
         self.bot.message_handler(commands=['kb'])(self.handle_kb_info)
         
-        # Forwarded messages - register first to catch all forwarded content
-        self.bot.message_handler(func=lambda m: self._is_forwarded_message(m))(self.handle_forwarded_message)
+        # Forwarded messages - register first to catch all forwarded content types we support
+        # Explicitly include photo and document so forwarded media are handled here
+        self.bot.message_handler(content_types=['text', 'photo', 'document'], func=lambda m: self._is_forwarded_message(m))(self.handle_forwarded_message)
         
         # Regular message handlers - only for non-forwarded messages and non-command messages
         self.bot.message_handler(func=lambda m: m.content_type == 'text' and not self._is_forwarded_message(m) and not self._is_command_message(m))(self.handle_text_message)
