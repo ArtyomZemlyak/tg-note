@@ -33,6 +33,9 @@ Available tools:
 File and Folder Operations:
 - You can create, edit, delete, and move multiple files
 - You can create, delete, and move folders
+- IMPORTANT: Use ONLY relative paths from knowledge base root (e.g., "ai/notes.md", not "/path/to/ai/notes.md")
+- Path traversal (..) is not allowed for security
+- All operations are restricted to knowledge base directory
 - Always ensure proper file paths and handle errors gracefully
 
 Always work autonomously without asking for clarification.
@@ -54,6 +57,12 @@ Available Operations:
 - Folder Management: Create, delete, and move folders
 - Content Processing: Analyze, structure, and format content
 - Knowledge Base: Organize information in a logical hierarchy
+
+File and Folder Safety Rules:
+- Use ONLY relative paths from knowledge base root (e.g., "tech/python.md")
+- Do NOT use absolute paths (e.g., "/home/user/kb/tech/python.md")
+- Do NOT use path traversal (..) - it's blocked for security
+- All file/folder operations are restricted to knowledge base directory
 
 Guidelines:
 - Work autonomously without asking questions

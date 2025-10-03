@@ -100,7 +100,10 @@ class QwenCodeAgent(BaseAgent):
         enable_web_search: bool = True,
         enable_git: bool = True,
         enable_github: bool = True,
-        enable_shell: bool = False  # Disabled by default for security
+        enable_shell: bool = False,  # Disabled by default for security
+        enable_file_management: bool = True,
+        enable_folder_management: bool = True,
+        kb_root_path: Optional[Path] = None
     ):
         """
         Initialize Qwen Code Agent
@@ -114,6 +117,9 @@ class QwenCodeAgent(BaseAgent):
             enable_git: Enable git command tool
             enable_github: Enable GitHub API tool
             enable_shell: Enable shell command tool (security risk)
+            enable_file_management: Enable file management tools
+            enable_folder_management: Enable folder management tools
+            kb_root_path: Root path for knowledge base (for safe file/folder operations)
         """
         super().__init__(config)
         
@@ -127,6 +133,12 @@ class QwenCodeAgent(BaseAgent):
         self.enable_git = enable_git
         self.enable_github = enable_github
         self.enable_shell = enable_shell
+        self.enable_file_management = enable_file_management
+        self.enable_folder_management = enable_folder_management
+        
+        # Knowledge base root path for safe file operations
+        self.kb_root_path = kb_root_path or Path("./knowledge_base")
+        self.kb_root_path = self.kb_root_path.resolve()  # Get absolute path
         
         # Initialize tools
         self.tools = self._initialize_tools()
@@ -136,6 +148,7 @@ class QwenCodeAgent(BaseAgent):
         self.execution_log: List[Dict[str, Any]] = []
         
         logger.info(f"QwenCodeAgent initialized with model: {model}")
+        logger.info(f"KB root path: {self.kb_root_path}")
         logger.info(f"Enabled tools: {list(self.tools.keys())}")
     
     def _initialize_tools(self) -> Dict[str, callable]:
@@ -153,6 +166,17 @@ class QwenCodeAgent(BaseAgent):
         
         if self.enable_shell:
             tools["shell_command"] = self._tool_shell_command
+        
+        if self.enable_file_management:
+            tools["file_create"] = self._tool_file_create
+            tools["file_edit"] = self._tool_file_edit
+            tools["file_delete"] = self._tool_file_delete
+            tools["file_move"] = self._tool_file_move
+        
+        if self.enable_folder_management:
+            tools["folder_create"] = self._tool_folder_create
+            tools["folder_delete"] = self._tool_folder_delete
+            tools["folder_move"] = self._tool_folder_move
         
         return tools
     
@@ -637,6 +661,40 @@ class QwenCodeAgent(BaseAgent):
         
         return first_para
     
+    # Security helper methods
+    
+    def _validate_safe_path(self, relative_path: str) -> tuple[bool, Optional[Path], str]:
+        """
+        Validate that path is safe and within KB root
+        
+        Args:
+            relative_path: Relative path from KB root
+        
+        Returns:
+            Tuple of (is_valid, resolved_path, error_message)
+        """
+        try:
+            # Remove any leading slashes to ensure it's treated as relative
+            relative_path = relative_path.lstrip("/").lstrip("\\")
+            
+            # Check for path traversal attempts
+            if ".." in relative_path:
+                return False, None, "Path traversal (..) is not allowed"
+            
+            # Resolve full path
+            full_path = (self.kb_root_path / relative_path).resolve()
+            
+            # Verify it's within KB root
+            try:
+                full_path.relative_to(self.kb_root_path)
+            except ValueError:
+                return False, None, f"Path must be within knowledge base root: {self.kb_root_path}"
+            
+            return True, full_path, ""
+            
+        except Exception as e:
+            return False, None, f"Invalid path: {e}"
+    
     # Tool implementations
     
     async def _tool_web_search(self, params: Dict[str, Any]) -> ToolResult:
@@ -841,6 +899,404 @@ class QwenCodeAgent(BaseAgent):
         
         except Exception as e:
             return ToolResult(success=False, output=None, error=str(e))
+    
+    async def _tool_file_create(self, params: Dict[str, Any]) -> ToolResult:
+        """
+        Create a new file
+        
+        Args:
+            params: Dictionary with 'path' (relative to KB root) and 'content' parameters
+        
+        Returns:
+            ToolResult object
+        """
+        relative_path = params.get("path", "")
+        content = params.get("content", "")
+        
+        # Validate path
+        is_valid, full_path, error = self._validate_safe_path(relative_path)
+        if not is_valid:
+            return ToolResult(success=False, output=None, error=error)
+        
+        try:
+            # Create parent directories if needed
+            full_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Check if file already exists
+            if full_path.exists():
+                return ToolResult(
+                    success=False,
+                    output=None,
+                    error=f"File already exists: {relative_path}"
+                )
+            
+            # Write file
+            full_path.write_text(content, encoding="utf-8")
+            
+            logger.info(f"Created file: {relative_path}")
+            return ToolResult(
+                success=True,
+                output={
+                    "path": relative_path,
+                    "full_path": str(full_path),
+                    "size": len(content)
+                }
+            )
+            
+        except Exception as e:
+            return ToolResult(success=False, output=None, error=f"Failed to create file: {e}")
+    
+    async def _tool_file_edit(self, params: Dict[str, Any]) -> ToolResult:
+        """
+        Edit an existing file
+        
+        Args:
+            params: Dictionary with 'path' (relative to KB root) and 'content' parameters
+        
+        Returns:
+            ToolResult object
+        """
+        relative_path = params.get("path", "")
+        content = params.get("content", "")
+        
+        # Validate path
+        is_valid, full_path, error = self._validate_safe_path(relative_path)
+        if not is_valid:
+            return ToolResult(success=False, output=None, error=error)
+        
+        try:
+            # Check if file exists
+            if not full_path.exists():
+                return ToolResult(
+                    success=False,
+                    output=None,
+                    error=f"File does not exist: {relative_path}"
+                )
+            
+            if not full_path.is_file():
+                return ToolResult(
+                    success=False,
+                    output=None,
+                    error=f"Path is not a file: {relative_path}"
+                )
+            
+            # Backup old content
+            old_content = full_path.read_text(encoding="utf-8")
+            
+            # Write new content
+            full_path.write_text(content, encoding="utf-8")
+            
+            logger.info(f"Edited file: {relative_path}")
+            return ToolResult(
+                success=True,
+                output={
+                    "path": relative_path,
+                    "full_path": str(full_path),
+                    "old_size": len(old_content),
+                    "new_size": len(content)
+                }
+            )
+            
+        except Exception as e:
+            return ToolResult(success=False, output=None, error=f"Failed to edit file: {e}")
+    
+    async def _tool_file_delete(self, params: Dict[str, Any]) -> ToolResult:
+        """
+        Delete a file
+        
+        Args:
+            params: Dictionary with 'path' (relative to KB root) parameter
+        
+        Returns:
+            ToolResult object
+        """
+        relative_path = params.get("path", "")
+        
+        # Validate path
+        is_valid, full_path, error = self._validate_safe_path(relative_path)
+        if not is_valid:
+            return ToolResult(success=False, output=None, error=error)
+        
+        try:
+            # Check if file exists
+            if not full_path.exists():
+                return ToolResult(
+                    success=False,
+                    output=None,
+                    error=f"File does not exist: {relative_path}"
+                )
+            
+            if not full_path.is_file():
+                return ToolResult(
+                    success=False,
+                    output=None,
+                    error=f"Path is not a file: {relative_path}"
+                )
+            
+            # Delete file
+            full_path.unlink()
+            
+            logger.info(f"Deleted file: {relative_path}")
+            return ToolResult(
+                success=True,
+                output={
+                    "path": relative_path,
+                    "full_path": str(full_path)
+                }
+            )
+            
+        except Exception as e:
+            return ToolResult(success=False, output=None, error=f"Failed to delete file: {e}")
+    
+    async def _tool_file_move(self, params: Dict[str, Any]) -> ToolResult:
+        """
+        Move/rename a file
+        
+        Args:
+            params: Dictionary with 'source' and 'destination' (both relative to KB root)
+        
+        Returns:
+            ToolResult object
+        """
+        source_path = params.get("source", "")
+        dest_path = params.get("destination", "")
+        
+        # Validate source path
+        is_valid, full_source, error = self._validate_safe_path(source_path)
+        if not is_valid:
+            return ToolResult(success=False, output=None, error=f"Invalid source: {error}")
+        
+        # Validate destination path
+        is_valid, full_dest, error = self._validate_safe_path(dest_path)
+        if not is_valid:
+            return ToolResult(success=False, output=None, error=f"Invalid destination: {error}")
+        
+        try:
+            # Check if source exists
+            if not full_source.exists():
+                return ToolResult(
+                    success=False,
+                    output=None,
+                    error=f"Source file does not exist: {source_path}"
+                )
+            
+            if not full_source.is_file():
+                return ToolResult(
+                    success=False,
+                    output=None,
+                    error=f"Source is not a file: {source_path}"
+                )
+            
+            # Check if destination already exists
+            if full_dest.exists():
+                return ToolResult(
+                    success=False,
+                    output=None,
+                    error=f"Destination already exists: {dest_path}"
+                )
+            
+            # Create parent directories if needed
+            full_dest.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Move file
+            full_source.rename(full_dest)
+            
+            logger.info(f"Moved file: {source_path} -> {dest_path}")
+            return ToolResult(
+                success=True,
+                output={
+                    "source": source_path,
+                    "destination": dest_path,
+                    "full_source": str(full_source),
+                    "full_destination": str(full_dest)
+                }
+            )
+            
+        except Exception as e:
+            return ToolResult(success=False, output=None, error=f"Failed to move file: {e}")
+    
+    async def _tool_folder_create(self, params: Dict[str, Any]) -> ToolResult:
+        """
+        Create a new folder
+        
+        Args:
+            params: Dictionary with 'path' (relative to KB root) parameter
+        
+        Returns:
+            ToolResult object
+        """
+        relative_path = params.get("path", "")
+        
+        # Validate path
+        is_valid, full_path, error = self._validate_safe_path(relative_path)
+        if not is_valid:
+            return ToolResult(success=False, output=None, error=error)
+        
+        try:
+            # Check if already exists
+            if full_path.exists():
+                if full_path.is_dir():
+                    return ToolResult(
+                        success=False,
+                        output=None,
+                        error=f"Folder already exists: {relative_path}"
+                    )
+                else:
+                    return ToolResult(
+                        success=False,
+                        output=None,
+                        error=f"Path exists but is not a folder: {relative_path}"
+                    )
+            
+            # Create folder
+            full_path.mkdir(parents=True, exist_ok=False)
+            
+            logger.info(f"Created folder: {relative_path}")
+            return ToolResult(
+                success=True,
+                output={
+                    "path": relative_path,
+                    "full_path": str(full_path)
+                }
+            )
+            
+        except Exception as e:
+            return ToolResult(success=False, output=None, error=f"Failed to create folder: {e}")
+    
+    async def _tool_folder_delete(self, params: Dict[str, Any]) -> ToolResult:
+        """
+        Delete a folder and its contents
+        
+        Args:
+            params: Dictionary with 'path' (relative to KB root) parameter
+        
+        Returns:
+            ToolResult object
+        """
+        import shutil
+        
+        relative_path = params.get("path", "")
+        
+        # Validate path
+        is_valid, full_path, error = self._validate_safe_path(relative_path)
+        if not is_valid:
+            return ToolResult(success=False, output=None, error=error)
+        
+        try:
+            # Check if exists
+            if not full_path.exists():
+                return ToolResult(
+                    success=False,
+                    output=None,
+                    error=f"Folder does not exist: {relative_path}"
+                )
+            
+            if not full_path.is_dir():
+                return ToolResult(
+                    success=False,
+                    output=None,
+                    error=f"Path is not a folder: {relative_path}"
+                )
+            
+            # Prevent deleting KB root itself
+            if full_path == self.kb_root_path:
+                return ToolResult(
+                    success=False,
+                    output=None,
+                    error="Cannot delete knowledge base root folder"
+                )
+            
+            # Delete folder and contents
+            shutil.rmtree(full_path)
+            
+            logger.info(f"Deleted folder: {relative_path}")
+            return ToolResult(
+                success=True,
+                output={
+                    "path": relative_path,
+                    "full_path": str(full_path)
+                }
+            )
+            
+        except Exception as e:
+            return ToolResult(success=False, output=None, error=f"Failed to delete folder: {e}")
+    
+    async def _tool_folder_move(self, params: Dict[str, Any]) -> ToolResult:
+        """
+        Move/rename a folder
+        
+        Args:
+            params: Dictionary with 'source' and 'destination' (both relative to KB root)
+        
+        Returns:
+            ToolResult object
+        """
+        import shutil
+        
+        source_path = params.get("source", "")
+        dest_path = params.get("destination", "")
+        
+        # Validate source path
+        is_valid, full_source, error = self._validate_safe_path(source_path)
+        if not is_valid:
+            return ToolResult(success=False, output=None, error=f"Invalid source: {error}")
+        
+        # Validate destination path
+        is_valid, full_dest, error = self._validate_safe_path(dest_path)
+        if not is_valid:
+            return ToolResult(success=False, output=None, error=f"Invalid destination: {error}")
+        
+        try:
+            # Check if source exists
+            if not full_source.exists():
+                return ToolResult(
+                    success=False,
+                    output=None,
+                    error=f"Source folder does not exist: {source_path}"
+                )
+            
+            if not full_source.is_dir():
+                return ToolResult(
+                    success=False,
+                    output=None,
+                    error=f"Source is not a folder: {source_path}"
+                )
+            
+            # Prevent moving KB root itself
+            if full_source == self.kb_root_path:
+                return ToolResult(
+                    success=False,
+                    output=None,
+                    error="Cannot move knowledge base root folder"
+                )
+            
+            # Check if destination already exists
+            if full_dest.exists():
+                return ToolResult(
+                    success=False,
+                    output=None,
+                    error=f"Destination already exists: {dest_path}"
+                )
+            
+            # Create parent directories if needed
+            full_dest.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Move folder
+            shutil.move(str(full_source), str(full_dest))
+            
+            logger.info(f"Moved folder: {source_path} -> {dest_path}")
+            return ToolResult(
+                success=True,
+                output={
+                    "source": source_path,
+                    "destination": dest_path,
+                    "full_source": str(full_source),
+                    "full_destination": str(full_dest)
+                }
+            )
+            
+        except Exception as e:
+            return ToolResult(success=False, output=None, error=f"Failed to move folder: {e}")
     
     def validate_input(self, content: Dict) -> bool:
         """
