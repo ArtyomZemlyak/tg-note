@@ -27,6 +27,15 @@ class SettingsHandlers:
         # Reference to bot handlers for cache invalidation
         self.handlers = handlers
     
+    def _is_forwarded_message(self, message: Message) -> bool:
+        """Check if message is forwarded from any source"""
+        return (
+            message.forward_from is not None or  # Forwarded from user
+            message.forward_from_chat is not None or  # Forwarded from channel/group
+            message.forward_sender_name is not None or  # Forwarded from privacy-enabled user
+            message.forward_date is not None  # Forwarded message (any source)
+        )
+    
     async def register_handlers_async(self):
         """Register all settings handlers"""
         # Main settings commands
@@ -38,8 +47,8 @@ class SettingsHandlers:
         self.bot.message_handler(commands=['kbsettings'])(self.handle_kb_settings)
         self.bot.message_handler(commands=['agentsettings'])(self.handle_agent_settings)
         
-        # Text message handler for setting input
-        self.bot.message_handler(func=lambda m: m.from_user.id in self.waiting_for_input)(
+        # Text message handler for setting input (exclude forwarded messages)
+        self.bot.message_handler(func=lambda m: m.from_user.id in self.waiting_for_input and not self._is_forwarded_message(m))(
             self.handle_setting_input
         )
         
@@ -576,7 +585,11 @@ class SettingsHandlers:
             self.waiting_for_input[user_id] = (setting_name, info.category)
             
             # Send a prompt message
-            prompt_text = f"💬 Please send the new value for `{setting_name}`\n\nSend /cancel to cancel."
+            prompt_text = (
+                f"💬 Please send the new value for `{setting_name}`\n\n"
+                f"Note: Forwarded messages will be added to knowledge base instead.\n"
+                f"Send /cancel to cancel."
+            )
             await self.bot.send_message(call.message.chat.id, prompt_text, parse_mode='Markdown')
         
         await self.bot.answer_callback_query(call.id)
