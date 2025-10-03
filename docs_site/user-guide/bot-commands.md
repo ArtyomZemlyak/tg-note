@@ -4,6 +4,83 @@ Complete reference for all tg-note bot commands.
 
 ---
 
+## Working Modes
+
+The bot has two working modes that you can switch between:
+
+### /note - Note Creation Mode (Default)
+
+Switches the bot to knowledge base creation mode.
+
+**Usage:**
+```
+/note
+```
+
+**Response:**
+```
+📝 Режим создания базы знаний активирован!
+
+Теперь ваши сообщения будут анализироваться и сохраняться в базу знаний.
+Отправьте сообщение, репост или документ для обработки.
+
+Для переключения в режим вопросов используйте /ask
+```
+
+**What it does:**
+- Bot analyzes incoming messages
+- Creates structured notes in knowledge base
+- Automatically categorizes content
+- Saves to Git repository
+
+---
+
+### /ask - Question Mode
+
+Switches the bot to question mode for querying your knowledge base.
+
+**Usage:**
+```
+/ask
+```
+
+**Requirements:**
+- Knowledge base must be set up via `/setkb`
+
+**Response:**
+```
+🤔 Режим вопросов по базе знаний активирован!
+
+Теперь вы можете задавать вопросы агенту о содержимом вашей базы знаний.
+Агент будет искать информацию в базе и отвечать на ваши вопросы.
+
+Для возврата в режим создания заметок используйте /note
+```
+
+**What it does:**
+- Accepts questions about knowledge base content
+- Agent searches for relevant information using KB reading tools
+- Provides answers based on found content
+- Shows sources of information
+
+**Example interaction:**
+```
+User: /ask
+Bot: 🤔 Режим вопросов по базе знаний активирован!
+
+User: Что такое GPT-4?
+Bot: 🔍 Ищу информацию в базе знаний...
+     💡 Ответ:
+     
+     GPT-4 - это большая языковая модель от OpenAI...
+     
+     Источники:
+     - ai/models/gpt4.md
+     - ai/multimodal/vision.md
+```
+
+---
+
 ## Basic Commands
 
 ### /start
@@ -19,6 +96,7 @@ Initialize interaction with the bot.
 - Welcome message
 - Bot introduction
 - Quick start instructions
+- Information about working modes
 
 ---
 
@@ -35,6 +113,7 @@ Display help information and available commands.
 - List of all commands
 - Brief descriptions
 - Links to documentation
+- Working modes information
 
 ---
 
@@ -88,7 +167,7 @@ Show current knowledge base information.
 
 ### /status
 
-Display processing statistics.
+Display processing statistics and current working mode.
 
 **Usage:**
 ```
@@ -100,6 +179,24 @@ Display processing statistics.
 - Notes created
 - Success/failure rate
 - Agent type in use
+- **Current working mode** (Note Creation or Question Mode)
+- Knowledge base information
+- Git integration status
+
+**Example:**
+```
+📊 Статистика обработки
+
+Всего обработано сообщений: 10
+Ожидает обработки: 0
+Последняя обработка: 2024-01-01 12:00:00
+
+База знаний: my-notes (local)
+Git интеграция: Включена
+
+📝 Текущий режим: Создание базы знаний
+Переключить: /note | /ask
+```
 
 ---
 
@@ -295,9 +392,11 @@ https://arxiv.org/abs/12345
 |---------|-----------|-------------|---------|
 | `/start` | - | Initialize bot | `/start` |
 | `/help` | - | Show help | `/help` |
+| `/note` | - | Switch to note creation mode | `/note` |
+| `/ask` | - | Switch to question mode | `/ask` |
 | `/setkb` | `<name\|url>` | Setup KB | `/setkb my-notes` |
 | `/kb` | - | Show KB info | `/kb` |
-| `/status` | - | Show statistics | `/status` |
+| `/status` | - | Show statistics and mode | `/status` |
 | `/settings` | - | Settings menu | `/settings` |
 | `/viewsettings` | `[category]` | View settings | `/viewsettings agent` |
 | `/resetsetting` | `<name>` | Reset setting | `/resetsetting AGENT_TIMEOUT` |
