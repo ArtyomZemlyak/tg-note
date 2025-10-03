@@ -43,7 +43,7 @@ class StubAgent(BaseAgent):
         return {
             "markdown": markdown_content,
             "metadata": metadata,
-            "title": self._generate_title(text),
+            "title": BaseAgent.generate_title(text),
             "kb_structure": kb_structure
         }
     
@@ -89,25 +89,6 @@ class StubAgent(BaseAgent):
             lines.append("")
         
         return "\n".join(lines)
-    
-    def _generate_title(self, text: str, max_length: int = 50) -> str:
-        """
-        Generate title from text
-        
-        Args:
-            text: Text to generate title from
-            max_length: Maximum title length
-        
-        Returns:
-            Generated title
-        """
-        # Take first line or first N characters
-        first_line = text.split("\n")[0].strip()
-        
-        if len(first_line) > max_length:
-            return first_line[:max_length].strip() + "..."
-        
-        return first_line or "Untitled Note"
     
     def _determine_kb_structure(self, text: str, urls: list) -> KBStructure:
         """

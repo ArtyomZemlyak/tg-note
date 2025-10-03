@@ -161,63 +161,51 @@ class QwenCodeCLIAgent(BaseAgent):
             result_text = await self._execute_qwen_cli(prompt)
             logger.debug(f"[QwenCodeCLIAgent] Received result length: {len(result_text)} characters")
             
-            # Step 3: Parse result
-            logger.debug("[QwenCodeCLIAgent] STEP 3: Parsing qwen-code result")
-            parsed_result = self._parse_qwen_result(result_text)
-            logger.info(f"[QwenCodeCLIAgent] Parsed result: title='{parsed_result.get('title')}', category='{parsed_result.get('category')}'")
-            logger.debug(f"[QwenCodeCLIAgent] Parsed result keys: {list(parsed_result.keys())}")
+            # Step 3: Parse agent response using BaseAgent method
+            logger.debug("[QwenCodeCLIAgent] STEP 3: Parsing agent response with standard parser")
+            agent_result = self.parse_agent_response(result_text)
+            logger.info(f"[QwenCodeCLIAgent] Parsed result: {agent_result.summary}")
+            logger.debug(f"[QwenCodeCLIAgent] Files created: {agent_result.files_created}")
+            logger.debug(f"[QwenCodeCLIAgent] Folders created: {agent_result.folders_created}")
             
-            # Step 4: Extract components with fallbacks
-            logger.debug("[QwenCodeCLIAgent] STEP 4: Extracting components with fallbacks")
-            markdown_content = parsed_result.get("markdown", result_text)
-            title = parsed_result.get("title") or self._extract_title(result_text) or "Untitled Note"
-            category = parsed_result.get("category") or self._detect_category(content.get("text", "")) or "general"
-            tags = parsed_result.get("tags") or self._extract_tags(content.get("text", "")) or ["untagged"]
+            # Step 4: Extract KB structure from response
+            logger.debug("[QwenCodeCLIAgent] STEP 4: Extracting KB structure from response")
+            kb_structure = self.extract_kb_structure_from_response(result_text, default_category="general")
+            logger.info(f"[QwenCodeCLIAgent] KB structure: {kb_structure.to_dict()}")
             
-            # Validate extracted components
-            if not markdown_content:
-                logger.error("No markdown content generated")
-                raise ValueError("Processing failed: no markdown content generated")
+            # Step 5: Extract title from markdown
+            logger.debug("[QwenCodeCLIAgent] STEP 5: Extracting title from markdown")
+            title = self._extract_title_from_markdown(agent_result.markdown)
             
-            # Step 5: Determine KB structure
-            logger.debug("[QwenCodeCLIAgent] STEP 5: Creating KB structure")
-            kb_structure = KBStructure(
-                category=category,
-                subcategory=parsed_result.get("subcategory"),
-                tags=tags
-            )
-            
-            logger.info(f"[QwenCodeCLIAgent] Created KB structure: {kb_structure.to_dict()}")
-            logger.debug(f"[QwenCodeCLIAgent] KB structure path: {kb_structure.get_relative_path()}")
-            
-            # Generate metadata
+            # Step 6: Build final metadata
             metadata = {
                 "processed_at": datetime.now().isoformat(),
                 "agent": "QwenCodeCLIAgent",
-                "version": "1.0.0",
+                "version": "2.0.0",
                 "instruction_used": bool(self.instruction != self.DEFAULT_INSTRUCTION),
                 "tools_enabled": {
                     "web_search": self.enable_web_search,
                     "git": self.enable_git,
                     "github": self.enable_github
                 },
-                "todo_plan": parsed_result.get("todo_plan", []),
-                "files_created": parsed_result.get("files_created", []),
-                "folders_created": parsed_result.get("folders_created", []),
-                "files_edited": parsed_result.get("files_edited", []),
-                "summary_of_changes": parsed_result.get("summary_of_changes", "No file operations detected")
+                **agent_result.metadata  # Добавляем метаданные из ответа агента
             }
             
+            # Validate we have content
+            if not agent_result.markdown.strip():
+                logger.error("No markdown content generated")
+                raise ValueError("Processing failed: no markdown content generated")
+            
             result = {
-                "markdown": markdown_content,
+                "markdown": agent_result.markdown,
                 "metadata": metadata,
                 "title": title,
                 "kb_structure": kb_structure
             }
             
-            logger.info(f"[QwenCodeCLIAgent] Successfully processed content: title='{title}', category='{category}'")
-            logger.debug(f"[QwenCodeCLIAgent] Final result keys: {list(result.keys())}")
-            logger.debug(f"[QwenCodeCLIAgent] Markdown preview: {markdown_content[:200]}...")
+            logger.info(f"[QwenCodeCLIAgent] Successfully processed content: title='{title}'")
+            logger.info(f"[QwenCodeCLIAgent] Summary: {agent_result.summary}")
+            logger.debug(f"[QwenCodeCLIAgent] Markdown preview: {agent_result.markdown[:200]}...")
             return result
         
         except ValueError as ve:
@@ -391,9 +379,9 @@ class QwenCodeCLIAgent(BaseAgent):
             text = "No content available"
         
         # Generate basic markdown with guaranteed valid values
-        title = self._extract_title(text) or "Untitled Note"
-        category = self._detect_category(text) or "general"
-        tags = self._extract_tags(text) or ["untagged"]
+        title = BaseAgent.generate_title(text)
+        category = BaseAgent.detect_category(text)
+        tags = BaseAgent.extract_keywords(text, top_n=5)
         
         markdown = f"""# {title}
 
@@ -409,187 +397,32 @@ class QwenCodeCLIAgent(BaseAgent):
 
 ## Summary
 
-{self._generate_summary(text)}
+{BaseAgent.generate_summary(text)}
 """
         return markdown
     
-    def _parse_qwen_result(self, result_text: str) -> Dict[str, Any]:
-        """
-        Parse result from qwen-code CLI
-        
-        The CLI is fully autonomous and creates files itself during execution.
-        We parse its output to understand what it did.
-        
-        Args:
-            result_text: Raw result from CLI
-        
-        Returns:
-            Parsed result dictionary with validated values
-        """
-        parsed = {
-            "markdown": result_text,
-            "title": None,
-            "category": None,
-            "subcategory": None,
-            "tags": [],
-            "todo_plan": [],
-            "files_created": [],
-            "folders_created": [],
-            "files_edited": [],
-            "summary_of_changes": ""
-        }
-        
-        # Extract title (first # heading)
-        for line in result_text.split("\n"):
-            if line.startswith("# "):
-                parsed["title"] = line[2:].strip()
-                break
-        
-        # Extract metadata block
-        if "```metadata" in result_text:
-            try:
-                start = result_text.find("```metadata") + 11
-                end = result_text.find("```", start)
-                if end > start:
-                    metadata_block = result_text[start:end].strip()
-                    for line in metadata_block.split("\n"):
-                        if ":" in line:
-                            key, value = line.split(":", 1)
-                            key = key.strip().lower()
-                            value = value.strip()
-                            
-                            if key == "category" and value:
-                                parsed["category"] = value
-                            elif key == "subcategory" and value:
-                                parsed["subcategory"] = value
-                            elif key == "tags" and value:
-                                parsed["tags"] = [t.strip() for t in value.split(",") if t.strip()]
-            except Exception as e:
-                logger.warning(f"Error parsing metadata block: {e}")
-        
-        # Extract TODO plan (look for checklist)
-        try:
-            todo_items = []
-            for line in result_text.split("\n"):
-                if line.strip().startswith("- [ ]") or line.strip().startswith("- [x]"):
-                    todo_items.append(line.strip())
-            
-            if todo_items:
-                parsed["todo_plan"] = todo_items
-        except Exception as e:
-            logger.warning(f"Error parsing TODO plan: {e}")
-        
-        # Parse file operations from result
-        # The CLI may output what it did in various formats
-        # Look for common patterns like "Created file:", "✓ Created:", etc.
-        try:
-            lines = result_text.split("\n")
-            for i, line in enumerate(lines):
-                line_lower = line.lower()
-                
-                # Look for file creation indicators
-                if any(pattern in line_lower for pattern in ["created file", "✓ created", "file created", "создан файл", "✓ создан"]):
-                    # Try to extract file path
-                    # Common patterns: "Created file: path.md", "✓ Created path.md", etc.
-                    for part in line.split():
-                        if part.endswith(".md") or "/" in part:
-                            parsed["files_created"].append(part.strip("`:,"))
-                
-                # Look for folder creation
-                if any(pattern in line_lower for pattern in ["created folder", "created directory", "folder created", "создана папка"]):
-                    for part in line.split():
-                        if "/" in part and not part.endswith(".md"):
-                            parsed["folders_created"].append(part.strip("`:,"))
-                
-                # Look for file edits
-                if any(pattern in line_lower for pattern in ["edited file", "updated file", "✓ edited", "обновлён файл"]):
-                    for part in line.split():
-                        if part.endswith(".md") or "/" in part:
-                            parsed["files_edited"].append(part.strip("`:,"))
-        except Exception as e:
-            logger.warning(f"Error parsing file operations: {e}")
-        
-        # Generate summary of changes
-        changes = []
-        if parsed["files_created"]:
-            changes.append(f"Created {len(parsed['files_created'])} file(s)")
-        if parsed["folders_created"]:
-            changes.append(f"Created {len(parsed['folders_created'])} folder(s)")
-        if parsed["files_edited"]:
-            changes.append(f"Edited {len(parsed['files_edited'])} file(s)")
-        
-        if changes:
-            parsed["summary_of_changes"] = ", ".join(changes)
-            logger.info(f"[QwenCodeCLIAgent] Changes detected: {parsed['summary_of_changes']}")
-        
-        # Ensure we have at least default values
-        if not parsed["title"]:
-            logger.warning("No title found in qwen result, using default")
-            parsed["title"] = "Untitled Note"
-        
-        if not parsed["category"]:
-            logger.warning("No category found in qwen result, using 'general'")
-            parsed["category"] = "general"
-        
-        if not parsed["tags"]:
-            logger.warning("No tags found in qwen result, using default")
-            parsed["tags"] = ["untagged"]
-        
-        return parsed
-    
-    def _extract_title(self, text: str) -> str:
-        """Extract title from text using max length from config"""
-        lines = text.strip().split("\n")
+    def _extract_title_from_markdown(self, markdown: str) -> str:
+        """Extract title from markdown (first # heading)"""
+        lines = markdown.strip().split("\n")
         
         for line in lines:
             line = line.strip()
+            if line.startswith("# "):
+                title = line[2:].strip()
+                if len(title) > MAX_TITLE_LENGTH:
+                    return title[:MAX_TITLE_LENGTH] + "..."
+                return title
+        
+        # Fallback: first non-empty line
+        for line in lines:
+            line = line.strip()
             if line and not line.startswith("#") and len(line) > 10:
-                # Take first meaningful line
                 if len(line) > MAX_TITLE_LENGTH:
                     return line[:MAX_TITLE_LENGTH] + "..."
                 return line
         
         return "Untitled Note"
     
-    def _detect_category(self, text: str) -> str:
-        """Detect content category using keywords from config"""
-        text_lower = text.lower()
-        
-        # Use category keywords from config
-        categories = CATEGORY_KEYWORDS
-        
-        scores = {}
-        for category, keywords in categories.items():
-            score = sum(1 for kw in keywords if kw in text_lower)
-            if score > 0:
-                scores[category] = score
-        
-        return max(scores, key=scores.get) if scores else DEFAULT_CATEGORY
-    
-    def _extract_tags(self, text: str, max_tags: int = MAX_TAG_COUNT) -> List[str]:
-        """Extract tags from text using stop words from config"""
-        # Use stop words from config
-        stop_words = STOP_WORDS
-        words = text.lower().split()
-        
-        word_freq = {}
-        for word in words:
-            word = word.strip(".,!?;:()[]{}\"'")
-            if len(word) > MIN_KEYWORD_LENGTH and word not in stop_words:
-                word_freq[word] = word_freq.get(word, 0) + 1
-        
-        sorted_words = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)
-        return [word for word, _ in sorted_words[:max_tags]]
-    
-    def _generate_summary(self, text: str, max_length: int = 200) -> str:
-        """Generate summary from text"""
-        paragraphs = text.split("\n\n")
-        first_para = paragraphs[0].strip() if paragraphs else text[:max_length]
-        
-        if len(first_para) > max_length:
-            return first_para[:max_length].strip() + "..."
-        
-        return first_para
     
     def validate_input(self, content: Dict) -> bool:
         """Validate input content"""
