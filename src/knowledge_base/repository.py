@@ -8,6 +8,12 @@ import re
 from pathlib import Path
 from typing import Optional, Tuple
 
+from config.kb_structure import (
+    KB_BASE_STRUCTURE,
+    README_CONTENT,
+    GITIGNORE_CONTENT,
+)
+
 try:
     from git import Repo, GitCommandError, InvalidGitRepositoryError
     GIT_AVAILABLE = True
@@ -254,38 +260,25 @@ class RepositoryManager:
     
     def _create_initial_structure(self, kb_path: Path) -> None:
         """
-        Create initial KB directory structure
+        Create initial KB directory structure using config
         
         Args:
             kb_path: Path to knowledge base
         """
-        # Create topics directory
-        topics_dir = kb_path / "topics"
-        topics_dir.mkdir(exist_ok=True)
+        # Create structure from config
+        def create_dirs(base: Path, structure: dict):
+            for name, subdirs in structure.items():
+                dir_path = base / name
+                dir_path.mkdir(exist_ok=True)
+                if isinstance(subdirs, dict) and subdirs:
+                    create_dirs(dir_path, subdirs)
         
-        # Create initial categories
-        for category in ["general", "ai", "tech", "science"]:
-            (topics_dir / category).mkdir(exist_ok=True)
+        create_dirs(kb_path, KB_BASE_STRUCTURE)
         
-        # Create README
+        # Create README using config content
         readme_path = kb_path / "README.md"
-        readme_path.write_text(
-            "# Knowledge Base\n\n"
-            "This is an automated knowledge base created by tg-note.\n\n"
-            "## Structure\n\n"
-            "- `topics/` - Articles organized by topic\n"
-            "- `README.md` - This file\n"
-        )
+        readme_path.write_text(README_CONTENT)
         
-        # Create .gitignore
+        # Create .gitignore using config content
         gitignore_path = kb_path / ".gitignore"
-        gitignore_path.write_text(
-            "# OS files\n"
-            ".DS_Store\n"
-            "Thumbs.db\n"
-            "\n"
-            "# Editor files\n"
-            "*.swp\n"
-            "*.swo\n"
-            "*~\n"
-        )
+        gitignore_path.write_text(GITIGNORE_CONTENT)

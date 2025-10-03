@@ -14,6 +14,18 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .base_agent import BaseAgent, KBStructure
+from config.agent_prompts import (
+    QWEN_CODE_CLI_AGENT_INSTRUCTION,
+    CONTENT_PROCESSING_PROMPT_TEMPLATE,
+    URLS_SECTION_TEMPLATE,
+    CATEGORY_KEYWORDS,
+    DEFAULT_CATEGORY,
+    STOP_WORDS,
+    MAX_TITLE_LENGTH,
+    MAX_SUMMARY_LENGTH,
+    MAX_TAG_COUNT,
+    MIN_KEYWORD_LENGTH,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -31,24 +43,7 @@ class QwenCodeCLIAgent(BaseAgent):
     - Configurable instruction system
     """
     
-    DEFAULT_INSTRUCTION = """You are an autonomous knowledge base agent.
-Your task is to analyze content, extract key information, and create structured notes.
-
-Process:
-1. Analyze the provided content thoroughly
-2. Create a TODO plan for processing (use clear markdown checklist)
-3. Execute the plan step by step
-4. Extract key topics, entities, and relationships
-5. Structure the information with proper hierarchy
-6. Generate well-formatted markdown content
-
-Guidelines:
-- Work autonomously without asking questions
-- Be thorough and extract all important information
-- Categorize content appropriately (AI, tech, science, etc.)
-- Generate clear, concise summaries
-- Include relevant metadata and tags
-"""
+    DEFAULT_INSTRUCTION = QWEN_CODE_CLI_AGENT_INSTRUCTION
     
     def __init__(
         self,
@@ -228,7 +223,7 @@ Guidelines:
     
     def _prepare_prompt(self, content: Dict) -> str:
         """
-        Prepare prompt for qwen-code CLI
+        Prepare prompt for qwen-code CLI using template from config
         
         Args:
             content: Content dictionary
@@ -239,49 +234,18 @@ Guidelines:
         text = content.get("text", "")
         urls = content.get("urls", [])
         
-        prompt_parts = [
-            self.instruction,
-            "",
-            "# Input Content",
-            "",
-            "## Text Content",
-            text,
-            ""
-        ]
-        
+        # Build URLs section if URLs present
+        urls_section = ""
         if urls:
-            prompt_parts.extend([
-                "## URLs",
-                *[f"- {url}" for url in urls],
-                ""
-            ])
+            url_list = "\n".join([f"- {url}" for url in urls])
+            urls_section = URLS_SECTION_TEMPLATE.format(url_list=url_list)
         
-        prompt_parts.extend([
-            "# Task",
-            "",
-            "1. Create a TODO checklist for processing this content",
-            "2. Analyze the content and extract key information",
-            "3. Determine the category (ai, tech, biology, physics, science, business, general)",
-            "4. Extract relevant tags (3-5 keywords)",
-            "5. Generate a structured markdown document with:",
-            "   - Title (clear and descriptive)",
-            "   - Metadata section (category, tags)",
-            "   - Summary (2-3 sentences)",
-            "   - Main content (well-structured)",
-            "   - Links section (if URLs present)",
-            "   - Key takeaways",
-            "",
-            "Format your response as valid markdown. Start with a clear title (# Title).",
-            "Include a metadata section in the format:",
-            "```metadata",
-            "category: <category>",
-            "tags: tag1, tag2, tag3",
-            "```",
-            "",
-            "Work autonomously and provide complete output without asking questions."
-        ])
-        
-        return "\n".join(prompt_parts)
+        # Use template from config
+        return CONTENT_PROCESSING_PROMPT_TEMPLATE.format(
+            instruction=self.instruction,
+            text=text,
+            urls_section=urls_section
+        )
     
     async def _execute_qwen_cli(self, prompt: str) -> str:
         """
@@ -505,33 +469,25 @@ Guidelines:
         return parsed
     
     def _extract_title(self, text: str) -> str:
-        """Extract title from text"""
+        """Extract title from text using max length from config"""
         lines = text.strip().split("\n")
         
         for line in lines:
             line = line.strip()
             if line and not line.startswith("#") and len(line) > 10:
                 # Take first meaningful line
-                if len(line) > 60:
-                    return line[:60] + "..."
+                if len(line) > MAX_TITLE_LENGTH:
+                    return line[:MAX_TITLE_LENGTH] + "..."
                 return line
         
         return "Untitled Note"
     
     def _detect_category(self, text: str) -> str:
-        """Detect content category"""
+        """Detect content category using keywords from config"""
         text_lower = text.lower()
         
-        categories = {
-            "ai": ["ai", "artificial intelligence", "machine learning", "neural network", 
-                   "deep learning", "llm", "gpt", "transformer"],
-            "tech": ["programming", "code", "software", "development", "python", 
-                    "javascript", "api", "database"],
-            "biology": ["biology", "gene", "dna", "protein", "cell"],
-            "physics": ["physics", "quantum", "particle", "relativity"],
-            "science": ["science", "research", "experiment", "study"],
-            "business": ["business", "market", "economy", "finance"]
-        }
+        # Use category keywords from config
+        categories = CATEGORY_KEYWORDS
         
         scores = {}
         for category, keywords in categories.items():
@@ -539,18 +495,18 @@ Guidelines:
             if score > 0:
                 scores[category] = score
         
-        return max(scores, key=scores.get) if scores else "general"
+        return max(scores, key=scores.get) if scores else DEFAULT_CATEGORY
     
-    def _extract_tags(self, text: str, max_tags: int = 5) -> List[str]:
-        """Extract tags from text"""
-        # Simple keyword extraction
-        stop_words = {"the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for"}
+    def _extract_tags(self, text: str, max_tags: int = MAX_TAG_COUNT) -> List[str]:
+        """Extract tags from text using stop words from config"""
+        # Use stop words from config
+        stop_words = STOP_WORDS
         words = text.lower().split()
         
         word_freq = {}
         for word in words:
             word = word.strip(".,!?;:()[]{}\"'")
-            if len(word) > 3 and word not in stop_words:
+            if len(word) > MIN_KEYWORD_LENGTH and word not in stop_words:
                 word_freq[word] = word_freq.get(word, 0) + 1
         
         sorted_words = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)
