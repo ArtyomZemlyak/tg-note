@@ -10,6 +10,11 @@ from pathlib import Path
 from typing import Dict, Optional
 
 from src.agents.base_agent import KBStructure
+from config.kb_structure import (
+    generate_filename,
+    create_frontmatter,
+    FILENAME_DATE_FORMAT,
+)
 
 
 class KnowledgeBaseManager:
@@ -65,10 +70,8 @@ class KnowledgeBaseManager:
             raise ValueError("KB structure must have a valid category")
         
         try:
-            # Generate filename
-            date_str = datetime.now().strftime("%Y-%m-%d")
-            slug = self._slugify(title)
-            filename = f"{date_str}-{slug}.md"
+            # Generate filename using config function
+            filename = generate_filename(title)
             
             # Determine file path from KB structure
             try:
@@ -80,9 +83,16 @@ class KnowledgeBaseManager:
             article_dir.mkdir(parents=True, exist_ok=True)
             file_path = article_dir / filename
             
-            # Create full content with frontmatter including structure info
-            full_content = self._create_frontmatter(title, kb_structure, metadata)
-            full_content += "\n\n" + content
+            # Create full content with frontmatter using config function
+            extra_fields = metadata if metadata else {}
+            full_content = create_frontmatter(
+                title=title,
+                category=kb_structure.category,
+                subcategory=kb_structure.subcategory,
+                tags=kb_structure.tags,
+                extra_fields=extra_fields
+            )
+            full_content += "\n" + content
             
             # Write file
             file_path.write_text(full_content, encoding="utf-8")
@@ -93,72 +103,7 @@ class KnowledgeBaseManager:
             # Log and re-raise with context
             raise RuntimeError(f"Failed to create article '{title}': {e}") from e
     
-    def _create_frontmatter(
-        self,
-        title: str,
-        kb_structure: KBStructure,
-        metadata: Optional[Dict]
-    ) -> str:
-        """
-        Create YAML frontmatter for markdown file with KB structure
-        
-        Args:
-            title: Article title
-            kb_structure: KB structure from agent
-            metadata: Additional metadata
-        
-        Returns:
-            Frontmatter string
-        """
-        lines = [
-            "---",
-            f"title: {title}",
-            f"category: {kb_structure.category}",
-        ]
-        
-        if kb_structure.subcategory:
-            lines.append(f"subcategory: {kb_structure.subcategory}")
-        
-        if kb_structure.tags:
-            tags_str = ", ".join(kb_structure.tags)
-            lines.append(f"tags: [{tags_str}]")
-        
-        lines.append(f"created_at: {datetime.now().isoformat()}")
-        
-        if metadata:
-            for key, value in metadata.items():
-                if key not in ["category", "subcategory", "tags", "created_at"]:
-                    lines.append(f"{key}: {value}")
-        
-        lines.append("---")
-        return "\n".join(lines)
-    
-    def _slugify(self, text: str) -> str:
-        """
-        Convert text to URL-friendly slug
-        
-        Args:
-            text: Text to slugify
-        
-        Returns:
-            Slugified text
-        """
-        # Convert to lowercase
-        text = text.lower()
-        
-        # Replace spaces and special characters with hyphens
-        text = re.sub(r'[^\w\s-]', '', text)
-        text = re.sub(r'[-\s]+', '-', text)
-        
-        # Remove leading/trailing hyphens
-        text = text.strip('-')
-        
-        # Limit length
-        max_length = 50
-        if len(text) > max_length:
-            text = text[:max_length].rstrip('-')
-        
-        return text or "untitled"
+    # Removed _create_frontmatter and _slugify - now using config functions
     
     def update_index(self, article_path: Path, title: str, kb_structure: KBStructure) -> None:
         """
@@ -179,7 +124,7 @@ class KnowledgeBaseManager:
         
         # Add new entry with category info
         relative_path = os.path.relpath(article_path, self.kb_path)
-        date_str = datetime.now().strftime("%Y-%m-%d")
+        date_str = datetime.now().strftime(FILENAME_DATE_FORMAT)
         
         category_str = kb_structure.category
         if kb_structure.subcategory:

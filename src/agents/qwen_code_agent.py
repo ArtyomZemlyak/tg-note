@@ -15,6 +15,18 @@ import aiohttp
 import requests
 
 from .base_agent import BaseAgent, KBStructure
+from config.agent_prompts import (
+    QWEN_CODE_AGENT_INSTRUCTION,
+    CATEGORY_KEYWORDS,
+    DEFAULT_CATEGORY,
+    STOP_WORDS,
+    SAFE_GIT_COMMANDS,
+    DANGEROUS_SHELL_PATTERNS,
+    MAX_TITLE_LENGTH,
+    MAX_SUMMARY_LENGTH,
+    MAX_KEYWORD_COUNT,
+    MIN_KEYWORD_LENGTH,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -77,24 +89,7 @@ class QwenCodeAgent(BaseAgent):
     - Tool using: web search, git, github, cmd commands
     """
     
-    DEFAULT_INSTRUCTION = """You are an autonomous knowledge base agent.
-Your task is to analyze content, extract key information, and save it to the knowledge base.
-
-Process:
-1. Analyze the provided content
-2. Create a TODO plan for processing
-3. Execute the plan using available tools
-4. Structure the information appropriately
-5. Generate markdown content for the knowledge base
-
-Available tools:
-- web_search: Search the web for additional context
-- git_command: Execute git commands
-- github_api: Interact with GitHub API
-- shell_command: Execute shell commands (use cautiously)
-
-Always work autonomously without asking for clarification.
-"""
+    DEFAULT_INSTRUCTION = QWEN_CODE_AGENT_INSTRUCTION
     
     def __init__(
         self,
@@ -122,6 +117,7 @@ Always work autonomously without asking for clarification.
         """
         super().__init__(config)
         
+        # Use provided instruction, or default from config
         self.instruction = instruction or self.DEFAULT_INSTRUCTION
         self.api_key = api_key
         self.model = model
@@ -541,7 +537,7 @@ Always work autonomously without asking for clarification.
             tags=tags
         )
     
-    def _extract_keywords(self, text: str, top_n: int = 10) -> List[str]:
+    def _extract_keywords(self, text: str, top_n: int = MAX_KEYWORD_COUNT) -> List[str]:
         """
         Extract keywords from text (simple implementation)
         
@@ -552,13 +548,8 @@ Always work autonomously without asking for clarification.
         Returns:
             List of keywords
         """
-        # Remove common stop words
-        stop_words = {
-            "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
-            "of", "with", "by", "from", "as", "is", "was", "are", "were", "be",
-            "been", "being", "have", "has", "had", "do", "does", "did", "will",
-            "would", "should", "can", "could", "may", "might", "must", "shall"
-        }
+        # Use stop words from config
+        stop_words = STOP_WORDS
         
         # Simple word frequency
         words = text.lower().split()
@@ -567,7 +558,7 @@ Always work autonomously without asking for clarification.
         for word in words:
             # Remove punctuation
             word = word.strip(".,!?;:()[]{}\"'")
-            if len(word) > 3 and word not in stop_words:
+            if len(word) > MIN_KEYWORD_LENGTH and word not in stop_words:
                 word_freq[word] = word_freq.get(word, 0) + 1
         
         # Sort by frequency
@@ -577,7 +568,7 @@ Always work autonomously without asking for clarification.
     
     def _detect_category(self, text: str) -> str:
         """
-        Detect content category
+        Detect content category using keywords from config
         
         Args:
             text: Text to analyze
@@ -587,21 +578,8 @@ Always work autonomously without asking for clarification.
         """
         text_lower = text.lower()
         
-        # Category keywords
-        categories = {
-            "ai": ["ai", "artificial intelligence", "machine learning", "neural network", 
-                   "deep learning", "llm", "gpt", "transformer", "model"],
-            "biology": ["biology", "gene", "dna", "protein", "cell", "organism", 
-                       "evolution", "genetics"],
-            "physics": ["physics", "quantum", "particle", "relativity", "energy", 
-                       "force", "matter"],
-            "tech": ["programming", "code", "software", "development", "python", 
-                    "javascript", "api", "database", "algorithm"],
-            "business": ["business", "market", "economy", "finance", "investment", 
-                        "strategy", "management"],
-            "science": ["science", "research", "experiment", "study", "analysis", 
-                       "hypothesis", "theory"]
-        }
+        # Use category keywords from config
+        categories = CATEGORY_KEYWORDS
         
         # Count matches for each category
         category_scores = {}
@@ -614,9 +592,9 @@ Always work autonomously without asking for clarification.
         if category_scores:
             return max(category_scores, key=category_scores.get)
         
-        return "general"
+        return DEFAULT_CATEGORY
     
-    def _generate_title(self, text: str, max_length: int = 60) -> str:
+    def _generate_title(self, text: str, max_length: int = MAX_TITLE_LENGTH) -> str:
         """
         Generate title from text
         
@@ -639,7 +617,7 @@ Always work autonomously without asking for clarification.
         
         return first_line or "Untitled Note"
     
-    def _generate_summary(self, text: str, max_length: int = 200) -> str:
+    def _generate_summary(self, text: str, max_length: int = MAX_SUMMARY_LENGTH) -> str:
         """
         Generate summary from text
         
@@ -723,8 +701,8 @@ Always work autonomously without asking for clarification.
         cwd = params.get("cwd", ".")
         
         try:
-            # Security: only allow specific safe git commands
-            safe_commands = ["status", "log", "diff", "branch", "remote", "show"]
+            # Security: only allow specific safe git commands from config
+            safe_commands = SAFE_GIT_COMMANDS
             
             cmd_parts = command.split()
             if not cmd_parts or cmd_parts[0] != "git":
@@ -832,11 +810,8 @@ Always work autonomously without asking for clarification.
         cwd = params.get("cwd", ".")
         
         try:
-            # Security: block dangerous commands
-            dangerous_patterns = [
-                "rm -rf", "rm -f", "> /dev", "mkfs", "dd if=", ":(){ :|:& };:",
-                "chmod -R", "chown -R", "sudo", "su -", "wget", "curl"
-            ]
+            # Security: block dangerous commands from config
+            dangerous_patterns = DANGEROUS_SHELL_PATTERNS
             
             if any(pattern in command for pattern in dangerous_patterns):
                 return ToolResult(
