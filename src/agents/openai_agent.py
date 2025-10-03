@@ -4,6 +4,7 @@ OpenAI Agent
 """
 
 import json
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from loguru import logger
@@ -21,6 +22,7 @@ from .autonomous_agent import (
     AgentDecision,
     AutonomousAgent
 )
+from .base_agent import KBStructure
 
 
 class OpenAIAgent(AutonomousAgent):
@@ -40,7 +42,8 @@ class OpenAIAgent(AutonomousAgent):
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
         model: str = "qwen-max",
-        max_iterations: int = 10
+        max_iterations: int = 10,
+        kb_root_path: Optional[Path] = None
     ):
         """
         Initialize OpenAI Agent
@@ -52,6 +55,7 @@ class OpenAIAgent(AutonomousAgent):
             base_url: API base URL (for compatible APIs)
             model: Model name
             max_iterations: Maximum iterations in agent loop
+            kb_root_path: Path to knowledge base root directory
         """
         if not OPENAI_AVAILABLE:
             raise ImportError(
@@ -64,6 +68,7 @@ class OpenAIAgent(AutonomousAgent):
         self.api_key = api_key
         self.base_url = base_url
         self.model = model
+        self.kb_root_path = kb_root_path or Path("./knowledge_base")
         
         # Initialize OpenAI client
         self.client = AsyncOpenAI(
@@ -71,9 +76,12 @@ class OpenAIAgent(AutonomousAgent):
             base_url=self.base_url
         )
         
+        # Register built-in KB management tools
+        self._register_kb_tools()
+        
         logger.info(
             f"OpenAIAgent initialized with model={model}, "
-            f"base_url={base_url}"
+            f"base_url={base_url}, kb_root_path={self.kb_root_path}"
         )
     
     def _get_default_instruction(self) -> str:
@@ -84,23 +92,36 @@ class OpenAIAgent(AutonomousAgent):
 1. Проанализировать предоставленный контент
 2. Составить план действий и записать его в TODO (используй plan_todo)
 3. Выполнить план, используя доступные тулзы
-4. Сохранить информацию в структурированном виде
+4. Сохранить информацию в структурированном виде В БАЗЕ ЗНАНИЙ
 
 Доступные тулзы:
 - plan_todo: Создать план действий (список задач)
-- web_search: Найти информацию в интернете
-- file_create: Создать файл в базе знаний
+- file_create: Создать файл в базе знаний (ОБЯЗАТЕЛЬНО используй для сохранения контента!)
 - file_edit: Редактировать существующий файл
 - folder_create: Создать папку для организации файлов
-- analyze_content: Проанализировать контент и извлечь ключевую информацию
 
 Процесс работы:
 1. Сначала ОБЯЗАТЕЛЬНО создай plan_todo со списком задач
-2. Выполни задачи по порядку, используя необходимые тулзы
-3. Когда все задачи выполнены, верни финальный результат в markdown формате
+2. Проанализируй контент и определи категорию (ai, tech, science, general и т.д.)
+3. При необходимости создай папку через folder_create
+4. ОБЯЗАТЕЛЬНО создай файл через file_create с обработанным контентом
+5. Верни финальный результат с информацией о созданных файлах
 
-Работай автономно, не задавай вопросов пользователю.
-Используй тулзы по мере необходимости.
+ВАЖНО:
+- ВСЕ изменения базы знаний делай ТОЛЬКО через тулзы (file_create, file_edit, folder_create)
+- НЕ возвращай просто markdown - ОБЯЗАТЕЛЬНО сохрани его через file_create
+- Работай автономно, не задавай вопросов пользователю
+
+Формат финального ответа должен содержать:
+```agent-result
+{
+  "summary": "Краткое описание выполненных действий",
+  "files_created": ["путь/к/файлу.md"],
+  "files_edited": [],
+  "folders_created": ["путь/к/папке"],
+  "metadata": {"category": "категория", "tags": ["тег1", "тег2"]}
+}
+```
 """
     
     def _build_tools_schema(self) -> List[Dict[str, Any]]:
@@ -352,18 +373,213 @@ class OpenAIAgent(AutonomousAgent):
             "message": f"План создан: {len(tasks)} задач"
         }
     
+    def _register_kb_tools(self) -> None:
+        """
+        Регистрирует встроенные тулзы для работы с базой знаний
+        """
+        # Добавляем plan_todo
+        self.tools["plan_todo"] = self._handle_plan_todo
+        
+        # Добавляем тулзы для работы с KB
+        self.tools["file_create"] = self._handle_file_create
+        self.tools["file_edit"] = self._handle_file_edit
+        self.tools["folder_create"] = self._handle_folder_create
+        
+        logger.info("Registered built-in KB management tools")
+    
+    async def _handle_file_create(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Создать файл в базе знаний
+        
+        Args:
+            params: Parameters with 'path' and 'content'
+        
+        Returns:
+            Result dictionary
+        """
+        path = params.get("path", "")
+        content = params.get("content", "")
+        
+        if not path:
+            return {
+                "success": False,
+                "error": "Path is required"
+            }
+        
+        if not content:
+            return {
+                "success": False,
+                "error": "Content is required"
+            }
+        
+        try:
+            # Ensure path is relative and safe
+            file_path = self.kb_root_path / path
+            
+            # Create parent directories
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Write file
+            file_path.write_text(content, encoding="utf-8")
+            
+            logger.info(f"[OpenAIAgent] Created file: {file_path}")
+            
+            return {
+                "success": True,
+                "path": str(path),
+                "full_path": str(file_path),
+                "message": f"File created successfully: {path}"
+            }
+        
+        except Exception as e:
+            logger.error(f"[OpenAIAgent] Error creating file: {e}", exc_info=True)
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    async def _handle_file_edit(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Редактировать существующий файл
+        
+        Args:
+            params: Parameters with 'path' and 'content'
+        
+        Returns:
+            Result dictionary
+        """
+        path = params.get("path", "")
+        content = params.get("content", "")
+        
+        if not path:
+            return {
+                "success": False,
+                "error": "Path is required"
+            }
+        
+        try:
+            file_path = self.kb_root_path / path
+            
+            if not file_path.exists():
+                return {
+                    "success": False,
+                    "error": f"File does not exist: {path}"
+                }
+            
+            # Write updated content
+            file_path.write_text(content, encoding="utf-8")
+            
+            logger.info(f"[OpenAIAgent] Edited file: {file_path}")
+            
+            return {
+                "success": True,
+                "path": str(path),
+                "message": f"File edited successfully: {path}"
+            }
+        
+        except Exception as e:
+            logger.error(f"[OpenAIAgent] Error editing file: {e}", exc_info=True)
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    async def _handle_folder_create(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Создать папку в базе знаний
+        
+        Args:
+            params: Parameters with 'path'
+        
+        Returns:
+            Result dictionary
+        """
+        path = params.get("path", "")
+        
+        if not path:
+            return {
+                "success": False,
+                "error": "Path is required"
+            }
+        
+        try:
+            folder_path = self.kb_root_path / path
+            folder_path.mkdir(parents=True, exist_ok=True)
+            
+            logger.info(f"[OpenAIAgent] Created folder: {folder_path}")
+            
+            return {
+                "success": True,
+                "path": str(path),
+                "message": f"Folder created successfully: {path}"
+            }
+        
+        except Exception as e:
+            logger.error(f"[OpenAIAgent] Error creating folder: {e}", exc_info=True)
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
     def register_tool(self, name: str, handler: callable) -> None:
         """
-        Зарегистрировать тулз
-        
-        Переопределяем чтобы добавить plan_todo автоматически
+        Зарегистрировать дополнительный тулз
         
         Args:
             name: Tool name
             handler: Tool handler function
         """
         super().register_tool(name, handler)
+    
+    async def _determine_kb_structure(
+        self,
+        markdown: str,
+        context: AgentContext
+    ) -> KBStructure:
+        """
+        Определить структуру KB из выполненных действий агента
         
-        # Добавляем plan_todo если еще не добавлен
-        if "plan_todo" not in self.tools:
-            self.tools["plan_todo"] = self._handle_plan_todo
+        Извлекает информацию из созданных файлов и метаданных
+        
+        Args:
+            markdown: Markdown content
+            context: Agent context
+        
+        Returns:
+            KBStructure
+        """
+        # Попытка извлечь метаданные из ответа агента
+        category = "general"
+        subcategory = None
+        tags = []
+        
+        # Парсим agent-result блок если он есть
+        agent_result = self.parse_agent_response(markdown)
+        if agent_result.metadata:
+            category = agent_result.metadata.get("category", category)
+            subcategory = agent_result.metadata.get("subcategory")
+            tags = agent_result.metadata.get("tags", [])
+        
+        # Если не нашли в метаданных, пробуем извлечь из созданных файлов
+        if category == "general" and context.executions:
+            for execution in context.executions:
+                if execution.tool_name == "file_create" and execution.success:
+                    # Извлекаем категорию из пути файла
+                    if isinstance(execution.params, dict):
+                        file_path = execution.params.get("path", "")
+                        # Путь обычно вида "topics/category/subcategory/file.md"
+                        parts = file_path.split("/")
+                        if len(parts) >= 2 and parts[0] == "topics":
+                            category = parts[1] if len(parts) > 1 else "general"
+                            subcategory = parts[2] if len(parts) > 2 else None
+                            break
+        
+        # Фоллбэк: автоопределение категории по контенту
+        if category == "general":
+            category = self.detect_category(markdown)
+        
+        return KBStructure(
+            category=category,
+            subcategory=subcategory,
+            tags=tags
+        )

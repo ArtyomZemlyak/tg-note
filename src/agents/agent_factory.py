@@ -126,13 +126,21 @@ class AgentFactory:
         Returns:
             OpenAIAgent instance
         """
+        from pathlib import Path
+        
+        # Get kb_path, default to kb_root if available
+        kb_path = config.get("kb_path") or config.get("kb_root_path")
+        if kb_path and not isinstance(kb_path, Path):
+            kb_path = Path(kb_path)
+        
         return OpenAIAgent(
             config=config,
             instruction=config.get("instruction"),
             api_key=config.get("openai_api_key") or config.get("api_key"),
             base_url=config.get("openai_base_url"),
             model=config.get("model", "qwen-max"),
-            max_iterations=config.get("max_iterations", 10)
+            max_iterations=config.get("max_iterations", 10),
+            kb_root_path=kb_path
         )
     
     @classmethod
