@@ -57,8 +57,8 @@ class BotHandlers:
         # Forwarded messages - register first to catch all forwarded content
         self.bot.message_handler(func=self._is_forwarded_message)(self.handle_forwarded_message)
         
-        # Regular message handlers - only for non-forwarded messages
-        self.bot.message_handler(func=lambda message: message.content_type == 'text' and not self._is_forwarded_message(message))(self.handle_text_message)
+        # Regular message handlers - only for non-forwarded messages and non-command messages
+        self.bot.message_handler(func=lambda message: message.content_type == 'text' and not self._is_forwarded_message(message) and not self._is_command_message(message))(self.handle_text_message)
         self.bot.message_handler(func=lambda message: message.content_type == 'photo' and not self._is_forwarded_message(message))(self.handle_photo_message)
         self.bot.message_handler(func=lambda message: message.content_type == 'document' and not self._is_forwarded_message(message))(self.handle_document_message)
     
@@ -70,6 +70,10 @@ class BotHandlers:
             message.forward_sender_name is not None or  # Forwarded from privacy-enabled user
             message.forward_date is not None  # Forwarded message (any source)
         )
+    
+    def _is_command_message(self, message: Message) -> bool:
+        """Check if message is a command (starts with /)"""
+        return message.text and message.text.startswith('/')
     
     def start_background_tasks(self) -> None:
         """Start background tasks for message processing"""
