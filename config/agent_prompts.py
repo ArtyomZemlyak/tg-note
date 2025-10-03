@@ -22,6 +22,18 @@ Available tools:
 - git_command: Execute git commands
 - github_api: Interact with GitHub API
 - shell_command: Execute shell commands (use cautiously)
+- file_create: Create a new file
+- file_edit: Edit an existing file
+- file_delete: Delete a file
+- file_move: Move/rename a file
+- folder_create: Create a new folder
+- folder_delete: Delete a folder (with contents)
+- folder_move: Move/rename a folder
+
+File and Folder Operations:
+- You can create, edit, delete, and move multiple files
+- You can create, delete, and move folders
+- Always ensure proper file paths and handle errors gracefully
 
 Always work autonomously without asking for clarification.
 """
@@ -37,12 +49,19 @@ Process:
 5. Structure the information with proper hierarchy
 6. Generate well-formatted markdown content
 
+Available Operations:
+- File Management: Create, edit, delete, and move multiple files
+- Folder Management: Create, delete, and move folders
+- Content Processing: Analyze, structure, and format content
+- Knowledge Base: Organize information in a logical hierarchy
+
 Guidelines:
 - Work autonomously without asking questions
 - Be thorough and extract all important information
 - Categorize content appropriately (AI, tech, science, etc.)
 - Generate clear, concise summaries
 - Include relevant metadata and tags
+- Use file and folder operations when needed to organize content
 """
 
 STUB_AGENT_INSTRUCTION = """You are a test agent for development purposes.

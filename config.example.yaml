@@ -243,3 +243,40 @@ AGENT_ENABLE_GITHUB: true
 # - Even in development mode use with extreme caution
 # - Always verify that agent executes only safe commands
 AGENT_ENABLE_SHELL: false
+
+# AGENT_ENABLE_FILE_MANAGEMENT: Allow agent to perform file operations
+#
+# - true: Agent can create, edit, delete, and move files
+#         Useful for organizing knowledge base and managing content
+#         Operations include:
+#         * Creating new files
+#         * Editing existing files
+#         * Deleting files
+#         * Moving/renaming files
+#         * Working with multiple files at once
+#
+# - false: File operations disabled
+#
+# IMPORTANT:
+# - File operations are restricted to knowledge base directory by default
+# - Agent can modify content, so use with caution
+# - Recommended: true for knowledge base management
+AGENT_ENABLE_FILE_MANAGEMENT: true
+
+# AGENT_ENABLE_FOLDER_MANAGEMENT: Allow agent to perform folder operations
+#
+# - true: Agent can create, delete, and move folders
+#         Useful for organizing knowledge base structure
+#         Operations include:
+#         * Creating new folders/directories
+#         * Deleting folders (with contents)
+#         * Moving/renaming folders
+#         * Organizing hierarchical structure
+#
+# - false: Folder operations disabled
+#
+# IMPORTANT:
+# - Folder operations are restricted to knowledge base directory by default
+# - Deleting folders will remove all contents
+# - Recommended: true for knowledge base organization
+AGENT_ENABLE_FOLDER_MANAGEMENT: true
