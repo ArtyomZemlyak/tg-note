@@ -347,16 +347,49 @@ class BotHandlers:
     
     async def handle_photo_message(self, message: Message) -> None:
         """Handle photo messages (async)"""
+        # Check if user is waiting for settings input
+        if self.settings_handlers and message.from_user.id in self.settings_handlers.waiting_for_input:
+            # User is in settings input mode, ignore photo messages
+            self.logger.info(f"Ignoring photo message from user {message.from_user.id} - waiting for settings input")
+            await self.bot.reply_to(
+                message,
+                "⚠️ Вы находитесь в режиме настроек. Фото игнорируются.\n"
+                "Отправьте текстовое значение или используйте /cancel для отмены."
+            )
+            return
+        
         self.logger.info(f"Photo message from user {message.from_user.id}")
         await self._process_message(message)
     
     async def handle_document_message(self, message: Message) -> None:
         """Handle document messages (async)"""
+        # Check if user is waiting for settings input
+        if self.settings_handlers and message.from_user.id in self.settings_handlers.waiting_for_input:
+            # User is in settings input mode, ignore document messages
+            self.logger.info(f"Ignoring document message from user {message.from_user.id} - waiting for settings input")
+            await self.bot.reply_to(
+                message,
+                "⚠️ Вы находитесь в режиме настроек. Документы игнорируются.\n"
+                "Отправьте текстовое значение или используйте /cancel для отмены."
+            )
+            return
+        
         self.logger.info(f"Document message from user {message.from_user.id}")
         await self._process_message(message)
     
     async def handle_forwarded_message(self, message: Message) -> None:
         """Handle forwarded messages (async)"""
+        # Check if user is waiting for settings input
+        if self.settings_handlers and message.from_user.id in self.settings_handlers.waiting_for_input:
+            # User is in settings input mode, ignore forwarded messages
+            self.logger.info(f"Ignoring forwarded message from user {message.from_user.id} - waiting for settings input")
+            await self.bot.reply_to(
+                message,
+                "⚠️ Вы находитесь в режиме настроек. Пересланные сообщения игнорируются.\n"
+                "Отправьте текстовое значение или используйте /cancel для отмены."
+            )
+            return
+        
         self.logger.info(f"Forwarded message from user {message.from_user.id}")
         await self._process_message(message)
     
