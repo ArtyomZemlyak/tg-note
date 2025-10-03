@@ -307,6 +307,12 @@ class AutonomousAgent(BaseAgent):
         # Analyze content tool (always available)
         self.register_tool("analyze_content", self._tool_analyze_content)
         
+        # Knowledge base reading tools (always available)
+        self.register_tool("kb_read_file", self._tool_kb_read_file)
+        self.register_tool("kb_list_directory", self._tool_kb_list_directory)
+        self.register_tool("kb_search_files", self._tool_kb_search_files)
+        self.register_tool("kb_search_content", self._tool_kb_search_content)
+        
         if self.enable_web_search:
             self.register_tool("web_search", self._tool_web_search)
         
@@ -475,6 +481,103 @@ class AutonomousAgent(BaseAgent):
                             }
                         },
                         "required": ["text"]
+                    }
+                }
+            })
+        
+        # KB read file tool
+        if "kb_read_file" in self.tools:
+            tools.append({
+                "type": "function",
+                "function": {
+                    "name": "kb_read_file",
+                    "description": "Прочитать один или несколько файлов из базы знаний",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "paths": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Список относительных путей к файлам (например: ['ai/ml.md', 'tech/python.md'])"
+                            }
+                        },
+                        "required": ["paths"]
+                    }
+                }
+            })
+        
+        # KB list directory tool
+        if "kb_list_directory" in self.tools:
+            tools.append({
+                "type": "function",
+                "function": {
+                    "name": "kb_list_directory",
+                    "description": "Перечислить содержимое папки в базе знаний",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "path": {
+                                "type": "string",
+                                "description": "Относительный путь к папке (например: 'ai' или 'ai/machine-learning'). Пустая строка для корня."
+                            },
+                            "recursive": {
+                                "type": "boolean",
+                                "description": "Рекурсивно перечислить все подпапки (по умолчанию false)"
+                            }
+                        },
+                        "required": ["path"]
+                    }
+                }
+            })
+        
+        # KB search files tool
+        if "kb_search_files" in self.tools:
+            tools.append({
+                "type": "function",
+                "function": {
+                    "name": "kb_search_files",
+                    "description": "Поиск файлов и папок по названию или шаблону",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "pattern": {
+                                "type": "string",
+                                "description": "Шаблон поиска (поддерживает glob: *, ?, []), например: '*.md', 'ai/**/*.md', '*neural*'"
+                            },
+                            "case_sensitive": {
+                                "type": "boolean",
+                                "description": "Регистрозависимый поиск (по умолчанию false)"
+                            }
+                        },
+                        "required": ["pattern"]
+                    }
+                }
+            })
+        
+        # KB search content tool
+        if "kb_search_content" in self.tools:
+            tools.append({
+                "type": "function",
+                "function": {
+                    "name": "kb_search_content",
+                    "description": "Поиск по содержимому файлов в базе знаний",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "Текст для поиска в содержимом файлов"
+                            },
+                            "case_sensitive": {
+                                "type": "boolean",
+                                "description": "Регистрозависимый поиск (по умолчанию false)"
+                            },
+                            "file_pattern": {
+                                "type": "string",
+                                "description": "Опциональный glob шаблон для фильтрации файлов (например: '*.md')"
+                            }
+                        },
+                        "required": ["query"]
                     }
                 }
             })
@@ -1138,6 +1241,309 @@ class AutonomousAgent(BaseAgent):
         }
         
         return analysis
+    
+    # ====================================================================
+    # KNOWLEDGE BASE READING TOOLS
+    # ====================================================================
+    
+    async def _tool_kb_read_file(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Read one or multiple files from knowledge base"""
+        import glob
+        
+        paths = params.get("paths", [])
+        
+        if not paths:
+            logger.error("[kb_read_file] No paths provided")
+            return {"success": False, "error": "No paths provided"}
+        
+        if not isinstance(paths, list):
+            paths = [paths]
+        
+        results = []
+        errors = []
+        
+        for relative_path in paths:
+            # Validate path
+            is_valid, full_path, error = self._validate_safe_path(relative_path)
+            if not is_valid:
+                logger.warning(f"[kb_read_file] Invalid path: {relative_path} - {error}")
+                errors.append({"path": relative_path, "error": error})
+                continue
+            
+            try:
+                # Check if file exists
+                if not full_path.exists():
+                    errors.append({"path": relative_path, "error": "File does not exist"})
+                    continue
+                
+                if not full_path.is_file():
+                    errors.append({"path": relative_path, "error": "Path is not a file"})
+                    continue
+                
+                # Read file content
+                content = full_path.read_text(encoding="utf-8")
+                
+                results.append({
+                    "path": relative_path,
+                    "full_path": str(full_path),
+                    "content": content,
+                    "size": len(content)
+                })
+                
+                logger.info(f"[kb_read_file] ✓ Read file: {relative_path} ({len(content)} bytes)")
+                
+            except Exception as e:
+                logger.error(f"[kb_read_file] Failed to read {relative_path}: {e}", exc_info=True)
+                errors.append({"path": relative_path, "error": str(e)})
+        
+        return {
+            "success": len(results) > 0,
+            "files_read": len(results),
+            "results": results,
+            "errors": errors if errors else None
+        }
+    
+    async def _tool_kb_list_directory(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """List contents of a directory in knowledge base"""
+        relative_path = params.get("path", "")
+        recursive = params.get("recursive", False)
+        
+        # Validate path
+        is_valid, full_path, error = self._validate_safe_path(relative_path if relative_path else ".")
+        if not is_valid:
+            logger.error(f"[kb_list_directory] Invalid path: {error}")
+            return {"success": False, "error": error}
+        
+        try:
+            # Check if directory exists
+            if not full_path.exists():
+                error_msg = f"Directory does not exist: {relative_path}"
+                logger.warning(f"[kb_list_directory] {error_msg}")
+                return {"success": False, "error": error_msg}
+            
+            if not full_path.is_dir():
+                error_msg = f"Path is not a directory: {relative_path}"
+                logger.warning(f"[kb_list_directory] {error_msg}")
+                return {"success": False, "error": error_msg}
+            
+            files = []
+            directories = []
+            
+            if recursive:
+                # Recursive listing
+                for item in full_path.rglob("*"):
+                    rel_path = str(item.relative_to(self.kb_root_path))
+                    if item.is_file():
+                        files.append({
+                            "path": rel_path,
+                            "name": item.name,
+                            "size": item.stat().st_size
+                        })
+                    elif item.is_dir():
+                        directories.append({
+                            "path": rel_path,
+                            "name": item.name
+                        })
+            else:
+                # Non-recursive listing
+                for item in full_path.iterdir():
+                    rel_path = str(item.relative_to(self.kb_root_path))
+                    if item.is_file():
+                        files.append({
+                            "path": rel_path,
+                            "name": item.name,
+                            "size": item.stat().st_size
+                        })
+                    elif item.is_dir():
+                        directories.append({
+                            "path": rel_path,
+                            "name": item.name
+                        })
+            
+            logger.info(f"[kb_list_directory] ✓ Listed {relative_path or 'root'}: {len(files)} files, {len(directories)} directories")
+            
+            return {
+                "success": True,
+                "path": relative_path or "root",
+                "recursive": recursive,
+                "files": files,
+                "directories": directories,
+                "file_count": len(files),
+                "directory_count": len(directories)
+            }
+            
+        except Exception as e:
+            logger.error(f"[kb_list_directory] Failed to list directory: {e}", exc_info=True)
+            return {"success": False, "error": f"Failed to list directory: {e}"}
+    
+    async def _tool_kb_search_files(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Search files and directories by name or pattern"""
+        import glob
+        import fnmatch
+        
+        pattern = params.get("pattern", "")
+        case_sensitive = params.get("case_sensitive", False)
+        
+        if not pattern:
+            logger.error("[kb_search_files] No pattern provided")
+            return {"success": False, "error": "No pattern provided"}
+        
+        try:
+            files = []
+            directories = []
+            
+            # Use glob for pattern matching
+            glob_pattern = str(self.kb_root_path / pattern)
+            
+            for match in glob.glob(glob_pattern, recursive=True):
+                match_path = Path(match)
+                
+                # Verify it's within KB root
+                try:
+                    rel_path = str(match_path.relative_to(self.kb_root_path))
+                except ValueError:
+                    continue
+                
+                if match_path.is_file():
+                    files.append({
+                        "path": rel_path,
+                        "name": match_path.name,
+                        "size": match_path.stat().st_size
+                    })
+                elif match_path.is_dir():
+                    directories.append({
+                        "path": rel_path,
+                        "name": match_path.name
+                    })
+            
+            # If glob didn't work well, try fnmatch on all files
+            if not files and not directories:
+                for item in self.kb_root_path.rglob("*"):
+                    rel_path = str(item.relative_to(self.kb_root_path))
+                    
+                    # Match against full path or just name
+                    if case_sensitive:
+                        matches = fnmatch.fnmatch(rel_path, pattern) or fnmatch.fnmatch(item.name, pattern)
+                    else:
+                        matches = (fnmatch.fnmatch(rel_path.lower(), pattern.lower()) or 
+                                 fnmatch.fnmatch(item.name.lower(), pattern.lower()))
+                    
+                    if matches:
+                        if item.is_file():
+                            files.append({
+                                "path": rel_path,
+                                "name": item.name,
+                                "size": item.stat().st_size
+                            })
+                        elif item.is_dir():
+                            directories.append({
+                                "path": rel_path,
+                                "name": item.name
+                            })
+            
+            logger.info(f"[kb_search_files] ✓ Pattern '{pattern}': found {len(files)} files, {len(directories)} directories")
+            
+            return {
+                "success": True,
+                "pattern": pattern,
+                "case_sensitive": case_sensitive,
+                "files": files,
+                "directories": directories,
+                "file_count": len(files),
+                "directory_count": len(directories)
+            }
+            
+        except Exception as e:
+            logger.error(f"[kb_search_files] Failed to search: {e}", exc_info=True)
+            return {"success": False, "error": f"Failed to search files: {e}"}
+    
+    async def _tool_kb_search_content(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Search by file contents in knowledge base"""
+        import glob
+        import fnmatch
+        
+        query = params.get("query", "")
+        case_sensitive = params.get("case_sensitive", False)
+        file_pattern = params.get("file_pattern", "*.md")
+        
+        if not query:
+            logger.error("[kb_search_content] No query provided")
+            return {"success": False, "error": "No query provided"}
+        
+        try:
+            matches = []
+            
+            # Get all files matching the pattern
+            if file_pattern:
+                glob_pattern = str(self.kb_root_path / "**" / file_pattern)
+                files_to_search = glob.glob(glob_pattern, recursive=True)
+            else:
+                files_to_search = [str(f) for f in self.kb_root_path.rglob("*") if f.is_file()]
+            
+            # Search in each file
+            for file_path_str in files_to_search:
+                file_path = Path(file_path_str)
+                
+                # Verify it's within KB root
+                try:
+                    rel_path = str(file_path.relative_to(self.kb_root_path))
+                except ValueError:
+                    continue
+                
+                if not file_path.is_file():
+                    continue
+                
+                try:
+                    content = file_path.read_text(encoding="utf-8")
+                    
+                    # Search for query in content
+                    search_content = content if case_sensitive else content.lower()
+                    search_query = query if case_sensitive else query.lower()
+                    
+                    if search_query in search_content:
+                        # Find all occurrences and their line numbers
+                        lines = content.split("\n")
+                        occurrences = []
+                        
+                        for line_num, line in enumerate(lines, 1):
+                            search_line = line if case_sensitive else line.lower()
+                            if search_query in search_line:
+                                # Get context (line before and after)
+                                context_start = max(0, line_num - 2)
+                                context_end = min(len(lines), line_num + 1)
+                                context_lines = lines[context_start:context_end]
+                                
+                                occurrences.append({
+                                    "line_number": line_num,
+                                    "line": line.strip(),
+                                    "context": "\n".join(context_lines)
+                                })
+                        
+                        matches.append({
+                            "path": rel_path,
+                            "name": file_path.name,
+                            "occurrences": len(occurrences),
+                            "matches": occurrences[:5]  # Limit to first 5 matches per file
+                        })
+                
+                except Exception as e:
+                    logger.debug(f"[kb_search_content] Failed to read {rel_path}: {e}")
+                    continue
+            
+            logger.info(f"[kb_search_content] ✓ Query '{query}': found in {len(matches)} files")
+            
+            return {
+                "success": True,
+                "query": query,
+                "case_sensitive": case_sensitive,
+                "file_pattern": file_pattern,
+                "matches": matches,
+                "files_found": len(matches)
+            }
+            
+        except Exception as e:
+            logger.error(f"[kb_search_content] Failed to search content: {e}", exc_info=True)
+            return {"success": False, "error": f"Failed to search content: {e}"}
     
     # Security helper methods
     
