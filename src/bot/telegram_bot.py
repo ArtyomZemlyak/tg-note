@@ -11,6 +11,7 @@ from telebot.apihelper import ApiTelegramException
 
 from config import settings
 from src.bot.handlers import BotHandlers
+from src.bot.settings_handlers import SettingsHandlers
 from src.tracker.processing_tracker import ProcessingTracker
 from src.knowledge_base.repository import RepositoryManager
 from src.knowledge_base.user_settings import UserSettings
@@ -35,6 +36,7 @@ class TelegramBot:
         
         # Initialize handlers
         self.handlers = BotHandlers(self.bot, tracker, repo_manager, user_settings)
+        self.settings_handlers = SettingsHandlers(self.bot)
         
         # Bot state
         self.is_running = False
@@ -59,6 +61,7 @@ class TelegramBot:
             
             # Register handlers
             await self.handlers.register_handlers_async()
+            await self.settings_handlers.register_handlers_async()
             
             # Start polling
             self.is_running = True
