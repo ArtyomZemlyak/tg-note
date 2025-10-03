@@ -43,6 +43,8 @@ class BotHandlers:
         # Store per-user agents
         self.user_agents: Dict[int, Any] = {}
         self.content_parser = ContentParser()
+        # Store per-user mode (note/ask)
+        self.user_modes: Dict[int, str] = {}  # 'note' or 'ask'
         self.logger = logger
         self.logger.info(f"BotHandlers initialized with user-specific settings support")
     
@@ -54,6 +56,8 @@ class BotHandlers:
         self.bot.message_handler(commands=['status'])(self.handle_status)
         self.bot.message_handler(commands=['setkb'])(self.handle_setkb)
         self.bot.message_handler(commands=['kb'])(self.handle_kb_info)
+        self.bot.message_handler(commands=['note'])(self.handle_note_mode)
+        self.bot.message_handler(commands=['ask'])(self.handle_ask_mode)
         
         # Forwarded messages - register first to catch all forwarded content types we support
         # Explicitly include photo and document so forwarded media are handled here
@@ -178,7 +182,10 @@ class BotHandlers:
             "Бот проанализирует контент и сохранит важную информацию в базу знаний.\n\n"
             "Команды:\n"
             "/help - показать справку\n"
-            "/status - показать статистику обработки"
+            "/status - показать статистику обработки\n\n"
+            "Режимы работы:\n"
+            "/note - режим создания базы знаний (по умолчанию)\n"
+            "/ask - режим вопросов по базе знаний"
         )
         
         await self.bot.reply_to(message, welcome_text)
@@ -212,6 +219,11 @@ class BotHandlers:
             "/viewsettings - просмотр всех настроек\n"
             "/kbsettings - настройки базы знаний\n"
             "/agentsettings - настройки агента\n\n"
+            "**Режимы работы:**\n"
+            "/note - режим создания базы знаний (по умолчанию)\n"
+            "  В этом режиме бот анализирует ваши сообщения и создает заметки\n\n"
+            "/ask - режим вопросов по базе знаний\n"
+            "  В этом режиме вы можете задавать вопросы агенту о содержимом базы знаний\n\n"
             "Бот работает для всех пользователей без ограничений!"
         )
         
@@ -232,13 +244,20 @@ class BotHandlers:
             # Get user-specific git setting
             kb_git_enabled = self.settings_manager.get_setting(message.from_user.id, "KB_GIT_ENABLED")
             
+            # Get current mode
+            current_mode = self._get_user_mode(message.from_user.id)
+            mode_emoji = "📝" if current_mode == "note" else "🤔"
+            mode_name = "Создание базы знаний" if current_mode == "note" else "Вопросы по базе знаний"
+            
             status_text = (
                 f"📊 Статистика обработки\n\n"
                 f"Всего обработано сообщений: {stats['total_processed']}\n"
                 f"Ожидает обработки: {stats['pending_groups']}\n"
                 f"Последняя обработка: {stats.get('last_processed', 'Никогда')}\n\n"
                 f"База знаний: {kb_info}\n"
-                f"Git интеграция: {'Включена' if kb_git_enabled else 'Отключена'}"
+                f"Git интеграция: {'Включена' if kb_git_enabled else 'Отключена'}\n\n"
+                f"{mode_emoji} Текущий режим: {mode_name}\n"
+                f"Переключить: /note | /ask"
             )
         except Exception as e:
             self.logger.error(f"Error getting status: {e}")
@@ -338,6 +357,54 @@ class BotHandlers:
             info_text += "⚠️ Локальная копия не найдена\n"
         
         await self.bot.reply_to(message, info_text)
+    
+    def _get_user_mode(self, user_id: int) -> str:
+        """Get current mode for user (default: note)"""
+        return self.user_modes.get(user_id, "note")
+    
+    def _set_user_mode(self, user_id: int, mode: str) -> None:
+        """Set mode for user"""
+        self.user_modes[user_id] = mode
+        self.logger.info(f"User {user_id} switched to {mode} mode")
+    
+    async def handle_note_mode(self, message: Message) -> None:
+        """Handle /note command - switch to note creation mode (async)"""
+        self.logger.info(f"Note mode command from user {message.from_user.id}")
+        
+        self._set_user_mode(message.from_user.id, "note")
+        
+        await self.bot.reply_to(
+            message,
+            "📝 Режим создания базы знаний активирован!\n\n"
+            "Теперь ваши сообщения будут анализироваться и сохраняться в базу знаний.\n"
+            "Отправьте сообщение, репост или документ для обработки.\n\n"
+            "Для переключения в режим вопросов используйте /ask"
+        )
+    
+    async def handle_ask_mode(self, message: Message) -> None:
+        """Handle /ask command - switch to question mode (async)"""
+        self.logger.info(f"Ask mode command from user {message.from_user.id}")
+        
+        # Check if user has KB configured
+        user_kb = self.user_settings.get_user_kb(message.from_user.id)
+        
+        if not user_kb:
+            await self.bot.reply_to(
+                message,
+                "❌ База знаний не настроена\n\n"
+                "Используйте /setkb для настройки базы знаний перед использованием режима вопросов."
+            )
+            return
+        
+        self._set_user_mode(message.from_user.id, "ask")
+        
+        await self.bot.reply_to(
+            message,
+            "🤔 Режим вопросов по базе знаний активирован!\n\n"
+            "Теперь вы можете задавать вопросы агенту о содержимом вашей базы знаний.\n"
+            "Агент будет искать информацию в базе и отвечать на ваши вопросы.\n\n"
+            "Для возврата в режим создания заметок используйте /note"
+        )
     
     async def handle_text_message(self, message: Message) -> None:
         """Handle regular text messages (async)"""
@@ -491,6 +558,28 @@ class BotHandlers:
                 )
                 return
             
+            # Check user mode and route to appropriate handler
+            user_mode = self._get_user_mode(user_id)
+            
+            if user_mode == "ask":
+                await self._process_question(group, processing_msg, user_id, user_kb)
+            else:  # default to "note" mode
+                await self._process_note_creation(group, processing_msg, user_id, user_kb)
+                
+        except Exception as e:
+            self.logger.error(f"Error processing message group: {e}", exc_info=True)
+            try:
+                await self.bot.edit_message_text(
+                    f"❌ Ошибка обработки сообщения: {str(e)}",
+                    chat_id=processing_msg.chat.id,
+                    message_id=processing_msg.message_id
+                )
+            except Exception:
+                pass
+    
+    async def _process_note_creation(self, group, processing_msg: Message, user_id: int, user_kb: dict) -> None:
+        """Process message group in note creation mode"""
+        try:
             # Get KB path
             kb_path = self.repo_manager.get_kb_path(user_kb['kb_name'])
             if not kb_path:
@@ -639,10 +728,100 @@ class BotHandlers:
             )
             
         except Exception as e:
-            self.logger.error(f"Error processing message group: {e}", exc_info=True)
+            self.logger.error(f"Error in note creation: {e}", exc_info=True)
             try:
                 await self.bot.edit_message_text(
                     f"❌ Ошибка обработки сообщения: {str(e)}",
+                    chat_id=processing_msg.chat.id,
+                    message_id=processing_msg.message_id
+                )
+            except Exception:
+                pass
+    
+    async def _process_question(self, group, processing_msg: Message, user_id: int, user_kb: dict) -> None:
+        """Process message group in question mode - query the knowledge base"""
+        try:
+            # Get KB path
+            kb_path = self.repo_manager.get_kb_path(user_kb['kb_name'])
+            if not kb_path:
+                await self.bot.edit_message_text(
+                    "❌ Локальная копия базы знаний не найдена\n\n"
+                    "Попробуйте настроить базу знаний заново: /setkb",
+                    chat_id=processing_msg.chat.id,
+                    message_id=processing_msg.message_id
+                )
+                return
+            
+            # Parse content (user's question)
+            content = self.content_parser.parse_group(group)
+            question_text = content.get('text', '')
+            
+            if not question_text:
+                await self.bot.edit_message_text(
+                    "❌ Не могу определить вопрос\n\n"
+                    "Пожалуйста, отправьте текстовое сообщение с вопросом.",
+                    chat_id=processing_msg.chat.id,
+                    message_id=processing_msg.message_id
+                )
+                return
+            
+            # Process with agent in query mode
+            await self.bot.edit_message_text(
+                "🔍 Ищу информацию в базе знаний...",
+                chat_id=processing_msg.chat.id,
+                message_id=processing_msg.message_id
+            )
+            
+            # Get user-specific agent
+            user_agent = self._get_or_create_user_agent(user_id)
+            
+            # Prepare query prompt
+            from config.agent_prompts import KB_QUERY_PROMPT_TEMPLATE
+            query_prompt = KB_QUERY_PROMPT_TEMPLATE.format(
+                kb_path=str(kb_path),
+                question=question_text
+            )
+            
+            # Create query content
+            query_content = {
+                'text': query_prompt,
+                'urls': [],
+                'prompt': query_prompt
+            }
+            
+            try:
+                # Process query with agent
+                response = await user_agent.process(query_content)
+                
+                # Extract answer from response
+                answer = response.get('answer') or response.get('markdown') or response.get('text', '')
+                
+                if not answer:
+                    raise ValueError("Agent did not return an answer")
+                
+                # Send answer to user
+                await self.bot.edit_message_text(
+                    f"💡 **Ответ:**\n\n{answer}",
+                    chat_id=processing_msg.chat.id,
+                    message_id=processing_msg.message_id,
+                    parse_mode='Markdown'
+                )
+                
+            except Exception as agent_error:
+                self.logger.error(f"Agent query processing failed: {agent_error}", exc_info=True)
+                await self.bot.edit_message_text(
+                    f"❌ Ошибка при поиске информации:\n{str(agent_error)}\n\n"
+                    f"Попробуйте переформулировать вопрос или проверьте, что база знаний содержит релевантную информацию.",
+                    chat_id=processing_msg.chat.id,
+                    message_id=processing_msg.message_id
+                )
+                return
+                
+        except Exception as e:
+            self.logger.error(f"Error in question processing: {e}", exc_info=True)
+            try:
+                await self.bot.edit_message_text(
+                    f"❌ Ошибка обработки вопроса: {str(e)}",
                     chat_id=processing_msg.chat.id,
                     message_id=processing_msg.message_id
                 )

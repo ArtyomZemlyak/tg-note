@@ -187,6 +187,48 @@ class TestHandlersAsync:
         test_message.forward_from = None
         test_message.forward_from_chat = Mock()
         assert handlers._is_forwarded_message(test_message)
+    
+    @pytest.mark.asyncio
+    async def test_handle_note_mode(self, handlers, test_message, mock_bot):
+        """Test that /note command switches to note mode"""
+        await handlers.handle_note_mode(test_message)
+        
+        # Verify mode was set
+        assert handlers._get_user_mode(test_message.from_user.id) == "note"
+        
+        # Verify reply was sent
+        mock_bot.reply_to.assert_called_once()
+        call_args = mock_bot.reply_to.call_args
+        assert call_args[0][0] == test_message
+        assert "Режим создания базы знаний активирован" in call_args[0][1]
+    
+    @pytest.mark.asyncio
+    async def test_handle_ask_mode_no_kb(self, handlers, test_message, mock_bot):
+        """Test that /ask command requires KB to be configured"""
+        await handlers.handle_ask_mode(test_message)
+        
+        # Should show error when no KB configured
+        mock_bot.reply_to.assert_called_once()
+        call_args = mock_bot.reply_to.call_args
+        assert call_args[0][0] == test_message
+        assert "База знаний не настроена" in call_args[0][1]
+    
+    def test_get_user_mode_default(self, handlers):
+        """Test that default mode is 'note'"""
+        mode = handlers._get_user_mode(12345)
+        assert mode == "note"
+    
+    def test_set_user_mode(self, handlers):
+        """Test setting user mode"""
+        user_id = 12345
+        
+        # Set to ask mode
+        handlers._set_user_mode(user_id, "ask")
+        assert handlers._get_user_mode(user_id) == "ask"
+        
+        # Set back to note mode
+        handlers._set_user_mode(user_id, "note")
+        assert handlers._get_user_mode(user_id) == "note"
 
 
 if __name__ == '__main__':
