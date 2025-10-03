@@ -46,7 +46,8 @@ async def file_create_tool(params: dict) -> dict:
     """
     Тулз для создания файла
     
-    В реальности здесь будет безопасное создание файла в KB
+    ПРИМЕЧАНИЕ: В OpenAIAgent этот тулз уже встроен и работает с реальной файловой системой!
+    Этот пример только для демонстрации, в продакшене используется встроенный file_create.
     """
     path = params.get("path", "")
     content = params.get("content", "")
@@ -106,22 +107,24 @@ async def example_basic():
     Базовый пример: агент анализирует текст и создает файл
     """
     print("\n" + "="*80)
-    print("ПРИМЕР 1: Базовое использование")
+    print("ПРИМЕР 1: Базовое использование с автоматическим созданием файлов в KB")
     print("="*80 + "\n")
     
-    # Создать агента
+    # Создать агента с указанием пути к базе знаний
+    from pathlib import Path
     agent = OpenAIAgent(
         api_key=os.getenv("OPENAI_API_KEY", "test-key"),
         base_url=os.getenv("OPENAI_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
         model="qwen-max",
-        max_iterations=5
+        max_iterations=5,
+        kb_root_path=Path("./test_kb")  # Агент будет создавать файлы здесь
     )
     
-    # Зарегистрировать тулзы
-    agent.register_tool("web_search", web_search_tool)
-    agent.register_tool("file_create", file_create_tool)
-    agent.register_tool("folder_create", folder_create_tool)
-    agent.register_tool("analyze_content", analyze_content_tool)
+    # ВАЖНО: file_create, file_edit, folder_create уже встроены в OpenAIAgent!
+    # Нет необходимости регистрировать их вручную.
+    # Регистрируем только дополнительные тулзы если нужны:
+    # agent.register_tool("web_search", web_search_tool)
+    # agent.register_tool("analyze_content", analyze_content_tool)
     
     # Задача
     content = {

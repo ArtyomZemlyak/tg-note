@@ -91,6 +91,12 @@ class BotHandlers:
     def _get_or_create_user_agent(self, user_id: int):
         """Get or create agent for a user with their settings"""
         if user_id not in self.user_agents:
+            # Get user KB path
+            user_kb = self.user_settings.get_user_kb(user_id)
+            kb_path = None
+            if user_kb:
+                kb_path = self.repo_manager.get_kb_path(user_kb['kb_name'])
+            
             # Get user-specific agent settings
             config = {
                 "api_key": self.settings_manager.get_setting(user_id, "QWEN_API_KEY"),
@@ -105,10 +111,11 @@ class BotHandlers:
                 "enable_shell": self.settings_manager.get_setting(user_id, "AGENT_ENABLE_SHELL"),
                 "qwen_cli_path": self.settings_manager.get_setting(user_id, "AGENT_QWEN_CLI_PATH"),
                 "timeout": self.settings_manager.get_setting(user_id, "AGENT_TIMEOUT"),
+                "kb_path": str(kb_path) if kb_path else None,
             }
             
             agent_type = self.settings_manager.get_setting(user_id, "AGENT_TYPE")
-            self.logger.info(f"Creating agent for user {user_id}: {agent_type}")
+            self.logger.info(f"Creating agent for user {user_id}: {agent_type} with kb_path={config['kb_path']}")
             agent = AgentFactory.create_agent(agent_type=agent_type, config=config)
             self.user_agents[user_id] = agent
         return self.user_agents[user_id]
