@@ -176,14 +176,26 @@ class BaseAgent(ABC):
         result_match = re.search(r'```agent-result\s*\n(.*?)\n```', response, re.DOTALL)
         if result_match:
             try:
-                result_data = json.loads(result_match.group(1))
+                json_text = result_match.group(1).strip()
+                result_data = json.loads(json_text)
+                
+                # Ensure result_data is a dictionary
+                if not isinstance(result_data, dict):
+                    import logging
+                    logging.warning(f"agent-result JSON is not a dictionary (type: {type(result_data).__name__}). Content: {json_text[:100]}")
+                    # Fall back to simple parsing
+                    result_data = {}
+                
                 summary = result_data.get("summary", "")
                 files_created = result_data.get("files_created", [])
                 files_edited = result_data.get("files_edited", [])
                 folders_created = result_data.get("folders_created", [])
                 metadata = result_data.get("metadata", {})
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as e:
                 # Если не удалось распарсить JSON, используем простой парсинг
+                # Log the error for debugging
+                import logging
+                logging.warning(f"Failed to parse agent-result JSON: {e}. Content: {result_match.group(1)[:100]}")
                 pass
         
         # Фоллбэк: попытка найти информацию в тексте
