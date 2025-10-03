@@ -124,9 +124,12 @@ cat > .env << EOF
 # Required: Telegram Bot Token
 TELEGRAM_BOT_TOKEN=your_bot_token_here
 
-# Optional: API keys for advanced agents (future)
+# Optional: API keys for agents
 # OPENAI_API_KEY=your_openai_key
+# OPENAI_BASE_URL=https://api.openai.com/v1  # Optional, for custom endpoints
+# QWEN_API_KEY=your_qwen_key
 # ANTHROPIC_API_KEY=your_anthropic_key
+# GITHUB_TOKEN=your_github_token
 EOF
 ```
 
@@ -472,7 +475,10 @@ TELEGRAM_BOT_TOKEN=your_token_here
 
 # Optional API Keys
 OPENAI_API_KEY=sk-...
+OPENAI_BASE_URL=https://api.openai.com/v1  # Optional, for custom endpoints
+QWEN_API_KEY=your_qwen_key
 ANTHROPIC_API_KEY=sk-ant-...
+GITHUB_TOKEN=ghp_...
 ```
 
 ### YAML Configuration (`config.yaml`)
@@ -493,6 +499,8 @@ AGENT_ENABLE_WEB_SEARCH: true
 AGENT_ENABLE_GIT: true
 AGENT_ENABLE_GITHUB: true
 AGENT_ENABLE_SHELL: false
+AGENT_ENABLE_FILE_MANAGEMENT: true
+AGENT_ENABLE_FOLDER_MANAGEMENT: true
 
 # Processing
 MESSAGE_GROUP_TIMEOUT: 30
