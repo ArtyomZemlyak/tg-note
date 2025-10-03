@@ -56,12 +56,12 @@ class BotHandlers:
         self.bot.message_handler(commands=['kb'])(self.handle_kb_info)
         
         # Forwarded messages - register first to catch all forwarded content
-        self.bot.message_handler(func=self._is_forwarded_message)(self.handle_forwarded_message)
+        self.bot.message_handler(func=lambda m: self._is_forwarded_message(m))(self.handle_forwarded_message)
         
         # Regular message handlers - only for non-forwarded messages and non-command messages
-        self.bot.message_handler(func=lambda message: message.content_type == 'text' and not self._is_forwarded_message(message) and not self._is_command_message(message))(self.handle_text_message)
-        self.bot.message_handler(func=lambda message: message.content_type == 'photo' and not self._is_forwarded_message(message))(self.handle_photo_message)
-        self.bot.message_handler(func=lambda message: message.content_type == 'document' and not self._is_forwarded_message(message))(self.handle_document_message)
+        self.bot.message_handler(func=lambda m: m.content_type == 'text' and not self._is_forwarded_message(m) and not self._is_command_message(m))(self.handle_text_message)
+        self.bot.message_handler(func=lambda m: m.content_type == 'photo' and not self._is_forwarded_message(m))(self.handle_photo_message)
+        self.bot.message_handler(func=lambda m: m.content_type == 'document' and not self._is_forwarded_message(m))(self.handle_document_message)
     
     def _is_forwarded_message(self, message: Message) -> bool:
         """Check if message is forwarded from any source"""

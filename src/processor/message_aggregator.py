@@ -41,7 +41,8 @@ class MessageAggregator:
     def __init__(self, timeout: int = 30):
         self.timeout = timeout
         self.active_groups: Dict[int, MessageGroup] = {}
-        self.        self._background_task: Optional[asyncio.Task] = None
+        self.logger = logger
+        self._background_task: Optional[asyncio.Task] = None
         self._running = False
         self._timeout_callback: Optional[Callable] = None
         self._lock = asyncio.Lock()
