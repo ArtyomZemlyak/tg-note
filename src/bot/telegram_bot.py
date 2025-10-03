@@ -35,8 +35,8 @@ class TelegramBot:
         self.bot = AsyncTeleBot(settings.TELEGRAM_BOT_TOKEN)
         
         # Initialize handlers
-        self.handlers = BotHandlers(self.bot, tracker, repo_manager, user_settings)
         self.settings_handlers = SettingsHandlers(self.bot)
+        self.handlers = BotHandlers(self.bot, tracker, repo_manager, user_settings, self.settings_handlers)
         
         # Bot state
         self.is_running = False
@@ -59,9 +59,9 @@ class TelegramBot:
             # Start background tasks for message aggregator
             self.handlers.start_background_tasks()
             
-            # Register handlers
-            await self.handlers.register_handlers_async()
+            # Register handlers - settings handlers first for proper priority
             await self.settings_handlers.register_handlers_async()
+            await self.handlers.register_handlers_async()
             
             # Start polling
             self.is_running = True

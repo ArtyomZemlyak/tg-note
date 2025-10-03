@@ -27,12 +27,14 @@ class BotHandlers:
         bot: AsyncTeleBot, 
         tracker: ProcessingTracker,
         repo_manager: RepositoryManager,
-        user_settings: UserSettings
+        user_settings: UserSettings,
+        settings_handlers=None
     ):
         self.bot = bot
         self.tracker = tracker
         self.repo_manager = repo_manager
         self.user_settings = user_settings
+        self.settings_handlers = settings_handlers
         self.message_aggregator = MessageAggregator(settings.MESSAGE_GROUP_TIMEOUT)
         self.content_parser = ContentParser()
         
@@ -277,6 +279,12 @@ class BotHandlers:
     
     async def handle_text_message(self, message: Message) -> None:
         """Handle regular text messages (async)"""
+        # Check if user is waiting for settings input
+        if self.settings_handlers and message.from_user.id in self.settings_handlers.waiting_for_input:
+            # This message is for settings input, let settings handler process it
+            self.logger.info(f"Skipping text message from user {message.from_user.id} - waiting for settings input")
+            return
+        
         self.logger.info(f"Text message from user {message.from_user.id}: {message.text[:50]}...")
         await self._process_message(message)
     
