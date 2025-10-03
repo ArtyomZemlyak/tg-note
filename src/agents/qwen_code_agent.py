@@ -14,7 +14,13 @@ import aiohttp
 import requests
 from loguru import logger
 
-from .base_agent import BaseAgent, KBStructure
+from .base_agent import KBStructure
+from .autonomous_agent import (
+    ActionType,
+    AgentContext,
+    AgentDecision,
+    AutonomousAgent
+)
 from config.agent_prompts import (
     QWEN_CODE_AGENT_INSTRUCTION,
     CATEGORY_KEYWORDS,
@@ -75,15 +81,15 @@ class ToolResult:
         }
 
 
-class QwenCodeAgent(BaseAgent):
+class QwenCodeAgent(AutonomousAgent):
     """
     Qwen Code Agent with autonomous processing capabilities
     
     Features:
     - Configurable instruction system
     - Autonomous mode (no user interaction)
-    - TODO plan generation and execution
-    - Tool using: web search, git, github, cmd commands
+    - TODO plan generation and execution via autonomous agent loop
+    - Tool using: web search, git, github, cmd commands, file/folder management
     """
     
     DEFAULT_INSTRUCTION = QWEN_CODE_AGENT_INSTRUCTION
@@ -100,7 +106,8 @@ class QwenCodeAgent(BaseAgent):
         enable_shell: bool = False,  # Disabled by default for security
         enable_file_management: bool = True,
         enable_folder_management: bool = True,
-        kb_root_path: Optional[Path] = None
+        kb_root_path: Optional[Path] = None,
+        max_iterations: int = 10
     ):
         """
         Initialize Qwen Code Agent
@@ -117,11 +124,11 @@ class QwenCodeAgent(BaseAgent):
             enable_file_management: Enable file management tools
             enable_folder_management: Enable folder management tools
             kb_root_path: Root path for knowledge base (for safe file/folder operations)
+            max_iterations: Maximum iterations in autonomous agent loop
         """
-        super().__init__(config)
+        # Initialize parent AutonomousAgent
+        super().__init__(config, instruction or self.DEFAULT_INSTRUCTION, max_iterations)
         
-        # Use provided instruction, or default from config
-        self.instruction = instruction or self.DEFAULT_INSTRUCTION
         self.api_key = api_key
         self.model = model
         
@@ -137,8 +144,8 @@ class QwenCodeAgent(BaseAgent):
         self.kb_root_path = kb_root_path or Path("./knowledge_base")
         self.kb_root_path = self.kb_root_path.resolve()  # Get absolute path
         
-        # Initialize tools
-        self.tools = self._initialize_tools()
+        # Register tools with autonomous agent
+        self._register_all_tools()
         
         # Agent state
         self.current_plan: Optional[TodoPlan] = None
@@ -148,318 +155,312 @@ class QwenCodeAgent(BaseAgent):
         logger.info(f"KB root path: {self.kb_root_path}")
         logger.info(f"Enabled tools: {list(self.tools.keys())}")
     
-    def _initialize_tools(self) -> Dict[str, callable]:
-        """Initialize available tools"""
-        tools = {}
-        
+    def _register_all_tools(self) -> None:
+        """Register all available tools with autonomous agent"""
         if self.enable_web_search:
-            tools["web_search"] = self._tool_web_search
+            self.register_tool("web_search", self._tool_web_search)
         
         if self.enable_git:
-            tools["git_command"] = self._tool_git_command
+            self.register_tool("git_command", self._tool_git_command)
         
         if self.enable_github:
-            tools["github_api"] = self._tool_github_api
+            self.register_tool("github_api", self._tool_github_api)
         
         if self.enable_shell:
-            tools["shell_command"] = self._tool_shell_command
+            self.register_tool("shell_command", self._tool_shell_command)
         
         if self.enable_file_management:
-            tools["file_create"] = self._tool_file_create
-            tools["file_edit"] = self._tool_file_edit
-            tools["file_delete"] = self._tool_file_delete
-            tools["file_move"] = self._tool_file_move
+            self.register_tool("file_create", self._tool_file_create)
+            self.register_tool("file_edit", self._tool_file_edit)
+            self.register_tool("file_delete", self._tool_file_delete)
+            self.register_tool("file_move", self._tool_file_move)
         
         if self.enable_folder_management:
-            tools["folder_create"] = self._tool_folder_create
-            tools["folder_delete"] = self._tool_folder_delete
-            tools["folder_move"] = self._tool_folder_move
+            self.register_tool("folder_create", self._tool_folder_create)
+            self.register_tool("folder_delete", self._tool_folder_delete)
+            self.register_tool("folder_move", self._tool_folder_move)
         
-        return tools
+        # Register analyze_content tool
+        self.register_tool("analyze_content", self._tool_analyze_content)
+        
+        # Register plan_todo tool
+        self.register_tool("plan_todo", self._tool_plan_todo)
     
-    async def process(self, content: Dict) -> Dict:
+    async def _make_decision(self, context: AgentContext) -> AgentDecision:
         """
-        Process content autonomously with Qwen Code agent
+        Make decision using simple rule-based logic or LLM
+        
+        For now, we use a simplified approach:
+        1. First iteration: create plan_todo
+        2. Execute tasks from plan
+        3. When done: return END with final markdown
         
         Args:
-            content: Content dictionary with text, urls, etc.
+            context: Current agent context
         
         Returns:
-            Processed content dictionary with markdown, metadata, and KB structure
+            AgentDecision with next action
         """
-        logger.debug(f"[QwenCodeAgent] Starting process with content keys: {list(content.keys())}")
+        logger.debug("[QwenCodeAgent] Making decision")
         
-        if not self.validate_input(content):
-            logger.error(f"[QwenCodeAgent] Invalid input content: {content}")
-            raise ValueError("Invalid input content")
+        # Check if we have a plan yet
+        if not self.current_plan:
+            # First step: create TODO plan
+            logger.info("[QwenCodeAgent] Creating TODO plan")
+            
+            # Extract content from task
+            text = self._extract_text_from_task(context.task)
+            tasks = self._generate_task_list(text)
+            
+            return AgentDecision(
+                action=ActionType.TOOL_CALL,
+                reasoning="Creating TODO plan for content processing",
+                tool_name="plan_todo",
+                tool_params={"tasks": tasks}
+            )
         
-        logger.info("[QwenCodeAgent] Starting autonomous content processing...")
-        logger.debug(f"[QwenCodeAgent] Content preview: {content.get('text', '')[:100]}...")
+        # Check if all tasks are completed
+        pending_tasks = self.current_plan.get_pending_tasks()
         
-        # Step 1: Create TODO plan
-        logger.debug("[QwenCodeAgent] STEP 1: Creating TODO plan")
-        self.current_plan = await self._create_todo_plan(content)
-        logger.info(f"[QwenCodeAgent] Created TODO plan with {len(self.current_plan.tasks)} tasks")
-        logger.debug(f"[QwenCodeAgent] TODO plan: {self.current_plan.to_dict()}")
+        if pending_tasks:
+            # Execute next pending task
+            task = pending_tasks[0]
+            task_index = self.current_plan.tasks.index(task)
+            
+            logger.info(f"[QwenCodeAgent] Executing task: {task['task']}")
+            
+            # Determine which tool to use based on task description
+            tool_name, tool_params = self._task_to_tool(task, context)
+            
+            # Mark task as in progress
+            self.current_plan.update_task_status(task_index, "in_progress")
+            
+            return AgentDecision(
+                action=ActionType.TOOL_CALL,
+                reasoning=f"Executing task: {task['task']}",
+                tool_name=tool_name,
+                tool_params=tool_params
+            )
         
-        # Step 2: Execute plan autonomously
-        logger.debug("[QwenCodeAgent] STEP 2: Executing TODO plan")
-        execution_results = await self._execute_plan(content)
-        logger.info(f"[QwenCodeAgent] Plan execution completed with {len(execution_results)} results")
-        logger.debug(f"[QwenCodeAgent] Execution results summary: {[r.keys() if isinstance(r, dict) else type(r).__name__ for r in execution_results]}")
+        # All tasks completed - generate final markdown
+        logger.info("[QwenCodeAgent] All tasks completed, generating final result")
         
-        # Step 3: Analyze and structure content
-        logger.debug("[QwenCodeAgent] STEP 3: Structuring content")
-        structured_content = await self._structure_content(content, execution_results)
-        logger.debug(f"[QwenCodeAgent] Structured content keys: {list(structured_content.keys())}")
+        # Generate markdown from execution results
+        markdown = await self._generate_final_markdown(context)
         
-        # Step 4: Generate markdown
-        logger.debug("[QwenCodeAgent] STEP 4: Generating markdown")
-        markdown_content = await self._generate_markdown(structured_content)
-        logger.debug(f"[QwenCodeAgent] Generated markdown length: {len(markdown_content)} chars")
+        return AgentDecision(
+            action=ActionType.END,
+            reasoning="All tasks completed successfully",
+            final_result=markdown
+        )
+    
+    def _extract_text_from_task(self, task: str) -> str:
+        """Extract content text from task description"""
+        # Task format: "Обработай следующий контент...\nТЕКСТ:\n{text}\n..."
+        if "ТЕКСТ:" in task:
+            parts = task.split("ТЕКСТ:")
+            if len(parts) > 1:
+                text_part = parts[1].split("URL:")[0] if "URL:" in parts[1] else parts[1]
+                return text_part.strip()
+        return task
+    
+    def _generate_task_list(self, text: str) -> List[str]:
+        """Generate a list of tasks for processing content"""
+        tasks = [
+            "Analyze content and extract key topics",
+            "Extract metadata (topics, tags, category)",
+            "Structure content for knowledge base",
+            "Generate markdown formatted content"
+        ]
         
-        # Step 5: Determine KB structure
-        logger.debug("[QwenCodeAgent] STEP 5: Determining KB structure")
-        kb_structure = await self._determine_kb_structure(structured_content)
-        logger.debug(f"[QwenCodeAgent] KB structure: {kb_structure.to_dict()}")
+        # Add web search task if URLs present
+        if "URL:" in text or "http" in text:
+            tasks.insert(1, "Search web for additional context")
+        
+        return tasks
+    
+    def _task_to_tool(self, task: Dict, context: AgentContext) -> tuple[str, Dict[str, Any]]:
+        """Convert a task to a tool call"""
+        task_desc = task["task"].lower()
+        
+        if "analyze content" in task_desc:
+            text = self._extract_text_from_task(context.task)
+            return "analyze_content", {"text": text}
+        
+        elif "search web" in task_desc:
+            text = self._extract_text_from_task(context.task)
+            # Extract URLs from text
+            urls = []
+            for line in text.split("\n"):
+                if line.startswith("http"):
+                    urls.append(line.strip())
+            
+            if urls:
+                return "web_search", {"query": urls[0]}
+            return "analyze_content", {"text": text}
+        
+        elif "extract metadata" in task_desc:
+            text = self._extract_text_from_task(context.task)
+            return "analyze_content", {"text": text}
+        
+        else:
+            # Default: analyze content
+            text = self._extract_text_from_task(context.task)
+            return "analyze_content", {"text": text}
+    
+    async def _generate_final_markdown(self, context: AgentContext) -> str:
+        """Generate final markdown from execution results"""
+        # Collect all analysis results
+        analysis_results = []
+        web_results = []
+        
+        for execution in context.executions:
+            if execution.tool_name == "analyze_content" and execution.success:
+                analysis_results.append(execution.result)
+            elif execution.tool_name == "web_search" and execution.success:
+                web_results.append(execution.result)
+        
+        # Extract text from task
+        text = self._extract_text_from_task(context.task)
         
         # Generate metadata
-        metadata = {
-            "processed_at": datetime.now().isoformat(),
-            "agent": "QwenCodeAgent",
-            "version": "1.0.0",
-            "model": self.model,
-            "plan": self.current_plan.to_dict(),
-            "execution_log": self.execution_log,
-            "tools_used": list(set([log["tool"] for log in self.execution_log if "tool" in log]))
-        }
+        title = self._generate_title(text)
+        category = self._detect_category(text)
+        tags = self._extract_keywords(text)[:5]
+        summary = self._generate_summary(text)
+        
+        # Build markdown
+        lines = []
+        lines.append(f"# {title}")
+        lines.append("")
+        lines.append("## Metadata")
+        lines.append("")
+        lines.append(f"- **Category**: {category}")
+        if tags:
+            lines.append(f"- **Tags**: {', '.join(tags)}")
+        lines.append(f"- **Processed**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        lines.append("")
+        
+        if summary:
+            lines.append("## Summary")
+            lines.append("")
+            lines.append(summary)
+            lines.append("")
+        
+        lines.append("## Content")
+        lines.append("")
+        lines.append(text)
+        lines.append("")
+        
+        # Add analysis if available
+        if analysis_results:
+            lines.append("## Analysis")
+            lines.append("")
+            for result in analysis_results:
+                if isinstance(result, dict):
+                    keywords = result.get("keywords", [])
+                    if keywords:
+                        lines.append(f"**Keywords**: {', '.join(keywords)}")
+                        lines.append("")
+        
+        # Add web context if available
+        if web_results:
+            lines.append("## Additional Context")
+            lines.append("")
+            for i, result in enumerate(web_results, 1):
+                lines.append(f"### Context {i}")
+                lines.append("")
+                if isinstance(result, dict):
+                    lines.append(str(result.get("output", result)))
+                else:
+                    lines.append(str(result))
+                lines.append("")
+        
+        return "\n".join(lines)
+    
+    async def _tool_plan_todo(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle plan_todo tool call"""
+        tasks = params.get("tasks", [])
+        
+        logger.info(f"[QwenCodeAgent] Creating plan with {len(tasks)} tasks")
+        
+        # Create plan
+        self.current_plan = TodoPlan()
+        for i, task in enumerate(tasks):
+            self.current_plan.add_task(task, priority=i+1)
         
         return {
-            "markdown": markdown_content,
-            "metadata": metadata,
-            "title": structured_content.get("title", "Untitled Note"),
-            "kb_structure": kb_structure
+            "success": True,
+            "plan": tasks,
+            "message": f"Plan created with {len(tasks)} tasks"
         }
     
+    async def _tool_analyze_content(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Analyze content tool"""
+        text = params.get("text", "")
+        
+        analysis = {
+            "text_length": len(text),
+            "word_count": len(text.split()),
+            "has_code": "```" in text or "def " in text or "function " in text,
+            "keywords": self._extract_keywords(text),
+            "category": self._detect_category(text)
+        }
+        
+        return analysis
+    
+    # Backward compatibility methods for tests
+    
     async def _create_todo_plan(self, content: Dict) -> TodoPlan:
-        """
-        Create a TODO plan for processing content
-        
-        Args:
-            content: Content to process
-        
-        Returns:
-            TodoPlan object
-        """
+        """Create a TODO plan (backward compatibility)"""
         plan = TodoPlan()
-        
         text = content.get("text", "")
         urls = content.get("urls", [])
         
-        # Analyze content and create plan
-        # Task 1: Analyze content
         plan.add_task("Analyze content and extract key topics", priority=1)
-        
-        # Task 2: Search for additional context if URLs present
         if urls and self.enable_web_search:
             plan.add_task(f"Search web for context on {len(urls)} URLs", priority=2)
-        
-        # Task 3: Extract metadata
         plan.add_task("Extract metadata (topics, tags, category)", priority=3)
-        
-        # Task 4: Structure content
         plan.add_task("Structure content for knowledge base", priority=4)
-        
-        # Task 5: Generate markdown
         plan.add_task("Generate markdown formatted content", priority=5)
         
         return plan
     
-    async def _execute_plan(self, content: Dict) -> List[Dict[str, Any]]:
-        """
-        Execute the TODO plan autonomously
-        
-        Args:
-            content: Content to process
-        
-        Returns:
-            List of execution results
-        """
-        results = []
-        
-        if not self.current_plan:
-            return results
-        
-        for i, task in enumerate(self.current_plan.tasks):
-            logger.info(f"[QwenCodeAgent] Executing task {i+1}/{len(self.current_plan.tasks)}: {task['task']}")
-            logger.debug(f"[QwenCodeAgent] Task {i+1} details: {task}")
-            
-            try:
-                # Mark as in progress
-                self.current_plan.update_task_status(i, "in_progress")
-                logger.debug(f"[QwenCodeAgent] Task {i+1} marked as in_progress")
-                
-                # Execute task based on description
-                logger.debug(f"[QwenCodeAgent] Executing task {i+1}: {task['task']}")
-                result = await self._execute_task(task, content)
-                results.append(result)
-                logger.debug(f"[QwenCodeAgent] Task {i+1} result: {result}")
-                
-                # Mark as completed
-                self.current_plan.update_task_status(i, "completed")
-                logger.debug(f"[QwenCodeAgent] Task {i+1} marked as completed")
-                
-                # Log execution
-                self.execution_log.append({
-                    "task": task["task"],
-                    "status": "completed",
-                    "result": result,
-                    "timestamp": datetime.now().isoformat()
-                })
-                
-            except Exception as e:
-                logger.error(f"[QwenCodeAgent] Task {i+1} execution failed: {e}", exc_info=True)
-                logger.debug(f"[QwenCodeAgent] Task {i+1} error details: {type(e).__name__}: {str(e)}")
-                self.current_plan.update_task_status(i, "failed")
-                
-                self.execution_log.append({
-                    "task": task["task"],
-                    "status": "failed",
-                    "error": str(e),
-                    "timestamp": datetime.now().isoformat()
-                })
-        
-        return results
-    
-    async def _execute_task(self, task: Dict, content: Dict) -> Dict[str, Any]:
-        """
-        Execute a single task
-        
-        Args:
-            task: Task to execute
-            content: Content context
-        
-        Returns:
-            Task execution result
-        """
-        task_desc = task["task"].lower()
-        logger.debug(f"[QwenCodeAgent] Routing task: {task_desc}")
-        
-        # Route task to appropriate handler
-        if "analyze content" in task_desc:
-            logger.debug("[QwenCodeAgent] -> Analyzing content")
-            return await self._analyze_content(content)
-        elif "search web" in task_desc:
-            logger.debug("[QwenCodeAgent] -> Searching web context")
-            return await self._search_web_context(content)
-        elif "extract metadata" in task_desc:
-            logger.debug("[QwenCodeAgent] -> Extracting metadata")
-            return await self._extract_metadata(content)
-        elif "structure content" in task_desc:
-            logger.debug("[QwenCodeAgent] -> Structuring content")
-            return await self._structure_content_task(content)
-        elif "generate markdown" in task_desc:
-            logger.debug("[QwenCodeAgent] -> Markdown generation (deferred)")
-            return {"status": "ready"}  # Will be done in final step
-        else:
-            logger.debug(f"[QwenCodeAgent] -> Unknown task type, skipping")
-            return {"status": "skipped", "reason": "Unknown task type"}
-    
     async def _analyze_content(self, content: Dict) -> Dict[str, Any]:
-        """Analyze content and extract key information"""
-        logger.debug("[QwenCodeAgent._analyze_content] Starting content analysis")
+        """Analyze content (backward compatibility)"""
         text = content.get("text", "")
         urls = content.get("urls", [])
         
-        logger.debug(f"[QwenCodeAgent._analyze_content] Text length: {len(text)}, URLs: {len(urls)}")
-        
-        # Simple analysis (can be enhanced with LLM)
         analysis = {
             "text_length": len(text),
             "word_count": len(text.split()),
             "url_count": len(urls),
             "has_code": "```" in text or "def " in text or "function " in text,
-            "language": "unknown"  # Can use language detection
+            "language": "unknown",
+            "keywords": self._extract_keywords(text)
         }
         
-        # Extract key topics using simple keyword extraction
-        logger.debug("[QwenCodeAgent._analyze_content] Extracting keywords")
-        keywords = self._extract_keywords(text)
-        analysis["keywords"] = keywords
-        logger.debug(f"[QwenCodeAgent._analyze_content] Found {len(keywords)} keywords: {keywords}")
-        
-        logger.debug(f"[QwenCodeAgent._analyze_content] Analysis complete: {analysis}")
         return analysis
     
-    async def _search_web_context(self, content: Dict) -> Dict[str, Any]:
-        """Search web for additional context"""
-        if not self.enable_web_search:
-            return {"status": "disabled"}
-        
-        urls = content.get("urls", [])
-        results = []
-        
-        for url in urls[:3]:  # Limit to first 3 URLs
-            try:
-                result = await self._tool_web_search({"query": url})
-                if result.success:
-                    results.append(result.output)
-                    
-                    # Log tool usage
-                    self.execution_log.append({
-                        "tool": "web_search",
-                        "input": url,
-                        "output": result.output,
-                        "timestamp": datetime.now().isoformat()
-                    })
-            except Exception as e:
-                logger.warning(f"Web search failed for {url}: {e}")
-        
-        return {"web_results": results}
-    
     async def _extract_metadata(self, content: Dict) -> Dict[str, Any]:
-        """Extract metadata from content"""
+        """Extract metadata (backward compatibility)"""
         text = content.get("text", "")
         
-        # Extract category based on keywords
-        category = self._detect_category(text)
-        
-        # Extract tags
-        tags = self._extract_keywords(text)[:5]  # Top 5 keywords as tags
-        
-        # Extract title
-        title = self._generate_title(text)
-        
         return {
-            "category": category,
-            "tags": tags,
-            "title": title
+            "category": self._detect_category(text),
+            "tags": self._extract_keywords(text)[:5],
+            "title": self._generate_title(text)
         }
-    
-    async def _structure_content_task(self, content: Dict) -> Dict[str, Any]:
-        """Structure content for KB"""
-        # This is a placeholder - actual structuring happens in _structure_content
-        return {"status": "ready"}
     
     async def _structure_content(
         self,
         content: Dict,
         execution_results: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
-        """
-        Structure content based on execution results
-        
-        Args:
-            content: Original content
-            execution_results: Results from plan execution
-        
-        Returns:
-            Structured content dictionary
-        """
+        """Structure content (backward compatibility)"""
         text = content.get("text", "")
         urls = content.get("urls", [])
         
-        # Combine results
         analysis = {}
         web_context = []
         metadata = {}
@@ -472,8 +473,7 @@ class QwenCodeAgent(BaseAgent):
             elif "category" in result:
                 metadata = result
         
-        # Structure the content
-        structured = {
+        return {
             "title": metadata.get("title", self._generate_title(text)),
             "category": metadata.get("category", "general"),
             "tags": metadata.get("tags", []),
@@ -483,27 +483,15 @@ class QwenCodeAgent(BaseAgent):
             "web_context": web_context,
             "summary": self._generate_summary(text)
         }
-        
-        return structured
     
     async def _generate_markdown(self, structured_content: Dict) -> str:
-        """
-        Generate markdown content
-        
-        Args:
-            structured_content: Structured content
-        
-        Returns:
-            Markdown formatted string
-        """
+        """Generate markdown (backward compatibility)"""
         lines = []
         
-        # Title
         title = structured_content.get("title", "Untitled Note")
         lines.append(f"# {title}")
         lines.append("")
         
-        # Metadata section
         lines.append("## Metadata")
         lines.append("")
         lines.append(f"- **Category**: {structured_content.get('category', 'general')}")
@@ -515,7 +503,6 @@ class QwenCodeAgent(BaseAgent):
         lines.append(f"- **Processed**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         lines.append("")
         
-        # Summary
         summary = structured_content.get("summary", "")
         if summary:
             lines.append("## Summary")
@@ -523,13 +510,11 @@ class QwenCodeAgent(BaseAgent):
             lines.append(summary)
             lines.append("")
         
-        # Main content
         lines.append("## Content")
         lines.append("")
         lines.append(structured_content.get("content", ""))
         lines.append("")
         
-        # URLs
         urls = structured_content.get("urls", [])
         if urls:
             lines.append("## Links")
@@ -538,7 +523,6 @@ class QwenCodeAgent(BaseAgent):
                 lines.append(f"- {url}")
             lines.append("")
         
-        # Web context
         web_context = structured_content.get("web_context", [])
         if web_context:
             lines.append("## Additional Context")
@@ -549,7 +533,6 @@ class QwenCodeAgent(BaseAgent):
                 lines.append(str(context))
                 lines.append("")
         
-        # Analysis
         analysis = structured_content.get("analysis", {})
         if analysis.get("keywords"):
             lines.append("## Keywords")
@@ -560,19 +543,10 @@ class QwenCodeAgent(BaseAgent):
         return "\n".join(lines)
     
     async def _determine_kb_structure(self, structured_content: Dict) -> KBStructure:
-        """
-        Determine knowledge base structure
-        
-        Args:
-            structured_content: Structured content
-        
-        Returns:
-            KBStructure object
-        """
+        """Determine KB structure (backward compatibility)"""
         category = structured_content.get("category", "general")
         tags = structured_content.get("tags", [])
         
-        # Determine subcategory if possible
         subcategory = None
         text = structured_content.get("content", "").lower()
         
@@ -590,6 +564,7 @@ class QwenCodeAgent(BaseAgent):
             subcategory=subcategory,
             tags=tags
         )
+    
     
     def _extract_keywords(self, text: str, top_n: int = MAX_KEYWORD_COUNT) -> List[str]:
         """
