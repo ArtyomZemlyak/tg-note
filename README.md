@@ -5,6 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://artyomzemlyak.github.io/tg-note/)
 
 ---
 
@@ -334,7 +335,7 @@ AGENT_QWEN_CLI_PATH: "qwen"
 AGENT_ENABLE_WEB_SEARCH: true
 ```
 
-📚 [Detailed Documentation →](./QWEN_CODE_CLI_INTEGRATION.md)
+📚 [Detailed Documentation →](https://artyomzemlyak.github.io/tg-note/agents/qwen-code-cli/)
 
 ### 2. qwen_code
 
@@ -352,7 +353,7 @@ AGENT_TYPE: "qwen_code"
 AGENT_MODEL: "qwen-max"
 ```
 
-📚 [Detailed Documentation →](./QWEN_CODE_AGENT.md)
+📚 [Detailed Documentation →](https://artyomzemlyak.github.io/tg-note/agents/qwen-code/)
 
 ### 3. stub
 
@@ -504,7 +505,7 @@ ALLOWED_USER_IDS: ""  # Comma-separated user IDs (empty = all allowed)
 
 **Priority:** Environment Variables > `.env` file > `config.yaml`
 
-📚 [Full Configuration Guide →](./YAML_CONFIGURATION.md)
+📚 [Full Configuration Guide →](https://artyomzemlyak.github.io/tg-note/getting-started/configuration/)
 
 ---
 
@@ -668,18 +669,26 @@ poetry run black src/ tests/
 
 ## 📚 Documentation
 
-### Settings Management (NEW!)
-- 🎯 **[Settings Index](SETTINGS_INDEX.md)** - Complete documentation navigator
-- 📖 [Settings Management Guide](docs/SETTINGS_MANAGEMENT.md) - Configure bot via Telegram
-- 🏗️ [Settings Architecture](docs/SETTINGS_ARCHITECTURE.md) - Technical design details
-- 🚀 [Settings Quick Start](docs/SETTINGS_QUICK_START.md) - 5-minute tutorial
-- 📊 [Settings Visual Guide](docs/SETTINGS_VISUAL_GUIDE.md) - Diagrams and flows
+### 📖 Complete Documentation
 
-### General Documentation
-- 🔧 [Quick Start Guide](docs/QUICK_START.md) - Getting started
-- ⚙️ [Configuration Reference](docs/CONFIG_RU.md) - All settings explained
-- 🎯 [Qwen CLI Integration](docs/QWEN_CODE_CLI_INTEGRATION.md) - Agent setup
-- 🧪 [Examples](examples/) - Code examples and tutorials
+**[View Full Documentation →](https://artyomzemlyak.github.io/tg-note/)**
+
+Our comprehensive documentation is hosted on GitHub Pages and includes:
+
+- **Getting Started** - Installation, configuration, and first steps
+- **User Guide** - Commands, content management, and settings
+- **Agent System** - AI agents, tools, and autonomous processing
+- **Architecture** - System design and component details
+- **Development** - Contributing, testing, and code quality
+- **Deployment** - Production setup, Docker, and CI/CD
+
+### Quick Links
+
+- 🚀 [Quick Start Guide](https://artyomzemlyak.github.io/tg-note/getting-started/quick-start/)
+- ⚙️ [Configuration Reference](https://artyomzemlyak.github.io/tg-note/getting-started/configuration/)
+- 📝 [Bot Commands](https://artyomzemlyak.github.io/tg-note/user-guide/bot-commands/)
+- 🤖 [Agent Overview](https://artyomzemlyak.github.io/tg-note/agents/overview/)
+- 🔧 [Settings Management](https://artyomzemlyak.github.io/tg-note/user-guide/settings-management/)
 
 ---
 
@@ -699,7 +708,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support & Contact
 
-- 📖 [Full Documentation](./README.md)
+- 📖 [Full Documentation](https://artyomzemlyak.github.io/tg-note/)
 - 🐛 [Issue Tracker](https://github.com/ArtyomZemlyak/tg-note/issues)
 - 💬 [Discussions](https://github.com/ArtyomZemlyak/tg-note/discussions)
 
