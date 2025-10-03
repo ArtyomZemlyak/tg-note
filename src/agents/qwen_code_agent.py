@@ -319,10 +319,10 @@ class QwenCodeAgent(AutonomousAgent):
         text = self._extract_text_from_task(context.task)
         
         # Generate metadata
-        title = self._generate_title(text)
-        category = self._detect_category(text)
-        tags = self._extract_keywords(text)[:5]
-        summary = self._generate_summary(text)
+        title = BaseAgent.generate_title(text)
+        category = BaseAgent.detect_category(text)
+        tags = BaseAgent.extract_keywords(text, top_n=5)
+        summary = BaseAgent.generate_summary(text)
         
         # Build markdown
         lines = []
@@ -418,8 +418,8 @@ class QwenCodeAgent(AutonomousAgent):
             "text_length": len(text),
             "word_count": len(text.split()),
             "has_code": "```" in text or "def " in text or "function " in text,
-            "keywords": self._extract_keywords(text),
-            "category": self._detect_category(text)
+            "keywords": BaseAgent.extract_keywords(text),
+            "category": BaseAgent.detect_category(text)
         }
         
         return analysis
@@ -452,7 +452,7 @@ class QwenCodeAgent(AutonomousAgent):
             "url_count": len(urls),
             "has_code": "```" in text or "def " in text or "function " in text,
             "language": "unknown",
-            "keywords": self._extract_keywords(text)
+            "keywords": BaseAgent.extract_keywords(text)
         }
         
         return analysis
@@ -462,9 +462,9 @@ class QwenCodeAgent(AutonomousAgent):
         text = content.get("text", "")
         
         return {
-            "category": self._detect_category(text),
-            "tags": self._extract_keywords(text)[:5],
-            "title": self._generate_title(text)
+            "category": BaseAgent.detect_category(text),
+            "tags": BaseAgent.extract_keywords(text, top_n=5),
+            "title": BaseAgent.generate_title(text)
         }
     
     async def _structure_content(
@@ -489,14 +489,14 @@ class QwenCodeAgent(AutonomousAgent):
                 metadata = result
         
         return {
-            "title": metadata.get("title", self._generate_title(text)),
+            "title": metadata.get("title", BaseAgent.generate_title(text)),
             "category": metadata.get("category", "general"),
             "tags": metadata.get("tags", []),
             "content": text,
             "urls": urls,
             "analysis": analysis,
             "web_context": web_context,
-            "summary": self._generate_summary(text)
+            "summary": BaseAgent.generate_summary(text)
         }
     
     async def _generate_markdown(self, structured_content: Dict) -> str:
@@ -581,105 +581,6 @@ class QwenCodeAgent(AutonomousAgent):
         )
     
     
-    def _extract_keywords(self, text: str, top_n: int = MAX_KEYWORD_COUNT) -> List[str]:
-        """
-        Extract keywords from text (simple implementation)
-        
-        Args:
-            text: Text to extract keywords from
-            top_n: Number of top keywords to return
-        
-        Returns:
-            List of keywords
-        """
-        # Use stop words from config
-        stop_words = STOP_WORDS
-        
-        # Simple word frequency
-        words = text.lower().split()
-        word_freq = {}
-        
-        for word in words:
-            # Remove punctuation
-            word = word.strip(".,!?;:()[]{}\"'")
-            if len(word) > MIN_KEYWORD_LENGTH and word not in stop_words:
-                word_freq[word] = word_freq.get(word, 0) + 1
-        
-        # Sort by frequency
-        sorted_words = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)
-        
-        return [word for word, _ in sorted_words[:top_n]]
-    
-    def _detect_category(self, text: str) -> str:
-        """
-        Detect content category using keywords from config
-        
-        Args:
-            text: Text to analyze
-        
-        Returns:
-            Category name
-        """
-        text_lower = text.lower()
-        
-        # Use category keywords from config
-        categories = CATEGORY_KEYWORDS
-        
-        # Count matches for each category
-        category_scores = {}
-        for category, keywords in categories.items():
-            score = sum(1 for keyword in keywords if keyword in text_lower)
-            if score > 0:
-                category_scores[category] = score
-        
-        # Return category with highest score
-        if category_scores:
-            return max(category_scores, key=category_scores.get)
-        
-        return DEFAULT_CATEGORY
-    
-    def _generate_title(self, text: str, max_length: int = MAX_TITLE_LENGTH) -> str:
-        """
-        Generate title from text
-        
-        Args:
-            text: Text to generate title from
-            max_length: Maximum title length
-        
-        Returns:
-            Generated title
-        """
-        # Try first line
-        lines = text.strip().split("\n")
-        first_line = lines[0].strip()
-        
-        # Clean up
-        first_line = first_line.lstrip("#").strip()
-        
-        if len(first_line) > max_length:
-            return first_line[:max_length].strip() + "..."
-        
-        return first_line or "Untitled Note"
-    
-    def _generate_summary(self, text: str, max_length: int = MAX_SUMMARY_LENGTH) -> str:
-        """
-        Generate summary from text
-        
-        Args:
-            text: Text to summarize
-            max_length: Maximum summary length
-        
-        Returns:
-            Summary text
-        """
-        # Simple summary: first paragraph or first N characters
-        paragraphs = text.split("\n\n")
-        first_para = paragraphs[0].strip()
-        
-        if len(first_para) > max_length:
-            return first_para[:max_length].strip() + "..."
-        
-        return first_para
     
     # Security helper methods
     

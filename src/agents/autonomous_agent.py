@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
-from .base_agent import BaseAgent, KBStructure
+from .base_agent import AgentResult as BaseAgentResult, BaseAgent, KBStructure
 
 
 class ActionType(Enum):
@@ -111,8 +111,8 @@ class AgentContext:
 
 
 @dataclass
-class AgentResult:
-    """Результат работы агента"""
+class AutonomousAgentResult:
+    """Результат работы автономного агента (расширенный)"""
     markdown: str
     title: str
     kb_structure: KBStructure
@@ -130,6 +130,42 @@ class AgentResult:
             "iterations": self.iterations,
             "context": self.context.to_dict()
         }
+    
+    def to_base_agent_result(self) -> BaseAgentResult:
+        """Конвертировать в стандартный AgentResult"""
+        # Извлекаем информацию о файлах из контекста
+        files_created = []
+        files_edited = []
+        folders_created = []
+        
+        for execution in self.context.executions:
+            if execution.tool_name == "file_create" and execution.success:
+                if isinstance(execution.result, dict):
+                    files_created.append(execution.result.get("path", "unknown"))
+            elif execution.tool_name == "file_edit" and execution.success:
+                if isinstance(execution.result, dict):
+                    files_edited.append(execution.result.get("path", "unknown"))
+            elif execution.tool_name == "folder_create" and execution.success:
+                if isinstance(execution.result, dict):
+                    folders_created.append(execution.result.get("path", "unknown"))
+        
+        # Генерируем summary
+        summary = f"Completed in {self.iterations} iterations. "
+        if files_created:
+            summary += f"Created {len(files_created)} file(s). "
+        if files_edited:
+            summary += f"Edited {len(files_edited)} file(s). "
+        if folders_created:
+            summary += f"Created {len(folders_created)} folder(s)."
+        
+        return BaseAgentResult(
+            markdown=self.markdown,
+            summary=summary.strip(),
+            files_created=files_created,
+            files_edited=files_edited,
+            folders_created=folders_created,
+            metadata=self.metadata
+        )
 
 
 class AutonomousAgent(BaseAgent):
@@ -262,7 +298,7 @@ class AutonomousAgent(BaseAgent):
         
         return task
     
-    async def _agent_loop(self, task: str) -> AgentResult:
+    async def _agent_loop(self, task: str) -> AutonomousAgentResult:
         """
         Основной цикл агента
         
@@ -376,7 +412,7 @@ class AutonomousAgent(BaseAgent):
         context: AgentContext,
         decision: Optional[AgentDecision],
         iterations: int
-    ) -> AgentResult:
+    ) -> AutonomousAgentResult:
         """
         Финализировать результат работы агента
         
@@ -409,7 +445,7 @@ class AutonomousAgent(BaseAgent):
             "errors": context.errors
         }
         
-        return AgentResult(
+        return AutonomousAgentResult(
             markdown=markdown,
             title=title,
             kb_structure=kb_structure,
