@@ -12,7 +12,6 @@ Before you begin, ensure you have:
 - **Poetry** (Python dependency manager)
 - **Git** installed
 - **Telegram Account**
-- **Node.js 20+** (optional, for qwen_code_cli agent)
 
 ---
 
@@ -88,7 +87,7 @@ KB_GIT_REMOTE: origin
 KB_GIT_BRANCH: main
 
 # Agent Configuration
-AGENT_TYPE: "stub"  # Options: stub, qwen_code, qwen_code_cli
+AGENT_TYPE: "stub"
 
 # Processing Settings
 MESSAGE_GROUP_TIMEOUT: 30  # seconds
@@ -147,22 +146,6 @@ Press `Ctrl+C` in the terminal.
 
 ---
 
-## Optional: Install Qwen Code CLI
-
-For advanced AI processing, install the Qwen Code CLI agent:
-
-```bash
-# Install Node.js 20+ first, then:
-npm install -g @qwen-code/qwen-code@latest
-
-# Authenticate (2000 free requests/day)
-qwen
-
-# Update config.yaml
-AGENT_TYPE: "qwen_code_cli"
-```
-
-[Learn more about Qwen Code CLI →](../agents/qwen-code-cli.md)
 
 ---
 

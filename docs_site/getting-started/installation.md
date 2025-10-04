@@ -15,7 +15,6 @@ Detailed installation instructions for tg-note.
 
 ### Optional
 
-- **Node.js 20+** - Required for `qwen_code_cli` agent (recommended)
 - **Docker** - For containerized deployment
 
 ---
@@ -98,51 +97,6 @@ Detailed installation instructions for tg-note.
 
 ## Optional Dependencies
 
-### Qwen Code CLI (Recommended for Production)
-
-The Qwen Code CLI agent provides the best AI-powered processing capabilities.
-
-#### 1. Install Node.js 20+
-
-=== "Ubuntu/Debian"
-    ```bash
-    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-    sudo apt-get install -y nodejs
-    ```
-
-=== "macOS"
-    ```bash
-    brew install node@20
-    ```
-
-=== "Windows"
-    Download from [nodejs.org](https://nodejs.org/)
-
-#### 2. Install Qwen Code CLI
-
-```bash
-npm install -g @qwen-code/qwen-code@latest
-```
-
-#### 3. Verify Installation
-
-```bash
-qwen --version
-```
-
-#### 4. Authenticate
-
-```bash
-qwen
-```
-
-Follow the interactive authentication process. You'll get:
-
-- **2000 free requests per day**
-- **60 requests per minute**
-- No token limits
-
-[Learn more about Qwen Code CLI →](../agents/qwen-code-cli.md)
 
 ---
 
@@ -189,7 +143,7 @@ KB_GIT_ENABLED: true
 KB_GIT_AUTO_PUSH: true
 
 # Agent Type
-AGENT_TYPE: "stub"  # Change to "qwen_code_cli" if installed
+AGENT_TYPE: "stub"
 
 # Logging
 LOG_LEVEL: INFO
