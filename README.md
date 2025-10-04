@@ -143,7 +143,7 @@ KB_GIT_REMOTE: origin
 KB_GIT_BRANCH: main
 
 # Agent Configuration
-AGENT_TYPE: "stub"  # Options: stub, qwen_code_cli
+AGENT_TYPE: "stub"  # Options: stub, autonomous, qwen_code_cli
 
 # Processing Settings
 MESSAGE_GROUP_TIMEOUT: 30  # seconds
@@ -311,7 +311,7 @@ knowledge_base/
 
 ## 🤖 Agent Types
 
-The system supports two types of agents for content processing:
+The system supports three types of agents for content processing:
 
 ### 1. qwen_code_cli (Recommended) ✅
 
@@ -339,7 +339,39 @@ AGENT_ENABLE_WEB_SEARCH: true
 
 📚 [Detailed Documentation →](https://artyomzemlyak.github.io/tg-note/agents/qwen-code-cli/)
 
-### 2. stub
+### 2. autonomous
+
+Python-based autonomous agent with OpenAI-compatible API support.
+
+**Features:**
+- ✅ OpenAI-compatible API integration
+- ✅ Autonomous planning and decision-making
+- ✅ Built-in tools: web search, git, github, file management
+- ✅ Function calling support
+- ✅ Works with various LLM providers
+
+**Setup:**
+```bash
+pip install openai  # included in requirements
+```
+
+**Configuration:**
+```yaml
+AGENT_TYPE: "autonomous"
+AGENT_MODEL: "gpt-3.5-turbo"  # or any compatible model
+AGENT_ENABLE_WEB_SEARCH: true
+AGENT_ENABLE_FILE_MANAGEMENT: true
+```
+
+**Environment Variables:**
+```env
+OPENAI_API_KEY=sk-...
+OPENAI_BASE_URL=https://api.openai.com/v1  # Optional, for custom endpoints
+```
+
+📚 [Detailed Documentation →](https://artyomzemlyak.github.io/tg-note/agents/autonomous-agent/)
+
+### 3. stub
 
 Simple stub agent for testing and MVP.
 
@@ -471,7 +503,7 @@ KB_GIT_REMOTE: origin
 KB_GIT_BRANCH: main
 
 # Agent
-AGENT_TYPE: "qwen_code_cli"  # stub, qwen_code_cli
+AGENT_TYPE: "qwen_code_cli"  # stub, autonomous, qwen_code_cli
 AGENT_MODEL: "qwen-max"
 AGENT_TIMEOUT: 300
 AGENT_ENABLE_WEB_SEARCH: true

@@ -120,6 +120,17 @@ Uses [Qwen Code CLI](https://github.com/QwenLM/qwen-code) for advanced AI proces
 
 [Learn More →](agents/qwen-code-cli.md)
 
+### :material-brain: Autonomous Agent
+
+Python-based agent with OpenAI-compatible API support.
+
+- ✅ OpenAI-compatible API integration
+- ✅ Autonomous planning and decision-making
+- ✅ Function calling support
+- ✅ Works with various LLM providers
+
+[Learn More →](agents/autonomous-agent.md)
+
 ### :material-test-tube: Stub Agent
 
 Simple stub agent for testing and MVP.
