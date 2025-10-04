@@ -92,6 +92,7 @@ nav:
     - Bot Commands: user-guide/bot-commands.md
     - Working with Content: user-guide/working-with-content.md
     - Settings Management: user-guide/settings-management.md
+    - File Format Recognition: user-guide/file-format-recognition.md
     - Knowledge Base Setup: user-guide/knowledge-base-setup.md
   
   - Agent System:
