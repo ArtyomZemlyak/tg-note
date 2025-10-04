@@ -92,4 +92,5 @@ Tip: The CLI path is configurable via `AGENT_QWEN_CLI_PATH` and defaults to `qwe
 ## See Also
 
 - [Agent Overview](overview.md)
-- [Qwen Code Agent](qwen-code.md)
+- [Autonomous Agent](autonomous-agent.md)
+- [Stub Agent](stub-agent.md)

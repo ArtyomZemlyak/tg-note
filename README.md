@@ -23,8 +23,7 @@
   - [Working with Content](#working-with-content)
 - [Agent Types](#-agent-types)
   - [qwen_code_cli (Recommended)](#1-qwen_code_cli-recommended-)
-  - [qwen_code](#2-qwen_code)
-  - [stub](#3-stub)
+  - [stub](#2-stub)
 - [Architecture](#-architecture)
   - [System Components](#system-components)
   - [Data Flow](#data-flow)
@@ -61,7 +60,7 @@ Perfect for:
 - **👥 Multi-User Support**: Each user can have their own knowledge base
 - **📦 Message Grouping**: Intelligently combines related messages into single notes
 - **🔍 Deduplication**: Tracks processed messages to avoid duplicates
-- **🎯 Flexible Agents**: Choose between stub, custom Python, or Qwen Code CLI agents
+- **🎯 Flexible Agents**: Choose between stub or Qwen Code CLI agents
 - **⚡ Async Architecture**: Fast, non-blocking message processing
 - **⚙️ Telegram Settings Management**: Configure bot settings directly via Telegram commands (NEW!)
 
@@ -144,7 +143,7 @@ KB_GIT_REMOTE: origin
 KB_GIT_BRANCH: main
 
 # Agent Configuration
-AGENT_TYPE: "stub"  # Options: stub, qwen_code, qwen_code_cli
+AGENT_TYPE: "stub"  # Options: stub, qwen_code_cli
 
 # Processing Settings
 MESSAGE_GROUP_TIMEOUT: 30  # seconds
@@ -312,7 +311,7 @@ knowledge_base/
 
 ## 🤖 Agent Types
 
-The system supports three types of agents for content processing:
+The system supports two types of agents for content processing:
 
 ### 1. qwen_code_cli (Recommended) ✅
 
@@ -340,27 +339,7 @@ AGENT_ENABLE_WEB_SEARCH: true
 
 📚 [Detailed Documentation →](https://artyomzemlyak.github.io/tg-note/agents/qwen-code-cli/)
 
-### 2. qwen_code
-
-Pure Python agent with custom tools.
-
-**Features:**
-- ✅ Python-native implementation
-- ✅ Flexible tool configuration
-- ✅ Custom TODO planning
-- ✅ Web search, Git, GitHub API support
-
-**Configuration:**
-```yaml
-AGENT_TYPE: "qwen_code"
-AGENT_MODEL: "qwen-max"
-```
-
-Note: `qwen_code` uses the Python autonomous agent under the hood (`src/agents/autonomous_agent.py`) via `AgentFactory`. An alias `openai` also maps to the same autonomous implementation. If `OPENAI_API_KEY` (and optional `OPENAI_BASE_URL`) are provided, it will use an OpenAI-compatible connector; otherwise it falls back to a rule-based mode.
-
-📚 [Detailed Documentation →](https://artyomzemlyak.github.io/tg-note/agents/qwen-code/)
-
-### 3. stub
+### 2. stub
 
 Simple stub agent for testing and MVP.
 
@@ -492,7 +471,7 @@ KB_GIT_REMOTE: origin
 KB_GIT_BRANCH: main
 
 # Agent
-AGENT_TYPE: "qwen_code_cli"  # stub, qwen_code, qwen_code_cli
+AGENT_TYPE: "qwen_code_cli"  # stub, qwen_code_cli
 AGENT_MODEL: "qwen-max"
 AGENT_TIMEOUT: 300
 AGENT_ENABLE_WEB_SEARCH: true
@@ -619,7 +598,7 @@ sudo systemctl status tg-note
 - ✅ Core infrastructure and project structure
 - ✅ Telegram bot with async support
 - ✅ Message aggregation and parsing
-- ✅ Agent system (stub, qwen_code, qwen_code_cli)
+- ✅ Agent system (stub, qwen_code_cli)
 - ✅ Knowledge base management with Git
 - ✅ Multi-user support with personal KBs
 - ✅ Deduplication tracking

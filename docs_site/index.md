@@ -120,16 +120,6 @@ Uses [Qwen Code CLI](https://github.com/QwenLM/qwen-code) for advanced AI proces
 
 [Learn More →](agents/qwen-code-cli.md)
 
-### :material-code-braces: Qwen Code Agent
-
-Pure Python agent with custom tools.
-
-- ✅ Python-native implementation
-- ✅ Flexible tool configuration
-- ✅ Custom TODO planning
-
-[Learn More →](agents/qwen-code.md)
-
 ### :material-test-tube: Stub Agent
 
 Simple stub agent for testing and MVP.
