@@ -137,6 +137,72 @@ class Settings(BaseSettings):
         description="Enable folder operations (create, delete, move folders)"
     )
     
+    # Vector Search Settings (can be in YAML)
+    VECTOR_SEARCH_ENABLED: bool = Field(
+        default=False,
+        description="Enable vector search for knowledge base"
+    )
+    
+    # Embedding Model Settings
+    VECTOR_EMBEDDING_PROVIDER: str = Field(
+        default="sentence_transformers",
+        description="Embedding provider: sentence_transformers, openai, infinity"
+    )
+    VECTOR_EMBEDDING_MODEL: str = Field(
+        default="all-MiniLM-L6-v2",
+        description="Embedding model name"
+    )
+    VECTOR_INFINITY_API_URL: Optional[str] = Field(
+        default="http://localhost:7997",
+        description="Infinity API URL (for infinity provider)"
+    )
+    VECTOR_INFINITY_API_KEY: Optional[str] = Field(
+        default=None,
+        description="Infinity API key (from .env or env vars only)"
+    )
+    
+    # Vector Store Settings
+    VECTOR_STORE_PROVIDER: str = Field(
+        default="faiss",
+        description="Vector store provider: faiss, qdrant"
+    )
+    VECTOR_QDRANT_URL: Optional[str] = Field(
+        default="http://localhost:6333",
+        description="Qdrant API URL (for qdrant provider)"
+    )
+    VECTOR_QDRANT_API_KEY: Optional[str] = Field(
+        default=None,
+        description="Qdrant API key (from .env or env vars only)"
+    )
+    VECTOR_QDRANT_COLLECTION: str = Field(
+        default="knowledge_base",
+        description="Qdrant collection name"
+    )
+    
+    # Chunking Settings
+    VECTOR_CHUNKING_STRATEGY: str = Field(
+        default="fixed_size_overlap",
+        description="Chunking strategy: fixed_size, fixed_size_overlap, semantic"
+    )
+    VECTOR_CHUNK_SIZE: int = Field(
+        default=512,
+        description="Chunk size in characters"
+    )
+    VECTOR_CHUNK_OVERLAP: int = Field(
+        default=50,
+        description="Overlap between chunks (for fixed_size_overlap)"
+    )
+    VECTOR_RESPECT_HEADERS: bool = Field(
+        default=True,
+        description="Respect markdown headers when chunking (for semantic strategy)"
+    )
+    
+    # Search Settings
+    VECTOR_SEARCH_TOP_K: int = Field(
+        default=5,
+        description="Number of results to return in vector search"
+    )
+    
     # Knowledge Base Settings (can be in YAML)
     KB_PATH: Path = Field(
         default=Path("./knowledge_base"),

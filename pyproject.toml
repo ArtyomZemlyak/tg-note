@@ -51,6 +51,13 @@ dev = [
     "flake8==6.1.0",
     "mypy==1.7.1",
 ]
+vector-search = [
+    # Embedding models
+    "sentence-transformers>=2.2.0",  # Local embeddings
+    # Vector stores
+    "faiss-cpu>=1.7.4",  # FAISS for local vector search (use faiss-gpu for GPU)
+    "qdrant-client>=1.7.0",  # Qdrant client for remote vector search
+]
 
 [project.urls]
 Homepage = "https://github.com/ArtyomZemlyak/tg-note"
