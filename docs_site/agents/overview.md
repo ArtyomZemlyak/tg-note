@@ -12,19 +12,20 @@ Agents are AI-powered systems that process your messages and transform them into
 
 ## Available Agents
 
-tg-note supports two types of agents, each with different capabilities and use cases.
+tg-note supports three types of agents, each with different capabilities and use cases.
 
 ### Comparison Table
 
-| Feature | Qwen Code CLI | Stub |
-|---------|---------------|------|
-| **AI Processing** | ✅ Advanced | ❌ Basic |
-| **Auto Planning** | ✅ Yes | ❌ No |
-| **Web Search** | ✅ Built-in | ❌ No |
-| **Git Operations** | ✅ Built-in | ❌ No |
-| **External Dependencies** | Node.js | None |
-| **Free Tier** | 2000/day | Free |
-| **Best For** | Production | Testing/MVP |
+| Feature | Qwen Code CLI | Autonomous | Stub |
+|---------|---------------|------------|------|
+| **AI Processing** | ✅ Advanced | ✅ Advanced | ❌ Basic |
+| **Auto Planning** | ✅ Yes | ✅ Yes | ❌ No |
+| **Web Search** | ✅ Built-in | ✅ Built-in | ❌ No |
+| **Git Operations** | ✅ Built-in | ✅ Built-in | ❌ No |
+| **Function Calling** | ✅ Yes | ✅ Yes | ❌ No |
+| **External Dependencies** | Node.js | OpenAI lib | None |
+| **Free Tier** | 2000/day | Depends on API | Free |
+| **Best For** | Production | Custom APIs | Testing/MVP |
 
 ---
 
@@ -64,7 +65,59 @@ AGENT_TYPE: "qwen_code_cli"
 
 ---
 
-## 2. Stub Agent
+## 2. Autonomous Agent
+
+Python-based agent with OpenAI-compatible API support.
+
+### Features
+
+- ✅ **OpenAI-Compatible** - Works with OpenAI, Qwen, and other compatible APIs
+- ✅ **Autonomous Planning** - Self-planning and decision-making
+- ✅ **Function Calling** - Native function calling support
+- ✅ **Built-in Tools** - Web search, Git, GitHub, file management
+- ✅ **Flexible** - Custom LLM connectors
+
+### Installation
+
+```bash
+# OpenAI library included in requirements
+poetry install
+
+# Configure
+AGENT_TYPE: "autonomous"
+AGENT_MODEL: "gpt-3.5-turbo"  # or any compatible model
+```
+
+### Configuration
+
+**Environment Variables:**
+```env
+OPENAI_API_KEY=sk-...
+OPENAI_BASE_URL=https://api.openai.com/v1  # Optional
+```
+
+**YAML Settings:**
+```yaml
+AGENT_TYPE: "autonomous"
+AGENT_MODEL: "gpt-3.5-turbo"
+AGENT_ENABLE_WEB_SEARCH: true
+AGENT_ENABLE_GIT: true
+AGENT_ENABLE_FILE_MANAGEMENT: true
+```
+
+### When to Use
+
+- ✅ OpenAI or compatible API available
+- ✅ Need autonomous planning
+- ✅ Custom LLM provider (Qwen, Azure, etc.)
+- ✅ Python-only environment
+- ❌ Don't want to use Node.js
+
+[Full Documentation →](autonomous-agent.md)
+
+---
+
+## 3. Stub Agent
 
 Simple testing agent without AI.
 
@@ -145,12 +198,17 @@ graph LR
 
 ```mermaid
 graph TD
-    A[Choose Agent] --> B{Can install Node.js?}
-    B -->|Yes| C[Qwen Code CLI ⭐]
-    B -->|No| D[Stub Agent]
+    A[Choose Agent] --> B{Production or Testing?}
+    B -->|Production| C{Can install Node.js?}
+    B -->|Testing| G[Stub Agent]
+    C -->|Yes| D[Qwen Code CLI ⭐]
+    C -->|No| E{Have OpenAI-compatible API?}
+    E -->|Yes| F[Autonomous Agent]
+    E -->|No| G
     
-    style C fill:#c8e6c9
-    style D fill:#ffccbc
+    style D fill:#c8e6c9
+    style F fill:#b3e5fc
+    style G fill:#ffccbc
 ```
 
 ### Recommendations
@@ -221,13 +279,16 @@ Advanced agents (Qwen) add:
 
 ### Tool Usage
 
-| Tool | Qwen CLI | Stub |
-|------|----------|------|
-| Web Search | ✅ | ❌ |
-| Git Ops | ✅ | ❌ |
-| GitHub API | ✅ | ❌ |
-| Shell | ✅ | ❌ |
-| Vision | ✅ | ❌ |
+| Tool | Qwen CLI | Autonomous | Stub |
+|------|----------|------------|------|
+| Web Search | ✅ | ✅ | ❌ |
+| Git Ops | ✅ | ✅ | ❌ |
+| GitHub API | ✅ | ✅ | ❌ |
+| Shell | ✅ | ✅ | ❌ |
+| File Management | ✅ | ✅ | ❌ |
+| Vision | ✅ | ✅* | ❌ |
+
+*Vision support depends on the LLM model used
 
 ---
 
@@ -238,6 +299,7 @@ Advanced agents (Qwen) add:
 | Agent | Short Text | Medium Text | Long Text |
 |-------|------------|-------------|-----------|
 | **Qwen CLI** | 5-15s | 15-45s | 45-120s |
+| **Autonomous** | 5-20s | 15-60s | 60-180s |
 | **Stub** | <1s | <1s | <1s |
 
 ### Factors Affecting Speed

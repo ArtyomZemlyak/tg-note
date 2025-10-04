@@ -189,7 +189,7 @@ KB_GIT_ENABLED: true
 KB_GIT_AUTO_PUSH: true
 
 # Agent Type
-AGENT_TYPE: "stub"  # Change to "qwen_code_cli" if installed
+AGENT_TYPE: "stub"  # Options: stub, autonomous, qwen_code_cli
 
 # Logging
 LOG_LEVEL: INFO

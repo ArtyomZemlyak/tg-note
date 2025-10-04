@@ -35,7 +35,7 @@ KB_GIT_REMOTE: origin
 KB_GIT_BRANCH: main
 
 # Agent Configuration
-AGENT_TYPE: "qwen_code_cli"  # stub, qwen_code_cli
+AGENT_TYPE: "qwen_code_cli"  # stub, autonomous, qwen_code_cli
 AGENT_MODEL: "qwen-max"
 AGENT_TIMEOUT: 300
 AGENT_ENABLE_WEB_SEARCH: true
@@ -116,9 +116,9 @@ GITHUB_TOKEN=ghp_...
 #### AGENT_TYPE
 - **Type:** String
 - **Default:** `stub`
-- **Options:** `stub`, `qwen_code_cli`
+- **Options:** `stub`, `autonomous`, `qwen_code_cli`
 - **Description:** Agent implementation to use
-- **Recommendation:** Use `qwen_code_cli` for production
+- **Recommendation:** Use `qwen_code_cli` for production, or `autonomous` for OpenAI-compatible APIs
 
 #### AGENT_MODEL
 - **Type:** String
