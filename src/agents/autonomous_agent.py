@@ -247,7 +247,9 @@ class AutonomousAgent(BaseAgent):
         enable_shell: bool = False,
         enable_file_management: bool = True,
         enable_folder_management: bool = True,
-        kb_root_path: Optional[Path] = None
+        kb_root_path: Optional[Path] = None,
+        enable_vector_search: bool = False,
+        vector_search_manager: Optional['VectorSearchManager'] = None
     ):
         """
         Initialize autonomous agent
@@ -264,6 +266,8 @@ class AutonomousAgent(BaseAgent):
             enable_file_management: Enable file management tools
             enable_folder_management: Enable folder management tools
             kb_root_path: Root path for knowledge base
+            enable_vector_search: Enable vector search tool
+            vector_search_manager: Optional pre-configured vector search manager
         """
         super().__init__(config)
         
@@ -279,10 +283,14 @@ class AutonomousAgent(BaseAgent):
         self.enable_shell = enable_shell
         self.enable_file_management = enable_file_management
         self.enable_folder_management = enable_folder_management
+        self.enable_vector_search = enable_vector_search
         
         # Knowledge base root path for safe file operations
         self.kb_root_path = kb_root_path or Path("./knowledge_base")
         self.kb_root_path = self.kb_root_path.resolve()
+        
+        # Vector search manager
+        self.vector_search_manager = vector_search_manager
         
         # Agent state
         self.current_plan: Optional[TodoPlan] = None
@@ -295,7 +303,8 @@ class AutonomousAgent(BaseAgent):
             f"AutonomousAgent initialized: "
             f"max_iterations={max_iterations}, "
             f"llm_connector={llm_connector.__class__.__name__ if llm_connector else 'None'}, "
-            f"kb_root={self.kb_root_path}"
+            f"kb_root={self.kb_root_path}, "
+            f"vector_search={enable_vector_search}"
         )
         logger.info(f"Enabled tools: {list(self.tools.keys())}")
     
@@ -578,6 +587,49 @@ class AutonomousAgent(BaseAgent):
                             }
                         },
                         "required": ["query"]
+                    }
+                }
+            })
+        
+        # Vector search tool
+        if "kb_vector_search" in self.tools:
+            tools.append({
+                "type": "function",
+                "function": {
+                    "name": "kb_vector_search",
+                    "description": "Семантический векторный поиск по базе знаний (находит документы по смыслу)",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "Поисковый запрос"
+                            },
+                            "top_k": {
+                                "type": "integer",
+                                "description": "Количество результатов (по умолчанию: 5)"
+                            }
+                        },
+                        "required": ["query"]
+                    }
+                }
+            })
+        
+        # Vector reindex tool
+        if "kb_reindex_vector" in self.tools:
+            tools.append({
+                "type": "function",
+                "function": {
+                    "name": "kb_reindex_vector",
+                    "description": "Переиндексировать базу знаний для векторного поиска",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "force": {
+                                "type": "boolean",
+                                "description": "Принудительная переиндексация всех файлов"
+                            }
+                        }
                     }
                 }
             })
@@ -1544,6 +1596,78 @@ class AutonomousAgent(BaseAgent):
         except Exception as e:
             logger.error(f"[kb_search_content] Failed to search content: {e}", exc_info=True)
             return {"success": False, "error": f"Failed to search content: {e}"}
+    
+    async def _tool_kb_vector_search(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Vector search in knowledge base"""
+        if not self.vector_search_manager:
+            logger.error("[kb_vector_search] Vector search manager not configured")
+            return {
+                "success": False,
+                "error": "Vector search is not enabled or not configured"
+            }
+        
+        query = params.get("query", "")
+        top_k = params.get("top_k", 5)
+        
+        if not query:
+            logger.error("[kb_vector_search] No query provided")
+            return {"success": False, "error": "No query provided"}
+        
+        try:
+            logger.info(f"[kb_vector_search] Searching for: {query}")
+            
+            # Perform vector search
+            results = await self.vector_search_manager.search(
+                query=query,
+                top_k=top_k
+            )
+            
+            logger.info(f"[kb_vector_search] ✓ Found {len(results)} results")
+            
+            return {
+                "success": True,
+                "query": query,
+                "top_k": top_k,
+                "results": results,
+                "results_count": len(results)
+            }
+        
+        except Exception as e:
+            logger.error(f"[kb_vector_search] Failed: {e}", exc_info=True)
+            return {"success": False, "error": f"Vector search failed: {e}"}
+    
+    async def _tool_kb_reindex_vector(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Reindex knowledge base for vector search"""
+        if not self.vector_search_manager:
+            logger.error("[kb_reindex_vector] Vector search manager not configured")
+            return {
+                "success": False,
+                "error": "Vector search is not enabled or not configured"
+            }
+        
+        force = params.get("force", False)
+        
+        try:
+            logger.info(f"[kb_reindex_vector] Starting reindexing (force={force})")
+            
+            # Perform indexing
+            stats = await self.vector_search_manager.index_knowledge_base(force=force)
+            
+            logger.info(
+                f"[kb_reindex_vector] ✓ Indexing complete: "
+                f"{stats['files_processed']} files processed, "
+                f"{stats['chunks_created']} chunks created"
+            )
+            
+            return {
+                "success": True,
+                "stats": stats,
+                "message": f"Successfully indexed {stats['files_processed']} files"
+            }
+        
+        except Exception as e:
+            logger.error(f"[kb_reindex_vector] Failed: {e}", exc_info=True)
+            return {"success": False, "error": f"Reindexing failed: {e}"}
     
     # Security helper methods
     

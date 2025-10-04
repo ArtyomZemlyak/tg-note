@@ -280,3 +280,170 @@ AGENT_ENABLE_FILE_MANAGEMENT: true
 # - Deleting folders will remove all contents
 # - Recommended: true for knowledge base organization
 AGENT_ENABLE_FOLDER_MANAGEMENT: true
+
+
+# ───────────────────────────────────────────────────────────────────────────────
+# Vector Search Settings (Advanced Feature)
+# ───────────────────────────────────────────────────────────────────────────────
+# Vector search enables semantic search capabilities in the knowledge base.
+# It finds documents by meaning, not just keyword matching.
+#
+# ⚠️ REQUIREMENTS:
+# Install vector search dependencies first:
+#   pip install sentence-transformers faiss-cpu qdrant-client
+# Or install all optional dependencies:
+#   pip install -e '.[vector-search]'
+
+# VECTOR_SEARCH_ENABLED: Enable vector search functionality
+#
+# - false: Vector search disabled (default)
+#          Knowledge base works with regular text search only
+#
+# - true: Enable semantic vector search
+#         Requires additional dependencies and configuration
+#         Allows finding documents by semantic similarity
+#
+# NOTE: When enabled, knowledge base will be indexed on first use
+# Indexing may take time depending on KB size
+VECTOR_SEARCH_ENABLED: false
+
+# ─── Embedding Model Settings ──────────────────────────────────────────────────
+# Embedding models convert text into numerical vectors for semantic comparison
+
+# VECTOR_EMBEDDING_PROVIDER: Choose embedding model provider
+#
+# Available options:
+#
+# - "sentence_transformers": Local embeddings (RECOMMENDED)
+#   * Runs on your hardware (CPU or GPU)
+#   * No API calls, completely private
+#   * Free, no cost per request
+#   * Requires: pip install sentence-transformers
+#   * Best for: Most use cases, privacy-focused setups
+#
+# - "openai": OpenAI API embeddings
+#   * Requires OPENAI_API_KEY in .env
+#   * Paid service (cost per 1000 tokens)
+#   * High quality embeddings
+#   * Best for: When already using OpenAI services
+#
+# - "infinity": Infinity API for embeddings
+#   * Self-hosted or remote Infinity server
+#   * Open-source alternative to OpenAI
+#   * Requires running Infinity server
+#   * Best for: Custom deployments, API-based workflows
+VECTOR_EMBEDDING_PROVIDER: "sentence_transformers"
+
+# VECTOR_EMBEDDING_MODEL: Specific model name for embeddings
+#
+# For sentence_transformers:
+# - "all-MiniLM-L6-v2": Fast, lightweight (384 dim) - RECOMMENDED
+# - "all-mpnet-base-v2": Better quality (768 dim), slower
+# - "paraphrase-multilingual-MiniLM-L12-v2": Multilingual support
+#
+# For OpenAI:
+# - "text-embedding-ada-002": Standard model (1536 dim)
+# - "text-embedding-3-small": Newer, efficient (1536 dim)
+# - "text-embedding-3-large": Best quality (3072 dim)
+#
+# For Infinity:
+# - Model configured in Infinity server
+VECTOR_EMBEDDING_MODEL: "all-MiniLM-L6-v2"
+
+# VECTOR_INFINITY_API_URL: URL for Infinity API server
+# Only used when VECTOR_EMBEDDING_PROVIDER="infinity"
+# Default: http://localhost:7997
+VECTOR_INFINITY_API_URL: "http://localhost:7997"
+
+# ─── Vector Store Settings ─────────────────────────────────────────────────────
+# Vector stores manage and search through embedding vectors
+
+# VECTOR_STORE_PROVIDER: Choose vector database
+#
+# Available options:
+#
+# - "faiss": Facebook AI Similarity Search (RECOMMENDED)
+#   * Local vector database, runs on your hardware
+#   * Very fast search, optimized for similarity queries
+#   * No external services needed
+#   * Requires: pip install faiss-cpu (or faiss-gpu for GPU)
+#   * Best for: Most use cases, local deployments
+#
+# - "qdrant": Qdrant vector database
+#   * Can be local or remote
+#   * Production-ready, scalable
+#   * Requires running Qdrant server
+#   * Best for: Production deployments, distributed systems
+VECTOR_STORE_PROVIDER: "faiss"
+
+# VECTOR_QDRANT_URL: Qdrant server URL
+# Only used when VECTOR_STORE_PROVIDER="qdrant"
+# Default: http://localhost:6333
+VECTOR_QDRANT_URL: "http://localhost:6333"
+
+# VECTOR_QDRANT_COLLECTION: Qdrant collection name
+# Only used when VECTOR_STORE_PROVIDER="qdrant"
+# Each knowledge base can have separate collection
+VECTOR_QDRANT_COLLECTION: "knowledge_base"
+
+# ─── Document Chunking Settings ────────────────────────────────────────────────
+# Documents are split into chunks before indexing for better search results
+
+# VECTOR_CHUNKING_STRATEGY: How to split documents into chunks
+#
+# Available strategies:
+#
+# - "fixed_size": Split into fixed-size pieces
+#   * Simple, predictable chunk sizes
+#   * May break sentences or paragraphs
+#   * Best for: Uniform documents
+#
+# - "fixed_size_overlap": Fixed size with overlap between chunks
+#   * Provides context continuity
+#   * Better search accuracy at chunk boundaries
+#   * Best for: Most use cases (RECOMMENDED)
+#
+# - "semantic": Split by document structure (headers, paragraphs)
+#   * Preserves semantic meaning
+#   * Respects markdown headers and sections
+#   * Variable chunk sizes
+#   * Best for: Well-structured markdown documents
+VECTOR_CHUNKING_STRATEGY: "fixed_size_overlap"
+
+# VECTOR_CHUNK_SIZE: Size of each chunk in characters
+#
+# Recommended values:
+# - 256-512: Good for short documents, precise matching
+# - 512-1024: Balanced, works for most cases (RECOMMENDED: 512)
+# - 1024-2048: Better for long-form content, more context
+#
+# NOTE: Larger chunks = more context but less precise matching
+VECTOR_CHUNK_SIZE: 512
+
+# VECTOR_CHUNK_OVERLAP: Overlap between chunks in characters
+# Only used with "fixed_size_overlap" strategy
+#
+# Recommended values:
+# - 0: No overlap, more chunks
+# - 50-100: Good balance (RECOMMENDED: 50)
+# - 100-200: More overlap, better context continuity
+#
+# NOTE: Must be smaller than VECTOR_CHUNK_SIZE
+VECTOR_CHUNK_OVERLAP: 50
+
+# VECTOR_RESPECT_HEADERS: Respect markdown headers when chunking
+# Only used with "semantic" strategy
+#
+# - true: Split by headers, preserve document structure (RECOMMENDED)
+# - false: Ignore headers, split by paragraphs only
+VECTOR_RESPECT_HEADERS: true
+
+# ─── Search Settings ───────────────────────────────────────────────────────────
+
+# VECTOR_SEARCH_TOP_K: Number of results to return in vector search
+#
+# Recommended values:
+# - 3-5: Quick answers, focused results (RECOMMENDED: 5)
+# - 5-10: More comprehensive search
+# - 10-20: Exhaustive search, may include less relevant results
+VECTOR_SEARCH_TOP_K: 5
