@@ -425,7 +425,7 @@ logger.add(
 
 ## Дополнительные ресурсы
 
-- [Пример кода](../../examples/qwen_cli_debug_trace_example.py)
-- [Конфигурация логирования](../../config/logging_config.py)
-- [QwenCodeCLIAgent исходный код](../../src/agents/qwen_code_cli_agent.py)
+- [Пример кода](https://github.com/ArtyomZemlyak/tg-note/blob/main/examples/qwen_cli_debug_trace_example.py)
+- [Конфигурация логирования](https://github.com/ArtyomZemlyak/tg-note/blob/main/config/logging_config.py)
+- [QwenCodeCLIAgent исходный код](https://github.com/ArtyomZemlyak/tg-note/blob/main/src/agents/qwen_code_cli_agent.py)
 - [Документация Loguru](https://loguru.readthedocs.io/)
