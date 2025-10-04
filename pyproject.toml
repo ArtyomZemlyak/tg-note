@@ -40,6 +40,8 @@ dependencies = [
     "requests==2.31.0",
     # Logging
     "loguru==0.7.2",
+    # Document processing
+    "docling>=2.0.0",
 ]
 
 [project.optional-dependencies]

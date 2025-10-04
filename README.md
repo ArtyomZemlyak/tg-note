@@ -62,7 +62,8 @@ Perfect for:
 - **🔍 Deduplication**: Tracks processed messages to avoid duplicates
 - **🎯 Flexible Agents**: Choose between stub or Qwen Code CLI agents
 - **⚡ Async Architecture**: Fast, non-blocking message processing
-- **⚙️ Telegram Settings Management**: Configure bot settings directly via Telegram commands (NEW!)
+- **⚙️ Telegram Settings Management**: Configure bot settings directly via Telegram commands
+- **📄 File Format Recognition**: Automatic content extraction from various file formats using Docling (NEW!)
 
 ---
 
@@ -281,7 +282,8 @@ See [Settings Management guide](https://artyomzemlyak.github.io/tg-note/user-gui
 - ✅ Text messages
 - ✅ Forwarded messages from channels
 - ✅ Photos with captions
-- ✅ Documents
+- ✅ Documents (PDF, DOCX, PPTX, XLSX, MD, HTML, TXT)
+- ✅ **NEW: Automatic file format recognition** using Docling
 - ✅ Multiple consecutive messages (auto-grouped)
 
 **Processing Workflow:**
@@ -635,7 +637,8 @@ sudo systemctl status tg-note
 - ✅ Multi-user support with personal KBs
 - ✅ Deduplication tracking
 - ✅ Comprehensive test suite
-- ✅ **Settings management via Telegram** (NEW!)
+- ✅ Settings management via Telegram
+- ✅ **File format recognition with Docling** (NEW!)
 
 ### 🚧 In Progress
 
@@ -645,8 +648,8 @@ sudo systemctl status tg-note
 
 ### 📋 Planned
 
-- 📋 Vision model support for image analysis
-- 📋 PDF document processing
+- 📋 Enhanced vision model support for image analysis
+- 📋 Audio and video file processing
 - 📋 Web interface for KB browsing
 - 📋 Vector database for semantic search
 - 📋 PostgreSQL storage option
@@ -711,6 +714,7 @@ Our comprehensive documentation is hosted on GitHub Pages and includes:
 - 📝 [Bot Commands](https://artyomzemlyak.github.io/tg-note/user-guide/bot-commands/)
 - 🤖 [Agent Overview](https://artyomzemlyak.github.io/tg-note/agents/overview/)
 - 🔧 [Settings Management](https://artyomzemlyak.github.io/tg-note/user-guide/settings-management/)
+- 📄 [File Format Recognition](https://artyomzemlyak.github.io/tg-note/user-guide/file-format-recognition/)
 
 ---
 

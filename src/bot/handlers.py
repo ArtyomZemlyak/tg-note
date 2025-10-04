@@ -597,8 +597,8 @@ class BotHandlers:
             kb_git_enabled = self.settings_manager.get_setting(user_id, "KB_GIT_ENABLED")
             git_ops = GitOperations(str(kb_path), enabled=kb_git_enabled)
             
-            # Parse content
-            content = self.content_parser.parse_group(group)
+            # Parse content with file processing
+            content = await self.content_parser.parse_group_with_files(group, bot=self.bot)
             content_hash = self.content_parser.generate_hash(content)
             
             # Check if already processed
@@ -752,8 +752,8 @@ class BotHandlers:
                 )
                 return
             
-            # Parse content (user's question)
-            content = self.content_parser.parse_group(group)
+            # Parse content (user's question) with file processing
+            content = await self.content_parser.parse_group_with_files(group, bot=self.bot)
             question_text = content.get('text', '')
             
             if not question_text:
