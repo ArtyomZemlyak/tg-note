@@ -60,7 +60,11 @@ Repository = "https://github.com/ArtyomZemlyak/tg-note"
 tg-note = "main:main"
 
 [tool.poetry]
-package-mode = false
+packages = [
+    { include = "src" },
+    { include = "config" },
+    { include = "main.py", format = "sdist" }
+]
 
 [tool.poetry.dependencies]
 python = "^3.11"
