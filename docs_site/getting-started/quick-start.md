@@ -88,7 +88,7 @@ KB_GIT_REMOTE: origin
 KB_GIT_BRANCH: main
 
 # Agent Configuration
-AGENT_TYPE: "stub"  # Options: stub, qwen_code, qwen_code_cli
+AGENT_TYPE: "stub"  # Options: stub, qwen_code_cli
 
 # Processing Settings
 MESSAGE_GROUP_TIMEOUT: 30  # seconds

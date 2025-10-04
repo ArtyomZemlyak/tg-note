@@ -12,19 +12,19 @@ Agents are AI-powered systems that process your messages and transform them into
 
 ## Available Agents
 
-tg-note supports three types of agents, each with different capabilities and use cases.
+tg-note supports two types of agents, each with different capabilities and use cases.
 
 ### Comparison Table
 
-| Feature | Qwen Code CLI | Qwen Code (Autonomous) | Stub |
-|---------|---------------|-----------|------|
-| **AI Processing** | ✅ Advanced | ✅ Good | ❌ Basic |
-| **Auto Planning** | ✅ Yes | ⚠️ Limited | ❌ No |
-| **Web Search** | ✅ Built-in | ✅ Custom | ❌ No |
-| **Git Operations** | ✅ Built-in | ✅ Custom | ❌ No |
-| **External Dependencies** | Node.js | None | None |
-| **Free Tier** | 2000/day | API costs | Free |
-| **Best For** | Production | Custom needs | Testing/MVP |
+| Feature | Qwen Code CLI | Stub |
+|---------|---------------|------|
+| **AI Processing** | ✅ Advanced | ❌ Basic |
+| **Auto Planning** | ✅ Yes | ❌ No |
+| **Web Search** | ✅ Built-in | ❌ No |
+| **Git Operations** | ✅ Built-in | ❌ No |
+| **External Dependencies** | Node.js | None |
+| **Free Tier** | 2000/day | Free |
+| **Best For** | Production | Testing/MVP |
 
 ---
 
@@ -64,38 +64,7 @@ AGENT_TYPE: "qwen_code_cli"
 
 ---
 
-## 2. Qwen Code Agent (Python Autonomous)
-
-Pure Python agent with customizable tools.
-
-### Features
-
-- ✅ **Python Native** - No Node.js required
-- ✅ **Custom Tools** - Build your own tool integrations
-- ✅ **Flexible** - Full control over processing
-- ⚠️ **API Costs** - Requires Qwen API key
-
-### Configuration
-
-```yaml
-AGENT_TYPE: "qwen_code"
-AGENT_MODEL: "qwen-max"
-```
-
-Note: Internally this maps to the Python autonomous agent implemented in `src/agents/autonomous_agent.py` via `AgentFactory`. It can optionally use an OpenAI-compatible API when `OPENAI_API_KEY`/`OPENAI_BASE_URL` are provided; otherwise it falls back to rule-based processing.
-
-### When to Use
-
-- ✅ Need Python-only solution
-- ✅ Custom tool requirements
-- ✅ Full control over agent behavior
-- ❌ Can't install Node.js
-
-[Full Documentation →](qwen-code.md)
-
----
-
-## 3. Stub Agent
+## 2. Stub Agent
 
 Simple testing agent without AI.
 
@@ -177,18 +146,11 @@ graph LR
 ```mermaid
 graph TD
     A[Choose Agent] --> B{Can install Node.js?}
-    B -->|Yes| C[Want best quality?]
-    B -->|No| D{Need AI?}
+    B -->|Yes| C[Qwen Code CLI ⭐]
+    B -->|No| D[Stub Agent]
     
-    C -->|Yes| E[Qwen Code CLI ⭐]
-    C -->|No| D
-    
-    D -->|Yes| F[Qwen Code]
-    D -->|No| G[Stub Agent]
-    
-    style E fill:#c8e6c9
-    style F fill:#fff9c4
-    style G fill:#ffccbc
+    style C fill:#c8e6c9
+    style D fill:#ffccbc
 ```
 
 ### Recommendations
@@ -200,13 +162,6 @@ graph TD
 - Automatic planning
 - Built-in tools
 - Free tier available
-
-#### For Custom Needs
-→ **Qwen Code**
-
-- Full Python control
-- Custom tool integration
-- Flexible configuration
 
 #### For Testing
 → **Stub Agent**
@@ -266,13 +221,13 @@ Advanced agents (Qwen) add:
 
 ### Tool Usage
 
-| Tool | Qwen CLI | Qwen Code | Stub |
-|------|----------|-----------|------|
-| Web Search | ✅ | ✅ | ❌ |
-| Git Ops | ✅ | ✅ | ❌ |
-| GitHub API | ✅ | ✅ | ❌ |
-| Shell | ✅ | ⚠️ | ❌ |
-| Vision | ✅ | ❌ | ❌ |
+| Tool | Qwen CLI | Stub |
+|------|----------|------|
+| Web Search | ✅ | ❌ |
+| Git Ops | ✅ | ❌ |
+| GitHub API | ✅ | ❌ |
+| Shell | ✅ | ❌ |
+| Vision | ✅ | ❌ |
 
 ---
 
@@ -283,7 +238,6 @@ Advanced agents (Qwen) add:
 | Agent | Short Text | Medium Text | Long Text |
 |-------|------------|-------------|-----------|
 | **Qwen CLI** | 5-15s | 15-45s | 45-120s |
-| **Qwen Code** | 3-10s | 10-30s | 30-90s |
 | **Stub** | <1s | <1s | <1s |
 
 ### Factors Affecting Speed
@@ -299,6 +253,5 @@ Advanced agents (Qwen) add:
 ## See Also
 
 - [Qwen Code CLI Guide](qwen-code-cli.md)
-- [Qwen Code Agent Guide](qwen-code.md)
 - [Autonomous Agent Guide](autonomous-agent.md)
 - [Stub Agent Reference](stub-agent.md)
