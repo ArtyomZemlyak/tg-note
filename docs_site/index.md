@@ -109,26 +109,15 @@ Get started with tg-note in just a few minutes:
 
 Choose the right agent for your needs:
 
-### :material-robot-outline: Qwen Code CLI (Recommended)
-
-Uses [Qwen Code CLI](https://github.com/QwenLM/qwen-code) for advanced AI processing.
-
-- ✅ Full integration with Qwen3-Coder models
-- ✅ Automatic TODO planning
-- ✅ Built-in tools: web search, git, github, shell
-- ✅ Free tier: 2000 requests/day
-
-[Learn More →](agents/qwen-code-cli.md)
-
-### :material-code-braces: Qwen Code Agent
+### :material-code-braces: Autonomous Agent
 
 Pure Python agent with custom tools.
 
 - ✅ Python-native implementation
 - ✅ Flexible tool configuration
-- ✅ Custom TODO planning
+- ✅ OpenAI-compatible API support
 
-[Learn More →](agents/qwen-code.md)
+[Learn More →](agents/autonomous-agent.md)
 
 ### :material-test-tube: Stub Agent
 

@@ -12,59 +12,23 @@ Agents are AI-powered systems that process your messages and transform them into
 
 ## Available Agents
 
-tg-note supports three types of agents, each with different capabilities and use cases.
+tg-note supports a flexible agent system with different implementations.
 
 ### Comparison Table
 
-| Feature | Qwen Code CLI | Qwen Code (Autonomous) | Stub |
-|---------|---------------|-----------|------|
-| **AI Processing** | ✅ Advanced | ✅ Good | ❌ Basic |
-| **Auto Planning** | ✅ Yes | ⚠️ Limited | ❌ No |
-| **Web Search** | ✅ Built-in | ✅ Custom | ❌ No |
-| **Git Operations** | ✅ Built-in | ✅ Custom | ❌ No |
-| **External Dependencies** | Node.js | None | None |
-| **Free Tier** | 2000/day | API costs | Free |
-| **Best For** | Production | Custom needs | Testing/MVP |
+| Feature | Autonomous Agent | Stub |
+|---------|------------------|------|
+| **AI Processing** | ✅ Good | ❌ Basic |
+| **Auto Planning** | ⚠️ Limited | ❌ No |
+| **Web Search** | ✅ Custom | ❌ No |
+| **Git Operations** | ✅ Custom | ❌ No |
+| **External Dependencies** | None | None |
+| **Free Tier** | API costs | Free |
+| **Best For** | Custom needs | Testing/MVP |
 
 ---
 
-## 1. Qwen Code CLI ⭐ Recommended
-
-The most powerful agent using the official Qwen Code CLI tool.
-
-### Features
-
-- ✅ **Advanced AI Processing** - Qwen3-Coder models
-- ✅ **Automatic Planning** - Creates and executes TODO plans
-- ✅ **Built-in Tools** - Web search, Git, GitHub, Shell
-- ✅ **Vision Support** - Can analyze images
-- ✅ **Free Tier** - 2000 requests/day, 60 req/min
-
-### Installation
-
-```bash
-# Install Node.js 20+
-npm install -g @qwen-code/qwen-code@latest
-
-# Authenticate
-qwen
-
-# Configure
-AGENT_TYPE: "qwen_code_cli"
-```
-
-### When to Use
-
-- ✅ Production deployments
-- ✅ Need best quality output
-- ✅ Want automatic planning
-- ✅ Can install Node.js
-
-[Full Documentation →](qwen-code-cli.md)
-
----
-
-## 2. Qwen Code Agent (Python Autonomous)
+## 1. Autonomous Agent
 
 Pure Python agent with customizable tools.
 
@@ -78,24 +42,23 @@ Pure Python agent with customizable tools.
 ### Configuration
 
 ```yaml
-AGENT_TYPE: "qwen_code"
-AGENT_MODEL: "qwen-max"
+AGENT_TYPE: "openai"
+AGENT_MODEL: "gpt-4"
 ```
 
-Note: Internally this maps to the Python autonomous agent implemented in `src/agents/autonomous_agent.py` via `AgentFactory`. It can optionally use an OpenAI-compatible API when `OPENAI_API_KEY`/`OPENAI_BASE_URL` are provided; otherwise it falls back to rule-based processing.
+Note: Implemented in `src/agents/autonomous_agent.py` via `AgentFactory`. It can optionally use an OpenAI-compatible API when `OPENAI_API_KEY`/`OPENAI_BASE_URL` are provided; otherwise it falls back to rule-based processing.
 
 ### When to Use
 
 - ✅ Need Python-only solution
 - ✅ Custom tool requirements
 - ✅ Full control over agent behavior
-- ❌ Can't install Node.js
 
-[Full Documentation →](qwen-code.md)
+[Full Documentation →](autonomous-agent.md)
 
 ---
 
-## 3. Stub Agent
+## 2. Stub Agent
 
 Simple testing agent without AI.
 
@@ -176,33 +139,19 @@ graph LR
 
 ```mermaid
 graph TD
-    A[Choose Agent] --> B{Can install Node.js?}
-    B -->|Yes| C[Want best quality?]
-    B -->|No| D{Need AI?}
+    A[Choose Agent] --> B{Need AI?}
     
-    C -->|Yes| E[Qwen Code CLI ⭐]
-    C -->|No| D
+    B -->|Yes| C[Autonomous Agent]
+    B -->|No| D[Stub Agent]
     
-    D -->|Yes| F[Qwen Code]
-    D -->|No| G[Stub Agent]
-    
-    style E fill:#c8e6c9
-    style F fill:#fff9c4
-    style G fill:#ffccbc
+    style C fill:#c8e6c9
+    style D fill:#ffccbc
 ```
 
 ### Recommendations
 
-#### For Production
-→ **Qwen Code CLI**
-
-- Best quality results
-- Automatic planning
-- Built-in tools
-- Free tier available
-
 #### For Custom Needs
-→ **Qwen Code**
+→ **Autonomous Agent**
 
 - Full Python control
 - Custom tool integration
@@ -225,7 +174,7 @@ Set in `config.yaml`:
 
 ```yaml
 # Agent Selection
-AGENT_TYPE: "qwen_code_cli"
+AGENT_TYPE: "stub"
 
 # Common Settings
 AGENT_MODEL: "qwen-max"
@@ -266,13 +215,12 @@ Advanced agents (Qwen) add:
 
 ### Tool Usage
 
-| Tool | Qwen CLI | Qwen Code | Stub |
-|------|----------|-----------|------|
-| Web Search | ✅ | ✅ | ❌ |
-| Git Ops | ✅ | ✅ | ❌ |
-| GitHub API | ✅ | ✅ | ❌ |
-| Shell | ✅ | ⚠️ | ❌ |
-| Vision | ✅ | ❌ | ❌ |
+| Tool | Autonomous | Stub |
+|------|------------|------|
+| Web Search | ✅ | ❌ |
+| Git Ops | ✅ | ❌ |
+| GitHub API | ✅ | ❌ |
+| Shell | ⚠️ | ❌ |
 
 ---
 
@@ -282,8 +230,7 @@ Advanced agents (Qwen) add:
 
 | Agent | Short Text | Medium Text | Long Text |
 |-------|------------|-------------|-----------|
-| **Qwen CLI** | 5-15s | 15-45s | 45-120s |
-| **Qwen Code** | 3-10s | 10-30s | 30-90s |
+| **Autonomous** | 3-10s | 10-30s | 30-90s |
 | **Stub** | <1s | <1s | <1s |
 
 ### Factors Affecting Speed
@@ -298,7 +245,5 @@ Advanced agents (Qwen) add:
 
 ## See Also
 
-- [Qwen Code CLI Guide](qwen-code-cli.md)
-- [Qwen Code Agent Guide](qwen-code.md)
 - [Autonomous Agent Guide](autonomous-agent.md)
 - [Stub Agent Reference](stub-agent.md)

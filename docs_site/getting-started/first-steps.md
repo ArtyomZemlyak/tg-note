@@ -207,13 +207,13 @@ Try these commands:
 
     [:octicons-arrow-right-24: Bot Commands](../user-guide/bot-commands.md)
 
--   :material-robot:{ .lg .middle } **Upgrade Your Agent**
+-   :material-robot:{ .lg .middle } **Learn About Agents**
 
     ---
 
-    Install Qwen Code CLI for better AI processing
+    Understand the agent system and choose the right one
 
-    [:octicons-arrow-right-24: Agent Setup](../agents/qwen-code-cli.md)
+    [:octicons-arrow-right-24: Agent Overview](../agents/overview.md)
 
 -   :material-cog:{ .lg .middle } **Customize Settings**
 

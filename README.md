@@ -22,9 +22,7 @@
   - [Bot Commands](#bot-commands)
   - [Working with Content](#working-with-content)
 - [Agent Types](#-agent-types)
-  - [qwen_code_cli (Recommended)](#1-qwen_code_cli-recommended-)
-  - [qwen_code](#2-qwen_code)
-  - [stub](#3-stub)
+  - [stub](#1-stub)
 - [Architecture](#-architecture)
   - [System Components](#system-components)
   - [Data Flow](#data-flow)
@@ -61,7 +59,7 @@ Perfect for:
 - **👥 Multi-User Support**: Each user can have their own knowledge base
 - **📦 Message Grouping**: Intelligently combines related messages into single notes
 - **🔍 Deduplication**: Tracks processed messages to avoid duplicates
-- **🎯 Flexible Agents**: Choose between stub, custom Python, or Qwen Code CLI agents
+- **🎯 Flexible Agents**: Extensible agent system for custom implementations
 - **⚡ Async Architecture**: Fast, non-blocking message processing
 - **⚙️ Telegram Settings Management**: Configure bot settings directly via Telegram commands (NEW!)
 
@@ -75,7 +73,7 @@ Perfect for:
 - **Poetry** (Python dependency manager)
 - **Git**
 - **Telegram Account**
-- **Node.js 20+** (optional, for qwen_code_cli agent)
+- **Git**
 
 ### Installation
 
@@ -144,7 +142,7 @@ KB_GIT_REMOTE: origin
 KB_GIT_BRANCH: main
 
 # Agent Configuration
-AGENT_TYPE: "stub"  # Options: stub, qwen_code, qwen_code_cli
+AGENT_TYPE: "stub"
 
 # Processing Settings
 MESSAGE_GROUP_TIMEOUT: 30  # seconds
@@ -157,18 +155,6 @@ LOG_FILE: ./logs/bot.log
 ALLOWED_USER_IDS: ""
 ```
 
-5. **(Optional) Install Qwen Code CLI** for advanced AI processing
-
-```bash
-# Install Node.js 20+ first, then:
-npm install -g @qwen-code/qwen-code@latest
-
-# Authenticate (2000 free requests/day)
-qwen
-
-# Update config.yaml
-AGENT_TYPE: "qwen_code_cli"
-```
 
 ### Running the Bot
 
@@ -312,55 +298,9 @@ knowledge_base/
 
 ## 🤖 Agent Types
 
-The system supports three types of agents for content processing:
+The system supports a flexible agent system for content processing:
 
-### 1. qwen_code_cli (Recommended) ✅
-
-Uses [Qwen Code CLI](https://github.com/QwenLM/qwen-code) for advanced AI processing.
-
-**Features:**
-- ✅ Full integration with Qwen3-Coder models
-- ✅ Automatic TODO planning
-- ✅ Built-in tools: web search, git, github, shell
-- ✅ Free tier: 2000 requests/day
-- ✅ Vision model support
-
-**Setup:**
-```bash
-npm install -g @qwen-code/qwen-code@latest
-qwen  # authenticate
-```
-
-**Configuration:**
-```yaml
-AGENT_TYPE: "qwen_code_cli"
-AGENT_QWEN_CLI_PATH: "qwen"
-AGENT_ENABLE_WEB_SEARCH: true
-```
-
-📚 [Detailed Documentation →](https://artyomzemlyak.github.io/tg-note/agents/qwen-code-cli/)
-
-### 2. qwen_code
-
-Pure Python agent with custom tools.
-
-**Features:**
-- ✅ Python-native implementation
-- ✅ Flexible tool configuration
-- ✅ Custom TODO planning
-- ✅ Web search, Git, GitHub API support
-
-**Configuration:**
-```yaml
-AGENT_TYPE: "qwen_code"
-AGENT_MODEL: "qwen-max"
-```
-
-Note: `qwen_code` uses the Python autonomous agent under the hood (`src/agents/autonomous_agent.py`) via `AgentFactory`. An alias `openai` also maps to the same autonomous implementation. If `OPENAI_API_KEY` (and optional `OPENAI_BASE_URL`) are provided, it will use an OpenAI-compatible connector; otherwise it falls back to a rule-based mode.
-
-📚 [Detailed Documentation →](https://artyomzemlyak.github.io/tg-note/agents/qwen-code/)
-
-### 3. stub
+### 1. stub
 
 Simple stub agent for testing and MVP.
 
@@ -444,7 +384,6 @@ tg-note/
 │   │   ├── base_agent.py        # Abstract base class
 │   │   ├── stub_agent.py        # Simple stub
 │   │   ├── autonomous_agent.py  # Python agent (OpenAI-compatible)
-│   │   ├── qwen_code_cli_agent.py  # CLI integration
 │   │   └── agent_factory.py     # Agent factory
 │   ├── knowledge_base/
 │   │   ├── manager.py           # KB management
@@ -492,7 +431,7 @@ KB_GIT_REMOTE: origin
 KB_GIT_BRANCH: main
 
 # Agent
-AGENT_TYPE: "qwen_code_cli"  # stub, qwen_code, qwen_code_cli
+AGENT_TYPE: "stub"
 AGENT_MODEL: "qwen-max"
 AGENT_TIMEOUT: 300
 AGENT_ENABLE_WEB_SEARCH: true
@@ -711,7 +650,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- [Qwen Code](https://github.com/QwenLM/qwen-code) - AI agent framework
 - [pyTelegramBotAPI](https://github.com/eternnoir/pyTelegramBotAPI) - Telegram bot library
 - [GitPython](https://github.com/gitpython-developers/GitPython) - Git integration
 
