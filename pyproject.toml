@@ -60,6 +60,13 @@ vector-search = [
     "faiss-cpu>=1.7.4",  # FAISS for local vector search (use faiss-gpu for GPU)
     "qdrant-client>=1.7.0",  # Qdrant client for remote vector search
 ]
+mcp = [
+    # MCP (Model Context Protocol) support
+    # Note: MCP servers are typically Node.js-based and run as separate processes
+    # Install MCP servers separately using npm/npx:
+    #   npm install -g @firstbatch/mem-agent-mcp
+    # No additional Python dependencies required for MCP client
+]
 
 [project.urls]
 Homepage = "https://github.com/ArtyomZemlyak/tg-note"

@@ -112,6 +112,8 @@ class AgentFactory:
             enable_shell=config.get("enable_shell", False),
             enable_file_management=config.get("enable_file_management", True),
             enable_folder_management=config.get("enable_folder_management", True),
+            enable_mcp=config.get("enable_mcp", False),
+            enable_mcp_memory=config.get("enable_mcp_memory", False),
             kb_root_path=Path(config.get("kb_path", "./knowledge_base"))
         )
     
@@ -161,6 +163,8 @@ class AgentFactory:
             "enable_shell": settings.AGENT_ENABLE_SHELL,
             "enable_file_management": settings.AGENT_ENABLE_FILE_MANAGEMENT,
             "enable_folder_management": settings.AGENT_ENABLE_FOLDER_MANAGEMENT,
+            "enable_mcp": settings.AGENT_ENABLE_MCP,
+            "enable_mcp_memory": settings.AGENT_ENABLE_MCP_MEMORY,
             "qwen_cli_path": settings.AGENT_QWEN_CLI_PATH,
             "timeout": settings.AGENT_TIMEOUT,
             "kb_path": settings.KB_PATH,

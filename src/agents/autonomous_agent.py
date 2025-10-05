@@ -239,7 +239,9 @@ class AutonomousAgent(BaseAgent):
         enable_folder_management: bool = True,
         kb_root_path: Optional[Path] = None,
         enable_vector_search: bool = False,
-        vector_search_manager: Optional['VectorSearchManager'] = None
+        vector_search_manager: Optional['VectorSearchManager'] = None,
+        enable_mcp: bool = False,
+        enable_mcp_memory: bool = False
     ):
         """
         Initialize autonomous agent
@@ -258,6 +260,8 @@ class AutonomousAgent(BaseAgent):
             kb_root_path: Root path for knowledge base
             enable_vector_search: Enable vector search tool
             vector_search_manager: Optional pre-configured vector search manager
+            enable_mcp: Enable MCP (Model Context Protocol) support
+            enable_mcp_memory: Enable MCP memory agent tool
         """
         super().__init__(config)
         
@@ -274,6 +278,8 @@ class AutonomousAgent(BaseAgent):
         self.enable_file_management = enable_file_management
         self.enable_folder_management = enable_folder_management
         self.enable_vector_search = enable_vector_search
+        self.enable_mcp = enable_mcp
+        self.enable_mcp_memory = enable_mcp_memory
         
         # Knowledge base root path for safe file operations
         self.kb_root_path = kb_root_path or Path("./knowledge_base")
@@ -297,6 +303,8 @@ class AutonomousAgent(BaseAgent):
             enable_file_management=self.enable_file_management,
             enable_folder_management=self.enable_folder_management,
             enable_vector_search=self.enable_vector_search,
+            enable_mcp=self.enable_mcp,
+            enable_mcp_memory=self.enable_mcp_memory,
             github_token=self.config.get("github_token"),
             vector_search_manager=self.vector_search_manager,
             get_current_plan=lambda: self.current_plan,
