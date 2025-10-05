@@ -19,6 +19,7 @@ from loguru import logger
 
 from .base_agent import AgentResult as BaseAgentResult, BaseAgent, KBStructure
 from .llm_connectors import BaseLLMConnector, LLMResponse
+from .tools.registry import build_default_tool_manager, ToolManager
 from config.agent_prompts import (
     QWEN_CODE_AGENT_INSTRUCTION,
     CATEGORY_KEYWORDS,
@@ -32,28 +33,7 @@ from config.agent_prompts import (
     MIN_KEYWORD_LENGTH,
 )
 
-# Import tools from separate modules
-from .tools import (
-    tool_plan_todo,
-    tool_analyze_content,
-    tool_kb_read_file,
-    tool_kb_list_directory,
-    tool_kb_search_files,
-    tool_kb_search_content,
-    tool_kb_vector_search,
-    tool_kb_reindex_vector,
-    tool_web_search,
-    tool_git_command,
-    tool_github_api,
-    tool_shell_command,
-    tool_file_create,
-    tool_file_edit,
-    tool_file_delete,
-    tool_file_move,
-    tool_folder_create,
-    tool_folder_delete,
-    tool_folder_move,
-)
+# Tool logic is implemented in dedicated modules; accessed via ToolManager
 
 
 class ActionType(Enum):
@@ -319,8 +299,29 @@ class AutonomousAgent(BaseAgent):
         self.current_plan: Optional[TodoPlan] = None
         self.execution_log: List[Dict[str, Any]] = []
         
-        # Register all tools
-        self._register_all_tools()
+        # Initialize tool manager and lightweight wrappers
+        self.tool_manager: ToolManager = build_default_tool_manager(
+            kb_root_path=self.kb_root_path,
+            base_agent_class=BaseAgent,
+            enable_web_search=self.enable_web_search,
+            enable_git=self.enable_git,
+            enable_github=self.enable_github,
+            enable_shell=self.enable_shell,
+            enable_file_management=self.enable_file_management,
+            enable_folder_management=self.enable_folder_management,
+            enable_vector_search=self.enable_vector_search,
+            github_token=self.config.get("github_token"),
+            vector_search_manager=self.vector_search_manager,
+            get_current_plan=lambda: self.current_plan,
+            set_current_plan=lambda plan: setattr(self, "current_plan", plan),
+        )
+
+        # Back-compat mapping: name -> async callable delegating to ToolManager
+        self.tools: Dict[str, callable] = {}
+        for tool_name in self.tool_manager.names():
+            async def _runner(params: Dict[str, Any], _name: str = tool_name):
+                return await self.tool_manager.execute(_name, params)
+            self.tools[tool_name] = _runner
         
         logger.info(
             f"AutonomousAgent initialized: "
@@ -329,343 +330,21 @@ class AutonomousAgent(BaseAgent):
             f"kb_root={self.kb_root_path}, "
             f"vector_search={enable_vector_search}"
         )
-        logger.info(f"Enabled tools: {list(self.tools.keys())}")
+        logger.info(f"Enabled tools: {self.tool_manager.names()}")
     
-    def _register_all_tools(self) -> None:
-        """Register all available tools"""
-        # Plan TODO tool (always available)
-        self.register_tool("plan_todo", self._tool_plan_todo)
-        
-        # Analyze content tool (always available)
-        self.register_tool("analyze_content", self._tool_analyze_content)
-        
-        # Knowledge base reading tools (always available)
-        self.register_tool("kb_read_file", self._tool_kb_read_file)
-        self.register_tool("kb_list_directory", self._tool_kb_list_directory)
-        self.register_tool("kb_search_files", self._tool_kb_search_files)
-        self.register_tool("kb_search_content", self._tool_kb_search_content)
-        
-        if self.enable_web_search:
-            self.register_tool("web_search", self._tool_web_search)
-        
-        if self.enable_git:
-            self.register_tool("git_command", self._tool_git_command)
-        
-        if self.enable_github:
-            self.register_tool("github_api", self._tool_github_api)
-        
-        if self.enable_shell:
-            self.register_tool("shell_command", self._tool_shell_command)
-        
-        if self.enable_file_management:
-            self.register_tool("file_create", self._tool_file_create)
-            self.register_tool("file_edit", self._tool_file_edit)
-            self.register_tool("file_delete", self._tool_file_delete)
-            self.register_tool("file_move", self._tool_file_move)
-        
-        if self.enable_folder_management:
-            self.register_tool("folder_create", self._tool_folder_create)
-            self.register_tool("folder_delete", self._tool_folder_delete)
-            self.register_tool("folder_move", self._tool_folder_move)
-    
-    def register_tool(self, name: str, handler: callable) -> None:
-        """
-        Зарегистрировать тулз
-        
-        Args:
-            name: Название тулза
-            handler: Функция-обработчик
-        """
-        self.tools[name] = handler
-        logger.debug(f"Registered tool: {name}")
+    # Legacy register methods removed in favor of ToolManager
     
     def _build_tools_schema(self) -> List[Dict[str, Any]]:
-        """
-        Построить схему тулзов для OpenAI function calling
-        
-        Returns:
-            List of tool definitions
-        """
-        tools = []
-        
-        # Plan TODO tool
-        if "plan_todo" in self.tools:
-            tools.append({
-                "type": "function",
-                "function": {
-                    "name": "plan_todo",
-                    "description": "Создать план действий (TODO список). ОБЯЗАТЕЛЬНО вызови первым!",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "tasks": {
-                                "type": "array",
-                                "items": {"type": "string"},
-                                "description": "Список задач для выполнения"
-                            }
-                        },
-                        "required": ["tasks"]
-                    }
-                }
-            })
-        
-        # Web search tool
-        if "web_search" in self.tools:
-            tools.append({
-                "type": "function",
-                "function": {
-                    "name": "web_search",
-                    "description": "Поиск информации в интернете",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "query": {
-                                "type": "string",
-                                "description": "Поисковый запрос или URL"
-                            }
-                        },
-                        "required": ["query"]
-                    }
-                }
-            })
-        
-        # File create tool
-        if "file_create" in self.tools:
-            tools.append({
-                "type": "function",
-                "function": {
-                    "name": "file_create",
-                    "description": "Создать файл в базе знаний",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "path": {
-                                "type": "string",
-                                "description": "Относительный путь к файлу (например: 'ai/neural-networks.md')"
-                            },
-                            "content": {
-                                "type": "string",
-                                "description": "Содержимое файла в markdown формате"
-                            }
-                        },
-                        "required": ["path", "content"]
-                    }
-                }
-            })
-        
-        # File edit tool
-        if "file_edit" in self.tools:
-            tools.append({
-                "type": "function",
-                "function": {
-                    "name": "file_edit",
-                    "description": "Редактировать существующий файл",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "path": {
-                                "type": "string",
-                                "description": "Относительный путь к файлу"
-                            },
-                            "content": {
-                                "type": "string",
-                                "description": "Новое содержимое файла"
-                            }
-                        },
-                        "required": ["path", "content"]
-                    }
-                }
-            })
-        
-        # Folder create tool
-        if "folder_create" in self.tools:
-            tools.append({
-                "type": "function",
-                "function": {
-                    "name": "folder_create",
-                    "description": "Создать папку в базе знаний",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "path": {
-                                "type": "string",
-                                "description": "Относительный путь к папке (например: 'ai/concepts')"
-                            }
-                        },
-                        "required": ["path"]
-                    }
-                }
-            })
-        
-        # Analyze content tool
-        if "analyze_content" in self.tools:
-            tools.append({
-                "type": "function",
-                "function": {
-                    "name": "analyze_content",
-                    "description": "Анализировать контент и извлечь ключевую информацию",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "text": {
-                                "type": "string",
-                                "description": "Текст для анализа"
-                            }
-                        },
-                        "required": ["text"]
-                    }
-                }
-            })
-        
-        # KB read file tool
-        if "kb_read_file" in self.tools:
-            tools.append({
-                "type": "function",
-                "function": {
-                    "name": "kb_read_file",
-                    "description": "Прочитать один или несколько файлов из базы знаний",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "paths": {
-                                "type": "array",
-                                "items": {"type": "string"},
-                                "description": "Список относительных путей к файлам (например: ['ai/ml.md', 'tech/python.md'])"
-                            }
-                        },
-                        "required": ["paths"]
-                    }
-                }
-            })
-        
-        # KB list directory tool
-        if "kb_list_directory" in self.tools:
-            tools.append({
-                "type": "function",
-                "function": {
-                    "name": "kb_list_directory",
-                    "description": "Перечислить содержимое папки в базе знаний",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "path": {
-                                "type": "string",
-                                "description": "Относительный путь к папке (например: 'ai' или 'ai/machine-learning'). Пустая строка для корня."
-                            },
-                            "recursive": {
-                                "type": "boolean",
-                                "description": "Рекурсивно перечислить все подпапки (по умолчанию false)"
-                            }
-                        },
-                        "required": ["path"]
-                    }
-                }
-            })
-        
-        # KB search files tool
-        if "kb_search_files" in self.tools:
-            tools.append({
-                "type": "function",
-                "function": {
-                    "name": "kb_search_files",
-                    "description": "Поиск файлов и папок по названию или шаблону",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "pattern": {
-                                "type": "string",
-                                "description": "Шаблон поиска (поддерживает glob: *, ?, []), например: '*.md', 'ai/**/*.md', '*neural*'"
-                            },
-                            "case_sensitive": {
-                                "type": "boolean",
-                                "description": "Регистрозависимый поиск (по умолчанию false)"
-                            }
-                        },
-                        "required": ["pattern"]
-                    }
-                }
-            })
-        
-        # KB search content tool
-        if "kb_search_content" in self.tools:
-            tools.append({
-                "type": "function",
-                "function": {
-                    "name": "kb_search_content",
-                    "description": "Поиск по содержимому файлов в базе знаний",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "query": {
-                                "type": "string",
-                                "description": "Текст для поиска в содержимом файлов"
-                            },
-                            "case_sensitive": {
-                                "type": "boolean",
-                                "description": "Регистрозависимый поиск (по умолчанию false)"
-                            },
-                            "file_pattern": {
-                                "type": "string",
-                                "description": "Опциональный glob шаблон для фильтрации файлов (например: '*.md')"
-                            }
-                        },
-                        "required": ["query"]
-                    }
-                }
-            })
-        
-        # Vector search tool
-        if "kb_vector_search" in self.tools:
-            tools.append({
-                "type": "function",
-                "function": {
-                    "name": "kb_vector_search",
-                    "description": "Семантический векторный поиск по базе знаний (находит документы по смыслу)",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "query": {
-                                "type": "string",
-                                "description": "Поисковый запрос"
-                            },
-                            "top_k": {
-                                "type": "integer",
-                                "description": "Количество результатов (по умолчанию: 5)"
-                            }
-                        },
-                        "required": ["query"]
-                    }
-                }
-            })
-        
-        # Vector reindex tool
-        if "kb_reindex_vector" in self.tools:
-            tools.append({
-                "type": "function",
-                "function": {
-                    "name": "kb_reindex_vector",
-                    "description": "Переиндексировать базу знаний для векторного поиска",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "force": {
-                                "type": "boolean",
-                                "description": "Принудительная переиндексация всех файлов"
-                            }
-                        }
-                    }
-                }
-            })
-        
-        return tools
+        """Delegate to ToolManager to build OpenAI function schemas."""
+        return self.tool_manager.build_llm_tools_schema()
     
     def get_tools_description(self) -> str:
         """Получить описание доступных тулзов"""
-        if not self.tools:
+        if not self.tool_manager.names():
             return "Нет доступных тулзов."
         
         lines = []
-        for tool_name in self.tools.keys():
+        for tool_name in self.tool_manager.names():
             lines.append(f"- {tool_name}")
         
         return "\n".join(lines)
@@ -1003,7 +682,7 @@ class AutonomousAgent(BaseAgent):
         logger.info(f"[AutonomousAgent] Executing tool: {tool_name} with params: {params}")
         
         # Проверка существования тулза
-        if tool_name not in self.tools:
+        if not self.tool_manager.has(tool_name):
             error = f"Tool not found: {tool_name}"
             logger.error(f"[AutonomousAgent] {error}")
             return ToolExecution(
@@ -1016,8 +695,7 @@ class AutonomousAgent(BaseAgent):
         
         # Выполнить тулз
         try:
-            handler = self.tools[tool_name]
-            result = await handler(params)
+            result = await self.tool_manager.execute(tool_name, params)
             
             # Check if result indicates success
             success = True
@@ -1287,14 +965,12 @@ class AutonomousAgent(BaseAgent):
     # ====================================================================
     
     async def _tool_plan_todo(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle plan_todo tool call"""
-        result, new_plan = await tool_plan_todo(params, self.current_plan, BaseAgent)
-        self.current_plan = new_plan
-        return result
+        """Handle plan_todo tool call (delegates to ToolManager)"""
+        return await self.tool_manager.execute("plan_todo", params)
     
     async def _tool_analyze_content(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Analyze content tool"""
-        return await tool_analyze_content(params, BaseAgent)
+        return await self.tool_manager.execute("analyze_content", params)
     
     # ====================================================================
     # KNOWLEDGE BASE READING TOOLS
@@ -1302,27 +978,27 @@ class AutonomousAgent(BaseAgent):
     
     async def _tool_kb_read_file(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Read one or multiple files from knowledge base"""
-        return await tool_kb_read_file(params, self.kb_root_path)
+        return await self.tool_manager.execute("kb_read_file", params)
     
     async def _tool_kb_list_directory(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """List contents of a directory in knowledge base"""
-        return await tool_kb_list_directory(params, self.kb_root_path)
+        return await self.tool_manager.execute("kb_list_directory", params)
     
     async def _tool_kb_search_files(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Search files and directories by name or pattern"""
-        return await tool_kb_search_files(params, self.kb_root_path)
+        return await self.tool_manager.execute("kb_search_files", params)
     
     async def _tool_kb_search_content(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Search by file contents in knowledge base"""
-        return await tool_kb_search_content(params, self.kb_root_path)
+        return await self.tool_manager.execute("kb_search_content", params)
     
     async def _tool_kb_vector_search(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Vector search in knowledge base"""
-        return await tool_kb_vector_search(params, self.vector_search_manager)
+        return await self.tool_manager.execute("kb_vector_search", params)
     
     async def _tool_kb_reindex_vector(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Reindex knowledge base for vector search"""
-        return await tool_kb_reindex_vector(params, self.vector_search_manager)
+        return await self.tool_manager.execute("kb_reindex_vector", params)
     
     # Security helper methods
     
@@ -1360,48 +1036,47 @@ class AutonomousAgent(BaseAgent):
     
     async def _tool_web_search(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Web search tool"""
-        return await tool_web_search(params)
+        return await self.tool_manager.execute("web_search", params)
     
     async def _tool_git_command(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Git command tool"""
-        return await tool_git_command(params)
+        return await self.tool_manager.execute("git_command", params)
     
     async def _tool_github_api(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """GitHub API tool"""
-        github_token = self.config.get("github_token")
-        return await tool_github_api(params, github_token)
+        return await self.tool_manager.execute("github_api", params)
     
     async def _tool_shell_command(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Shell command tool (SECURITY RISK - disabled by default)"""
-        return await tool_shell_command(params, self.enable_shell)
+        return await self.tool_manager.execute("shell_command", params)
     
     async def _tool_file_create(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new file"""
-        return await tool_file_create(params, self.kb_root_path)
+        return await self.tool_manager.execute("file_create", params)
     
     async def _tool_file_edit(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Edit an existing file"""
-        return await tool_file_edit(params, self.kb_root_path)
+        return await self.tool_manager.execute("file_edit", params)
     
     async def _tool_file_delete(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Delete a file"""
-        return await tool_file_delete(params, self.kb_root_path)
+        return await self.tool_manager.execute("file_delete", params)
     
     async def _tool_file_move(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Move/rename a file"""
-        return await tool_file_move(params, self.kb_root_path)
+        return await self.tool_manager.execute("file_move", params)
     
     async def _tool_folder_create(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new folder"""
-        return await tool_folder_create(params, self.kb_root_path)
+        return await self.tool_manager.execute("folder_create", params)
     
     async def _tool_folder_delete(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Delete a folder and its contents"""
-        return await tool_folder_delete(params, self.kb_root_path)
+        return await self.tool_manager.execute("folder_delete", params)
     
     async def _tool_folder_move(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Move/rename a folder"""
-        return await tool_folder_move(params, self.kb_root_path)
+        return await self.tool_manager.execute("folder_move", params)
     
     async def _create_todo_plan(self, content: Dict) -> TodoPlan:
         """Create a TODO plan (backward compatibility)"""
