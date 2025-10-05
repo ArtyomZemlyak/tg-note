@@ -32,6 +32,29 @@ from config.agent_prompts import (
     MIN_KEYWORD_LENGTH,
 )
 
+# Import tools from separate modules
+from .tools import (
+    tool_plan_todo,
+    tool_analyze_content,
+    tool_kb_read_file,
+    tool_kb_list_directory,
+    tool_kb_search_files,
+    tool_kb_search_content,
+    tool_kb_vector_search,
+    tool_kb_reindex_vector,
+    tool_web_search,
+    tool_git_command,
+    tool_github_api,
+    tool_shell_command,
+    tool_file_create,
+    tool_file_edit,
+    tool_file_delete,
+    tool_file_move,
+    tool_folder_create,
+    tool_folder_delete,
+    tool_folder_move,
+)
+
 
 class ActionType(Enum):
     """Типы действий агента"""
@@ -1260,39 +1283,18 @@ class AutonomousAgent(BaseAgent):
         )
     
     # ====================================================================
-    # TOOL IMPLEMENTATIONS (from QwenCodeAgent)
+    # TOOL IMPLEMENTATIONS (Wrappers for imported tools)
     # ====================================================================
     
     async def _tool_plan_todo(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle plan_todo tool call"""
-        tasks = params.get("tasks", [])
-        
-        logger.info(f"[AutonomousAgent] Creating plan with {len(tasks)} tasks")
-        
-        # Create plan
-        self.current_plan = TodoPlan()
-        for i, task in enumerate(tasks):
-            self.current_plan.add_task(task, priority=i+1)
-        
-        return {
-            "success": True,
-            "plan": tasks,
-            "message": f"Plan created with {len(tasks)} tasks"
-        }
+        result, new_plan = await tool_plan_todo(params, self.current_plan, BaseAgent)
+        self.current_plan = new_plan
+        return result
     
     async def _tool_analyze_content(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Analyze content tool"""
-        text = params.get("text", "")
-        
-        analysis = {
-            "text_length": len(text),
-            "word_count": len(text.split()),
-            "has_code": "```" in text or "def " in text or "function " in text,
-            "keywords": BaseAgent.extract_keywords(text),
-            "category": BaseAgent.detect_category(text)
-        }
-        
-        return analysis
+        return await tool_analyze_content(params, BaseAgent)
     
     # ====================================================================
     # KNOWLEDGE BASE READING TOOLS
@@ -1300,374 +1302,27 @@ class AutonomousAgent(BaseAgent):
     
     async def _tool_kb_read_file(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Read one or multiple files from knowledge base"""
-        import glob
-        
-        paths = params.get("paths", [])
-        
-        if not paths:
-            logger.error("[kb_read_file] No paths provided")
-            return {"success": False, "error": "No paths provided"}
-        
-        if not isinstance(paths, list):
-            paths = [paths]
-        
-        results = []
-        errors = []
-        
-        for relative_path in paths:
-            # Validate path
-            is_valid, full_path, error = self._validate_safe_path(relative_path)
-            if not is_valid:
-                logger.warning(f"[kb_read_file] Invalid path: {relative_path} - {error}")
-                errors.append({"path": relative_path, "error": error})
-                continue
-            
-            try:
-                # Check if file exists
-                if not full_path.exists():
-                    errors.append({"path": relative_path, "error": "File does not exist"})
-                    continue
-                
-                if not full_path.is_file():
-                    errors.append({"path": relative_path, "error": "Path is not a file"})
-                    continue
-                
-                # Read file content
-                content = full_path.read_text(encoding="utf-8")
-                
-                results.append({
-                    "path": relative_path,
-                    "full_path": str(full_path),
-                    "content": content,
-                    "size": len(content)
-                })
-                
-                logger.info(f"[kb_read_file] ✓ Read file: {relative_path} ({len(content)} bytes)")
-                
-            except Exception as e:
-                logger.error(f"[kb_read_file] Failed to read {relative_path}: {e}", exc_info=True)
-                errors.append({"path": relative_path, "error": str(e)})
-        
-        return {
-            "success": len(results) > 0,
-            "files_read": len(results),
-            "results": results,
-            "errors": errors if errors else None
-        }
+        return await tool_kb_read_file(params, self.kb_root_path)
     
     async def _tool_kb_list_directory(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """List contents of a directory in knowledge base"""
-        relative_path = params.get("path", "")
-        recursive = params.get("recursive", False)
-        
-        # Validate path
-        is_valid, full_path, error = self._validate_safe_path(relative_path if relative_path else ".")
-        if not is_valid:
-            logger.error(f"[kb_list_directory] Invalid path: {error}")
-            return {"success": False, "error": error}
-        
-        try:
-            # Check if directory exists
-            if not full_path.exists():
-                error_msg = f"Directory does not exist: {relative_path}"
-                logger.warning(f"[kb_list_directory] {error_msg}")
-                return {"success": False, "error": error_msg}
-            
-            if not full_path.is_dir():
-                error_msg = f"Path is not a directory: {relative_path}"
-                logger.warning(f"[kb_list_directory] {error_msg}")
-                return {"success": False, "error": error_msg}
-            
-            files = []
-            directories = []
-            
-            if recursive:
-                # Recursive listing
-                for item in full_path.rglob("*"):
-                    rel_path = str(item.relative_to(self.kb_root_path))
-                    if item.is_file():
-                        files.append({
-                            "path": rel_path,
-                            "name": item.name,
-                            "size": item.stat().st_size
-                        })
-                    elif item.is_dir():
-                        directories.append({
-                            "path": rel_path,
-                            "name": item.name
-                        })
-            else:
-                # Non-recursive listing
-                for item in full_path.iterdir():
-                    rel_path = str(item.relative_to(self.kb_root_path))
-                    if item.is_file():
-                        files.append({
-                            "path": rel_path,
-                            "name": item.name,
-                            "size": item.stat().st_size
-                        })
-                    elif item.is_dir():
-                        directories.append({
-                            "path": rel_path,
-                            "name": item.name
-                        })
-            
-            logger.info(f"[kb_list_directory] ✓ Listed {relative_path or 'root'}: {len(files)} files, {len(directories)} directories")
-            
-            return {
-                "success": True,
-                "path": relative_path or "root",
-                "recursive": recursive,
-                "files": files,
-                "directories": directories,
-                "file_count": len(files),
-                "directory_count": len(directories)
-            }
-            
-        except Exception as e:
-            logger.error(f"[kb_list_directory] Failed to list directory: {e}", exc_info=True)
-            return {"success": False, "error": f"Failed to list directory: {e}"}
+        return await tool_kb_list_directory(params, self.kb_root_path)
     
     async def _tool_kb_search_files(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Search files and directories by name or pattern"""
-        import glob
-        import fnmatch
-        
-        pattern = params.get("pattern", "")
-        case_sensitive = params.get("case_sensitive", False)
-        
-        if not pattern:
-            logger.error("[kb_search_files] No pattern provided")
-            return {"success": False, "error": "No pattern provided"}
-        
-        try:
-            files = []
-            directories = []
-            
-            # Use glob for pattern matching
-            glob_pattern = str(self.kb_root_path / pattern)
-            
-            for match in glob.glob(glob_pattern, recursive=True):
-                match_path = Path(match)
-                
-                # Verify it's within KB root
-                try:
-                    rel_path = str(match_path.relative_to(self.kb_root_path))
-                except ValueError:
-                    continue
-                
-                if match_path.is_file():
-                    files.append({
-                        "path": rel_path,
-                        "name": match_path.name,
-                        "size": match_path.stat().st_size
-                    })
-                elif match_path.is_dir():
-                    directories.append({
-                        "path": rel_path,
-                        "name": match_path.name
-                    })
-            
-            # If glob didn't work well, try fnmatch on all files
-            if not files and not directories:
-                for item in self.kb_root_path.rglob("*"):
-                    rel_path = str(item.relative_to(self.kb_root_path))
-                    
-                    # Match against full path or just name
-                    if case_sensitive:
-                        matches = fnmatch.fnmatch(rel_path, pattern) or fnmatch.fnmatch(item.name, pattern)
-                    else:
-                        matches = (fnmatch.fnmatch(rel_path.lower(), pattern.lower()) or 
-                                 fnmatch.fnmatch(item.name.lower(), pattern.lower()))
-                    
-                    if matches:
-                        if item.is_file():
-                            files.append({
-                                "path": rel_path,
-                                "name": item.name,
-                                "size": item.stat().st_size
-                            })
-                        elif item.is_dir():
-                            directories.append({
-                                "path": rel_path,
-                                "name": item.name
-                            })
-            
-            logger.info(f"[kb_search_files] ✓ Pattern '{pattern}': found {len(files)} files, {len(directories)} directories")
-            
-            return {
-                "success": True,
-                "pattern": pattern,
-                "case_sensitive": case_sensitive,
-                "files": files,
-                "directories": directories,
-                "file_count": len(files),
-                "directory_count": len(directories)
-            }
-            
-        except Exception as e:
-            logger.error(f"[kb_search_files] Failed to search: {e}", exc_info=True)
-            return {"success": False, "error": f"Failed to search files: {e}"}
+        return await tool_kb_search_files(params, self.kb_root_path)
     
     async def _tool_kb_search_content(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Search by file contents in knowledge base"""
-        import glob
-        import fnmatch
-        
-        query = params.get("query", "")
-        case_sensitive = params.get("case_sensitive", False)
-        file_pattern = params.get("file_pattern", "*.md")
-        
-        if not query:
-            logger.error("[kb_search_content] No query provided")
-            return {"success": False, "error": "No query provided"}
-        
-        try:
-            matches = []
-            
-            # Get all files matching the pattern
-            if file_pattern:
-                glob_pattern = str(self.kb_root_path / "**" / file_pattern)
-                files_to_search = glob.glob(glob_pattern, recursive=True)
-            else:
-                files_to_search = [str(f) for f in self.kb_root_path.rglob("*") if f.is_file()]
-            
-            # Search in each file
-            for file_path_str in files_to_search:
-                file_path = Path(file_path_str)
-                
-                # Verify it's within KB root
-                try:
-                    rel_path = str(file_path.relative_to(self.kb_root_path))
-                except ValueError:
-                    continue
-                
-                if not file_path.is_file():
-                    continue
-                
-                try:
-                    content = file_path.read_text(encoding="utf-8")
-                    
-                    # Search for query in content
-                    search_content = content if case_sensitive else content.lower()
-                    search_query = query if case_sensitive else query.lower()
-                    
-                    if search_query in search_content:
-                        # Find all occurrences and their line numbers
-                        lines = content.split("\n")
-                        occurrences = []
-                        
-                        for line_num, line in enumerate(lines, 1):
-                            search_line = line if case_sensitive else line.lower()
-                            if search_query in search_line:
-                                # Get context (line before and after)
-                                context_start = max(0, line_num - 2)
-                                context_end = min(len(lines), line_num + 1)
-                                context_lines = lines[context_start:context_end]
-                                
-                                occurrences.append({
-                                    "line_number": line_num,
-                                    "line": line.strip(),
-                                    "context": "\n".join(context_lines)
-                                })
-                        
-                        matches.append({
-                            "path": rel_path,
-                            "name": file_path.name,
-                            "occurrences": len(occurrences),
-                            "matches": occurrences[:5]  # Limit to first 5 matches per file
-                        })
-                
-                except Exception as e:
-                    logger.debug(f"[kb_search_content] Failed to read {rel_path}: {e}")
-                    continue
-            
-            logger.info(f"[kb_search_content] ✓ Query '{query}': found in {len(matches)} files")
-            
-            return {
-                "success": True,
-                "query": query,
-                "case_sensitive": case_sensitive,
-                "file_pattern": file_pattern,
-                "matches": matches,
-                "files_found": len(matches)
-            }
-            
-        except Exception as e:
-            logger.error(f"[kb_search_content] Failed to search content: {e}", exc_info=True)
-            return {"success": False, "error": f"Failed to search content: {e}"}
+        return await tool_kb_search_content(params, self.kb_root_path)
     
     async def _tool_kb_vector_search(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Vector search in knowledge base"""
-        if not self.vector_search_manager:
-            logger.error("[kb_vector_search] Vector search manager not configured")
-            return {
-                "success": False,
-                "error": "Vector search is not enabled or not configured"
-            }
-        
-        query = params.get("query", "")
-        top_k = params.get("top_k", 5)
-        
-        if not query:
-            logger.error("[kb_vector_search] No query provided")
-            return {"success": False, "error": "No query provided"}
-        
-        try:
-            logger.info(f"[kb_vector_search] Searching for: {query}")
-            
-            # Perform vector search
-            results = await self.vector_search_manager.search(
-                query=query,
-                top_k=top_k
-            )
-            
-            logger.info(f"[kb_vector_search] ✓ Found {len(results)} results")
-            
-            return {
-                "success": True,
-                "query": query,
-                "top_k": top_k,
-                "results": results,
-                "results_count": len(results)
-            }
-        
-        except Exception as e:
-            logger.error(f"[kb_vector_search] Failed: {e}", exc_info=True)
-            return {"success": False, "error": f"Vector search failed: {e}"}
+        return await tool_kb_vector_search(params, self.vector_search_manager)
     
     async def _tool_kb_reindex_vector(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Reindex knowledge base for vector search"""
-        if not self.vector_search_manager:
-            logger.error("[kb_reindex_vector] Vector search manager not configured")
-            return {
-                "success": False,
-                "error": "Vector search is not enabled or not configured"
-            }
-        
-        force = params.get("force", False)
-        
-        try:
-            logger.info(f"[kb_reindex_vector] Starting reindexing (force={force})")
-            
-            # Perform indexing
-            stats = await self.vector_search_manager.index_knowledge_base(force=force)
-            
-            logger.info(
-                f"[kb_reindex_vector] ✓ Indexing complete: "
-                f"{stats['files_processed']} files processed, "
-                f"{stats['chunks_created']} chunks created"
-            )
-            
-            return {
-                "success": True,
-                "stats": stats,
-                "message": f"Successfully indexed {stats['files_processed']} files"
-            }
-        
-        except Exception as e:
-            logger.error(f"[kb_reindex_vector] Failed: {e}", exc_info=True)
-            return {"success": False, "error": f"Reindexing failed: {e}"}
+        return await tool_kb_reindex_vector(params, self.vector_search_manager)
     
     # Security helper methods
     
@@ -1705,500 +1360,48 @@ class AutonomousAgent(BaseAgent):
     
     async def _tool_web_search(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Web search tool"""
-        query = params.get("query", "")
-        
-        try:
-            # Simple implementation: fetch URL metadata
-            if query.startswith("http"):
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(query, timeout=10) as response:
-                        if response.status == 200:
-                            text = await response.text()
-                            # Extract title (simple)
-                            title = "Unknown"
-                            if "<title>" in text.lower():
-                                start = text.lower().find("<title>") + 7
-                                end = text.lower().find("</title>", start)
-                                if end > start:
-                                    title = text[start:end].strip()
-                            
-                            logger.info(f"[web_search] ✓ Fetched URL: {query}")
-                            return {
-                                "success": True,
-                                "url": query,
-                                "title": title,
-                                "status": response.status
-                            }
-            
-            # For non-URL queries, return placeholder
-            logger.info(f"[web_search] Executed search: {query}")
-            return {
-                "success": True,
-                "query": query,
-                "message": "Web search executed (placeholder)"
-            }
-        
-        except Exception as e:
-            logger.error(f"[web_search] Failed: {e}", exc_info=True)
-            return {"success": False, "error": str(e)}
+        return await tool_web_search(params)
     
     async def _tool_git_command(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Git command tool"""
-        command = params.get("command", "")
-        cwd = params.get("cwd", ".")
-        
-        try:
-            # Security: only allow specific safe git commands from config
-            safe_commands = SAFE_GIT_COMMANDS
-            
-            cmd_parts = command.split()
-            if not cmd_parts or cmd_parts[0] != "git":
-                logger.error("[git_command] Command must start with 'git'")
-                return {"success": False, "error": "Command must start with 'git'"}
-            
-            if len(cmd_parts) < 2 or cmd_parts[1] not in safe_commands:
-                logger.error(f"[git_command] Command not allowed: {cmd_parts[1]}")
-                return {
-                    "success": False,
-                    "error": f"Git command not allowed. Allowed: {safe_commands}"
-                }
-            
-            # Execute command
-            result = subprocess.run(
-                command.split(),
-                cwd=cwd,
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
-            
-            success = result.returncode == 0
-            if success:
-                logger.info(f"[git_command] ✓ Executed: {command}")
-            else:
-                logger.warning(f"[git_command] Failed: {command} (code {result.returncode})")
-            
-            return {
-                "success": success,
-                "stdout": result.stdout,
-                "stderr": result.stderr,
-                "returncode": result.returncode
-            }
-        
-        except Exception as e:
-            logger.error(f"[git_command] Error: {e}", exc_info=True)
-            return {"success": False, "error": str(e)}
+        return await tool_git_command(params)
     
     async def _tool_github_api(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """GitHub API tool"""
-        endpoint = params.get("endpoint", "")
-        method = params.get("method", "GET").upper()
-        data = params.get("data")
-        
-        try:
-            base_url = "https://api.github.com"
-            url = f"{base_url}/{endpoint.lstrip('/')}"
-            
-            headers = {
-                "Accept": "application/vnd.github.v3+json",
-                "User-Agent": "AutonomousAgent/1.0"
-            }
-            
-            # Add auth token if available
-            github_token = self.config.get("github_token")
-            if github_token:
-                headers["Authorization"] = f"token {github_token}"
-            
-            async with aiohttp.ClientSession() as session:
-                async with session.request(
-                    method,
-                    url,
-                    headers=headers,
-                    json=data,
-                    timeout=30
-                ) as response:
-                    result = await response.json()
-                    success = response.status < 400
-                    
-                    if success:
-                        logger.info(f"[github_api] ✓ {method} {endpoint}")
-                    else:
-                        logger.warning(f"[github_api] Failed: {method} {endpoint} (status {response.status})")
-                    
-                    return {
-                        "success": success,
-                        "status": response.status,
-                        "data": result
-                    }
-        
-        except Exception as e:
-            logger.error(f"[github_api] Error: {e}", exc_info=True)
-            return {"success": False, "error": str(e)}
+        github_token = self.config.get("github_token")
+        return await tool_github_api(params, github_token)
     
     async def _tool_shell_command(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Shell command tool (SECURITY RISK - disabled by default)"""
-        if not self.enable_shell:
-            logger.warning("[shell_command] Tool is disabled for security")
-            return {"success": False, "error": "Shell command tool is disabled for security"}
-        
-        command = params.get("command", "")
-        cwd = params.get("cwd", ".")
-        
-        try:
-            # Security: block dangerous commands from config
-            dangerous_patterns = DANGEROUS_SHELL_PATTERNS
-            
-            if any(pattern in command for pattern in dangerous_patterns):
-                logger.error(f"[shell_command] Dangerous pattern detected in: {command}")
-                return {"success": False, "error": "Command contains dangerous patterns"}
-            
-            # Execute command
-            result = subprocess.run(
-                command,
-                shell=True,
-                cwd=cwd,
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
-            
-            success = result.returncode == 0
-            if success:
-                logger.info(f"[shell_command] ✓ Executed: {command}")
-            else:
-                logger.warning(f"[shell_command] Failed: {command} (code {result.returncode})")
-            
-            return {
-                "success": success,
-                "stdout": result.stdout,
-                "stderr": result.stderr,
-                "returncode": result.returncode
-            }
-        
-        except Exception as e:
-            logger.error(f"[shell_command] Error: {e}", exc_info=True)
-            return {"success": False, "error": str(e)}
+        return await tool_shell_command(params, self.enable_shell)
     
     async def _tool_file_create(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new file"""
-        relative_path = params.get("path", "")
-        content = params.get("content", "")
-        
-        # Validate path
-        is_valid, full_path, error = self._validate_safe_path(relative_path)
-        if not is_valid:
-            logger.error(f"[file_create] Path validation failed: {error}")
-            return {"success": False, "error": error}
-        
-        try:
-            # Create parent directories if needed
-            full_path.parent.mkdir(parents=True, exist_ok=True)
-            
-            # Check if file already exists
-            if full_path.exists():
-                error_msg = f"File already exists: {relative_path}"
-                logger.warning(f"[file_create] {error_msg}")
-                return {"success": False, "error": error_msg}
-            
-            # Write file
-            full_path.write_text(content, encoding="utf-8")
-            
-            logger.info(f"[file_create] ✓ Created file: {relative_path} ({len(content)} bytes)")
-            return {
-                "success": True,
-                "path": relative_path,
-                "full_path": str(full_path),
-                "size": len(content),
-                "message": f"File created successfully: {relative_path}"
-            }
-            
-        except Exception as e:
-            logger.error(f"[file_create] Failed to create file: {e}", exc_info=True)
-            return {"success": False, "error": f"Failed to create file: {e}"}
+        return await tool_file_create(params, self.kb_root_path)
     
     async def _tool_file_edit(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Edit an existing file"""
-        relative_path = params.get("path", "")
-        content = params.get("content", "")
-        
-        # Validate path
-        is_valid, full_path, error = self._validate_safe_path(relative_path)
-        if not is_valid:
-            logger.error(f"[file_edit] Path validation failed: {error}")
-            return {"success": False, "error": error}
-        
-        try:
-            # Check if file exists
-            if not full_path.exists():
-                error_msg = f"File does not exist: {relative_path}"
-                logger.warning(f"[file_edit] {error_msg}")
-                return {"success": False, "error": error_msg}
-            
-            if not full_path.is_file():
-                error_msg = f"Path is not a file: {relative_path}"
-                logger.warning(f"[file_edit] {error_msg}")
-                return {"success": False, "error": error_msg}
-            
-            # Backup old content
-            old_content = full_path.read_text(encoding="utf-8")
-            
-            # Write new content
-            full_path.write_text(content, encoding="utf-8")
-            
-            logger.info(f"[file_edit] ✓ Edited file: {relative_path} ({len(old_content)} → {len(content)} bytes)")
-            return {
-                "success": True,
-                "path": relative_path,
-                "full_path": str(full_path),
-                "old_size": len(old_content),
-                "new_size": len(content),
-                "message": f"File edited successfully: {relative_path}"
-            }
-            
-        except Exception as e:
-            logger.error(f"[file_edit] Failed to edit file: {e}", exc_info=True)
-            return {"success": False, "error": f"Failed to edit file: {e}"}
+        return await tool_file_edit(params, self.kb_root_path)
     
     async def _tool_file_delete(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Delete a file"""
-        relative_path = params.get("path", "")
-        
-        # Validate path
-        is_valid, full_path, error = self._validate_safe_path(relative_path)
-        if not is_valid:
-            logger.error(f"[file_delete] Path validation failed: {error}")
-            return {"success": False, "error": error}
-        
-        try:
-            # Check if file exists
-            if not full_path.exists():
-                error_msg = f"File does not exist: {relative_path}"
-                logger.warning(f"[file_delete] {error_msg}")
-                return {"success": False, "error": error_msg}
-            
-            if not full_path.is_file():
-                error_msg = f"Path is not a file: {relative_path}"
-                logger.warning(f"[file_delete] {error_msg}")
-                return {"success": False, "error": error_msg}
-            
-            # Delete file
-            full_path.unlink()
-            
-            logger.info(f"[file_delete] ✓ Deleted file: {relative_path}")
-            return {
-                "success": True,
-                "path": relative_path,
-                "full_path": str(full_path),
-                "message": f"File deleted successfully: {relative_path}"
-            }
-            
-        except Exception as e:
-            logger.error(f"[file_delete] Failed to delete file: {e}", exc_info=True)
-            return {"success": False, "error": f"Failed to delete file: {e}"}
+        return await tool_file_delete(params, self.kb_root_path)
     
     async def _tool_file_move(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Move/rename a file"""
-        source_path = params.get("source", "")
-        dest_path = params.get("destination", "")
-        
-        # Validate source path
-        is_valid, full_source, error = self._validate_safe_path(source_path)
-        if not is_valid:
-            logger.error(f"[file_move] Invalid source: {error}")
-            return {"success": False, "error": f"Invalid source: {error}"}
-        
-        # Validate destination path
-        is_valid, full_dest, error = self._validate_safe_path(dest_path)
-        if not is_valid:
-            logger.error(f"[file_move] Invalid destination: {error}")
-            return {"success": False, "error": f"Invalid destination: {error}"}
-        
-        try:
-            # Check if source exists
-            if not full_source.exists():
-                error_msg = f"Source file does not exist: {source_path}"
-                logger.warning(f"[file_move] {error_msg}")
-                return {"success": False, "error": error_msg}
-            
-            if not full_source.is_file():
-                error_msg = f"Source is not a file: {source_path}"
-                logger.warning(f"[file_move] {error_msg}")
-                return {"success": False, "error": error_msg}
-            
-            # Check if destination already exists
-            if full_dest.exists():
-                error_msg = f"Destination already exists: {dest_path}"
-                logger.warning(f"[file_move] {error_msg}")
-                return {"success": False, "error": error_msg}
-            
-            # Create parent directories if needed
-            full_dest.parent.mkdir(parents=True, exist_ok=True)
-            
-            # Move file
-            full_source.rename(full_dest)
-            
-            logger.info(f"[file_move] ✓ Moved file: {source_path} → {dest_path}")
-            return {
-                "success": True,
-                "source": source_path,
-                "destination": dest_path,
-                "full_source": str(full_source),
-                "full_destination": str(full_dest),
-                "message": f"File moved successfully: {source_path} → {dest_path}"
-            }
-            
-        except Exception as e:
-            logger.error(f"[file_move] Failed to move file: {e}", exc_info=True)
-            return {"success": False, "error": f"Failed to move file: {e}"}
+        return await tool_file_move(params, self.kb_root_path)
     
     async def _tool_folder_create(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new folder"""
-        relative_path = params.get("path", "")
-        
-        # Validate path
-        is_valid, full_path, error = self._validate_safe_path(relative_path)
-        if not is_valid:
-            logger.error(f"[folder_create] Path validation failed: {error}")
-            return {"success": False, "error": error}
-        
-        try:
-            # Check if already exists
-            if full_path.exists():
-                if full_path.is_dir():
-                    error_msg = f"Folder already exists: {relative_path}"
-                    logger.warning(f"[folder_create] {error_msg}")
-                    return {"success": False, "error": error_msg}
-                else:
-                    error_msg = f"Path exists but is not a folder: {relative_path}"
-                    logger.warning(f"[folder_create] {error_msg}")
-                    return {"success": False, "error": error_msg}
-            
-            # Create folder
-            full_path.mkdir(parents=True, exist_ok=False)
-            
-            logger.info(f"[folder_create] ✓ Created folder: {relative_path}")
-            return {
-                "success": True,
-                "path": relative_path,
-                "full_path": str(full_path),
-                "message": f"Folder created successfully: {relative_path}"
-            }
-            
-        except Exception as e:
-            logger.error(f"[folder_create] Failed to create folder: {e}", exc_info=True)
-            return {"success": False, "error": f"Failed to create folder: {e}"}
+        return await tool_folder_create(params, self.kb_root_path)
     
     async def _tool_folder_delete(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Delete a folder and its contents"""
-        import shutil
-        
-        relative_path = params.get("path", "")
-        
-        # Validate path
-        is_valid, full_path, error = self._validate_safe_path(relative_path)
-        if not is_valid:
-            logger.error(f"[folder_delete] Path validation failed: {error}")
-            return {"success": False, "error": error}
-        
-        try:
-            # Check if exists
-            if not full_path.exists():
-                error_msg = f"Folder does not exist: {relative_path}"
-                logger.warning(f"[folder_delete] {error_msg}")
-                return {"success": False, "error": error_msg}
-            
-            if not full_path.is_dir():
-                error_msg = f"Path is not a folder: {relative_path}"
-                logger.warning(f"[folder_delete] {error_msg}")
-                return {"success": False, "error": error_msg}
-            
-            # Prevent deleting KB root itself
-            if full_path == self.kb_root_path:
-                error_msg = "Cannot delete knowledge base root folder"
-                logger.error(f"[folder_delete] {error_msg}")
-                return {"success": False, "error": error_msg}
-            
-            # Delete folder and contents
-            shutil.rmtree(full_path)
-            
-            logger.info(f"[folder_delete] ✓ Deleted folder: {relative_path}")
-            return {
-                "success": True,
-                "path": relative_path,
-                "full_path": str(full_path),
-                "message": f"Folder deleted successfully: {relative_path}"
-            }
-            
-        except Exception as e:
-            logger.error(f"[folder_delete] Failed to delete folder: {e}", exc_info=True)
-            return {"success": False, "error": f"Failed to delete folder: {e}"}
+        return await tool_folder_delete(params, self.kb_root_path)
     
     async def _tool_folder_move(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Move/rename a folder"""
-        import shutil
-        
-        source_path = params.get("source", "")
-        dest_path = params.get("destination", "")
-        
-        # Validate source path
-        is_valid, full_source, error = self._validate_safe_path(source_path)
-        if not is_valid:
-            logger.error(f"[folder_move] Invalid source: {error}")
-            return {"success": False, "error": f"Invalid source: {error}"}
-        
-        # Validate destination path
-        is_valid, full_dest, error = self._validate_safe_path(dest_path)
-        if not is_valid:
-            logger.error(f"[folder_move] Invalid destination: {error}")
-            return {"success": False, "error": f"Invalid destination: {error}"}
-        
-        try:
-            # Check if source exists
-            if not full_source.exists():
-                error_msg = f"Source folder does not exist: {source_path}"
-                logger.warning(f"[folder_move] {error_msg}")
-                return {"success": False, "error": error_msg}
-            
-            if not full_source.is_dir():
-                error_msg = f"Source is not a folder: {source_path}"
-                logger.warning(f"[folder_move] {error_msg}")
-                return {"success": False, "error": error_msg}
-            
-            # Prevent moving KB root itself
-            if full_source == self.kb_root_path:
-                error_msg = "Cannot move knowledge base root folder"
-                logger.error(f"[folder_move] {error_msg}")
-                return {"success": False, "error": error_msg}
-            
-            # Check if destination already exists
-            if full_dest.exists():
-                error_msg = f"Destination already exists: {dest_path}"
-                logger.warning(f"[folder_move] {error_msg}")
-                return {"success": False, "error": error_msg}
-            
-            # Create parent directories if needed
-            full_dest.parent.mkdir(parents=True, exist_ok=True)
-            
-            # Move folder
-            shutil.move(str(full_source), str(full_dest))
-            
-            logger.info(f"[folder_move] ✓ Moved folder: {source_path} → {dest_path}")
-            return {
-                "success": True,
-                "source": source_path,
-                "destination": dest_path,
-                "full_source": str(full_source),
-                "full_destination": str(full_dest),
-                "message": f"Folder moved successfully: {source_path} → {dest_path}"
-            }
-            
-        except Exception as e:
-            logger.error(f"[folder_move] Failed to move folder: {e}", exc_info=True)
-            return {"success": False, "error": f"Failed to move folder: {e}"}
-    
-    # ====================================================================
-    # BACKWARD COMPATIBILITY METHODS (from QwenCodeAgent)
-    # ====================================================================
+        return await tool_folder_move(params, self.kb_root_path)
     
     async def _create_todo_plan(self, content: Dict) -> TodoPlan:
         """Create a TODO plan (backward compatibility)"""
