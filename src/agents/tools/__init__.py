@@ -1,59 +1,27 @@
 """
-Tools module for autonomous agent
-Contains tool implementations organized by category
+Tools module for autonomous agent.
+
+This module contains all tools organized by category. Each tool is self-contained
+with its own metadata (name, description, schema) and implementation logic.
+
+Tool architecture:
+- BaseTool: Base class for all tools
+- ToolContext: Execution context with dependencies
+- ToolManager: Registry and executor for tools
+- Tool modules: Each module contains related tools
+
+Tools are auto-discovered by the registry and registered based on configuration.
+This ensures clean separation of concerns and single responsibility principle.
 """
 
-from .planning_tools import tool_plan_todo, tool_analyze_content
-from .kb_reading_tools import (
-    tool_kb_read_file,
-    tool_kb_list_directory,
-    tool_kb_search_files,
-    tool_kb_search_content,
-)
-from .vector_search_tools import tool_kb_vector_search, tool_kb_reindex_vector
-from .web_tools import tool_web_search
-from .git_tools import tool_git_command
-from .github_tools import tool_github_api
-from .shell_tools import tool_shell_command
-from .file_tools import (
-    tool_file_create,
-    tool_file_edit,
-    tool_file_delete,
-    tool_file_move,
-)
-from .folder_tools import (
-    tool_folder_create,
-    tool_folder_delete,
-    tool_folder_move,
-)
+from .base_tool import BaseTool, ToolContext, ToolSpec
+from .registry import ToolManager, build_default_tool_manager
 
+# Export base classes and registry
 __all__ = [
-    # Planning tools
-    "tool_plan_todo",
-    "tool_analyze_content",
-    # KB reading tools
-    "tool_kb_read_file",
-    "tool_kb_list_directory",
-    "tool_kb_search_files",
-    "tool_kb_search_content",
-    # Vector search tools
-    "tool_kb_vector_search",
-    "tool_kb_reindex_vector",
-    # Web tools
-    "tool_web_search",
-    # Git tools
-    "tool_git_command",
-    # GitHub tools
-    "tool_github_api",
-    # Shell tools
-    "tool_shell_command",
-    # File tools
-    "tool_file_create",
-    "tool_file_edit",
-    "tool_file_delete",
-    "tool_file_move",
-    # Folder tools
-    "tool_folder_create",
-    "tool_folder_delete",
-    "tool_folder_move",
+    "BaseTool",
+    "ToolContext", 
+    "ToolSpec",
+    "ToolManager",
+    "build_default_tool_manager",
 ]

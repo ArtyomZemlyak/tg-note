@@ -19,21 +19,8 @@ from loguru import logger
 
 from .base_agent import AgentResult as BaseAgentResult, BaseAgent, KBStructure
 from .llm_connectors import BaseLLMConnector, LLMResponse
-from .tools.registry import build_default_tool_manager, ToolManager
-from config.agent_prompts import (
-    QWEN_CODE_AGENT_INSTRUCTION,
-    CATEGORY_KEYWORDS,
-    DEFAULT_CATEGORY,
-    STOP_WORDS,
-    SAFE_GIT_COMMANDS,
-    DANGEROUS_SHELL_PATTERNS,
-    MAX_TITLE_LENGTH,
-    MAX_SUMMARY_LENGTH,
-    MAX_KEYWORD_COUNT,
-    MIN_KEYWORD_LENGTH,
-)
-
-# Tool logic is implemented in dedicated modules; accessed via ToolManager
+from .tools import ToolManager, build_default_tool_manager
+from config.agent_prompts import QWEN_CODE_AGENT_INSTRUCTION
 
 
 class ActionType(Enum):
@@ -961,122 +948,11 @@ class AutonomousAgent(BaseAgent):
         )
     
     # ====================================================================
-    # TOOL IMPLEMENTATIONS (Wrappers for imported tools)
+    # TOOL EXECUTION
     # ====================================================================
-    
-    async def _tool_plan_todo(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle plan_todo tool call (delegates to ToolManager)"""
-        return await self.tool_manager.execute("plan_todo", params)
-    
-    async def _tool_analyze_content(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Analyze content tool"""
-        return await self.tool_manager.execute("analyze_content", params)
-    
-    # ====================================================================
-    # KNOWLEDGE BASE READING TOOLS
-    # ====================================================================
-    
-    async def _tool_kb_read_file(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Read one or multiple files from knowledge base"""
-        return await self.tool_manager.execute("kb_read_file", params)
-    
-    async def _tool_kb_list_directory(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """List contents of a directory in knowledge base"""
-        return await self.tool_manager.execute("kb_list_directory", params)
-    
-    async def _tool_kb_search_files(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Search files and directories by name or pattern"""
-        return await self.tool_manager.execute("kb_search_files", params)
-    
-    async def _tool_kb_search_content(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Search by file contents in knowledge base"""
-        return await self.tool_manager.execute("kb_search_content", params)
-    
-    async def _tool_kb_vector_search(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Vector search in knowledge base"""
-        return await self.tool_manager.execute("kb_vector_search", params)
-    
-    async def _tool_kb_reindex_vector(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Reindex knowledge base for vector search"""
-        return await self.tool_manager.execute("kb_reindex_vector", params)
-    
-    # Security helper methods
-    
-    def _validate_safe_path(self, relative_path: str) -> tuple[bool, Optional[Path], str]:
-        """
-        Validate that path is safe and within KB root
-        
-        Args:
-            relative_path: Relative path from KB root
-        
-        Returns:
-            Tuple of (is_valid, resolved_path, error_message)
-        """
-        try:
-            # Remove any leading slashes to ensure it's treated as relative
-            relative_path = relative_path.lstrip("/").lstrip("\\")
-            
-            # Check for path traversal attempts
-            if ".." in relative_path:
-                return False, None, "Path traversal (..) is not allowed"
-            
-            # Resolve full path
-            full_path = (self.kb_root_path / relative_path).resolve()
-            
-            # Verify it's within KB root
-            try:
-                full_path.relative_to(self.kb_root_path)
-            except ValueError:
-                return False, None, f"Path must be within knowledge base root: {self.kb_root_path}"
-            
-            return True, full_path, ""
-            
-        except Exception as e:
-            return False, None, f"Invalid path: {e}"
-    
-    async def _tool_web_search(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Web search tool"""
-        return await self.tool_manager.execute("web_search", params)
-    
-    async def _tool_git_command(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Git command tool"""
-        return await self.tool_manager.execute("git_command", params)
-    
-    async def _tool_github_api(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """GitHub API tool"""
-        return await self.tool_manager.execute("github_api", params)
-    
-    async def _tool_shell_command(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Shell command tool (SECURITY RISK - disabled by default)"""
-        return await self.tool_manager.execute("shell_command", params)
-    
-    async def _tool_file_create(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Create a new file"""
-        return await self.tool_manager.execute("file_create", params)
-    
-    async def _tool_file_edit(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Edit an existing file"""
-        return await self.tool_manager.execute("file_edit", params)
-    
-    async def _tool_file_delete(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Delete a file"""
-        return await self.tool_manager.execute("file_delete", params)
-    
-    async def _tool_file_move(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Move/rename a file"""
-        return await self.tool_manager.execute("file_move", params)
-    
-    async def _tool_folder_create(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Create a new folder"""
-        return await self.tool_manager.execute("folder_create", params)
-    
-    async def _tool_folder_delete(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Delete a folder and its contents"""
-        return await self.tool_manager.execute("folder_delete", params)
-    
-    async def _tool_folder_move(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Move/rename a folder"""
-        return await self.tool_manager.execute("folder_move", params)
+    # All tools are now self-contained in their respective modules
+    # with their own metadata, schemas, and implementation.
+    # Tools are executed via ToolManager. No wrapper methods needed.
     
     async def _create_todo_plan(self, content: Dict) -> TodoPlan:
         """Create a TODO plan (backward compatibility)"""
