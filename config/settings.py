@@ -137,6 +137,24 @@ class Settings(BaseSettings):
         description="Enable folder operations (create, delete, move folders)"
     )
     
+    # MCP (Model Context Protocol) Settings (can be in YAML)
+    AGENT_ENABLE_MCP: bool = Field(
+        default=False,
+        description="Enable MCP (Model Context Protocol) tools"
+    )
+    AGENT_ENABLE_MCP_MEMORY: bool = Field(
+        default=False,
+        description="Enable MCP memory agent tool (requires mem-agent-mcp)"
+    )
+    MCP_MEMORY_PROVIDER: str = Field(
+        default="openai",
+        description="LLM provider for memory agent (openai, anthropic, etc.)"
+    )
+    MCP_MEMORY_MODEL: str = Field(
+        default="gpt-4",
+        description="Model for memory agent (e.g., gpt-4, claude-3-opus)"
+    )
+    
     # Vector Search Settings (can be in YAML)
     VECTOR_SEARCH_ENABLED: bool = Field(
         default=False,

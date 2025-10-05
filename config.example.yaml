@@ -283,6 +283,80 @@ AGENT_ENABLE_FOLDER_MANAGEMENT: true
 
 
 # ───────────────────────────────────────────────────────────────────────────────
+# MCP (Model Context Protocol) Settings (Advanced Feature)
+# ───────────────────────────────────────────────────────────────────────────────
+# MCP enables integration with external tools and services via the Model Context
+# Protocol. This allows the agent to access additional capabilities beyond built-in tools.
+#
+# ⚠️ REQUIREMENTS:
+# 1. Node.js and npm must be installed
+# 2. Install MCP servers separately (e.g., npm install -g @firstbatch/mem-agent-mcp)
+# 3. Set required API keys in .env file
+#
+# Documentation: docs_site/agents/mcp-tools.md
+
+# AGENT_ENABLE_MCP: Enable MCP (Model Context Protocol) support
+#
+# - false: MCP tools disabled (default)
+#          Agent uses only built-in tools
+#
+# - true: Enable MCP tools
+#         Allows connecting external tools via MCP protocol
+#         Requires Node.js and MCP servers to be installed
+#
+# NOTE: Individual MCP tools must be enabled separately
+AGENT_ENABLE_MCP: false
+
+# ─── Memory Agent Tool (MCP) ───────────────────────────────────────────────────
+# Intelligent memory management using the mem-agent model from HuggingFace.
+# Provides semantic memory storage and retrieval across agent sessions.
+#
+# Model: https://huggingface.co/driaforall/mem-agent
+# Server: https://github.com/firstbatchxyz/mem-agent-mcp
+#
+# Installation:
+#   npm install -g @firstbatch/mem-agent-mcp
+
+# AGENT_ENABLE_MCP_MEMORY: Enable memory agent tool
+#
+# - false: Memory agent disabled (default)
+#
+# - true: Enable intelligent memory management
+#         Agent can store and retrieve memories with semantic understanding
+#         Maintains context across multiple sessions
+#         Requires:
+#         * AGENT_ENABLE_MCP=true
+#         * mem-agent-mcp server installed (npm)
+#         * OPENAI_API_KEY or ANTHROPIC_API_KEY in .env
+#
+# Provides tools:
+# - mcp_memory_agent: Unified memory tool (store, search, list)
+# - memory_store: Store a memory
+# - memory_search: Search through memories
+AGENT_ENABLE_MCP_MEMORY: false
+
+# MCP_MEMORY_PROVIDER: LLM provider for memory agent
+#
+# Available providers:
+# - "openai": Use OpenAI API (requires OPENAI_API_KEY in .env)
+# - "anthropic": Use Anthropic API (requires ANTHROPIC_API_KEY in .env)
+#
+# NOTE: The memory agent uses LLM to understand and organize memories
+MCP_MEMORY_PROVIDER: "openai"
+
+# MCP_MEMORY_MODEL: Model to use for memory operations
+#
+# For OpenAI provider:
+# - "gpt-4": Best quality (RECOMMENDED)
+# - "gpt-3.5-turbo": Faster, cheaper
+#
+# For Anthropic provider:
+# - "claude-3-opus-20240229": Best quality
+# - "claude-3-sonnet-20240229": Balanced
+MCP_MEMORY_MODEL: "gpt-4"
+
+
+# ───────────────────────────────────────────────────────────────────────────────
 # Vector Search Settings (Advanced Feature)
 # ───────────────────────────────────────────────────────────────────────────────
 # Vector search enables semantic search capabilities in the knowledge base.
