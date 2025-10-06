@@ -518,6 +518,20 @@ class QwenCodeCLIAgent(BaseAgent):
         """Get current instruction"""
         return self.instruction
     
+    def set_working_directory(self, working_directory: str) -> None:
+        """
+        Update working directory for qwen CLI execution
+        
+        Args:
+            working_directory: Path to working directory
+        """
+        self.working_directory = working_directory
+        logger.info(f"Working directory updated to: {self.working_directory}")
+    
+    def get_working_directory(self) -> str:
+        """Get current working directory"""
+        return self.working_directory
+    
     @staticmethod
     def check_installation() -> bool:
         """
