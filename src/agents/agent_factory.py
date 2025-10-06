@@ -1,6 +1,7 @@
 """
 Agent Factory
 Factory for creating agent instances based on configuration
+Uses registry pattern for extensibility (Open/Closed Principle)
 """
 
 from pathlib import Path
@@ -12,19 +13,17 @@ from .stub_agent import StubAgent
 from .autonomous_agent import AutonomousAgent
 from .qwen_code_cli_agent import QwenCodeCLIAgent
 from .llm_connectors import OpenAIConnector
+from .agent_registry import get_registry, register_agent
 
 
 class AgentFactory:
-    """Factory for creating agent instances"""
+    """
+    Factory for creating agent instances
     
-    AGENT_TYPES = {
-        "stub": StubAgent,
-        "autonomous": AutonomousAgent,
-        "qwen_code_cli": QwenCodeCLIAgent,
-        # Backward compatibility aliases
-        "qwen_code": AutonomousAgent,  # Old qwen_code now uses autonomous agent
-        "openai": AutonomousAgent,  # Old openai agent now uses autonomous agent
-    }
+    Uses registry pattern for better extensibility:
+    - New agent types can be registered without modifying this class
+    - Follows Open/Closed Principle
+    """
     
     @classmethod
     def create_agent(
@@ -45,99 +44,14 @@ class AgentFactory:
         Raises:
             ValueError: If agent_type is not supported
         """
-        if agent_type not in cls.AGENT_TYPES:
-            raise ValueError(
-                f"Unknown agent type: {agent_type}. "
-                f"Supported types: {list(cls.AGENT_TYPES.keys())}"
-            )
-        
-        agent_class = cls.AGENT_TYPES[agent_type]
         config = config or {}
-        
         logger.info(f"Creating agent: {agent_type}")
         
-        # Create agent with appropriate parameters
-        if agent_type in ["autonomous", "qwen_code", "openai"]:
-            return cls._create_autonomous_agent(config, agent_type)
-        elif agent_type == "qwen_code_cli":
-            return cls._create_qwen_cli_agent(config)
-        else:
-            return agent_class(config=config)
-    
-    @classmethod
-    def _create_autonomous_agent(cls, config: Dict, agent_type: str) -> AutonomousAgent:
-        """
-        Create Autonomous Agent with LLM connector
+        # Get registry
+        registry = get_registry()
         
-        Args:
-            config: Configuration dictionary
-            agent_type: Original agent type (for determining connector)
-        
-        Returns:
-            AutonomousAgent instance
-        """
-        # Determine which LLM connector to use
-        llm_connector = None
-        
-        # Check if we should use OpenAI connector
-        api_key = config.get("openai_api_key") or config.get("api_key")
-        base_url = config.get("openai_base_url")
-        model = config.get("model", "gpt-3.5-turbo")
-        
-        # If we have API key, create OpenAI connector
-        if api_key:
-            try:
-                llm_connector = OpenAIConnector(
-                    api_key=api_key,
-                    base_url=base_url,
-                    model=model,
-                    config=config
-                )
-                logger.info(f"Using OpenAI connector with model: {model}")
-            except ImportError as e:
-                logger.warning(f"OpenAI connector not available: {e}")
-                logger.info("Agent will use rule-based decision making")
-        else:
-            logger.info("No API key provided, agent will use rule-based decision making")
-        
-        # Create autonomous agent
-        return AutonomousAgent(
-            llm_connector=llm_connector,
-            config=config,
-            instruction=config.get("instruction"),
-            max_iterations=config.get("max_iterations", 10),
-            enable_web_search=config.get("enable_web_search", True),
-            enable_git=config.get("enable_git", True),
-            enable_github=config.get("enable_github", True),
-            enable_shell=config.get("enable_shell", False),
-            enable_file_management=config.get("enable_file_management", True),
-            enable_folder_management=config.get("enable_folder_management", True),
-            enable_mcp=config.get("enable_mcp", False),
-            enable_mcp_memory=config.get("enable_mcp_memory", False),
-            kb_root_path=Path(config.get("kb_path", "./knowledge_base"))
-        )
-    
-    @classmethod
-    def _create_qwen_cli_agent(cls, config: Dict) -> QwenCodeCLIAgent:
-        """
-        Create Qwen Code CLI agent with full configuration
-        
-        Args:
-            config: Configuration dictionary
-        
-        Returns:
-            QwenCodeCLIAgent instance
-        """
-        return QwenCodeCLIAgent(
-            config=config,
-            instruction=config.get("instruction"),
-            qwen_cli_path=config.get("qwen_cli_path", "qwen"),
-            working_directory=config.get("working_directory"),
-            enable_web_search=config.get("enable_web_search", True),
-            enable_git=config.get("enable_git", True),
-            enable_github=config.get("enable_github", True),
-            timeout=config.get("timeout", 300)
-        )
+        # Create agent using registry
+        return registry.create(agent_type, config)
     
     @classmethod
     def from_settings(cls, settings) -> BaseAgent:
@@ -174,3 +88,98 @@ class AgentFactory:
             agent_type=settings.AGENT_TYPE,
             config=config
         )
+
+
+# Register default agent types
+def _register_default_agents():
+    """Register default agent types in the registry"""
+    registry = get_registry()
+    
+    # Register simple agents
+    registry.register("stub", agent_class=StubAgent)
+    
+    # Register agents with custom factories
+    registry.register("autonomous", factory=_create_autonomous_agent)
+    registry.register("qwen_code_cli", factory=_create_qwen_cli_agent)
+    
+    # Backward compatibility aliases
+    registry.register("qwen_code", factory=_create_autonomous_agent)
+    registry.register("openai", factory=_create_autonomous_agent)
+
+
+def _create_autonomous_agent(config: Dict) -> AutonomousAgent:
+    """
+    Create Autonomous Agent with LLM connector
+    
+    Args:
+        config: Configuration dictionary
+    
+    Returns:
+        AutonomousAgent instance
+    """
+    # Determine which LLM connector to use
+    llm_connector = None
+    
+    # Check if we should use OpenAI connector
+    api_key = config.get("openai_api_key") or config.get("api_key")
+    base_url = config.get("openai_base_url")
+    model = config.get("model", "gpt-3.5-turbo")
+    
+    # If we have API key, create OpenAI connector
+    if api_key:
+        try:
+            llm_connector = OpenAIConnector(
+                api_key=api_key,
+                base_url=base_url,
+                model=model,
+                config=config
+            )
+            logger.info(f"Using OpenAI connector with model: {model}")
+        except ImportError as e:
+            logger.warning(f"OpenAI connector not available: {e}")
+            logger.info("Agent will use rule-based decision making")
+    else:
+        logger.info("No API key provided, agent will use rule-based decision making")
+    
+    # Create autonomous agent
+    return AutonomousAgent(
+        llm_connector=llm_connector,
+        config=config,
+        instruction=config.get("instruction"),
+        max_iterations=config.get("max_iterations", 10),
+        enable_web_search=config.get("enable_web_search", True),
+        enable_git=config.get("enable_git", True),
+        enable_github=config.get("enable_github", True),
+        enable_shell=config.get("enable_shell", False),
+        enable_file_management=config.get("enable_file_management", True),
+        enable_folder_management=config.get("enable_folder_management", True),
+        enable_mcp=config.get("enable_mcp", False),
+        enable_mcp_memory=config.get("enable_mcp_memory", False),
+        kb_root_path=Path(config.get("kb_path", "./knowledge_base"))
+    )
+
+
+def _create_qwen_cli_agent(config: Dict) -> QwenCodeCLIAgent:
+    """
+    Create Qwen Code CLI agent with full configuration
+    
+    Args:
+        config: Configuration dictionary
+    
+    Returns:
+        QwenCodeCLIAgent instance
+    """
+    return QwenCodeCLIAgent(
+        config=config,
+        instruction=config.get("instruction"),
+        qwen_cli_path=config.get("qwen_cli_path", "qwen"),
+        working_directory=config.get("working_directory"),
+        enable_web_search=config.get("enable_web_search", True),
+        enable_git=config.get("enable_git", True),
+        enable_github=config.get("enable_github", True),
+        timeout=config.get("timeout", 300)
+    )
+
+
+# Register default agents on module import
+_register_default_agents()
