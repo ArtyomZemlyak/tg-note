@@ -164,10 +164,10 @@ src/services/
 
 ### Updated Bot Handlers
 
-`src/bot/handlers_refactored.py` - Simplified handlers that delegate to services:
+`src/bot/handlers.py` - Simplified handlers that delegate to services:
 
 **Before:** 830 lines with complex business logic
-**After:** ~440 lines focused on Telegram integration
+**After:** ~420 lines focused on Telegram integration
 
 ## Migration Path
 
@@ -188,14 +188,12 @@ container = create_service_container()
 telegram_bot = container.get("telegram_bot")
 ```
 
-### Backwards Compatibility
+### Migration Approach
 
-The old `BotHandlers` class is kept for backwards compatibility:
-- Located at `src/bot/handlers.py`
-- Can be gradually migrated to use new services
-
-The new refactored version is at:
-- `src/bot/handlers_refactored.py`
+The refactoring was done in place:
+- The old `BotHandlers` class in `src/bot/handlers.py` was completely refactored
+- The refactored version now uses dependency injection and delegates to services
+- All business logic was extracted to service classes
 
 ## Benefits of Refactoring
 

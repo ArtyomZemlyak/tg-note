@@ -27,8 +27,9 @@
 - [x] `src/agents/agent_registry.py`
 - [x] Updated `src/agents/agent_factory.py`
 
-### 8. ✅ Created Refactored Bot Handlers
-- [x] `src/bot/handlers_refactored.py`
+### 8. ✅ Refactored Bot Handlers
+- [x] `src/bot/handlers.py` - Refactored in place
+- [x] `src/bot/telegram_bot.py` - Updated to inject services
 
 ### 9. ✅ Created Documentation
 - [x] `SOLID_REFACTORING_GUIDE.md`
@@ -47,11 +48,12 @@
 8. `src/services/question_answering_service.py` - Q&A service
 9. `src/services/message_processor.py` - Message processor
 10. `src/agents/agent_registry.py` - Agent registry
-11. `src/bot/handlers_refactored.py` - Refactored handlers
 
-## Files Modified (1 file)
+## Files Modified (3 files)
 
 1. `src/agents/agent_factory.py` - Updated to use registry pattern
+2. `src/bot/handlers.py` - Refactored to use services and dependency injection
+3. `src/bot/telegram_bot.py` - Updated to inject services into handlers
 
 ## Documentation Files (3 files)
 
@@ -82,7 +84,7 @@
 
 | Metric | Before | After | Change |
 |--------|--------|-------|--------|
-| BotHandlers LOC | 830 | 440 | -47% |
+| BotHandlers LOC | 830 | 420 | -49% |
 | Single-responsibility classes | ~30% | ~95% | +217% |
 | Testable components | ~40% | ~100% | +150% |
 | Coupling | High | Low | ⬇️ |
