@@ -207,6 +207,10 @@ class QwenCodeCLIAgent(BaseAgent):
                     "git": self.enable_git,
                     "github": self.enable_github
                 },
+                # Добавляем информацию о файлах из AgentResult
+                "files_created": agent_result.files_created,
+                "files_edited": agent_result.files_edited,
+                "folders_created": agent_result.folders_created,
                 **agent_result.metadata  # Добавляем метаданные из ответа агента
             }
             
