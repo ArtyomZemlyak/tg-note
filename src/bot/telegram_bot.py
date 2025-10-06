@@ -68,8 +68,11 @@ class TelegramBot:
             await self.stop()
         
         try:
-            # Test bot connection
-            bot_info = await self.bot.get_me()
+            # Test bot connection with timeout
+            bot_info = await asyncio.wait_for(
+                self.bot.get_me(),
+                timeout=30  # 30 second timeout for initial connection
+            )
             logger.info(f"Bot connected: @{bot_info.username} ({bot_info.first_name})")
             
             # Start background tasks for message aggregator
@@ -85,6 +88,10 @@ class TelegramBot:
             
             logger.info("Telegram bot started successfully")
             
+        except asyncio.TimeoutError:
+            logger.error("Failed to connect to Telegram API: Connection timeout")
+            self.is_running = False
+            raise
         except ApiTelegramException as e:
             logger.error(f"Failed to connect to Telegram API: {e}")
             self.is_running = False
@@ -160,10 +167,25 @@ class TelegramBot:
         except Exception as e:
             logger.error(f"Failed to send message to {chat_id}: {e}")
     
-    async def is_healthy(self) -> bool:
-        """Check if bot is healthy (async)"""
+    async def is_healthy(self, timeout: int = 10) -> bool:
+        """Check if bot is healthy (async)
+        
+        Args:
+            timeout: Timeout in seconds for the health check (default: 10s)
+            
+        Returns:
+            True if bot is healthy, False otherwise
+        """
         try:
-            await self.bot.get_me()
+            # Use a shorter timeout for health checks to avoid blocking
+            await asyncio.wait_for(
+                self.bot.get_me(),
+                timeout=timeout
+            )
             return True
-        except Exception:
+        except asyncio.TimeoutError:
+            logger.warning(f"Health check timed out after {timeout}s")
+            return False
+        except Exception as e:
+            logger.warning(f"Health check failed: {e}")
             return False
