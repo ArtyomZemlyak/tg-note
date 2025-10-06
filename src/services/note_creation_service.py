@@ -171,44 +171,71 @@ class NoteCreationService(INoteCreationService):
             message_id=processing_msg.message_id
         )
         
-        # Extract and validate required fields
+        # Extract metadata from processed content
+        metadata = processed_content.get('metadata', {})
         kb_structure = processed_content.get('kb_structure')
         title = processed_content.get('title', 'Untitled Note')
-        markdown = processed_content.get('markdown')
-        metadata = processed_content.get('metadata')
         
-        if not kb_structure:
-            raise ValueError("Agent did not return kb_structure")
+        # Get files created/edited by agent
+        files_created = metadata.get('files_created', [])
+        files_edited = metadata.get('files_edited', [])
+        folders_created = metadata.get('folders_created', [])
         
-        if not markdown:
-            raise ValueError("Agent did not return markdown content")
+        # Agent может ничего не создать - это нормально
+        # (например, агент просто проанализировал и решил, что создавать нечего)
         
-            # Create article
-            kb_file = kb_manager.create_article(
-                content=markdown,
-                title=title,
-                kb_structure=kb_structure,
-                metadata=metadata
-            )
-            
-            # Add kb_file to processed_content for tracking and notifications
-            processed_content['kb_file'] = kb_file
-            
-            # Update index
-            kb_manager.update_index(kb_file, title, kb_structure)
+        # Update index for all created files
+        if files_created and kb_structure:
+            for file_path in files_created:
+                # Convert to absolute path if relative
+                abs_path = Path(file_path)
+                if not abs_path.is_absolute():
+                    abs_path = kb_path / file_path
+                
+                # Only add to index if it's a markdown file
+                if abs_path.suffix == '.md' and abs_path.exists():
+                    # Extract title from file if possible, otherwise use main title
+                    file_title = self._extract_title_from_file(abs_path) or title
+                    kb_manager.update_index(abs_path, file_title, kb_structure)
         
         # Git operations
-        if git_ops.enabled:
+        if git_ops.enabled and (files_created or files_edited):
             kb_git_auto_push = self.settings_manager.get_setting(user_id, "KB_GIT_AUTO_PUSH")
             kb_git_remote = self.settings_manager.get_setting(user_id, "KB_GIT_REMOTE")
             kb_git_branch = self.settings_manager.get_setting(user_id, "KB_GIT_BRANCH")
             
-            git_ops.add(str(kb_file))
-            git_ops.add(str(kb_path / "index.md"))
-            git_ops.commit(f"Add article: {title}")
+            # Add all created and edited files to git
+            all_files = files_created + files_edited
+            files_added = False
             
-            if kb_git_auto_push:
-                git_ops.push(kb_git_remote, kb_git_branch)
+            for file_path in all_files:
+                abs_path = Path(file_path)
+                if not abs_path.is_absolute():
+                    abs_path = kb_path / file_path
+                if abs_path.exists():
+                    git_ops.add(str(abs_path))
+                    files_added = True
+            
+            # Add index if it was updated
+            index_path = kb_path / "index.md"
+            if index_path.exists() and files_created:
+                git_ops.add(str(index_path))
+                files_added = True
+            
+            # Only commit if we actually added files
+            if files_added:
+                # Create commit message
+                if len(files_created) == 1:
+                    commit_msg = f"Add: {title}"
+                elif files_created:
+                    commit_msg = f"Add {len(files_created)} files: {title}"
+                else:
+                    commit_msg = f"Update {len(files_edited)} files: {title}"
+                
+                git_ops.commit(commit_msg)
+                
+                if kb_git_auto_push:
+                    git_ops.push(kb_git_remote, kb_git_branch)
     
     def _track_processed(
         self,
@@ -227,12 +254,10 @@ class NoteCreationService(INoteCreationService):
         chat_id = first_message.get('chat_id')
         
         if message_ids and chat_id:
-            kb_file = processed_content.get('kb_file', 'unknown')
             self.tracker.add_processed(
                 content_hash=content_hash,
                 message_ids=message_ids,
                 chat_id=chat_id,
-                kb_file=str(kb_file),
                 status="completed"
             )
     
@@ -245,7 +270,6 @@ class NoteCreationService(INoteCreationService):
         """Send success notification"""
         kb_structure = processed_content.get('kb_structure')
         title = processed_content.get('title', 'Untitled')
-        kb_file = processed_content.get('kb_file')
         metadata = processed_content.get('metadata', {})
         
         category_str = kb_structure.category if kb_structure else "unknown"
@@ -256,8 +280,8 @@ class NoteCreationService(INoteCreationService):
         
         # Формируем сообщение
         message_parts = [
-            "✅ Сообщение успешно обработано и сохранено!\n",
-            f"📁 Файл: `{Path(kb_file).name if kb_file else 'unknown'}`",
+            "✅ Сообщение успешно обработано!\n",
+            f"📝 Заголовок: `{title}`",
             f"📂 Категория: `{category_str}`",
             f"🏷 Теги: {', '.join(tags) if tags else 'нет'}"
         ]
@@ -312,3 +336,32 @@ class NoteCreationService(INoteCreationService):
             )
         except Exception:
             pass
+    
+    def _extract_title_from_file(self, file_path: Path) -> Optional[str]:
+        """Extract title from markdown file (first # heading)"""
+        try:
+            content = file_path.read_text(encoding='utf-8')
+            lines = content.strip().split('\n')
+            
+            for line in lines:
+                line = line.strip()
+                if line.startswith('# '):
+                    return line[2:].strip()
+            
+            # Try to extract from frontmatter
+            if content.startswith('---'):
+                import yaml
+                try:
+                    # Extract YAML frontmatter
+                    parts = content.split('---', 2)
+                    if len(parts) >= 3:
+                        frontmatter = yaml.safe_load(parts[1])
+                        if isinstance(frontmatter, dict) and 'title' in frontmatter:
+                            return frontmatter['title']
+                except:
+                    pass
+            
+            return None
+        except Exception as e:
+            self.logger.debug(f"Failed to extract title from {file_path}: {e}")
+            return None

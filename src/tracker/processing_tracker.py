@@ -72,7 +72,6 @@ class ProcessingTracker:
         content_hash: str,
         message_ids: List[int],
         chat_id: int,
-        kb_file: Optional[str] = None,
         status: str = "completed"
     ) -> None:
         """
@@ -82,7 +81,6 @@ class ProcessingTracker:
             content_hash: SHA256 hash of content
             message_ids: List of message IDs
             chat_id: Telegram chat ID
-            kb_file: Path to knowledge base file
             status: Processing status
         """
         data = self._read_data()
@@ -92,14 +90,13 @@ class ProcessingTracker:
             "chat_id": chat_id,
             "content_hash": content_hash,
             "processed_at": datetime.now().isoformat(),
-            "status": status,
-            "kb_file": kb_file
+            "status": status
         }
         
         data["processed_messages"].append(entry)
         self._write_data(data)
         
-        logger.info(f"Added processed message: {content_hash[:8]}")
+        logger.info(f"Added processed message: hash={content_hash[:8]}, messages={message_ids}")
     
     def add_pending_group(self, group_id: str, message_ids: List[int]) -> None:
         """
