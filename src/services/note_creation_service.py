@@ -183,16 +183,19 @@ class NoteCreationService(INoteCreationService):
         if not markdown:
             raise ValueError("Agent did not return markdown content")
         
-        # Create article
-        kb_file = kb_manager.create_article(
-            content=markdown,
-            title=title,
-            kb_structure=kb_structure,
-            metadata=metadata
-        )
-        
-        # Update index
-        kb_manager.update_index(kb_file, title, kb_structure)
+            # Create article
+            kb_file = kb_manager.create_article(
+                content=markdown,
+                title=title,
+                kb_structure=kb_structure,
+                metadata=metadata
+            )
+            
+            # Add kb_file to processed_content for tracking and notifications
+            processed_content['kb_file'] = kb_file
+            
+            # Update index
+            kb_manager.update_index(kb_file, title, kb_structure)
         
         # Git operations
         if git_ops.enabled:
@@ -243,6 +246,7 @@ class NoteCreationService(INoteCreationService):
         kb_structure = processed_content.get('kb_structure')
         title = processed_content.get('title', 'Untitled')
         kb_file = processed_content.get('kb_file')
+        metadata = processed_content.get('metadata', {})
         
         category_str = kb_structure.category if kb_structure else "unknown"
         if kb_structure and kb_structure.subcategory:
@@ -250,11 +254,45 @@ class NoteCreationService(INoteCreationService):
         
         tags = kb_structure.tags if kb_structure else []
         
+        # Формируем сообщение
+        message_parts = [
+            "✅ Сообщение успешно обработано и сохранено!\n",
+            f"📁 Файл: `{Path(kb_file).name if kb_file else 'unknown'}`",
+            f"📂 Категория: `{category_str}`",
+            f"🏷 Теги: {', '.join(tags) if tags else 'нет'}"
+        ]
+        
+        # Добавляем информацию о созданных файлах из метаданных агента
+        files_created = metadata.get('files_created', [])
+        files_edited = metadata.get('files_edited', [])
+        folders_created = metadata.get('folders_created', [])
+        
+        if files_created or files_edited or folders_created:
+            message_parts.append("\n📝 **Изменения:**")
+            
+            if files_created:
+                message_parts.append(f"  ✨ Создано файлов: {len(files_created)}")
+                for file in files_created[:5]:  # Показываем первые 5
+                    message_parts.append(f"    • `{file}`")
+                if len(files_created) > 5:
+                    message_parts.append(f"    • ... и ещё {len(files_created) - 5}")
+            
+            if files_edited:
+                message_parts.append(f"  ✏️ Изменено файлов: {len(files_edited)}")
+                for file in files_edited[:5]:  # Показываем первые 5
+                    message_parts.append(f"    • `{file}`")
+                if len(files_edited) > 5:
+                    message_parts.append(f"    • ... и ещё {len(files_edited) - 5}")
+            
+            if folders_created:
+                message_parts.append(f"  📁 Создано папок: {len(folders_created)}")
+                for folder in folders_created[:5]:  # Показываем первые 5
+                    message_parts.append(f"    • `{folder}`")
+                if len(folders_created) > 5:
+                    message_parts.append(f"    • ... и ещё {len(folders_created) - 5}")
+        
         await self.bot.edit_message_text(
-            f"✅ Сообщение успешно обработано и сохранено!\n\n"
-            f"📁 Файл: `{Path(kb_file).name if kb_file else 'unknown'}`\n"
-            f"📂 Категория: `{category_str}`\n"
-            f"🏷 Теги: {', '.join(tags) if tags else 'нет'}",
+            "\n".join(message_parts),
             chat_id=processing_msg.chat.id,
             message_id=processing_msg.message_id,
             parse_mode='Markdown'

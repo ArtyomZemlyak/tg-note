@@ -367,11 +367,35 @@ class AutonomousAgent(BaseAgent):
         
         logger.info(f"[AutonomousAgent] Completed in {result.iterations} iterations")
         
+        # Извлечь информацию о файлах из контекста для summary
+        files_created = []
+        files_edited = []
+        folders_created = []
+        
+        for execution in result.context.executions:
+            if execution.tool_name == "file_create" and execution.success:
+                if isinstance(execution.result, dict):
+                    files_created.append(execution.result.get("path", "unknown"))
+            elif execution.tool_name == "file_edit" and execution.success:
+                if isinstance(execution.result, dict):
+                    files_edited.append(execution.result.get("path", "unknown"))
+            elif execution.tool_name == "folder_create" and execution.success:
+                if isinstance(execution.result, dict):
+                    folders_created.append(execution.result.get("path", "unknown"))
+        
+        # Добавить информацию о файлах в метаданные
+        metadata_with_files = {
+            **result.metadata,
+            "files_created": files_created,
+            "files_edited": files_edited,
+            "folders_created": folders_created
+        }
+        
         return {
             "markdown": result.markdown,
             "title": result.title,
             "kb_structure": result.kb_structure,
-            "metadata": result.metadata
+            "metadata": metadata_with_files
         }
     
     def _prepare_task(self, content: Dict) -> str:
