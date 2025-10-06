@@ -32,6 +32,14 @@ class NoteCreationService(INoteCreationService):
     - Track processed messages
     """
     
+    @staticmethod
+    def _escape_markdown(text: str) -> str:
+        """Escape special characters for Telegram Markdown"""
+        special_chars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
+        for char in special_chars:
+            text = text.replace(char, '\\' + char)
+        return text
+    
     def __init__(
         self,
         bot: AsyncTeleBot,
@@ -279,11 +287,16 @@ class NoteCreationService(INoteCreationService):
         tags = kb_structure.tags if kb_structure else []
         
         # Формируем сообщение
+        # Экранируем спецсимволы Markdown для безопасного вывода
+        safe_title = self._escape_markdown(title)
+        safe_category = self._escape_markdown(category_str)
+        safe_tags = self._escape_markdown(', '.join(tags)) if tags else 'нет'
+        
         message_parts = [
             "✅ Сообщение успешно обработано!\n",
-            f"📝 Заголовок: `{title}`",
-            f"📂 Категория: `{category_str}`",
-            f"🏷 Теги: {', '.join(tags) if tags else 'нет'}"
+            f"📝 Заголовок: {safe_title}",
+            f"📂 Категория: {safe_category}",
+            f"🏷 Теги: {safe_tags}"
         ]
         
         # Добавляем информацию о созданных файлах из метаданных агента
@@ -292,28 +305,31 @@ class NoteCreationService(INoteCreationService):
         folders_created = metadata.get('folders_created', [])
         
         if files_created or files_edited or folders_created:
-            message_parts.append("\n📝 **Изменения:**")
+            message_parts.append("\n📝 *Изменения:*")
             
             if files_created:
                 message_parts.append(f"  ✨ Создано файлов: {len(files_created)}")
                 for file in files_created[:5]:  # Показываем первые 5
-                    message_parts.append(f"    • `{file}`")
+                    safe_file = self._escape_markdown(file)
+                    message_parts.append(f"    • {safe_file}")
                 if len(files_created) > 5:
-                    message_parts.append(f"    • ... и ещё {len(files_created) - 5}")
+                    message_parts.append(f"    • \.\.\. и ещё {len(files_created) - 5}")
             
             if files_edited:
                 message_parts.append(f"  ✏️ Изменено файлов: {len(files_edited)}")
                 for file in files_edited[:5]:  # Показываем первые 5
-                    message_parts.append(f"    • `{file}`")
+                    safe_file = self._escape_markdown(file)
+                    message_parts.append(f"    • {safe_file}")
                 if len(files_edited) > 5:
-                    message_parts.append(f"    • ... и ещё {len(files_edited) - 5}")
+                    message_parts.append(f"    • \.\.\. и ещё {len(files_edited) - 5}")
             
             if folders_created:
                 message_parts.append(f"  📁 Создано папок: {len(folders_created)}")
                 for folder in folders_created[:5]:  # Показываем первые 5
-                    message_parts.append(f"    • `{folder}`")
+                    safe_folder = self._escape_markdown(folder)
+                    message_parts.append(f"    • {safe_folder}")
                 if len(folders_created) > 5:
-                    message_parts.append(f"    • ... и ещё {len(folders_created) - 5}")
+                    message_parts.append(f"    • \.\.\. и ещё {len(folders_created) - 5}")
         
         await self.bot.edit_message_text(
             "\n".join(message_parts),
@@ -329,6 +345,7 @@ class NoteCreationService(INoteCreationService):
     ) -> None:
         """Send error notification"""
         try:
+            # Don't use parse_mode for error messages to avoid parsing issues
             await self.bot.edit_message_text(
                 f"❌ Ошибка обработки сообщения: {error_message}",
                 chat_id=processing_msg.chat.id,
