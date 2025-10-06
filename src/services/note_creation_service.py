@@ -32,14 +32,6 @@ class NoteCreationService(INoteCreationService):
     - Track processed messages
     """
     
-    @staticmethod
-    def _escape_markdown(text: str) -> str:
-        """Escape special characters for Telegram Markdown"""
-        special_chars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
-        for char in special_chars:
-            text = text.replace(char, '\\' + char)
-        return text
-    
     def __init__(
         self,
         bot: AsyncTeleBot,
@@ -277,26 +269,15 @@ class NoteCreationService(INoteCreationService):
     ) -> None:
         """Send success notification"""
         kb_structure = processed_content.get('kb_structure')
-        title = processed_content.get('title', 'Untitled')
         metadata = processed_content.get('metadata', {})
         
-        category_str = kb_structure.category if kb_structure else "unknown"
-        if kb_structure and kb_structure.subcategory:
-            category_str += f"/{kb_structure.subcategory}"
-        
         tags = kb_structure.tags if kb_structure else []
+        tags_str = ', '.join(tags) if tags else 'нет'
         
         # Формируем сообщение
-        # Экранируем спецсимволы Markdown для безопасного вывода
-        safe_title = self._escape_markdown(title)
-        safe_category = self._escape_markdown(category_str)
-        safe_tags = self._escape_markdown(', '.join(tags)) if tags else 'нет'
-        
         message_parts = [
             "✅ Сообщение успешно обработано!\n",
-            f"📝 Заголовок: {safe_title}",
-            f"📂 Категория: {safe_category}",
-            f"🏷 Теги: {safe_tags}"
+            f"🏷 Теги: {tags_str}"
         ]
         
         # Добавляем информацию о созданных файлах из метаданных агента
@@ -304,38 +285,58 @@ class NoteCreationService(INoteCreationService):
         files_edited = metadata.get('files_edited', [])
         folders_created = metadata.get('folders_created', [])
         
-        if files_created or files_edited or folders_created:
-            message_parts.append("\n📝 *Изменения:*")
+        # Убираем дублирование: если файл создан, не показываем его в изменённых
+        files_created_set = set(files_created)
+        files_edited_unique = [f for f in files_edited if f not in files_created_set]
+        
+        if files_created or files_edited_unique or folders_created:
+            message_parts.append("\n📝 Изменения:")
             
             if files_created:
                 message_parts.append(f"  ✨ Создано файлов: {len(files_created)}")
                 for file in files_created[:5]:  # Показываем первые 5
-                    safe_file = self._escape_markdown(file)
-                    message_parts.append(f"    • {safe_file}")
+                    message_parts.append(f"    • {file}")
                 if len(files_created) > 5:
-                    message_parts.append(f"    • \.\.\. и ещё {len(files_created) - 5}")
+                    message_parts.append(f"    • ... и ещё {len(files_created) - 5}")
             
-            if files_edited:
-                message_parts.append(f"  ✏️ Изменено файлов: {len(files_edited)}")
-                for file in files_edited[:5]:  # Показываем первые 5
-                    safe_file = self._escape_markdown(file)
-                    message_parts.append(f"    • {safe_file}")
-                if len(files_edited) > 5:
-                    message_parts.append(f"    • \.\.\. и ещё {len(files_edited) - 5}")
+            if files_edited_unique:
+                message_parts.append(f"  ✏️ Изменено файлов: {len(files_edited_unique)}")
+                for file in files_edited_unique[:5]:  # Показываем первые 5
+                    message_parts.append(f"    • {file}")
+                if len(files_edited_unique) > 5:
+                    message_parts.append(f"    • ... и ещё {len(files_edited_unique) - 5}")
             
             if folders_created:
                 message_parts.append(f"  📁 Создано папок: {len(folders_created)}")
                 for folder in folders_created[:5]:  # Показываем первые 5
-                    safe_folder = self._escape_markdown(folder)
-                    message_parts.append(f"    • {safe_folder}")
+                    message_parts.append(f"    • {folder}")
                 if len(folders_created) > 5:
-                    message_parts.append(f"    • \.\.\. и ещё {len(folders_created) - 5}")
+                    message_parts.append(f"    • ... и ещё {len(folders_created) - 5}")
+        
+        # Добавляем блок связей
+        links = metadata.get('links', []) or metadata.get('relations', [])
+        if links:
+            message_parts.append("\n🔗 Связи:")
+            for link in links[:10]:  # Показываем первые 10
+                if isinstance(link, dict):
+                    # Если связь это dict с полями 'file' и 'description'
+                    file_path = link.get('file', '')
+                    description = link.get('description', '')
+                    if file_path:
+                        if description:
+                            message_parts.append(f"  • {file_path} - {description}")
+                        else:
+                            message_parts.append(f"  • {file_path}")
+                else:
+                    # Если связь это просто строка
+                    message_parts.append(f"  • {link}")
+            if len(links) > 10:
+                message_parts.append(f"  • ... и ещё {len(links) - 10}")
         
         await self.bot.edit_message_text(
             "\n".join(message_parts),
             chat_id=processing_msg.chat.id,
-            message_id=processing_msg.message_id,
-            parse_mode='Markdown'
+            message_id=processing_msg.message_id
         )
     
     async def _send_error_notification(
