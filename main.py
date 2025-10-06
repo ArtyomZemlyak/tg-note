@@ -106,9 +106,17 @@ async def main():
         sys.exit(1)
 
 
-if __name__ == "__main__":
+def cli_main():
+    """
+    Console script entry point for tg-note command
+    This is a synchronous wrapper for the async main function
+    """
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
         print("\nShutdown complete")
         sys.exit(0)
+
+
+if __name__ == "__main__":
+    cli_main()

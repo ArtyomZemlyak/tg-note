@@ -73,7 +73,7 @@ Homepage = "https://github.com/ArtyomZemlyak/tg-note"
 Repository = "https://github.com/ArtyomZemlyak/tg-note"
 
 [project.scripts]
-tg-note = "main:main"
+tg-note = "main:cli_main"
 
 [tool.poetry]
 packages = [
