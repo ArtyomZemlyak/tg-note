@@ -1,0 +1,159 @@
+"""
+User Context Manager Service
+Manages user-specific contexts (aggregators, agents, modes)
+Follows Single Responsibility Principle
+"""
+
+from typing import Any, Dict
+from loguru import logger
+
+from src.services.interfaces import IUserContextManager
+from src.processor.message_aggregator import MessageAggregator
+from src.agents.agent_factory import AgentFactory
+from src.bot.settings_manager import SettingsManager
+
+
+class UserContextManager(IUserContextManager):
+    """
+    Manages user-specific contexts
+    
+    Responsibilities:
+    - Create and cache user-specific message aggregators
+    - Create and cache user-specific agents
+    - Manage user modes (note/ask)
+    - Invalidate user caches when settings change
+    """
+    
+    def __init__(
+        self,
+        settings_manager: SettingsManager,
+        timeout_callback=None
+    ):
+        """
+        Initialize user context manager
+        
+        Args:
+            settings_manager: Settings manager for user-specific settings
+            timeout_callback: Callback for message aggregator timeouts
+        """
+        self.settings_manager = settings_manager
+        self.timeout_callback = timeout_callback
+        
+        # User-specific caches
+        self.user_aggregators: Dict[int, MessageAggregator] = {}
+        self.user_agents: Dict[int, Any] = {}
+        self.user_modes: Dict[int, str] = {}
+        
+        self.logger = logger
+        self.logger.info("UserContextManager initialized")
+    
+    def get_or_create_aggregator(self, user_id: int) -> MessageAggregator:
+        """
+        Get or create message aggregator for a user
+        
+        Args:
+            user_id: User ID
+        
+        Returns:
+            MessageAggregator instance for the user
+        """
+        if user_id not in self.user_aggregators:
+            timeout = self.settings_manager.get_setting(user_id, "MESSAGE_GROUP_TIMEOUT")
+            self.logger.info(f"Creating MessageAggregator for user {user_id} with timeout {timeout}s")
+            
+            aggregator = MessageAggregator(timeout)
+            if self.timeout_callback:
+                aggregator.set_timeout_callback(self.timeout_callback)
+            aggregator.start_background_task()
+            
+            self.user_aggregators[user_id] = aggregator
+        
+        return self.user_aggregators[user_id]
+    
+    def get_or_create_agent(self, user_id: int):
+        """
+        Get or create agent for a user
+        
+        Args:
+            user_id: User ID
+        
+        Returns:
+            Agent instance for the user
+        """
+        if user_id not in self.user_agents:
+            # Get user-specific agent settings
+            config = {
+                "api_key": self.settings_manager.get_setting(user_id, "QWEN_API_KEY"),
+                "openai_api_key": self.settings_manager.get_setting(user_id, "OPENAI_API_KEY"),
+                "openai_base_url": self.settings_manager.get_setting(user_id, "OPENAI_BASE_URL"),
+                "github_token": self.settings_manager.get_setting(user_id, "GITHUB_TOKEN"),
+                "model": self.settings_manager.get_setting(user_id, "AGENT_MODEL"),
+                "instruction": self.settings_manager.get_setting(user_id, "AGENT_INSTRUCTION"),
+                "enable_web_search": self.settings_manager.get_setting(user_id, "AGENT_ENABLE_WEB_SEARCH"),
+                "enable_git": self.settings_manager.get_setting(user_id, "AGENT_ENABLE_GIT"),
+                "enable_github": self.settings_manager.get_setting(user_id, "AGENT_ENABLE_GITHUB"),
+                "enable_shell": self.settings_manager.get_setting(user_id, "AGENT_ENABLE_SHELL"),
+                "qwen_cli_path": self.settings_manager.get_setting(user_id, "AGENT_QWEN_CLI_PATH"),
+                "timeout": self.settings_manager.get_setting(user_id, "AGENT_TIMEOUT"),
+            }
+            
+            agent_type = self.settings_manager.get_setting(user_id, "AGENT_TYPE")
+            self.logger.info(f"Creating agent for user {user_id}: {agent_type}")
+            
+            agent = AgentFactory.create_agent(agent_type=agent_type, config=config)
+            self.user_agents[user_id] = agent
+        
+        return self.user_agents[user_id]
+    
+    def get_user_mode(self, user_id: int) -> str:
+        """
+        Get current mode for user
+        
+        Args:
+            user_id: User ID
+        
+        Returns:
+            User mode ('note' or 'ask')
+        """
+        return self.user_modes.get(user_id, "note")
+    
+    def set_user_mode(self, user_id: int, mode: str) -> None:
+        """
+        Set mode for user
+        
+        Args:
+            user_id: User ID
+            mode: Mode to set ('note' or 'ask')
+        """
+        self.user_modes[user_id] = mode
+        self.logger.info(f"User {user_id} switched to {mode} mode")
+    
+    def invalidate_cache(self, user_id: int) -> None:
+        """
+        Invalidate cached user-specific components
+        
+        Args:
+            user_id: User ID
+        """
+        self.logger.info(f"Invalidating cache for user {user_id}")
+        
+        # Stop and remove user's message aggregator
+        if user_id in self.user_aggregators:
+            self.user_aggregators[user_id].stop_background_task()
+            del self.user_aggregators[user_id]
+        
+        # Remove user's agent
+        if user_id in self.user_agents:
+            del self.user_agents[user_id]
+    
+    def cleanup(self) -> None:
+        """Cleanup all user contexts"""
+        self.logger.info("Cleaning up all user contexts")
+        
+        # Stop all user aggregators
+        for aggregator in self.user_aggregators.values():
+            aggregator.stop_background_task()
+        
+        self.user_aggregators.clear()
+        self.user_agents.clear()
+        self.user_modes.clear()
