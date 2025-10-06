@@ -32,7 +32,7 @@ The codebase has been refactored to follow SOLID principles, resulting in better
 - `BotHandlers` class: 830 lines, multiple responsibilities
 
 **After:**
-- `BotHandlers` (refactored): ~440 lines, focused on Telegram integration
+- `BotHandlers` (refactored): ~420 lines, focused on Telegram integration
 - 4 focused service classes, each with single responsibility
 
 ### 3. Implemented Registry Pattern (Open/Closed Principle) ✅
@@ -59,15 +59,16 @@ registry = get_registry()
 return registry.create(agent_type, config)
 ```
 
-### 4. Created Refactored Bot Handlers ✅
+### 4. Refactored Bot Handlers ✅
 
-#### Files Created:
-- `src/bot/handlers_refactored.py` - New handlers using services
+#### Files Modified:
+- `src/bot/handlers.py` - Refactored to use services
+- `src/bot/telegram_bot.py` - Updated to inject services
 
 **Key Improvements:**
 - Delegates business logic to services
 - Depends on interfaces, not implementations
-- Much cleaner and easier to understand
+- Much cleaner and easier to understand (reduced from 830 to ~420 lines)
 
 ### 5. Documentation ✅
 

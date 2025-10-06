@@ -10,10 +10,7 @@ from loguru import logger
 
 from config import settings
 from config.logging_config import setup_logging
-from src.tracker.processing_tracker import ProcessingTracker
-from src.knowledge_base.repository import RepositoryManager
-from src.knowledge_base.user_settings import UserSettings
-from src.bot.telegram_bot import TelegramBot
+from src.core.service_container import create_service_container
 
 
 def validate_configuration():
@@ -51,24 +48,19 @@ async def main():
     
     telegram_bot = None
     try:
-        # Initialize Processing Tracker
-        tracker = ProcessingTracker(str(settings.PROCESSED_LOG_PATH))
-        logger.info(f"Processing tracker initialized: {settings.PROCESSED_LOG_PATH}")
+        # Create and configure service container
+        container = create_service_container()
+        logger.info("Service container created and configured")
         
-        # Initialize Repository Manager
-        repo_manager = RepositoryManager(base_path="./knowledge_bases")
-        logger.info("Repository manager initialized")
-        
-        # Initialize User Settings
-        user_settings = UserSettings(settings_file="./data/user_settings.json")
-        logger.info("User settings manager initialized")
+        # Get services from container
+        telegram_bot = container.get("telegram_bot")
+        tracker = container.get("tracker")
         
         # Get initial stats
         stats = tracker.get_stats()
         logger.info(f"Processing stats: {stats}")
         
-        # Initialize Telegram Bot (async)
-        telegram_bot = TelegramBot(tracker, repo_manager, user_settings)
+        # Start Telegram Bot (async)
         await telegram_bot.start()
         logger.info("Telegram bot started successfully")
         
