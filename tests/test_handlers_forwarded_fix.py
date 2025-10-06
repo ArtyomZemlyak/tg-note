@@ -9,6 +9,7 @@ from telebot.types import Message, User, Chat
 
 from src.bot.handlers import BotHandlers
 from src.bot.settings_handlers import SettingsHandlers
+from src.tracker.processing_tracker import ProcessingTracker
 
 
 class TestHandlersForwardedMessageFix:
@@ -25,8 +26,7 @@ class TestHandlersForwardedMessageFix:
     
     @pytest.fixture
     def mock_tracker(self):
-        """Create mock tracker"""
-        return Mock()
+        return Mock(spec=ProcessingTracker)
     
     @pytest.fixture
     def mock_repo_manager(self):
@@ -44,9 +44,50 @@ class TestHandlersForwardedMessageFix:
         return SettingsHandlers(mock_bot, handlers=None)
     
     @pytest.fixture
-    def handlers(self, mock_bot, mock_tracker, mock_repo_manager, mock_user_settings, settings_handlers):
+    def mock_settings_manager(self):
+        m = Mock()
+        m.get_setting = Mock(return_value=False)
+        return m
+
+    @pytest.fixture
+    def mock_user_context(self):
+        m = Mock()
+        m.get_user_mode = Mock(return_value="note")
+        m.set_user_mode = Mock()
+        m.invalidate_cache = Mock()
+        m.cleanup = Mock()
+        return m
+
+    @pytest.fixture
+    def mock_message_processor(self):
+        m = Mock()
+        m.process_message = AsyncMock()
+        m.process_message_group = AsyncMock()
+        return m
+
+    @pytest.fixture
+    def handlers(
+        self,
+        mock_bot,
+        mock_tracker,
+        mock_repo_manager,
+        mock_user_settings,
+        mock_settings_manager,
+        mock_user_context,
+        mock_message_processor,
+        settings_handlers,
+    ):
         """Create handlers instance with settings_handlers"""
-        h = BotHandlers(mock_bot, mock_tracker, mock_repo_manager, mock_user_settings, None)
+        h = BotHandlers(
+            bot=mock_bot,
+            tracker=mock_tracker,
+            repo_manager=mock_repo_manager,
+            user_settings=mock_user_settings,
+            settings_manager=mock_settings_manager,
+            user_context_manager=mock_user_context,
+            message_processor=mock_message_processor,
+            settings_handlers=None,
+        )
         h.settings_handlers = settings_handlers
         return h
     
@@ -119,20 +160,11 @@ class TestHandlersForwardedMessageFix:
         test_message.forward_from = Mock()
         test_message.forward_date = 1234567890
         
-        # Mock reply_to to return processing message
-        processing_msg = Mock(spec=Message)
-        processing_msg.chat = test_message.chat
-        processing_msg.message_id = 999
-        mock_bot.reply_to.return_value = processing_msg
-        
         # Call handler
         await handlers.handle_forwarded_message(test_message)
         
-        # Verify that processing started (reply_to called for "Processing..." message)
-        assert mock_bot.reply_to.called
-        # First call should be the processing notification
-        first_call_args = mock_bot.reply_to.call_args_list[0][0]
-        assert "Обрабатываю" in first_call_args[1]
+        # Verify that message processor was called
+        handlers.message_processor.process_message.assert_awaited_once_with(test_message)
     
     @pytest.mark.asyncio
     async def test_photo_message_ignored_during_settings_input(self, handlers, test_message, mock_bot):

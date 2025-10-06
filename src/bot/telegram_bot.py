@@ -9,32 +9,47 @@ from telebot.async_telebot import AsyncTeleBot
 from telebot.apihelper import ApiTelegramException
 from loguru import logger
 
-from config import settings
 from src.bot.handlers import BotHandlers
 from src.bot.settings_handlers import SettingsHandlers
 from src.tracker.processing_tracker import ProcessingTracker
 from src.knowledge_base.repository import RepositoryManager
 from src.knowledge_base.user_settings import UserSettings
+from src.bot.settings_manager import SettingsManager
+from src.services.interfaces import IUserContextManager, IMessageProcessor
 
 
 class TelegramBot:
     """Main Telegram bot class with async support"""
     
     def __init__(
-        self, 
+        self,
+        bot: AsyncTeleBot,
         tracker: ProcessingTracker,
         repo_manager: RepositoryManager,
-        user_settings: UserSettings
+        user_settings: UserSettings,
+        settings_manager: SettingsManager,
+        user_context_manager: IUserContextManager,
+        message_processor: IMessageProcessor,
     ):
+        self.bot = bot
         self.tracker = tracker
         self.repo_manager = repo_manager
         self.user_settings = user_settings
-        
-        # Initialize async bot
-        self.bot = AsyncTeleBot(settings.TELEGRAM_BOT_TOKEN)
+        self.settings_manager = settings_manager
+        self.user_context_manager = user_context_manager
+        self.message_processor = message_processor
         
         # Initialize handlers (with cross-references for cache invalidation)
-        self.handlers = BotHandlers(self.bot, tracker, repo_manager, user_settings, None)
+        self.handlers = BotHandlers(
+            bot=self.bot,
+            tracker=tracker,
+            repo_manager=repo_manager,
+            user_settings=user_settings,
+            settings_manager=settings_manager,
+            user_context_manager=user_context_manager,
+            message_processor=message_processor,
+            settings_handlers=None,
+        )
         self.settings_handlers = SettingsHandlers(self.bot, self.handlers)
         # Update the settings_handlers reference in handlers
         self.handlers.settings_handlers = self.settings_handlers

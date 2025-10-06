@@ -1,52 +1,69 @@
 """
-Telegram Bot Handlers
+Telegram Bot Handlers (Refactored)
 Handles all incoming message events from Telegram (fully async)
+Follows SOLID principles - uses services for business logic
 """
 
 from loguru import logger
-from typing import Dict, Any, Optional
 from telebot.async_telebot import AsyncTeleBot
 from telebot.types import Message
 
-from config import settings
-from src.processor.message_aggregator import MessageAggregator, MessageGroup
-from src.processor.content_parser import ContentParser
-from src.agents.agent_factory import AgentFactory
-from src.knowledge_base.manager import KnowledgeBaseManager
+from src.tracker.processing_tracker import ProcessingTracker
 from src.knowledge_base.repository import RepositoryManager
 from src.knowledge_base.user_settings import UserSettings
-from src.knowledge_base.git_ops import GitOperations
-from src.tracker.processing_tracker import ProcessingTracker
 from src.bot.settings_manager import SettingsManager
+from src.services.interfaces import IUserContextManager, IMessageProcessor
+from src.processor.message_aggregator import MessageGroup
 
 
 class BotHandlers:
-    """Telegram bot message handlers (fully async)"""
+    """
+    Telegram bot message handlers (refactored with SOLID principles)
+    
+    Responsibilities (reduced to coordination only):
+    - Register message handlers with Telegram bot
+    - Route commands to appropriate handlers
+    - Delegate business logic to services
+    """
     
     def __init__(
-        self, 
-        bot: AsyncTeleBot, 
+        self,
+        bot: AsyncTeleBot,
         tracker: ProcessingTracker,
         repo_manager: RepositoryManager,
         user_settings: UserSettings,
+        settings_manager: SettingsManager,
+        user_context_manager: IUserContextManager,
+        message_processor: IMessageProcessor,
         settings_handlers=None
     ):
+        """
+        Initialize bot handlers
+        
+        Args:
+            bot: Telegram bot instance
+            tracker: Processing tracker
+            repo_manager: Repository manager
+            user_settings: User settings
+            settings_manager: Settings manager
+            user_context_manager: User context manager service
+            message_processor: Message processor service
+            settings_handlers: Settings handlers (optional)
+        """
         self.bot = bot
         self.tracker = tracker
         self.repo_manager = repo_manager
         self.user_settings = user_settings
+        self.settings_manager = settings_manager
+        self.user_context_manager = user_context_manager
+        self.message_processor = message_processor
         self.settings_handlers = settings_handlers
-        # Create settings manager for user-specific settings
-        self.settings_manager = SettingsManager(settings)
-        # Store per-user message aggregators
-        self.user_message_aggregators: Dict[int, MessageAggregator] = {}
-        # Store per-user agents
-        self.user_agents: Dict[int, Any] = {}
-        self.content_parser = ContentParser()
-        # Store per-user mode (note/ask)
-        self.user_modes: Dict[int, str] = {}  # 'note' or 'ask'
         self.logger = logger
-        self.logger.info(f"BotHandlers initialized with user-specific settings support")
+        
+        # Set up timeout callback for message processor
+        self.user_context_manager.timeout_callback = self._handle_timeout
+        
+        self.logger.info("BotHandlers initialized (refactored)")
     
     async def register_handlers_async(self):
         """Register all bot handlers (async)"""
@@ -59,23 +76,31 @@ class BotHandlers:
         self.bot.message_handler(commands=['note'])(self.handle_note_mode)
         self.bot.message_handler(commands=['ask'])(self.handle_ask_mode)
         
-        # Forwarded messages - register first to catch all forwarded content types we support
-        # Explicitly include photo and document so forwarded media are handled here
-        self.bot.message_handler(content_types=['text', 'photo', 'document'], func=lambda m: self._is_forwarded_message(m))(self.handle_forwarded_message)
+        # Forwarded messages
+        self.bot.message_handler(
+            content_types=['text', 'photo', 'document'],
+            func=lambda m: self._is_forwarded_message(m)
+        )(self.handle_forwarded_message)
         
-        # Regular message handlers - only for non-forwarded messages and non-command messages
-        self.bot.message_handler(func=lambda m: m.content_type == 'text' and not self._is_forwarded_message(m) and not self._is_command_message(m))(self.handle_text_message)
-        self.bot.message_handler(func=lambda m: m.content_type == 'photo' and not self._is_forwarded_message(m))(self.handle_photo_message)
-        self.bot.message_handler(func=lambda m: m.content_type == 'document' and not self._is_forwarded_message(m))(self.handle_document_message)
+        # Regular message handlers
+        self.bot.message_handler(
+            func=lambda m: m.content_type == 'text' 
+            and not self._is_forwarded_message(m) 
+            and not self._is_command_message(m)
+        )(self.handle_text_message)
+        
+        self.bot.message_handler(
+            func=lambda m: m.content_type == 'photo' and not self._is_forwarded_message(m)
+        )(self.handle_photo_message)
+        
+        self.bot.message_handler(
+            func=lambda m: m.content_type == 'document' and not self._is_forwarded_message(m)
+        )(self.handle_document_message)
     
     def _is_forwarded_message(self, message: Message) -> bool:
-        """Check if message is forwarded from any source"""
-        # Check forward_date first as it's the most reliable indicator
-        # forward_date is an integer timestamp, so we check it's not None and > 0
+        """Check if message is forwarded"""
         if message.forward_date is not None and message.forward_date > 0:
             return True
-        
-        # Check other forward fields (objects or strings)
         return bool(
             message.forward_from or
             message.forward_from_chat or
@@ -83,92 +108,47 @@ class BotHandlers:
         )
     
     def _is_command_message(self, message: Message) -> bool:
-        """Check if message is a command (starts with /)"""
+        """Check if message is a command"""
         return message.text and message.text.startswith('/')
     
-    def _get_or_create_user_aggregator(self, user_id: int) -> MessageAggregator:
-        """Get or create message aggregator for a user with their settings"""
-        if user_id not in self.user_message_aggregators:
-            # Get user-specific timeout setting
-            timeout = self.settings_manager.get_setting(user_id, "MESSAGE_GROUP_TIMEOUT")
-            self.logger.info(f"Creating MessageAggregator for user {user_id} with timeout {timeout}s")
-            aggregator = MessageAggregator(timeout)
-            aggregator.set_timeout_callback(self._handle_timeout)
-            aggregator.start_background_task()
-            self.user_message_aggregators[user_id] = aggregator
-        return self.user_message_aggregators[user_id]
-    
-    def _get_or_create_user_agent(self, user_id: int):
-        """Get or create agent for a user with their settings"""
-        if user_id not in self.user_agents:
-            # Get user-specific agent settings
-            config = {
-                "api_key": self.settings_manager.get_setting(user_id, "QWEN_API_KEY"),
-                "openai_api_key": self.settings_manager.get_setting(user_id, "OPENAI_API_KEY"),
-                "openai_base_url": self.settings_manager.get_setting(user_id, "OPENAI_BASE_URL"),
-                "github_token": self.settings_manager.get_setting(user_id, "GITHUB_TOKEN"),
-                "model": self.settings_manager.get_setting(user_id, "AGENT_MODEL"),
-                "instruction": self.settings_manager.get_setting(user_id, "AGENT_INSTRUCTION"),
-                "enable_web_search": self.settings_manager.get_setting(user_id, "AGENT_ENABLE_WEB_SEARCH"),
-                "enable_git": self.settings_manager.get_setting(user_id, "AGENT_ENABLE_GIT"),
-                "enable_github": self.settings_manager.get_setting(user_id, "AGENT_ENABLE_GITHUB"),
-                "enable_shell": self.settings_manager.get_setting(user_id, "AGENT_ENABLE_SHELL"),
-                "qwen_cli_path": self.settings_manager.get_setting(user_id, "AGENT_QWEN_CLI_PATH"),
-                "timeout": self.settings_manager.get_setting(user_id, "AGENT_TIMEOUT"),
-            }
-            
-            agent_type = self.settings_manager.get_setting(user_id, "AGENT_TYPE")
-            self.logger.info(f"Creating agent for user {user_id}: {agent_type}")
-            agent = AgentFactory.create_agent(agent_type=agent_type, config=config)
-            self.user_agents[user_id] = agent
-        return self.user_agents[user_id]
-    
     def invalidate_user_cache(self, user_id: int) -> None:
-        """Invalidate cached user-specific components when settings change"""
-        self.logger.info(f"Invalidating cache for user {user_id}")
-        
-        # Stop and remove user's message aggregator
-        if user_id in self.user_message_aggregators:
-            self.user_message_aggregators[user_id].stop_background_task()
-            del self.user_message_aggregators[user_id]
-        
-        # Remove user's agent
-        if user_id in self.user_agents:
-            del self.user_agents[user_id]
+        """Invalidate cached user-specific components"""
+        self.user_context_manager.invalidate_cache(user_id)
     
     def start_background_tasks(self) -> None:
-        """Start background tasks for message processing"""
+        """Start background tasks"""
         self.logger.info("Starting background tasks")
-        # Background tasks are now started per-user when needed
     
     def stop_background_tasks(self) -> None:
         """Stop background tasks"""
         self.logger.info("Stopping background tasks")
-        # Stop all user aggregators
-        for aggregator in self.user_message_aggregators.values():
-            aggregator.stop_background_task()
-        self.user_message_aggregators.clear()
-        self.user_agents.clear()
+        self.user_context_manager.cleanup()
     
     async def _handle_timeout(self, chat_id: int, group: MessageGroup) -> None:
-        """Handle a timed-out message group (async)"""
+        """Handle timed-out message group"""
         try:
-            self.logger.info(f"Processing timed-out group for chat {chat_id} with {len(group.messages)} messages")
+            self.logger.info(
+                f"Processing timed-out group for chat {chat_id} "
+                f"with {len(group.messages)} messages"
+            )
             
-            # Send notification about processing the timed-out group
             processing_msg = await self.bot.send_message(
                 chat_id,
                 "🔄 Обрабатываю завершенную группу сообщений..."
             )
             
-            # Process the group
-            await self._process_message_group(group, processing_msg)
+            await self.message_processor.process_message_group(group, processing_msg)
             
         except Exception as e:
-            self.logger.error(f"Error handling timed-out group for chat {chat_id}: {e}", exc_info=True)
+            self.logger.error(
+                f"Error handling timed-out group for chat {chat_id}: {e}",
+                exc_info=True
+            )
+    
+    # Command handlers
     
     async def handle_start(self, message: Message) -> None:
-        """Handle /start command (async)"""
+        """Handle /start command"""
         self.logger.info(f"Start command from user {message.from_user.id}")
         
         welcome_text = (
@@ -191,7 +171,7 @@ class BotHandlers:
         await self.bot.reply_to(message, welcome_text)
     
     async def handle_help(self, message: Message) -> None:
-        """Handle /help command (async)"""
+        """Handle /help command"""
         self.logger.info(f"Help command from user {message.from_user.id}")
         
         help_text = (
@@ -230,7 +210,7 @@ class BotHandlers:
         await self.bot.reply_to(message, help_text)
     
     async def handle_status(self, message: Message) -> None:
-        """Handle /status command (async)"""
+        """Handle /status command"""
         self.logger.info(f"Status command from user {message.from_user.id}")
         
         try:
@@ -241,11 +221,8 @@ class BotHandlers:
             if user_kb:
                 kb_info = f"{user_kb['kb_name']} ({user_kb['kb_type']})"
             
-            # Get user-specific git setting
             kb_git_enabled = self.settings_manager.get_setting(message.from_user.id, "KB_GIT_ENABLED")
-            
-            # Get current mode
-            current_mode = self._get_user_mode(message.from_user.id)
+            current_mode = self.user_context_manager.get_user_mode(message.from_user.id)
             mode_emoji = "📝" if current_mode == "note" else "🤔"
             mode_name = "Создание базы знаний" if current_mode == "note" else "Вопросы по базе знаний"
             
@@ -266,10 +243,9 @@ class BotHandlers:
         await self.bot.reply_to(message, status_text)
     
     async def handle_setkb(self, message: Message) -> None:
-        """Handle /setkb command - set up knowledge base (async)"""
+        """Handle /setkb command"""
         self.logger.info(f"Setkb command from user {message.from_user.id}")
         
-        # Parse command arguments
         args = message.text.split(maxsplit=1)
         if len(args) < 2:
             help_text = (
@@ -286,9 +262,7 @@ class BotHandlers:
         
         kb_input = args[1].strip()
         
-        # Determine if it's a GitHub URL or local name
         if kb_input.startswith('http://') or kb_input.startswith('https://') or kb_input.startswith('git@'):
-            # GitHub repository
             success, msg, kb_path = self.repo_manager.clone_github_kb(kb_input)
             
             if success:
@@ -301,14 +275,11 @@ class BotHandlers:
                 )
                 await self.bot.reply_to(
                     message,
-                    f"✅ {msg}\n\n"
-                    f"Репозиторий: {kb_input}\n"
-                    f"Локальный путь: {kb_path}"
+                    f"✅ {msg}\n\nРепозиторий: {kb_input}\nЛокальный путь: {kb_path}"
                 )
             else:
                 await self.bot.reply_to(message, f"❌ {msg}")
         else:
-            # Local knowledge base
             success, msg, kb_path = self.repo_manager.init_local_kb(kb_input)
             
             if success:
@@ -319,15 +290,14 @@ class BotHandlers:
                 )
                 await self.bot.reply_to(
                     message,
-                    f"✅ {msg}\n\n"
-                    f"Локальный путь: {kb_path}\n"
+                    f"✅ {msg}\n\nЛокальный путь: {kb_path}\n"
                     f"Инициализирован git репозиторий"
                 )
             else:
                 await self.bot.reply_to(message, f"❌ {msg}")
     
     async def handle_kb_info(self, message: Message) -> None:
-        """Handle /kb command - show KB info (async)"""
+        """Handle /kb command"""
         self.logger.info(f"KB info command from user {message.from_user.id}")
         
         user_kb = self.user_settings.get_user_kb(message.from_user.id)
@@ -335,8 +305,7 @@ class BotHandlers:
         if not user_kb:
             await self.bot.reply_to(
                 message,
-                "❌ База знаний не настроена\n\n"
-                "Используйте /setkb для настройки"
+                "❌ База знаний не настроена\n\nИспользуйте /setkb для настройки"
             )
             return
         
@@ -358,20 +327,11 @@ class BotHandlers:
         
         await self.bot.reply_to(message, info_text)
     
-    def _get_user_mode(self, user_id: int) -> str:
-        """Get current mode for user (default: note)"""
-        return self.user_modes.get(user_id, "note")
-    
-    def _set_user_mode(self, user_id: int, mode: str) -> None:
-        """Set mode for user"""
-        self.user_modes[user_id] = mode
-        self.logger.info(f"User {user_id} switched to {mode} mode")
-    
     async def handle_note_mode(self, message: Message) -> None:
-        """Handle /note command - switch to note creation mode (async)"""
+        """Handle /note command"""
         self.logger.info(f"Note mode command from user {message.from_user.id}")
         
-        self._set_user_mode(message.from_user.id, "note")
+        self.user_context_manager.set_user_mode(message.from_user.id, "note")
         
         await self.bot.reply_to(
             message,
@@ -382,10 +342,9 @@ class BotHandlers:
         )
     
     async def handle_ask_mode(self, message: Message) -> None:
-        """Handle /ask command - switch to question mode (async)"""
+        """Handle /ask command"""
         self.logger.info(f"Ask mode command from user {message.from_user.id}")
         
-        # Check if user has KB configured
         user_kb = self.user_settings.get_user_kb(message.from_user.id)
         
         if not user_kb:
@@ -396,7 +355,7 @@ class BotHandlers:
             )
             return
         
-        self._set_user_mode(message.from_user.id, "ask")
+        self.user_context_manager.set_user_mode(message.from_user.id, "ask")
         
         await self.bot.reply_to(
             message,
@@ -406,23 +365,23 @@ class BotHandlers:
             "Для возврата в режим создания заметок используйте /note"
         )
     
+    # Message handlers
+    
     async def handle_text_message(self, message: Message) -> None:
-        """Handle regular text messages (async)"""
-        # Check if user is waiting for settings input
+        """Handle regular text messages"""
         if self.settings_handlers and message.from_user.id in self.settings_handlers.waiting_for_input:
-            # This message is for settings input, let settings handler process it
-            self.logger.info(f"Skipping text message from user {message.from_user.id} - waiting for settings input")
+            self.logger.info(
+                f"Skipping text message from user {message.from_user.id} "
+                f"- waiting for settings input"
+            )
             return
         
         self.logger.info(f"Text message from user {message.from_user.id}: {message.text[:50]}...")
-        await self._process_message(message)
+        await self.message_processor.process_message(message)
     
     async def handle_photo_message(self, message: Message) -> None:
-        """Handle photo messages (async)"""
-        # Check if user is waiting for settings input
+        """Handle photo messages"""
         if self.settings_handlers and message.from_user.id in self.settings_handlers.waiting_for_input:
-            # User is in settings input mode, ignore photo messages
-            self.logger.info(f"Ignoring photo message from user {message.from_user.id} - waiting for settings input")
             await self.bot.reply_to(
                 message,
                 "⚠️ Вы находитесь в режиме настроек. Фото игнорируются.\n"
@@ -431,14 +390,11 @@ class BotHandlers:
             return
         
         self.logger.info(f"Photo message from user {message.from_user.id}")
-        await self._process_message(message)
+        await self.message_processor.process_message(message)
     
     async def handle_document_message(self, message: Message) -> None:
-        """Handle document messages (async)"""
-        # Check if user is waiting for settings input
+        """Handle document messages"""
         if self.settings_handlers and message.from_user.id in self.settings_handlers.waiting_for_input:
-            # User is in settings input mode, ignore document messages
-            self.logger.info(f"Ignoring document message from user {message.from_user.id} - waiting for settings input")
             await self.bot.reply_to(
                 message,
                 "⚠️ Вы находитесь в режиме настроек. Документы игнорируются.\n"
@@ -447,14 +403,11 @@ class BotHandlers:
             return
         
         self.logger.info(f"Document message from user {message.from_user.id}")
-        await self._process_message(message)
+        await self.message_processor.process_message(message)
     
     async def handle_forwarded_message(self, message: Message) -> None:
-        """Handle forwarded messages (async)"""
-        # Check if user is waiting for settings input - SHOULD NOT PROCESS forwarded messages during settings input
+        """Handle forwarded messages"""
         if self.settings_handlers and message.from_user.id in self.settings_handlers.waiting_for_input:
-            # User is in settings input mode, ignore forwarded messages
-            self.logger.info(f"Ignoring forwarded message from user {message.from_user.id} - waiting for settings input")
             await self.bot.reply_to(
                 message,
                 "⚠️ Вы находитесь в режиме настроек. Пересланные сообщения игнорируются.\n"
@@ -463,367 +416,4 @@ class BotHandlers:
             return
         
         self.logger.info(f"Forwarded message from user {message.from_user.id}")
-        await self._process_message(message)
-    
-    async def _process_message(self, message: Message) -> None:
-        """Process any type of message (async)"""
-        try:
-            # Send processing notification
-            processing_msg = await self.bot.reply_to(message, "🔄 Обрабатываю сообщение...")
-            
-            # Convert message to dict for aggregator
-            message_dict = self._message_to_dict(message)
-            
-            # Get user-specific aggregator
-            user_aggregator = self._get_or_create_user_aggregator(message.from_user.id)
-            
-            # Add message to aggregator (fully async)
-            closed_group = await user_aggregator.add_message(message.chat.id, message_dict)
-            
-            if closed_group:
-                # Previous group was closed, process it with a separate notification
-                prev_processing_msg = await self.bot.send_message(
-                    message.chat.id, 
-                    "🔄 Обрабатываю предыдущую группу сообщений..."
-                )
-                await self._process_message_group(closed_group, prev_processing_msg)
-                
-                # Update current message status
-                await self.bot.edit_message_text(
-                    "🔄 Добавлено к новой группе сообщений...",
-                    chat_id=processing_msg.chat.id,
-                    message_id=processing_msg.message_id
-                )
-            else:
-                # Message added to existing group
-                await self.bot.edit_message_text(
-                    "🔄 Добавлено к группе сообщений, ожидаю завершения...",
-                    chat_id=processing_msg.chat.id,
-                    message_id=processing_msg.message_id
-                )
-                
-        except Exception as e:
-            self.logger.error(f"Error processing message: {e}", exc_info=True)
-            try:
-                await self.bot.reply_to(message, "❌ Ошибка обработки сообщения")
-            except Exception:
-                pass
-    
-    def _message_to_dict(self, message: Message) -> Dict[str, Any]:
-        """Convert Telegram message to dictionary"""
-        return {
-            'message_id': message.message_id,
-            'chat_id': message.chat.id,
-            'user_id': message.from_user.id,
-            'text': message.text or '',
-            'caption': message.caption or '',
-            'content_type': message.content_type,
-            'forward_from': message.forward_from,
-            'forward_from_chat': message.forward_from_chat,
-            'forward_from_message_id': message.forward_from_message_id,
-            'forward_sender_name': message.forward_sender_name,
-            'forward_date': message.forward_date,
-            'date': message.date,
-            'photo': message.photo,
-            'document': message.document
-        }
-    
-    async def _process_message_group(self, group, processing_msg: Message) -> None:
-        """Process a complete message group (async)"""
-        try:
-            # Get user_id from the first message in the group (original user message, not bot's processing_msg)
-            if not group.messages:
-                self.logger.warning("Empty message group, skipping processing")
-                return
-            
-            user_id = group.messages[0].get('user_id')
-            if not user_id:
-                self.logger.error("Cannot determine user_id from message group")
-                await self.bot.edit_message_text(
-                    "❌ Ошибка: не удалось определить пользователя",
-                    chat_id=processing_msg.chat.id,
-                    message_id=processing_msg.message_id
-                )
-                return
-            
-            # Check if user has KB configured
-            user_kb = self.user_settings.get_user_kb(user_id)
-            
-            if not user_kb:
-                await self.bot.edit_message_text(
-                    "❌ База знаний не настроена\n\n"
-                    "Используйте /setkb для настройки базы знаний",
-                    chat_id=processing_msg.chat.id,
-                    message_id=processing_msg.message_id
-                )
-                return
-            
-            # Check user mode and route to appropriate handler
-            user_mode = self._get_user_mode(user_id)
-            
-            if user_mode == "ask":
-                await self._process_question(group, processing_msg, user_id, user_kb)
-            else:  # default to "note" mode
-                await self._process_note_creation(group, processing_msg, user_id, user_kb)
-                
-        except Exception as e:
-            self.logger.error(f"Error processing message group: {e}", exc_info=True)
-            try:
-                await self.bot.edit_message_text(
-                    f"❌ Ошибка обработки сообщения: {str(e)}",
-                    chat_id=processing_msg.chat.id,
-                    message_id=processing_msg.message_id
-                )
-            except Exception:
-                pass
-    
-    async def _process_note_creation(self, group, processing_msg: Message, user_id: int, user_kb: dict) -> None:
-        """Process message group in note creation mode"""
-        try:
-            # Get KB path
-            kb_path = self.repo_manager.get_kb_path(user_kb['kb_name'])
-            if not kb_path:
-                await self.bot.edit_message_text(
-                    "❌ Локальная копия базы знаний не найдена\n\n"
-                    "Попробуйте настроить базу знаний заново: /setkb",
-                    chat_id=processing_msg.chat.id,
-                    message_id=processing_msg.message_id
-                )
-                return
-            
-            # Create KB manager for user's KB
-            kb_manager = KnowledgeBaseManager(str(kb_path))
-            # Get user-specific git settings
-            kb_git_enabled = self.settings_manager.get_setting(user_id, "KB_GIT_ENABLED")
-            git_ops = GitOperations(str(kb_path), enabled=kb_git_enabled)
-            
-            # Parse content with file processing
-            content = await self.content_parser.parse_group_with_files(group, bot=self.bot)
-            content_hash = self.content_parser.generate_hash(content)
-            
-            # Check if already processed
-            if self.tracker.is_processed(content_hash):
-                await self.bot.edit_message_text(
-                    "✅ Это сообщение уже было обработано ранее",
-                    chat_id=processing_msg.chat.id,
-                    message_id=processing_msg.message_id
-                )
-                return
-            
-            # Process with agent
-            await self.bot.edit_message_text(
-                "🤖 Анализирую контент...",
-                chat_id=processing_msg.chat.id,
-                message_id=processing_msg.message_id
-            )
-            
-            # Get user-specific agent
-            user_agent = self._get_or_create_user_agent(user_id)
-            
-            try:
-                processed_content = await user_agent.process(content)
-            except Exception as agent_error:
-                self.logger.error(f"Agent processing failed: {agent_error}", exc_info=True)
-                await self.bot.edit_message_text(
-                    f"❌ Ошибка обработки контента агентом:\n{str(agent_error)}\n\n"
-                    f"Проверьте, что Qwen CLI правильно настроен и инициализирован.",
-                    chat_id=processing_msg.chat.id,
-                    message_id=processing_msg.message_id
-                )
-                return
-            
-            # Save to knowledge base
-            await self.bot.edit_message_text(
-                "💾 Сохраняю в базу знаний...",
-                chat_id=processing_msg.chat.id,
-                message_id=processing_msg.message_id
-            )
-            
-            # Extract KB structure from processed content
-            kb_structure = processed_content.get('kb_structure')
-            title = processed_content.get('title')
-            markdown = processed_content.get('markdown')
-            metadata = processed_content.get('metadata')
-            
-            # Validate required fields
-            if not kb_structure:
-                self.logger.error("Agent did not return kb_structure")
-                raise ValueError("Agent processing incomplete: missing kb_structure")
-            
-            if not title:
-                self.logger.warning("Agent did not return title, using default")
-                title = "Untitled Note"
-            
-            if not markdown:
-                self.logger.error("Agent did not return markdown content")
-                raise ValueError("Agent processing incomplete: missing markdown content")
-            
-            # Create article using KB structure from agent
-            try:
-                kb_file = kb_manager.create_article(
-                    content=markdown,
-                    title=title,
-                    kb_structure=kb_structure,
-                    metadata=metadata
-                )
-            except Exception as kb_error:
-                self.logger.error(f"Failed to create KB article: {kb_error}", exc_info=True)
-                await self.bot.edit_message_text(
-                    f"❌ Ошибка сохранения в базу знаний:\n{str(kb_error)}",
-                    chat_id=processing_msg.chat.id,
-                    message_id=processing_msg.message_id
-                )
-                return
-            
-            # Update index
-            kb_manager.update_index(kb_file, title, kb_structure)
-            
-            # Git operations (use user-specific settings)
-            kb_git_auto_push = self.settings_manager.get_setting(user_id, "KB_GIT_AUTO_PUSH")
-            kb_git_remote = self.settings_manager.get_setting(user_id, "KB_GIT_REMOTE")
-            kb_git_branch = self.settings_manager.get_setting(user_id, "KB_GIT_BRANCH")
-            
-            if kb_git_enabled and git_ops.enabled:
-                git_ops.add(str(kb_file))
-                git_ops.add(str(kb_path / "index.md"))
-                git_ops.commit(f"Add article: {title}")
-                
-                if kb_git_auto_push:
-                    git_ops.push(kb_git_remote, kb_git_branch)
-            
-            # Mark as processed (use first message from group)
-            if not group.messages:
-                # Skip tracking for empty groups to avoid invalid entries
-                self.logger.warning("Skipping tracker entry for empty message group")
-            else:
-                first_message = group.messages[0]
-                message_ids = [msg.get('message_id') for msg in group.messages if msg.get('message_id')]
-                chat_id = first_message.get('chat_id')
-                
-                if message_ids and chat_id:
-                    self.tracker.add_processed(
-                        content_hash=content_hash,
-                        message_ids=message_ids,
-                        chat_id=chat_id,
-                        kb_file=str(kb_file),
-                        status="completed"
-                    )
-                else:
-                    self.logger.warning(f"Skipping tracker entry due to missing IDs: message_ids={message_ids}, chat_id={chat_id}")
-            
-            # Success notification with category info
-            category_str = kb_structure.category
-            if kb_structure.subcategory:
-                category_str += f"/{kb_structure.subcategory}"
-            
-            await self.bot.edit_message_text(
-                f"✅ Сообщение успешно обработано и сохранено!\n\n"
-                f"📁 Файл: `{kb_file.name}`\n"
-                f"📂 Категория: `{category_str}`\n"
-                f"🏷 Теги: {', '.join(kb_structure.tags) if kb_structure.tags else 'нет'}\n"
-                f"🔗 Путь: `{kb_file.relative_to(kb_path)}`",
-                chat_id=processing_msg.chat.id,
-                message_id=processing_msg.message_id,
-                parse_mode='Markdown'
-            )
-            
-        except Exception as e:
-            self.logger.error(f"Error in note creation: {e}", exc_info=True)
-            try:
-                await self.bot.edit_message_text(
-                    f"❌ Ошибка обработки сообщения: {str(e)}",
-                    chat_id=processing_msg.chat.id,
-                    message_id=processing_msg.message_id
-                )
-            except Exception:
-                pass
-    
-    async def _process_question(self, group, processing_msg: Message, user_id: int, user_kb: dict) -> None:
-        """Process message group in question mode - query the knowledge base"""
-        try:
-            # Get KB path
-            kb_path = self.repo_manager.get_kb_path(user_kb['kb_name'])
-            if not kb_path:
-                await self.bot.edit_message_text(
-                    "❌ Локальная копия базы знаний не найдена\n\n"
-                    "Попробуйте настроить базу знаний заново: /setkb",
-                    chat_id=processing_msg.chat.id,
-                    message_id=processing_msg.message_id
-                )
-                return
-            
-            # Parse content (user's question) with file processing
-            content = await self.content_parser.parse_group_with_files(group, bot=self.bot)
-            question_text = content.get('text', '')
-            
-            if not question_text:
-                await self.bot.edit_message_text(
-                    "❌ Не могу определить вопрос\n\n"
-                    "Пожалуйста, отправьте текстовое сообщение с вопросом.",
-                    chat_id=processing_msg.chat.id,
-                    message_id=processing_msg.message_id
-                )
-                return
-            
-            # Process with agent in query mode
-            await self.bot.edit_message_text(
-                "🔍 Ищу информацию в базе знаний...",
-                chat_id=processing_msg.chat.id,
-                message_id=processing_msg.message_id
-            )
-            
-            # Get user-specific agent
-            user_agent = self._get_or_create_user_agent(user_id)
-            
-            # Prepare query prompt
-            from config.agent_prompts import KB_QUERY_PROMPT_TEMPLATE
-            query_prompt = KB_QUERY_PROMPT_TEMPLATE.format(
-                kb_path=str(kb_path),
-                question=question_text
-            )
-            
-            # Create query content
-            query_content = {
-                'text': query_prompt,
-                'urls': [],
-                'prompt': query_prompt
-            }
-            
-            try:
-                # Process query with agent
-                response = await user_agent.process(query_content)
-                
-                # Extract answer from response
-                answer = response.get('answer') or response.get('markdown') or response.get('text', '')
-                
-                if not answer:
-                    raise ValueError("Agent did not return an answer")
-                
-                # Send answer to user
-                await self.bot.edit_message_text(
-                    f"💡 **Ответ:**\n\n{answer}",
-                    chat_id=processing_msg.chat.id,
-                    message_id=processing_msg.message_id,
-                    parse_mode='Markdown'
-                )
-                
-            except Exception as agent_error:
-                self.logger.error(f"Agent query processing failed: {agent_error}", exc_info=True)
-                await self.bot.edit_message_text(
-                    f"❌ Ошибка при поиске информации:\n{str(agent_error)}\n\n"
-                    f"Попробуйте переформулировать вопрос или проверьте, что база знаний содержит релевантную информацию.",
-                    chat_id=processing_msg.chat.id,
-                    message_id=processing_msg.message_id
-                )
-                return
-                
-        except Exception as e:
-            self.logger.error(f"Error in question processing: {e}", exc_info=True)
-            try:
-                await self.bot.edit_message_text(
-                    f"❌ Ошибка обработки вопроса: {str(e)}",
-                    chat_id=processing_msg.chat.id,
-                    message_id=processing_msg.message_id
-                )
-            except Exception:
-                pass
+        await self.message_processor.process_message(message)
