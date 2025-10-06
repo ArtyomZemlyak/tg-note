@@ -181,18 +181,8 @@ class NoteCreationService(INoteCreationService):
         files_edited = metadata.get('files_edited', [])
         folders_created = metadata.get('folders_created', [])
         
-        # Validate that agent created at least some files
-        if not files_created and not files_edited:
-            raise ValueError("Agent did not create or edit any files")
-        
-        # Store first created file as primary kb_file for tracking
-        # (for backward compatibility with tracking system)
-        if files_created:
-            processed_content['kb_file'] = files_created[0]
-        elif files_edited:
-            processed_content['kb_file'] = files_edited[0]
-        else:
-            processed_content['kb_file'] = 'unknown'
+        # Agent может ничего не создать - это нормально
+        # (например, агент просто проанализировал и решил, что создавать нечего)
         
         # Update index for all created files
         if files_created and kb_structure:
@@ -209,37 +199,43 @@ class NoteCreationService(INoteCreationService):
                     kb_manager.update_index(abs_path, file_title, kb_structure)
         
         # Git operations
-        if git_ops.enabled:
+        if git_ops.enabled and (files_created or files_edited):
             kb_git_auto_push = self.settings_manager.get_setting(user_id, "KB_GIT_AUTO_PUSH")
             kb_git_remote = self.settings_manager.get_setting(user_id, "KB_GIT_REMOTE")
             kb_git_branch = self.settings_manager.get_setting(user_id, "KB_GIT_BRANCH")
             
             # Add all created and edited files to git
             all_files = files_created + files_edited
+            files_added = False
+            
             for file_path in all_files:
                 abs_path = Path(file_path)
                 if not abs_path.is_absolute():
                     abs_path = kb_path / file_path
                 if abs_path.exists():
                     git_ops.add(str(abs_path))
+                    files_added = True
             
             # Add index if it was updated
             index_path = kb_path / "index.md"
-            if index_path.exists():
+            if index_path.exists() and files_created:
                 git_ops.add(str(index_path))
+                files_added = True
             
-            # Create commit message
-            if len(files_created) == 1:
-                commit_msg = f"Add: {title}"
-            elif files_created:
-                commit_msg = f"Add {len(files_created)} files: {title}"
-            else:
-                commit_msg = f"Update {len(files_edited)} files: {title}"
-            
-            git_ops.commit(commit_msg)
-            
-            if kb_git_auto_push:
-                git_ops.push(kb_git_remote, kb_git_branch)
+            # Only commit if we actually added files
+            if files_added:
+                # Create commit message
+                if len(files_created) == 1:
+                    commit_msg = f"Add: {title}"
+                elif files_created:
+                    commit_msg = f"Add {len(files_created)} files: {title}"
+                else:
+                    commit_msg = f"Update {len(files_edited)} files: {title}"
+                
+                git_ops.commit(commit_msg)
+                
+                if kb_git_auto_push:
+                    git_ops.push(kb_git_remote, kb_git_branch)
     
     def _track_processed(
         self,
@@ -258,12 +254,10 @@ class NoteCreationService(INoteCreationService):
         chat_id = first_message.get('chat_id')
         
         if message_ids and chat_id:
-            kb_file = processed_content.get('kb_file', 'unknown')
             self.tracker.add_processed(
                 content_hash=content_hash,
                 message_ids=message_ids,
                 chat_id=chat_id,
-                kb_file=str(kb_file),
                 status="completed"
             )
     
@@ -276,7 +270,6 @@ class NoteCreationService(INoteCreationService):
         """Send success notification"""
         kb_structure = processed_content.get('kb_structure')
         title = processed_content.get('title', 'Untitled')
-        kb_file = processed_content.get('kb_file')
         metadata = processed_content.get('metadata', {})
         
         category_str = kb_structure.category if kb_structure else "unknown"
@@ -287,8 +280,8 @@ class NoteCreationService(INoteCreationService):
         
         # Формируем сообщение
         message_parts = [
-            "✅ Сообщение успешно обработано и сохранено!\n",
-            f"📁 Файл: `{Path(kb_file).name if kb_file else 'unknown'}`",
+            "✅ Сообщение успешно обработано!\n",
+            f"📝 Заголовок: `{title}`",
             f"📂 Категория: `{category_str}`",
             f"🏷 Теги: {', '.join(tags) if tags else 'нет'}"
         ]
