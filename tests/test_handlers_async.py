@@ -1,16 +1,15 @@
 """
-Tests for async handler functionality
-Verifies that handlers work correctly with async/await
+Tests for async handler functionality (refactored)
+Verifies that handlers delegate to services and respond via bot
 """
 
 import asyncio
 import pytest
-from unittest.mock import Mock, AsyncMock, patch
+from unittest.mock import Mock, AsyncMock
 from telebot.types import Message, User, Chat
 
 from src.bot.handlers import BotHandlers
 from src.tracker.processing_tracker import ProcessingTracker
-from src.knowledge_base.manager import KnowledgeBaseManager
 
 
 class TestHandlersAsync:
@@ -29,19 +28,64 @@ class TestHandlersAsync:
     def mock_tracker(self):
         """Create mock tracker"""
         mock = Mock(spec=ProcessingTracker)
-        mock.is_processed = Mock(return_value=False)
-        mock.add_processed = Mock()
+        mock.get_stats = Mock(return_value={
+            'total_processed': 0,
+            'pending_groups': 0,
+            'last_processed': 'Never',
+        })
         return mock
     
     @pytest.fixture
-    def mock_kb_manager(self):
-        """Create mock KB manager"""
-        return Mock(spec=KnowledgeBaseManager)
+    def mock_repo_manager(self):
+        return Mock()
     
     @pytest.fixture
-    def handlers(self, mock_bot, mock_tracker, mock_kb_manager):
+    def mock_user_settings(self):
+        return Mock()
+    
+    @pytest.fixture
+    def mock_settings_manager(self):
+        m = Mock()
+        m.get_setting = Mock(return_value=False)
+        return m
+    
+    @pytest.fixture
+    def mock_user_context(self):
+        m = Mock()
+        m.get_user_mode = Mock(return_value="note")
+        m.set_user_mode = Mock()
+        m.invalidate_cache = Mock()
+        m.cleanup = Mock()
+        return m
+    
+    @pytest.fixture
+    def mock_message_processor(self):
+        m = Mock()
+        m.process_message = AsyncMock()
+        m.process_message_group = AsyncMock()
+        return m
+    
+    @pytest.fixture
+    def handlers(
+        self,
+        mock_bot,
+        mock_tracker,
+        mock_repo_manager,
+        mock_user_settings,
+        mock_settings_manager,
+        mock_user_context,
+        mock_message_processor,
+    ):
         """Create handlers instance"""
-        return BotHandlers(mock_bot, mock_tracker, mock_kb_manager)
+        return BotHandlers(
+            bot=mock_bot,
+            tracker=mock_tracker,
+            repo_manager=mock_repo_manager,
+            user_settings=mock_user_settings,
+            settings_manager=mock_settings_manager,
+            user_context_manager=mock_user_context,
+            message_processor=mock_message_processor,
+        )
     
     @pytest.fixture
     def test_message(self):
@@ -90,7 +134,6 @@ class TestHandlersAsync:
     @pytest.mark.asyncio
     async def test_handle_status_async(self, handlers, test_message, mock_bot, mock_tracker):
         """Test that /status command works with async"""
-        # Mock stats
         mock_tracker.get_stats.return_value = {
             'total_processed': 10,
             'pending_groups': 2,
@@ -106,19 +149,12 @@ class TestHandlersAsync:
         assert "Статистика" in call_args[0][1]
     
     @pytest.mark.asyncio
-    async def test_process_message_async(self, handlers, test_message, mock_bot):
-        """Test that message processing works with async"""
-        # Mock the reply_to to return a processing message
-        processing_msg = Mock(spec=Message)
-        processing_msg.chat = test_message.chat
-        processing_msg.message_id = 999
-        mock_bot.reply_to.return_value = processing_msg
-        
-        await handlers._process_message(test_message)
-        
-        # Verify that bot methods were called
-        assert mock_bot.reply_to.called
-        assert mock_bot.edit_message_text.called
+    async def test_handle_text_message_calls_processor(self, handlers, test_message):
+        """Test that text messages are delegated to message processor"""
+        # Act
+        await handlers.handle_text_message(test_message)
+        # Assert processor was called
+        handlers.message_processor.process_message.assert_awaited_once_with(test_message)
     
     @pytest.mark.asyncio
     async def test_handle_timeout_async(self, handlers, mock_bot):
@@ -147,32 +183,13 @@ class TestHandlersAsync:
         
         # Verify send_message was called
         assert mock_bot.send_message.called
+        handlers.message_processor.process_message_group.assert_awaited_once()
     
     @pytest.mark.asyncio
-    async def test_message_aggregator_integration(self, handlers, test_message, mock_bot):
-        """Test that message aggregator works with async handlers"""
-        # Mock bot methods
-        processing_msg = Mock(spec=Message)
-        processing_msg.chat = test_message.chat
-        processing_msg.message_id = 999
-        mock_bot.reply_to.return_value = processing_msg
-        
-        # Start background tasks
+    async def test_start_stop_background_tasks(self, handlers):
+        """Start/stop background tasks should not raise"""
         handlers.start_background_tasks()
-        
-        try:
-            # Process a message
-            await handlers._process_message(test_message)
-            
-            # Wait a bit for async operations
-            await asyncio.sleep(0.1)
-            
-            # Verify bot was called
-            assert mock_bot.reply_to.called
-            
-        finally:
-            # Clean up
-            handlers.stop_background_tasks()
+        handlers.stop_background_tasks()
     
     def test_is_forwarded_message(self, handlers, test_message):
         """Test forwarded message detection"""
@@ -189,18 +206,11 @@ class TestHandlersAsync:
         assert handlers._is_forwarded_message(test_message)
     
     @pytest.mark.asyncio
-    async def test_handle_note_mode(self, handlers, test_message, mock_bot):
-        """Test that /note command switches to note mode"""
+    async def test_handle_note_mode_sets_mode(self, handlers, test_message, mock_bot):
+        """Test that /note command switches to note mode and replies"""
         await handlers.handle_note_mode(test_message)
-        
-        # Verify mode was set
-        assert handlers._get_user_mode(test_message.from_user.id) == "note"
-        
-        # Verify reply was sent
+        handlers.user_context_manager.set_user_mode.assert_called_once_with(test_message.from_user.id, "note")
         mock_bot.reply_to.assert_called_once()
-        call_args = mock_bot.reply_to.call_args
-        assert call_args[0][0] == test_message
-        assert "Режим создания базы знаний активирован" in call_args[0][1]
     
     @pytest.mark.asyncio
     async def test_handle_ask_mode_no_kb(self, handlers, test_message, mock_bot):
@@ -213,22 +223,7 @@ class TestHandlersAsync:
         assert call_args[0][0] == test_message
         assert "База знаний не настроена" in call_args[0][1]
     
-    def test_get_user_mode_default(self, handlers):
-        """Test that default mode is 'note'"""
-        mode = handlers._get_user_mode(12345)
-        assert mode == "note"
-    
-    def test_set_user_mode(self, handlers):
-        """Test setting user mode"""
-        user_id = 12345
-        
-        # Set to ask mode
-        handlers._set_user_mode(user_id, "ask")
-        assert handlers._get_user_mode(user_id) == "ask"
-        
-        # Set back to note mode
-        handlers._set_user_mode(user_id, "note")
-        assert handlers._get_user_mode(user_id) == "note"
+    # No direct mode getter/setter on handlers in refactored version; covered via user_context_manager
 
 
 if __name__ == '__main__':

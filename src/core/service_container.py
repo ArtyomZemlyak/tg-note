@@ -120,9 +120,13 @@ def configure_services(container: Container) -> None:
     container.register(
         "telegram_bot",
         lambda c: TelegramBot(
+            bot=c.get("async_bot"),
             tracker=c.get("tracker"),
             repo_manager=c.get("repo_manager"),
-            user_settings=c.get("user_settings")
+            user_settings=c.get("user_settings"),
+            settings_manager=c.get("settings_manager"),
+            user_context_manager=c.get("user_context_manager"),
+            message_processor=c.get("message_processor"),
         ),
         singleton=True
     )
