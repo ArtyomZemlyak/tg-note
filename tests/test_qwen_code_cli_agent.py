@@ -421,3 +421,33 @@ class TestQwenCodeCLIAgentWithDifferentConfigurations:
         
         assert agent.config["github_token"] == "test-token"
         assert agent.config["custom_key"] == "custom_value"
+    
+    def test_set_working_directory(self, agent):
+        """Test setting working directory dynamically"""
+        original_dir = agent.get_working_directory()
+        
+        # Set new working directory
+        new_dir = "/tmp/knowledge_base/my-kb"
+        agent.set_working_directory(new_dir)
+        
+        # Verify it was updated
+        assert agent.get_working_directory() == new_dir
+        assert agent.working_directory == new_dir
+        
+        # Restore original
+        agent.set_working_directory(original_dir)
+        assert agent.get_working_directory() == original_dir
+    
+    def test_working_directory_persistence(self, mock_cli_check):
+        """Test that working directory persists across method calls"""
+        agent = QwenCodeCLIAgent(working_directory="/initial/path")
+        
+        # Change working directory
+        agent.set_working_directory("/new/path")
+        
+        # Verify it's still the new path
+        assert agent.get_working_directory() == "/new/path"
+        
+        # Call other methods and verify working directory hasn't changed
+        instruction = agent.get_instruction()
+        assert agent.get_working_directory() == "/new/path"

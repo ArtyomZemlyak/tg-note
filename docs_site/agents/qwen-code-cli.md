@@ -57,6 +57,35 @@ qwen
 
 Follow the prompts to authenticate via qwen.ai.
 
+### 5. Configure Approval Mode (IMPORTANT!)
+
+**⚠️ КРИТИЧЕСКИ ВАЖНО:** Для корректной работы CLI с ботом необходимо настроить режим одобрения инструментов:
+
+```bash
+qwen
+/approval-mode yolo --project
+```
+
+**Зачем это нужно?**
+- CLI по умолчанию требует ручного подтверждения для каждого действия
+- Бот работает в автономном режиме и не может взаимодействовать с CLI интерактивно
+- Режим `yolo` автоматически одобряет все операции агента
+
+**⚠️ Внимание!** Использование режима `yolo` - на ваш страх и риск. Агент получит полный доступ к файловым операциям и командам.
+
+**Доступные режимы одобрения:**
+- `plan` - только анализ, без изменения файлов
+- `default` - требует подтверждения для редактирования файлов и команд
+- `auto-edit` - автоматически одобряет редактирование файлов
+- `yolo` - автоматически одобряет все операции (требуется для бота)
+
+**Области применения:**
+- `--session` - только для текущей сессии
+- `--project` - для текущего проекта (рекомендуется)
+- `--user` - для всех проектов пользователя
+
+**Рекомендуется ознакомиться с [официальной документацией qwen-code-cli](https://github.com/QwenLM/qwen-code) для полного понимания возможностей и ограничений.**
+
 ---
 
 ## Configuration
@@ -81,11 +110,67 @@ Tip: The CLI path is configurable via `AGENT_QWEN_CLI_PATH` and defaults to `qwe
 
 1. Message received
 2. Agent prepares prompt
-3. Calls `qwen` CLI
-4. Qwen creates TODO plan
-5. Executes plan with tools
-6. Returns structured markdown
-7. Saved to KB
+3. CLI working directory set to user's knowledge base path
+4. Calls `qwen` CLI in KB directory
+5. Qwen creates TODO plan
+6. Executes plan with tools (files created in correct KB location)
+7. Returns structured markdown
+8. Saved to KB
+
+**Important:** The CLI automatically runs inside your knowledge base directory (`knowledge_bases/your-kb-name/`). This ensures that any files created by the agent are saved to the correct location in your knowledge base structure.
+
+---
+
+## Troubleshooting
+
+### Files Created in Wrong Location
+
+**Проблема:** CLI создаёт файлы в корне проекта, а не в `knowledge_bases/your-kb-name/`
+
+**Решение:** Это было исправлено в последней версии. Бот автоматически устанавливает рабочую директорию CLI в путь вашей базы знаний перед каждым запросом. Убедитесь, что вы используете актуальную версию бота.
+
+**Как это работает:**
+- При обработке сообщения бот определяет путь к вашей базе знаний
+- Перед вызовом `qwen` CLI устанавливается `working_directory` в этот путь
+- Все файлы, созданные агентом, попадают в правильную структуру KB
+
+### CLI Requires Manual Approval
+
+**Проблема:** CLI требует подтверждения каждого действия, бот зависает
+
+**Решение:** Настройте режим `yolo` как описано в разделе установки:
+```bash
+qwen
+/approval-mode yolo --project
+```
+
+**Почему это необходимо:**
+- CLI по умолчанию работает в интерактивном режиме
+- Бот не может взаимодействовать с CLI в интерактивном режиме
+- Режим `yolo` отключает все запросы подтверждения
+
+### Authentication Issues
+
+**Проблема:** CLI не может авторизоваться
+
+**Решение:**
+1. Запустите `qwen` в терминале
+2. Следуйте инструкциям для OAuth авторизации через qwen.ai
+3. Либо настройте OpenAI-совместимый API:
+   ```bash
+   export OPENAI_API_KEY="your-key"
+   export OPENAI_BASE_URL="your-url"
+   ```
+
+### CLI Not Found
+
+**Проблема:** `qwen: command not found`
+
+**Решение:**
+1. Проверьте установку: `npm list -g @qwen-code/qwen-code`
+2. Переустановите: `npm install -g @qwen-code/qwen-code@latest`
+3. Проверьте PATH: `echo $PATH`
+4. Если используете nvm: убедитесь, что Node.js активирован
 
 ---
 
