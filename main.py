@@ -70,6 +70,10 @@ async def main():
         # Keep running until interrupted
         health_check_interval = 30  # Check health every 30 seconds
         last_health_check = asyncio.get_running_loop().time()
+        consecutive_failures = 0
+        max_consecutive_failures = 5  # Stop trying after 5 consecutive failures
+        base_backoff = 5  # Start with 5 second backoff
+        max_backoff = 300  # Max 5 minute backoff
         
         while True:
             await asyncio.sleep(1)
@@ -79,21 +83,52 @@ async def main():
             if current_time - last_health_check >= health_check_interval:
                 last_health_check = current_time
                 
-                if not await telegram_bot.is_healthy():
-                    logger.warning("Bot health check failed, attempting restart...")
+                # Use shorter timeout for health checks (10s instead of 300s)
+                if not await telegram_bot.is_healthy(timeout=10):
+                    consecutive_failures += 1
+                    
+                    if consecutive_failures >= max_consecutive_failures:
+                        logger.error(
+                            f"Bot has failed {consecutive_failures} consecutive health checks. "
+                            f"Stopping automatic restart attempts. Manual intervention required."
+                        )
+                        logger.error(
+                            "Possible causes: network issues, Telegram API unavailable, "
+                            "invalid bot token, or firewall blocking connection."
+                        )
+                        # Continue running but stop trying to restart
+                        continue
+                    
+                    # Calculate exponential backoff
+                    backoff = min(base_backoff * (2 ** (consecutive_failures - 1)), max_backoff)
+                    
+                    logger.warning(
+                        f"Bot health check failed (attempt {consecutive_failures}/{max_consecutive_failures}), "
+                        f"attempting restart after {backoff}s backoff..."
+                    )
+                    
                     try:
                         await telegram_bot.stop()
                     except Exception as e:
                         logger.error(f"Error during bot stop in health check: {e}", exc_info=True)
                     
-                    await asyncio.sleep(5)  # Wait for complete shutdown
+                    await asyncio.sleep(backoff)  # Wait with exponential backoff
                     
                     try:
                         await telegram_bot.start()
                         logger.info("Bot restarted successfully")
+                        consecutive_failures = 0  # Reset counter on success
                     except Exception as e:
                         logger.error(f"Error during bot start in health check: {e}", exc_info=True)
-                        logger.error("Failed to restart bot, continuing with unhealthy state")
+                        logger.error(
+                            f"Failed to restart bot (attempt {consecutive_failures}/{max_consecutive_failures}), "
+                            f"will retry after next health check"
+                        )
+                else:
+                    # Reset failure counter on successful health check
+                    if consecutive_failures > 0:
+                        logger.info("Bot health restored, resetting failure counter")
+                        consecutive_failures = 0
             
     except KeyboardInterrupt:
         logger.info("Received interrupt signal, shutting down...")
