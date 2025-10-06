@@ -183,19 +183,19 @@ class NoteCreationService(INoteCreationService):
         if not markdown:
             raise ValueError("Agent did not return markdown content")
         
-            # Create article
-            kb_file = kb_manager.create_article(
-                content=markdown,
-                title=title,
-                kb_structure=kb_structure,
-                metadata=metadata
-            )
-            
-            # Add kb_file to processed_content for tracking and notifications
-            processed_content['kb_file'] = kb_file
-            
-            # Update index
-            kb_manager.update_index(kb_file, title, kb_structure)
+        # Create article
+        kb_file = kb_manager.create_article(
+            content=markdown,
+            title=title,
+            kb_structure=kb_structure,
+            metadata=metadata
+        )
+        
+        # Add kb_file to processed_content for tracking and notifications
+        processed_content['kb_file'] = kb_file
+        
+        # Update index
+        kb_manager.update_index(kb_file, title, kb_structure)
         
         # Git operations
         if git_ops.enabled:
