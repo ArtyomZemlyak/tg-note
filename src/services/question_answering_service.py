@@ -13,7 +13,7 @@ from src.services.interfaces import IQuestionAnsweringService, IUserContextManag
 from src.processor.message_aggregator import MessageGroup
 from src.processor.content_parser import ContentParser
 from src.knowledge_base.repository import RepositoryManager
-from config.agent_prompts import KB_QUERY_PROMPT_TEMPLATE
+from config.agent_prompts import render_prompt
 
 
 class QuestionAnsweringService(IQuestionAnsweringService):
@@ -128,10 +128,13 @@ class QuestionAnsweringService(IQuestionAnsweringService):
         # Get user agent
         user_agent = self.user_context_manager.get_or_create_agent(user_id)
         
-        # Prepare query prompt
-        query_prompt = KB_QUERY_PROMPT_TEMPLATE.format(
-            kb_path=str(kb_path),
-            question=question
+        # Prepare query prompt via versioned registry
+        query_prompt = render_prompt(
+            "kb_query",
+            data={
+                "kb_path": str(kb_path),
+                "question": question,
+            },
         )
         
         # Create query content

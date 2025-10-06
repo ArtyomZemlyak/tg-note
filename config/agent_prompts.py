@@ -1,7 +1,104 @@
 """
 Agent Prompts Configuration
 Centralized configuration for all agent prompts and instructions
+
+This module now provides a structured, versioned prompt registry with simple
+helpers to retrieve and render prompts by id/version/locale while keeping
+backward-compatible constants for existing imports.
 """
+
+from dataclasses import dataclass
+from typing import Dict, Optional, Tuple, List
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Versioned Prompt Registry (new)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@dataclass(frozen=True)
+class PromptDefinition:
+    """Definition of a prompt/instruction with versioning and locale."""
+    prompt_id: str
+    version: str
+    locale: str
+    kind: str  # "instruction" | "template"
+    content: str
+    description: Optional[str] = None
+
+
+def _parse_semver(version: str) -> Tuple[int, int, int]:
+    """Parse semantic version into a sortable tuple; non-semver -> (0,0,0)."""
+    try:
+        parts = version.strip().lstrip("v").split(".")
+        major = int(parts[0]) if len(parts) > 0 else 0
+        minor = int(parts[1]) if len(parts) > 1 else 0
+        patch = int(parts[2]) if len(parts) > 2 else 0
+        return (major, minor, patch)
+    except Exception:
+        return (0, 0, 0)
+
+
+class PromptRegistry:
+    """In-memory registry for prompts with version and locale support."""
+
+    def __init__(self, default_locale: str = "ru") -> None:
+        self._by_key: Dict[Tuple[str, str, str], PromptDefinition] = {}
+        self.default_locale = default_locale
+
+    def register(self, prompt: PromptDefinition) -> None:
+        key = (prompt.prompt_id, prompt.version, prompt.locale)
+        self._by_key[key] = prompt
+
+    def list_versions(self, prompt_id: str, locale: Optional[str] = None) -> List[str]:
+        versions: List[str] = []
+        for (pid, ver, loc), _ in self._by_key.items():
+            if pid == prompt_id and (locale is None or loc == locale):
+                versions.append(ver)
+        # Sort by semver
+        versions = sorted(set(versions), key=_parse_semver)
+        return versions
+
+    def latest_version(self, prompt_id: str, locale: Optional[str] = None) -> Optional[str]:
+        versions = self.list_versions(prompt_id, locale)
+        return versions[-1] if versions else None
+
+    def get(self, prompt_id: str, version: Optional[str] = None, locale: Optional[str] = None) -> PromptDefinition:
+        loc = locale or self.default_locale
+        ver = version or self.latest_version(prompt_id, loc)
+        if ver is None:
+            # If no version for requested locale, try any locale
+            ver_any = self.latest_version(prompt_id, None)
+            if ver_any is None:
+                raise KeyError(f"Prompt not found: id='{prompt_id}'")
+            # Choose first available definition for that version
+            for (pid, v, l), p in self._by_key.items():
+                if pid == prompt_id and v == ver_any:
+                    return p
+            raise KeyError(f"Prompt not found for id='{prompt_id}', version='{ver_any}'")
+
+        key = (prompt_id, ver, loc)
+        if key in self._by_key:
+            return self._by_key[key]
+
+        # Fallback: try any locale for the requested version
+        for (pid, v, l), p in self._by_key.items():
+            if pid == prompt_id and v == ver:
+                return p
+        raise KeyError(f"Prompt not found for id='{prompt_id}', version='{ver}', locale='{loc}'")
+
+
+class _SafeDict(dict):
+    """Format helper: leaves unknown placeholders intact."""
+
+    def __missing__(self, key):  # type: ignore[override]
+        return "{" + key + "}"
+
+
+prompt_registry = PromptRegistry(default_locale="ru")
+
+PROMPTS_DEFAULT_LOCALE = "ru"
+PROMPTS_VERSION_LATEST = "1.0.0"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Agent Default Instructions
@@ -226,6 +323,7 @@ CONTENT_PROCESSING_PROMPT_TEMPLATE = """
 # Твоя задача
 
 Проанализируй эту информацию и добавь её в Базу Знаний следуя инструкции.
+Сформируй TODO checklist и итоговый markdown.
 index.md и README.md изменять нельзя!
 Начинай работу!
 """
@@ -304,6 +402,107 @@ KB_QUERY_PROMPT_TEMPLATE = """Ты агент для работы с Базой 
 }}
 ```
 """
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Prompt Registry Registrations (new) - keeps backward compatibility
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Instructions
+prompt_registry.register(
+    PromptDefinition(
+        prompt_id="qwen_code_agent.instruction",
+        version=PROMPTS_VERSION_LATEST,
+        locale="en",
+        kind="instruction",
+        content=QWEN_CODE_AGENT_INSTRUCTION,
+        description="Default instruction for autonomous KB agent (English)",
+    )
+)
+
+prompt_registry.register(
+    PromptDefinition(
+        prompt_id="qwen_code_cli.instruction",
+        version=PROMPTS_VERSION_LATEST,
+        locale="ru",
+        kind="instruction",
+        content=QWEN_CODE_CLI_AGENT_INSTRUCTION,
+        description="Qwen Code CLI agent instruction (Russian)",
+    )
+)
+
+prompt_registry.register(
+    PromptDefinition(
+        prompt_id="stub_agent.instruction",
+        version=PROMPTS_VERSION_LATEST,
+        locale="en",
+        kind="instruction",
+        content=STUB_AGENT_INSTRUCTION,
+        description="Stub/dev agent instruction",
+    )
+)
+
+# Templates
+prompt_registry.register(
+    PromptDefinition(
+        prompt_id="content_processing",
+        version=PROMPTS_VERSION_LATEST,
+        locale="ru",
+        kind="template",
+        content=CONTENT_PROCESSING_PROMPT_TEMPLATE,
+        description="Main content processing prompt wrapper",
+    )
+)
+
+prompt_registry.register(
+    PromptDefinition(
+        prompt_id="urls_section",
+        version=PROMPTS_VERSION_LATEST,
+        locale="ru",
+        kind="template",
+        content=URLS_SECTION_TEMPLATE,
+        description="Optional URLs section",
+    )
+)
+
+prompt_registry.register(
+    PromptDefinition(
+        prompt_id="kb_query",
+        version=PROMPTS_VERSION_LATEST,
+        locale="ru",
+        kind="template",
+        content=KB_QUERY_PROMPT_TEMPLATE,
+        description="Knowledge base query template",
+    )
+)
+
+
+# Convenience helpers (new)
+def get_prompt(prompt_id: str, version: Optional[str] = None, locale: Optional[str] = None) -> str:
+    """Return raw prompt content by id/version/locale (defaults to latest + default locale)."""
+    return prompt_registry.get(prompt_id, version=version, locale=locale).content
+
+
+def render_prompt(
+    prompt_id: str,
+    data: Optional[Dict[str, object]] = None,
+    version: Optional[str] = None,
+    locale: Optional[str] = None,
+) -> str:
+    """Render a template with provided data using safe .format_map semantics.
+
+    For instructions (non-templated), this simply returns the content.
+    """
+    definition = prompt_registry.get(prompt_id, version=version, locale=locale)
+    if definition.kind != "template":
+        return definition.content
+    values = _SafeDict(data or {})
+    return definition.content.format_map(values)
+
+
+def list_prompt_versions(prompt_id: str, locale: Optional[str] = None) -> List[str]:
+    """List available versions for a given prompt id and optional locale."""
+    return prompt_registry.list_versions(prompt_id, locale)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

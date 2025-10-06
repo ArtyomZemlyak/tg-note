@@ -17,8 +17,6 @@ from loguru import logger
 from .base_agent import BaseAgent, KBStructure
 from config.agent_prompts import (
     QWEN_CODE_CLI_AGENT_INSTRUCTION,
-    CONTENT_PROCESSING_PROMPT_TEMPLATE,
-    URLS_SECTION_TEMPLATE,
     CATEGORY_KEYWORDS,
     DEFAULT_CATEGORY,
     STOP_WORDS,
@@ -26,6 +24,7 @@ from config.agent_prompts import (
     MAX_SUMMARY_LENGTH,
     MAX_TAG_COUNT,
     MIN_KEYWORD_LENGTH,
+    render_prompt,
 )
 
 
@@ -259,17 +258,23 @@ class QwenCodeCLIAgent(BaseAgent):
         text = content.get("text", "")
         urls = content.get("urls", [])
         
-        # Build URLs section if URLs present
+        # Build URLs section if URLs present using registry
         urls_section = ""
         if urls:
             url_list = "\n".join([f"- {url}" for url in urls])
-            urls_section = URLS_SECTION_TEMPLATE.format(url_list=url_list)
-        
-        # Use template from config
-        return CONTENT_PROCESSING_PROMPT_TEMPLATE.format(
-            instruction=self.instruction,
-            text=text,
-            urls_section=urls_section
+            urls_section = render_prompt(
+                "urls_section",
+                data={"url_list": url_list},
+            )
+
+        # Use versioned template from registry
+        return render_prompt(
+            "content_processing",
+            data={
+                "instruction": self.instruction,
+                "text": text,
+                "urls_section": urls_section,
+            },
         )
     
     async def _execute_qwen_cli(self, prompt: str) -> str:
