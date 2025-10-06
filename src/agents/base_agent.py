@@ -155,7 +155,12 @@ class BaseAgent(ABC):
           "files_created": ["path/to/file1.md", "path/to/file2.md"],
           "files_edited": ["path/to/file3.md"],
           "folders_created": ["path/to/folder1"],
-          "metadata": {...}
+          "metadata": {
+            ...,
+            "links": [
+              {"file": "path/to/related.md", "description": "Related topic"}
+            ]
+          }
         }
         ```
         
