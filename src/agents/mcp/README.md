@@ -24,9 +24,17 @@ src/agents/mcp/
 The MCP client handles communication with MCP servers:
 
 - **Connection Management**: Launches and manages MCP server processes
-- **JSON-RPC Communication**: Sends requests and receives responses via stdio
-- **Tool Discovery**: Lists available tools from the MCP server
-- **Tool Execution**: Calls tools with parameters and returns results
+- **JSON-RPC 2.0 Communication**: Sends requests and receives responses via stdio
+- **Tool Support**: Lists and calls tools from the MCP server
+- **Resource Support**: Lists and reads resources (NEW!)
+- **Prompt Support**: Lists and gets prompts (NEW!)
+
+**Supported MCP Features:**
+- ✅ Tools (tools/list, tools/call)
+- ✅ Resources (resources/list, resources/read)
+- ✅ Prompts (prompts/list, prompts/get)
+- ✅ JSON-RPC 2.0 protocol
+- ✅ Stdio transport
 
 **Usage:**
 ```python
@@ -41,7 +49,17 @@ config = MCPServerConfig(
 client = MCPClient(config)
 await client.connect()
 
+# Work with tools
+tools = await client.list_tools()
 result = await client.call_tool("tool_name", {"param": "value"})
+
+# Work with resources (NEW!)
+resources = await client.list_resources()
+content = await client.read_resource("file:///path/to/file.txt")
+
+# Work with prompts (NEW!)
+prompts = await client.list_prompts()
+prompt = await client.get_prompt("prompt_name", {"arg": "value"})
 ```
 
 ### BaseMCPTool (`base_mcp_tool.py`)
@@ -218,10 +236,17 @@ result = await agent.tool_manager.execute(
 ### Communication Flow
 
 1. **Server Launch**: MCP client launches the server as a subprocess
-2. **Initialization**: Client sends `initialize` JSON-RPC request
-3. **Tool Discovery**: Client requests available tools via `tools/list`
-4. **Tool Execution**: Client calls tools via `tools/call` with parameters
-5. **Response Handling**: Server returns results in MCP format
+2. **Initialization**: Client sends `initialize` JSON-RPC request with protocol version "2024-11-05"
+3. **Initialized Notification**: Client sends `notifications/initialized` to complete handshake
+4. **Discovery**: Client can request:
+   - Available tools via `tools/list`
+   - Available resources via `resources/list`
+   - Available prompts via `prompts/list`
+5. **Execution**: Client can:
+   - Call tools via `tools/call` with parameters
+   - Read resources via `resources/read` with URI
+   - Get prompts via `prompts/get` with name and arguments
+6. **Response Handling**: Server returns results in MCP format
 
 ### JSON-RPC Format
 
