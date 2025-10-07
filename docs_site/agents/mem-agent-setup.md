@@ -40,7 +40,7 @@ AGENT_ENABLE_MCP_MEMORY: true
 MEM_AGENT_MODEL: driaforall/mem-agent
 MEM_AGENT_MODEL_PRECISION: 4bit
 MEM_AGENT_BACKEND: auto
-MEM_AGENT_MEMORY_PATH: ./data/memory
+MEM_AGENT_MEMORY_PATH: ./knowledge_bases/default/memory
 MEM_AGENT_MAX_TOOL_TURNS: 20
 ```
 
@@ -66,7 +66,7 @@ huggingface-cli scan-cache | grep mem-agent
 cat data/mcp_servers/mem-agent.json
 
 # Check memory directory
-ls -la data/memory/
+ls -la knowledge_bases/default/memory/
 ```
 
 ## Advanced Installation
@@ -122,15 +122,17 @@ export MEM_AGENT_BACKEND=transformers
 
 ## Memory Structure
 
-The memory agent uses an Obsidian-like file structure:
+The memory agent uses an Obsidian-like file structure stored in `knowledge_bases/{base-name}/memory`:
 
 ```
-data/memory/
-├── user.md              # Personal information about the user
-└── entities/            # Information about entities
-    ├── person_name.md
-    ├── company_name.md
-    └── place_name.md
+knowledge_bases/
+└── default/              # or your knowledge base name
+    └── memory/
+        ├── user.md       # Personal information about the user
+        └── entities/     # Information about entities
+            ├── person_name.md
+            ├── company_name.md
+            └── place_name.md
 ```
 
 ### user.md Structure
@@ -191,22 +193,15 @@ result = await agent.process({
 ### Direct API (Advanced)
 
 ```python
-from src.mem_agent import MemoryAgent
-from src.mem_agent.settings import MemoryAgentSettings
+from config.settings import settings
 
-# Create memory agent
-settings = MemoryAgentSettings()
-agent = MemoryAgent(settings)
+# Memory agent settings are now part of the main settings module
+# Access them via settings.MEM_AGENT_* properties:
+print(f"Model: {settings.MEM_AGENT_MODEL}")
+print(f"Memory path: {settings.MEM_AGENT_MEMORY_PATH}")
+print(f"Backend: {settings.get_mem_agent_backend()}")
 
-# Initialize model
-await agent.initialize()
-
-# Use memory
-response = await agent.chat("I love Python programming")
-print(response.reply)
-
-response = await agent.chat("What's my favorite language?")
-print(response.reply)  # Should mention Python
+# The MemoryAgent and MemoryAgentMCPServer classes are planned for future development
 ```
 
 ## Model Selection
@@ -258,8 +253,9 @@ huggingface-cli delete-cache
 | `MEM_AGENT_MODEL` | `driaforall/mem-agent` | HuggingFace model ID |
 | `MEM_AGENT_MODEL_PRECISION` | `4bit` | Model precision (4bit, 8bit, fp16) |
 | `MEM_AGENT_BACKEND` | `auto` | Backend (auto, vllm, mlx, transformers) |
-| `MEM_AGENT_MEMORY_PATH` | `./data/memory` | Memory storage path |
+| `MEM_AGENT_MEMORY_PATH` | `./knowledge_bases/default/memory` | Memory storage path |
 | `MEM_AGENT_MAX_TOOL_TURNS` | `20` | Max tool execution iterations |
+| `MEM_AGENT_TIMEOUT` | `20` | Timeout for code execution (seconds) |
 | `MEM_AGENT_VLLM_HOST` | `127.0.0.1` | vLLM server host |
 | `MEM_AGENT_VLLM_PORT` | `8001` | vLLM server port |
 | `MEM_AGENT_FILE_SIZE_LIMIT` | `1048576` | Max file size (1MB) |
@@ -370,8 +366,8 @@ MEM_AGENT_MAX_TOOL_TURNS: 10  # Faster but less thorough
 
 1. Check permissions:
    ```bash
-   ls -la data/memory/
-   chmod -R 755 data/memory/
+   ls -la knowledge_bases/default/memory/
+   chmod -R 755 knowledge_bases/default/memory/
    ```
 
 2. Verify path in configuration:
@@ -382,8 +378,8 @@ MEM_AGENT_MAX_TOOL_TURNS: 10  # Faster but less thorough
 
 3. Create manually:
    ```bash
-   mkdir -p data/memory/entities
-   touch data/memory/user.md
+   mkdir -p knowledge_bases/default/memory/entities
+   touch knowledge_bases/default/memory/user.md
    ```
 
 ### MCP Server Connection Issues
@@ -428,9 +424,10 @@ MEM_AGENT_MAX_TOOL_TURNS: 10  # Faster but less thorough
 
 ### Security
 
-1. **Review memories**: Periodically check `data/memory/` for sensitive info
+1. **Review memories**: Periodically check `knowledge_bases/{base-name}/memory/` for sensitive info
 2. **Set size limits**: Prevent memory from growing too large
 3. **Backup regularly**: Memory files are plain text, easy to backup
+4. **Knowledge base integration**: Memory is now stored within your knowledge base structure
 
 ## See Also
 

@@ -7,6 +7,8 @@ This script:
 2. Downloads the model from HuggingFace
 3. Sets up the MCP server configuration
 4. Registers the mem-agent MCP server
+
+Note: Uses settings from config.settings to avoid conflicts
 """
 
 import argparse
@@ -15,6 +17,16 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+
+# Add parent directory to path to import config
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+try:
+    from config.settings import settings as app_settings
+    CONFIG_AVAILABLE = True
+except ImportError:
+    CONFIG_AVAILABLE = False
+    print("[!] Warning: Could not import config.settings, using default values")
 
 
 def run_command(cmd: list, description: str) -> bool:
@@ -98,11 +110,16 @@ def download_model(model_id: str, precision: str = "4bit") -> bool:
         return False
 
 
-def create_mcp_server_config(workspace_root: Path) -> bool:
+def create_mcp_server_config(workspace_root: Path, memory_path: Path) -> bool:
     """Create MCP server configuration for mem-agent"""
     print("\n=== Creating MCP Server Configuration ===\n")
     
-    mcp_servers_dir = workspace_root / "data" / "mcp_servers"
+    # Get MCP servers directory from config if available
+    if CONFIG_AVAILABLE:
+        mcp_servers_dir = app_settings.MCP_SERVERS_DIR
+    else:
+        mcp_servers_dir = workspace_root / "data" / "mcp_servers"
+    
     mcp_servers_dir.mkdir(parents=True, exist_ok=True)
     
     # Create mem-agent MCP server configuration
@@ -115,7 +132,7 @@ def create_mcp_server_config(workspace_root: Path) -> bool:
             "src.mem_agent.server"
         ],
         "env": {
-            "MEM_AGENT_MEMORY_PATH": str(workspace_root / "data" / "memory")
+            "MEM_AGENT_MEMORY_PATH": str(memory_path)
         },
         "working_dir": str(workspace_root),
         "enabled": True
@@ -133,11 +150,11 @@ def create_mcp_server_config(workspace_root: Path) -> bool:
         return False
 
 
-def setup_memory_directory(workspace_root: Path) -> bool:
+def setup_memory_directory(memory_path: Path) -> bool:
     """Setup memory directory structure"""
     print("\n=== Setting Up Memory Directory ===\n")
     
-    memory_dir = workspace_root / "data" / "memory"
+    memory_dir = memory_path
     memory_dir.mkdir(parents=True, exist_ok=True)
     
     # Create initial user.md if it doesn't exist
@@ -158,6 +175,8 @@ Links to entities will appear here as you interact with the memory agent.
         except Exception as e:
             print(f"[✗] Failed to create user.md: {e}")
             return False
+    else:
+        print(f"[✓] user.md already exists at {user_md}")
     
     # Create entities directory
     entities_dir = memory_dir / "entities"
@@ -171,16 +190,22 @@ def main():
     parser = argparse.ArgumentParser(
         description="Install and configure mem-agent for tg-note"
     )
+    
+    # Get defaults from config if available
+    default_model = app_settings.MEM_AGENT_MODEL if CONFIG_AVAILABLE else "driaforall/mem-agent"
+    default_precision = app_settings.MEM_AGENT_MODEL_PRECISION if CONFIG_AVAILABLE else "4bit"
+    default_memory_path = app_settings.MEM_AGENT_MEMORY_PATH if CONFIG_AVAILABLE else Path("./knowledge_bases/default/memory")
+    
     parser.add_argument(
         "--model",
-        default="driaforall/mem-agent",
-        help="HuggingFace model ID (default: driaforall/mem-agent)"
+        default=default_model,
+        help=f"HuggingFace model ID (default: {default_model})"
     )
     parser.add_argument(
         "--precision",
-        default="4bit",
+        default=default_precision,
         choices=["4bit", "8bit", "fp16"],
-        help="Model precision (default: 4bit)"
+        help=f"Model precision (default: {default_precision})"
     )
     parser.add_argument(
         "--skip-model-download",
@@ -193,6 +218,12 @@ def main():
         default=Path.cwd(),
         help="Workspace root directory (default: current directory)"
     )
+    parser.add_argument(
+        "--memory-path",
+        type=Path,
+        default=default_memory_path,
+        help=f"Memory storage path (default: {default_memory_path})"
+    )
     
     args = parser.parse_args()
     
@@ -202,6 +233,11 @@ def main():
     print(f"\nModel: {args.model}")
     print(f"Precision: {args.precision}")
     print(f"Workspace: {args.workspace}")
+    print(f"Memory path: {args.memory_path}")
+    if CONFIG_AVAILABLE:
+        print("[✓] Using settings from config.settings")
+    else:
+        print("[!] Using default settings (config.settings not available)")
     print()
     
     # Step 1: Install dependencies
@@ -219,12 +255,12 @@ def main():
         print("\n[*] Skipping model download (as requested)")
     
     # Step 3: Setup memory directory
-    if not setup_memory_directory(args.workspace):
+    if not setup_memory_directory(args.memory_path):
         print("\n[✗] Installation failed at memory directory setup stage")
         return 1
     
     # Step 4: Create MCP server configuration
-    if not create_mcp_server_config(args.workspace):
+    if not create_mcp_server_config(args.workspace, args.memory_path):
         print("\n[✗] Installation failed at MCP server configuration stage")
         return 1
     
@@ -233,9 +269,13 @@ def main():
     print("=" * 60)
     print("\nNext steps:")
     print("1. The mem-agent MCP server has been registered")
-    print("2. Enable it in your settings: AGENT_ENABLE_MCP=true, AGENT_ENABLE_MCP_MEMORY=true")
-    print(f"3. Memory will be stored in: {args.workspace / 'data' / 'memory'}")
-    print("4. You can change the model in settings: MEM_AGENT_MODEL")
+    print("2. Enable it in your config.yaml or .env:")
+    print("   AGENT_ENABLE_MCP: true")
+    print("   AGENT_ENABLE_MCP_MEMORY: true")
+    print(f"3. Memory will be stored in: {args.memory_path}")
+    print("4. You can change settings in config.yaml or .env")
+    print("   - MEM_AGENT_MODEL (default: driaforall/mem-agent)")
+    print("   - MEM_AGENT_MEMORY_PATH (default: knowledge_bases/default/memory)")
     print("\n")
     
     return 0

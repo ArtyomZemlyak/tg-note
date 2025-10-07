@@ -23,17 +23,17 @@
   - MLX для macOS с Apple Silicon
   - Transformers для CPU (работает везде)
 
-### 3. Память рядом с topics
+### 3. Память в knowledge base
 
-Память хранится в `data/memory/` на том же уровне, что и `topics/`:
+Память хранится в `knowledge_bases/{base-name}/memory/` внутри структуры базы знаний:
 
 ```
-data/
-├── memory/           # Память mem-agent
-│   ├── user.md      # Информация о пользователе
-│   └── entities/    # Файлы сущностей
-├── mcp_servers/      # Конфигурации MCP серверов
-└── topics/           # Ваши заметки
+knowledge_bases/
+└── default/          # или имя вашей базы знаний
+    ├── memory/       # Память mem-agent
+    │   ├── user.md   # Информация о пользователе
+    │   └── entities/ # Файлы сущностей
+    └── topics/       # Ваши заметки
 ```
 
 ## Быстрый старт
@@ -64,7 +64,7 @@ AGENT_ENABLE_MCP_MEMORY: true
 MEM_AGENT_MODEL: driaforall/mem-agent
 MEM_AGENT_MODEL_PRECISION: 4bit  # 4bit, 8bit, или fp16
 MEM_AGENT_BACKEND: auto          # auto, vllm, mlx, или transformers
-MEM_AGENT_MEMORY_PATH: ./data/memory
+MEM_AGENT_MEMORY_PATH: ./knowledge_bases/default/memory
 ```
 
 ### 3. Установка зависимостей
@@ -91,7 +91,7 @@ pip install vllm
 cat data/mcp_servers/mem-agent.json
 
 # Проверить структуру памяти
-ls -la data/memory/
+ls -la knowledge_bases/default/memory/
 
 # Проверить загрузку модели
 huggingface-cli scan-cache | grep mem-agent
@@ -193,7 +193,7 @@ MCP Server Registry (чтение JSON конфигов)
 2. Agent → MCP Registry Client → Обнаружить серверы
 3. MCP Registry Client → Подключиться к mem-agent
 4. Agent → mem-agent → Сохранить/найти память
-5. mem-agent → data/memory/ → Работа с файлами
+5. mem-agent → knowledge_bases/default/memory/ → Работа с файлами
 6. Agent → Telegram Bot → Пользователь
 ```
 
@@ -281,7 +281,7 @@ MEM_AGENT_MODEL_PRECISION: 4bit
 MEM_AGENT_BACKEND: auto
 
 # Пути
-MEM_AGENT_MEMORY_PATH: ./data/memory
+MEM_AGENT_MEMORY_PATH: ./knowledge_bases/default/memory
 MCP_SERVERS_DIR: ./data/mcp_servers
 
 # Лимиты
@@ -391,7 +391,7 @@ export MEM_AGENT_BACKEND=transformers
 ✅ **Полностью локальный mem-agent** без зависимости от внешних API  
 ✅ **Гибкая система MCP серверов** с простым добавлением новых  
 ✅ **Автоматическое управление моделями** через HuggingFace CLI  
-✅ **Память рядом с topics** в `data/memory/`  
+✅ **Память интегрирована в knowledge base** в `knowledge_bases/{base-name}/memory/`  
 ✅ **Поддержка всех агентов** через общую MCP прослойку  
 ✅ **Подробная документация** на русском и английском  
 

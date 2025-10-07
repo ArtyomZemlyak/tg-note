@@ -81,7 +81,7 @@ MCP server configurations are stored as JSON files in `data/mcp_servers/`:
   "command": "python",
   "args": ["-m", "src.mem_agent.server"],
   "env": {
-    "MEM_AGENT_MEMORY_PATH": "data/memory"
+    "MEM_AGENT_MEMORY_PATH": "knowledge_bases/default/memory"
   },
   "working_dir": "/workspace",
   "enabled": true

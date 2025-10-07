@@ -33,12 +33,14 @@ Integrated the mem-agent as a native component with:
 
 **Files Created:**
 - `src/mem_agent/__init__.py` - Memory agent module
-- `src/mem_agent/settings.py` - Memory agent configuration
 - `scripts/install_mem_agent.py` - Installation and setup script
 
+**Settings Integration:**
+- Memory agent settings are now in `config/settings.py` (consolidated configuration)
+
 **Directory Structure:**
-- `data/memory/` - Memory storage directory
-- `data/memory/entities/` - Entity files storage
+- `knowledge_bases/{base-name}/memory/` - Memory storage directory
+- `knowledge_bases/{base-name}/memory/entities/` - Entity files storage
 
 ### 3. Configuration Updates
 
@@ -203,7 +205,7 @@ Agent → MCP Registry Client → MCP Server Registry
 2. **Python-based** - No Node.js/npm dependency for mem-agent
 3. **Dynamic discovery** - Servers configured via JSON files
 4. **Easy to extend** - Add new servers by dropping JSON files
-5. **Memory stored locally** - In `data/memory/` alongside topics
+5. **Memory stored in knowledge base** - In `knowledge_bases/{base-name}/memory/` within knowledge base structure
 
 ## Configuration Examples
 
@@ -229,7 +231,7 @@ MCP_SERVERS_DIR: ./data/mcp_servers
 MEM_AGENT_MODEL: driaforall/mem-agent
 MEM_AGENT_MODEL_PRECISION: 4bit
 MEM_AGENT_BACKEND: auto
-MEM_AGENT_MEMORY_PATH: ./data/memory
+MEM_AGENT_MEMORY_PATH: ./knowledge_bases/default/memory
 MEM_AGENT_MAX_TOOL_TURNS: 20
 
 # vLLM Settings (Linux with GPU)
@@ -298,7 +300,7 @@ print(f'Enabled: {len(manager.get_enabled_servers())} servers')
 "
 
 # Check memory directory
-ls -la data/memory/
+ls -la knowledge_bases/default/memory/
 
 # Check mem-agent configuration
 cat data/mcp_servers/mem-agent.json
@@ -307,13 +309,13 @@ cat data/mcp_servers/mem-agent.json
 ### Test Memory Agent
 
 ```python
-from src.mem_agent.settings import MemoryAgentSettings
+from config.settings import settings
 
-# Check settings
-settings = MemoryAgentSettings()
+# Memory agent settings are now integrated in config.settings
+# Access via: settings.MEM_AGENT_MODEL, settings.MEM_AGENT_MEMORY_PATH, etc.
 print(f"Model: {settings.MEM_AGENT_MODEL}")
 print(f"Precision: {settings.MEM_AGENT_MODEL_PRECISION}")
-print(f"Backend: {settings.get_backend()}")
+print(f"Backend: {settings.get_mem_agent_backend()}")
 print(f"Memory path: {settings.MEM_AGENT_MEMORY_PATH}")
 ```
 

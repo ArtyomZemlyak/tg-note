@@ -164,13 +164,37 @@ class Settings(BaseSettings):
         default="auto",
         description="Backend to use: auto, vllm, mlx, or transformers"
     )
+    MEM_AGENT_VLLM_HOST: str = Field(
+        default="127.0.0.1",
+        description="vLLM server host"
+    )
+    MEM_AGENT_VLLM_PORT: int = Field(
+        default=8001,
+        description="vLLM server port"
+    )
     MEM_AGENT_MEMORY_PATH: Path = Field(
-        default=Path("./data/memory"),
-        description="Path to store memory files"
+        default=Path("./knowledge_bases/default/memory"),
+        description="Path to store memory files (default: knowledge_bases/default/memory)"
     )
     MEM_AGENT_MAX_TOOL_TURNS: int = Field(
         default=20,
-        description="Maximum number of tool execution turns for memory agent"
+        description="Maximum number of tool execution turns"
+    )
+    MEM_AGENT_TIMEOUT: int = Field(
+        default=20,
+        description="Timeout for sandboxed code execution (seconds)"
+    )
+    MEM_AGENT_FILE_SIZE_LIMIT: int = Field(
+        default=1024 * 1024,  # 1MB
+        description="Maximum file size in bytes"
+    )
+    MEM_AGENT_DIR_SIZE_LIMIT: int = Field(
+        default=1024 * 1024 * 10,  # 10MB
+        description="Maximum directory size in bytes"
+    )
+    MEM_AGENT_MEMORY_SIZE_LIMIT: int = Field(
+        default=1024 * 1024 * 100,  # 100MB
+        description="Maximum total memory size in bytes"
     )
     
     # Vector Search Settings (can be in YAML)
@@ -353,6 +377,52 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return Path(v)
         return v
+    
+    def get_mem_agent_backend(self) -> str:
+        """
+        Determine the memory agent backend to use
+        
+        Returns:
+            Backend name: vllm, mlx, or transformers
+        """
+        if self.MEM_AGENT_BACKEND != "auto":
+            return self.MEM_AGENT_BACKEND
+        
+        # Auto-detect based on platform
+        import sys
+        if sys.platform == "darwin":
+            # macOS - prefer MLX if available, otherwise transformers
+            try:
+                import mlx
+                return "mlx"
+            except ImportError:
+                return "transformers"
+        else:
+            # Linux/Windows - prefer vLLM if available, otherwise transformers
+            try:
+                import vllm
+                return "vllm"
+            except ImportError:
+                return "transformers"
+    
+    def get_mem_agent_model_path(self) -> Path:
+        """
+        Get the path where the mem-agent model will be cached
+        
+        Returns:
+            Path to model cache
+        """
+        # Use HuggingFace cache directory
+        import os
+        cache_home = os.environ.get(
+            "HF_HOME",
+            os.path.join(os.path.expanduser("~"), ".cache", "huggingface")
+        )
+        return Path(cache_home) / "hub" / f"models--{self.MEM_AGENT_MODEL.replace('/', '--')}"
+    
+    def ensure_mem_agent_memory_path_exists(self) -> None:
+        """Ensure memory agent memory path exists"""
+        self.MEM_AGENT_MEMORY_PATH.mkdir(parents=True, exist_ok=True)
     
     def validate(self) -> List[str]:
         """
