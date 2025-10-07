@@ -99,7 +99,8 @@ def configure_services(container: Container) -> None:
         lambda c: QuestionAnsweringService(
             bot=c.get("async_bot"),
             repo_manager=c.get("repo_manager"),
-            user_context_manager=c.get("user_context_manager")
+            user_context_manager=c.get("user_context_manager"),
+            settings_manager=c.get("settings_manager")
         ),
         singleton=True
     )

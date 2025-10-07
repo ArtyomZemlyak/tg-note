@@ -113,12 +113,22 @@ class NoteCreationService(INoteCreationService):
             
             user_agent = self.user_context_manager.get_or_create_agent(user_id)
             
-            # Set working directory to topics folder in user's KB for qwen-code-cli agent
-            # This ensures files created by the CLI are in the correct location (topics/)
-            topics_path = kb_path / "topics"
+            # Set working directory to user's KB for qwen-code-cli agent
+            # Use KB_TOPICS_ONLY setting to determine if we should restrict to topics/ folder
+            kb_topics_only = self.settings_manager.get_setting(user_id, "KB_TOPICS_ONLY")
+            
+            if kb_topics_only:
+                # Restrict to topics folder (protects index.md, README.md, etc.)
+                agent_working_dir = kb_path / "topics"
+                self.logger.debug(f"KB_TOPICS_ONLY=true, restricting agent to topics folder")
+            else:
+                # Full access to entire knowledge base
+                agent_working_dir = kb_path
+                self.logger.debug(f"KB_TOPICS_ONLY=false, agent has full KB access")
+            
             if hasattr(user_agent, 'set_working_directory'):
-                user_agent.set_working_directory(str(topics_path))
-                self.logger.debug(f"Set agent working directory to: {topics_path}")
+                user_agent.set_working_directory(str(agent_working_dir))
+                self.logger.debug(f"Set agent working directory to: {agent_working_dir}")
             
             try:
                 processed_content = await user_agent.process(content)
@@ -137,6 +147,7 @@ class NoteCreationService(INoteCreationService):
                 kb_manager,
                 git_ops,
                 kb_path,
+                agent_working_dir,
                 processed_content,
                 user_id,
                 processing_msg
@@ -161,11 +172,23 @@ class NoteCreationService(INoteCreationService):
         kb_manager: KnowledgeBaseManager,
         git_ops: GitOperations,
         kb_path: Path,
+        agent_working_dir: Path,
         processed_content: dict,
         user_id: int,
         processing_msg: Message
     ) -> None:
-        """Save content to knowledge base"""
+        """
+        Save content to knowledge base
+        
+        Args:
+            kb_manager: Knowledge base manager
+            git_ops: Git operations handler
+            kb_path: Path to knowledge base root
+            agent_working_dir: Working directory used by agent (may be kb_path or kb_path/topics)
+            processed_content: Processed content from agent
+            user_id: User ID
+            processing_msg: Processing message
+        """
         await self.bot.edit_message_text(
             "💾 Сохраняю в базу знаний...",
             chat_id=processing_msg.chat.id,
@@ -189,9 +212,11 @@ class NoteCreationService(INoteCreationService):
         if files_created and kb_structure:
             for file_path in files_created:
                 # Convert to absolute path if relative
+                # Agent returns paths relative to its working directory
                 abs_path = Path(file_path)
                 if not abs_path.is_absolute():
-                    abs_path = kb_path / file_path
+                    # Use agent_working_dir as base for relative paths
+                    abs_path = agent_working_dir / file_path
                 
                 # Only add to index if it's a markdown file
                 if abs_path.suffix == '.md' and abs_path.exists():
@@ -210,9 +235,12 @@ class NoteCreationService(INoteCreationService):
             files_added = False
             
             for file_path in all_files:
+                # Convert to absolute path if relative
+                # Agent returns paths relative to its working directory
                 abs_path = Path(file_path)
                 if not abs_path.is_absolute():
-                    abs_path = kb_path / file_path
+                    # Use agent_working_dir as base for relative paths
+                    abs_path = agent_working_dir / file_path
                 if abs_path.exists():
                     git_ops.add(str(abs_path))
                     files_added = True

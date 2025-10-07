@@ -31,7 +31,8 @@ class QuestionAnsweringService(IQuestionAnsweringService):
         self,
         bot: AsyncTeleBot,
         repo_manager: RepositoryManager,
-        user_context_manager: IUserContextManager
+        user_context_manager: IUserContextManager,
+        settings_manager
     ):
         """
         Initialize question answering service
@@ -40,10 +41,12 @@ class QuestionAnsweringService(IQuestionAnsweringService):
             bot: Telegram bot instance
             repo_manager: Repository manager
             user_context_manager: User context manager
+            settings_manager: Settings manager for user-specific settings
         """
         self.bot = bot
         self.repo_manager = repo_manager
         self.user_context_manager = user_context_manager
+        self.settings_manager = settings_manager
         self.content_parser = ContentParser()
         self.logger = logger
     
@@ -179,12 +182,22 @@ class QuestionAnsweringService(IQuestionAnsweringService):
         # Get user agent
         user_agent = self.user_context_manager.get_or_create_agent(user_id)
         
-        # Set working directory to topics folder for qwen-code-cli agent
-        # This ensures CLI works in the correct location with notes
-        topics_path = kb_path / "topics"
+        # Set working directory to user's KB for qwen-code-cli agent
+        # Use KB_TOPICS_ONLY setting to determine if we should restrict to topics/ folder
+        kb_topics_only = self.settings_manager.get_setting(user_id, "KB_TOPICS_ONLY")
+        
+        if kb_topics_only:
+            # Restrict to topics folder (protects index.md, README.md, etc.)
+            agent_working_dir = kb_path / "topics"
+            self.logger.debug(f"KB_TOPICS_ONLY=true, restricting agent to topics folder")
+        else:
+            # Full access to entire knowledge base
+            agent_working_dir = kb_path
+            self.logger.debug(f"KB_TOPICS_ONLY=false, agent has full KB access")
+        
         if hasattr(user_agent, 'set_working_directory'):
-            user_agent.set_working_directory(str(topics_path))
-            self.logger.debug(f"Set agent working directory to: {topics_path}")
+            user_agent.set_working_directory(str(agent_working_dir))
+            self.logger.debug(f"Set agent working directory to: {agent_working_dir}")
         
         # Temporarily change agent instruction to ask mode
         # This prevents the agent from using note creation instructions
@@ -194,9 +207,9 @@ class QuestionAnsweringService(IQuestionAnsweringService):
             user_agent.set_instruction(ASK_MODE_AGENT_INSTRUCTION)
             self.logger.debug(f"Temporarily changed agent instruction to ask mode")
         
-        # Prepare query prompt with topics path
+        # Prepare query prompt with appropriate path (based on KB_TOPICS_ONLY setting)
         query_prompt = KB_QUERY_PROMPT_TEMPLATE.format(
-            kb_path=str(topics_path),
+            kb_path=str(agent_working_dir),
             question=question
         )
         
