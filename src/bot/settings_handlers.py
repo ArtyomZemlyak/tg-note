@@ -11,6 +11,7 @@ from telebot.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, C
 
 from config import settings
 from src.bot.settings_manager import SettingsManager, SettingsInspector, UserSettingsStorage
+from src.bot.utils import escape_markdown
 
 
 
@@ -153,7 +154,7 @@ class SettingsHandlers:
                 elif isinstance(value, bool):
                     value_str = "✅ enabled" if value else "❌ disabled"
                 else:
-                    value_str = str(value)
+                    value_str = escape_markdown(str(value))
                 
                 readonly_marker = " 🔒" if info.is_readonly else ""
                 lines.append(f"• `{name}`: {value_str}{readonly_marker}")
@@ -231,10 +232,10 @@ class SettingsHandlers:
                 if isinstance(value, bool):
                     value_str = "✅ enabled" if value else "❌ disabled"
                 else:
-                    value_str = str(value)
+                    value_str = escape_markdown(str(value))
                 
                 lines.append(f"• `{name}`: {value_str}")
-                lines.append(f"  _{info.description}_\n")
+                lines.append(f"  _{escape_markdown(info.description)}_\n")
         
         # Add quick actions
         keyboard = InlineKeyboardMarkup()
@@ -285,10 +286,10 @@ class SettingsHandlers:
                 if isinstance(value, bool):
                     value_str = "✅ enabled" if value else "❌ disabled"
                 else:
-                    value_str = str(value)
+                    value_str = escape_markdown(str(value))
                 
                 lines.append(f"• `{name}`: {value_str}")
-                lines.append(f"  _{info.description}_\n")
+                lines.append(f"  _{escape_markdown(info.description)}_\n")
         
         # Add quick actions for common settings
         keyboard = InlineKeyboardMarkup()
@@ -403,13 +404,27 @@ class SettingsHandlers:
             "• Use /resetsetting <name> to restore default"
         )
         
-        await self.bot.edit_message_text(
-            menu_text,
-            call.message.chat.id,
-            call.message.message_id,
-            reply_markup=keyboard,
-            parse_mode='Markdown'
-        )
+        try:
+            await self.bot.edit_message_text(
+                menu_text,
+                call.message.chat.id,
+                call.message.message_id,
+                reply_markup=keyboard,
+                parse_mode='Markdown'
+            )
+        except Exception as e:
+            # If Markdown parsing fails, send without formatting
+            if "can't parse entities" in str(e).lower():
+                logger.warning(f"Markdown parsing failed in main menu, sending without formatting: {e}")
+                await self.bot.edit_message_text(
+                    menu_text,
+                    call.message.chat.id,
+                    call.message.message_id,
+                    reply_markup=keyboard,
+                    parse_mode=None
+                )
+            else:
+                raise
         
         await self.bot.answer_callback_query(call.id)
     
@@ -459,13 +474,27 @@ class SettingsHandlers:
         
         text = "\n".join(lines)
         
-        await self.bot.edit_message_text(
-            text,
-            call.message.chat.id,
-            call.message.message_id,
-            reply_markup=keyboard,
-            parse_mode='Markdown'
-        )
+        try:
+            await self.bot.edit_message_text(
+                text,
+                call.message.chat.id,
+                call.message.message_id,
+                reply_markup=keyboard,
+                parse_mode='Markdown'
+            )
+        except Exception as e:
+            # If Markdown parsing fails, send without formatting
+            if "can't parse entities" in str(e).lower():
+                logger.warning(f"Markdown parsing failed in category settings, sending without formatting: {e}")
+                await self.bot.edit_message_text(
+                    text,
+                    call.message.chat.id,
+                    call.message.message_id,
+                    reply_markup=keyboard,
+                    parse_mode=None
+                )
+            else:
+                raise
         
         await self.bot.answer_callback_query(call.id)
     
@@ -521,24 +550,24 @@ class SettingsHandlers:
         
         # Build description text
         lines = [f"⚙️ **{setting_name}**\n"]
-        lines.append(f"📝 {info.description}\n")
+        lines.append(f"📝 {escape_markdown(info.description)}\n")
         
         # Add type information
         type_str = self._format_type(info.type)
-        lines.append(f"**Type:** `{type_str}`")
+        lines.append(f"**Type:** `{escape_markdown(type_str)}`")
         
         # Add current value
         if isinstance(current_value, bool):
             value_str = "✅ enabled" if current_value else "❌ disabled"
         else:
-            value_str = str(current_value)
+            value_str = escape_markdown(str(current_value))
         lines.append(f"**Current value:** `{value_str}`")
         
         # Add default value
         if isinstance(info.default, bool):
             default_str = "✅ enabled" if info.default else "❌ disabled"
         else:
-            default_str = str(info.default)
+            default_str = escape_markdown(str(info.default))
         lines.append(f"**Default value:** `{default_str}`\n")
         
         # Add allowed values or examples
@@ -575,13 +604,27 @@ class SettingsHandlers:
             InlineKeyboardButton("« Back", callback_data=f"settings:category:{info.category}")
         )
         
-        await self.bot.edit_message_text(
-            text,
-            call.message.chat.id,
-            call.message.message_id,
-            reply_markup=keyboard,
-            parse_mode='Markdown'
-        )
+        try:
+            await self.bot.edit_message_text(
+                text,
+                call.message.chat.id,
+                call.message.message_id,
+                reply_markup=keyboard,
+                parse_mode='Markdown'
+            )
+        except Exception as e:
+            # If Markdown parsing fails, send without formatting
+            if "can't parse entities" in str(e).lower():
+                logger.warning(f"Markdown parsing failed in setting detail, sending without formatting: {e}")
+                await self.bot.edit_message_text(
+                    text,
+                    call.message.chat.id,
+                    call.message.message_id,
+                    reply_markup=keyboard,
+                    parse_mode=None
+                )
+            else:
+                raise
         
         # If not a boolean, prompt for text input
         if info.type != bool and not (hasattr(info.type, '__origin__') and str(info.type).startswith('typing.Union') and bool in str(info.type)):
