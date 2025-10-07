@@ -154,3 +154,68 @@ def format_status_message(status: str, details: str = "") -> str:
         message += f"\n{details}"
     
     return message
+
+
+def split_long_message(text: str, max_length: int = 4000) -> List[str]:
+    """
+    Split a long message into chunks that fit within Telegram's message length limit
+    
+    Telegram has a 4096 character limit for messages. This function splits messages
+    at line boundaries when possible to maintain readability.
+    
+    Args:
+        text: Text to split
+        max_length: Maximum length per chunk (default 4000 to leave buffer)
+    
+    Returns:
+        List of message chunks
+    """
+    if len(text) <= max_length:
+        return [text]
+    
+    chunks = []
+    current_chunk = ""
+    
+    # Split by lines to avoid breaking in the middle of a line
+    lines = text.split('\n')
+    
+    for line in lines:
+        # If a single line is longer than max_length, we need to split it
+        if len(line) > max_length:
+            # If current chunk is very small (< 500 chars), try to add part of long line to it
+            if current_chunk and len(current_chunk) < 500:
+                remaining_space = max_length - len(current_chunk) - 1  # -1 for newline
+                current_chunk += '\n' + line[:remaining_space]
+                chunks.append(current_chunk)
+                # Process the rest of the line
+                line = line[remaining_space:]
+                current_chunk = ""
+            elif current_chunk:
+                # Save current chunk if it has content
+                chunks.append(current_chunk)
+                current_chunk = ""
+            
+            # Split the long line into smaller parts
+            for i in range(0, len(line), max_length):
+                chunk_part = line[i:i + max_length]
+                if i + max_length >= len(line):
+                    # Last part of the long line, keep it for potential merging
+                    current_chunk = chunk_part
+                else:
+                    chunks.append(chunk_part)
+        else:
+            # Check if adding this line would exceed the limit
+            if len(current_chunk) + len(line) + 1 > max_length:
+                # Save current chunk and start a new one
+                if current_chunk:
+                    chunks.append(current_chunk)
+                current_chunk = line
+            else:
+                # Add line to current chunk
+                current_chunk += '\n' + line if current_chunk else line
+    
+    # Don't forget the last chunk
+    if current_chunk:
+        chunks.append(current_chunk)
+    
+    return chunks
