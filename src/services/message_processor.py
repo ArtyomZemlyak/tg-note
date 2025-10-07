@@ -172,7 +172,8 @@ class MessageProcessor(IMessageProcessor):
         Returns:
             Message dictionary
         """
-        return {
+        # Base message data
+        message_dict = {
             'message_id': message.message_id,
             'chat_id': message.chat.id,
             'user_id': message.from_user.id,
@@ -185,6 +186,25 @@ class MessageProcessor(IMessageProcessor):
             'forward_sender_name': message.forward_sender_name,
             'forward_date': message.forward_date,
             'date': message.date,
-            'photo': message.photo,
-            'document': message.document
         }
+        
+        # Add media attachments if present (decoupled from processing logic)
+        # This allows us to capture media info without requiring processing support
+        if hasattr(message, 'photo') and message.photo:
+            message_dict['photo'] = message.photo
+        if hasattr(message, 'document') and message.document:
+            message_dict['document'] = message.document
+        if hasattr(message, 'video') and message.video:
+            message_dict['video'] = message.video
+        if hasattr(message, 'audio') and message.audio:
+            message_dict['audio'] = message.audio
+        if hasattr(message, 'voice') and message.voice:
+            message_dict['voice'] = message.voice
+        if hasattr(message, 'video_note') and message.video_note:
+            message_dict['video_note'] = message.video_note
+        if hasattr(message, 'animation') and message.animation:
+            message_dict['animation'] = message.animation
+        if hasattr(message, 'sticker') and message.sticker:
+            message_dict['sticker'] = message.sticker
+        
+        return message_dict

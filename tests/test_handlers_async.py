@@ -149,10 +149,24 @@ class TestHandlersAsync:
         assert "Статистика" in call_args[0][1]
     
     @pytest.mark.asyncio
-    async def test_handle_text_message_calls_processor(self, handlers, test_message):
-        """Test that text messages are delegated to message processor"""
+    async def test_handle_message_calls_processor(self, handlers, test_message):
+        """Test that messages are delegated to message processor"""
         # Act
-        await handlers.handle_text_message(test_message)
+        await handlers.handle_message(test_message)
+        # Assert processor was called
+        handlers.message_processor.process_message.assert_awaited_once_with(test_message)
+    
+    @pytest.mark.asyncio
+    async def test_handle_video_message_calls_processor(self, handlers, test_message):
+        """Test that video messages are now processed"""
+        # Set message to video type
+        test_message.content_type = 'video'
+        test_message.video = Mock()
+        test_message.caption = "This is a video caption"
+        
+        # Act
+        await handlers.handle_message(test_message)
+        
         # Assert processor was called
         handlers.message_processor.process_message.assert_awaited_once_with(test_message)
     

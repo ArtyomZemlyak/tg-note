@@ -76,26 +76,23 @@ class BotHandlers:
         self.bot.message_handler(commands=['note'])(self.handle_note_mode)
         self.bot.message_handler(commands=['ask'])(self.handle_ask_mode)
         
-        # Forwarded messages
+        # All supported content types (decoupled from media processing)
+        supported_content_types = [
+            'text', 'photo', 'document', 'video', 'audio', 'voice', 
+            'video_note', 'animation', 'sticker'
+        ]
+        
+        # Forwarded messages (all content types)
         self.bot.message_handler(
-            content_types=['text', 'photo', 'document'],
+            content_types=supported_content_types,
             func=lambda m: self._is_forwarded_message(m)
         )(self.handle_forwarded_message)
         
-        # Regular message handlers
+        # Regular messages (all content types, unified handler)
         self.bot.message_handler(
-            func=lambda m: m.content_type == 'text' 
-            and not self._is_forwarded_message(m) 
-            and not self._is_command_message(m)
-        )(self.handle_text_message)
-        
-        self.bot.message_handler(
-            func=lambda m: m.content_type == 'photo' and not self._is_forwarded_message(m)
-        )(self.handle_photo_message)
-        
-        self.bot.message_handler(
-            func=lambda m: m.content_type == 'document' and not self._is_forwarded_message(m)
-        )(self.handle_document_message)
+            content_types=supported_content_types,
+            func=lambda m: not self._is_forwarded_message(m) and not self._is_command_message(m)
+        )(self.handle_message)
     
     def _is_forwarded_message(self, message: Message) -> bool:
         """Check if message is forwarded"""
@@ -158,7 +155,10 @@ class BotHandlers:
             "• Текстовые сообщения\n"
             "• Репосты новостей или статей\n"
             "• Фотографии с подписями\n"
-            "• Документы\n\n"
+            "• Документы\n"
+            "• Видео с описанием\n"
+            "• Голосовые сообщения\n"
+            "• Аудио файлы\n\n"
             "Бот проанализирует контент и сохранит важную информацию в базу знаний.\n\n"
             "Команды:\n"
             "/help - показать справку\n"
@@ -181,12 +181,17 @@ class BotHandlers:
             "• 📝 Текстовые сообщения\n"
             "• 🔄 Репосты (forwarded messages)\n"
             "• 📷 Фотографии с подписями\n"
-            "• 📄 Документы\n\n"
+            "• 📄 Документы (PDF, DOCX, PPTX, XLSX и др.)\n"
+            "• 🎥 Видео с описанием (текст извлекается)\n"
+            "• 🎵 Аудио файлы (текст извлекается)\n"
+            "• 🎤 Голосовые сообщения (текст извлекается)\n\n"
             "Как это работает:\n"
             "1. Отправьте сообщение или репост\n"
             "2. Бот проанализирует контент\n"
             "3. Извлечет ключевую информацию\n"
             "4. Сохранит в базу знаний в формате Markdown\n\n"
+            "⚠️ Примечание: Для видео, аудио и голосовых сообщений пока извлекается только текст/подпись. "
+            "Полная обработка медиа будет добавлена в будущем.\n\n"
             "**Основные команды:**\n"
             "/start - начать работу с ботом\n"
             "/status - статистика обработки\n"
@@ -367,46 +372,39 @@ class BotHandlers:
     
     # Message handlers
     
-    async def handle_text_message(self, message: Message) -> None:
-        """Handle regular text messages"""
+    async def handle_message(self, message: Message) -> None:
+        """Handle all regular messages (unified handler for all content types)"""
+        # Skip if waiting for settings input
         if self.settings_handlers and message.from_user.id in self.settings_handlers.waiting_for_input:
-            self.logger.info(
-                f"Skipping text message from user {message.from_user.id} "
-                f"- waiting for settings input"
-            )
-            return
+            # Only accept text input in settings mode
+            if message.content_type != 'text':
+                await self.bot.reply_to(
+                    message,
+                    "⚠️ Вы находитесь в режиме настроек. Пожалуйста, отправьте текстовое значение.\n"
+                    "Используйте /cancel для отмены."
+                )
+                return
+            else:
+                # Let settings handler process text input
+                self.logger.info(
+                    f"Skipping text message from user {message.from_user.id} "
+                    f"- waiting for settings input"
+                )
+                return
         
-        self.logger.info(f"Text message from user {message.from_user.id}: {message.text[:50]}...")
-        await self.message_processor.process_message(message)
-    
-    async def handle_photo_message(self, message: Message) -> None:
-        """Handle photo messages"""
-        if self.settings_handlers and message.from_user.id in self.settings_handlers.waiting_for_input:
-            await self.bot.reply_to(
-                message,
-                "⚠️ Вы находитесь в режиме настроек. Фото игнорируются.\n"
-                "Отправьте текстовое значение или используйте /cancel для отмены."
-            )
-            return
+        # Log message info
+        content_type = message.content_type
+        log_msg = f"{content_type.capitalize()} message from user {message.from_user.id}"
+        if content_type == 'text' and message.text:
+            log_msg += f": {message.text[:50]}..."
+        self.logger.info(log_msg)
         
-        self.logger.info(f"Photo message from user {message.from_user.id}")
-        await self.message_processor.process_message(message)
-    
-    async def handle_document_message(self, message: Message) -> None:
-        """Handle document messages"""
-        if self.settings_handlers and message.from_user.id in self.settings_handlers.waiting_for_input:
-            await self.bot.reply_to(
-                message,
-                "⚠️ Вы находитесь в режиме настроек. Документы игнорируются.\n"
-                "Отправьте текстовое значение или используйте /cancel для отмены."
-            )
-            return
-        
-        self.logger.info(f"Document message from user {message.from_user.id}")
+        # Process message regardless of content type
         await self.message_processor.process_message(message)
     
     async def handle_forwarded_message(self, message: Message) -> None:
-        """Handle forwarded messages"""
+        """Handle forwarded messages (all content types)"""
+        # Skip if waiting for settings input
         if self.settings_handlers and message.from_user.id in self.settings_handlers.waiting_for_input:
             await self.bot.reply_to(
                 message,
@@ -415,5 +413,9 @@ class BotHandlers:
             )
             return
         
-        self.logger.info(f"Forwarded message from user {message.from_user.id}")
+        # Log message info
+        content_type = message.content_type
+        self.logger.info(f"Forwarded {content_type} message from user {message.from_user.id}")
+        
+        # Process message regardless of content type
         await self.message_processor.process_message(message)

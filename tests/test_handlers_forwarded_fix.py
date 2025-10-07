@@ -177,7 +177,7 @@ class TestHandlersForwardedMessageFix:
         test_message.photo = [Mock()]
         
         # Call handler
-        await handlers.handle_photo_message(test_message)
+        await handlers.handle_message(test_message)
         
         # Verify that reply was sent explaining the message is ignored
         mock_bot.reply_to.assert_called_once()
@@ -196,7 +196,7 @@ class TestHandlersForwardedMessageFix:
         test_message.document = Mock()
         
         # Call handler
-        await handlers.handle_document_message(test_message)
+        await handlers.handle_message(test_message)
         
         # Verify that reply was sent explaining the message is ignored
         mock_bot.reply_to.assert_called_once()
@@ -211,7 +211,7 @@ class TestHandlersForwardedMessageFix:
         handlers.settings_handlers.waiting_for_input[456] = ("KB_PATH", "knowledge_base")
         
         # Call handler
-        await handlers.handle_text_message(test_message)
+        await handlers.handle_message(test_message)
         
         # Verify that no processing happened (no reply_to for processing message)
         # The text should be handled by settings_handlers instead
