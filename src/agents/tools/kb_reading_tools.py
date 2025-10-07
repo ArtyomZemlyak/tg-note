@@ -191,36 +191,41 @@ class KBListDirectoryTool(BaseTool):
             files = []
             directories = []
             
-            if recursive:
-                # Recursive listing
-                for item in full_path.rglob("*"):
-                    rel_path = str(item.relative_to(context.kb_root_path))
-                    if item.is_file():
-                        files.append({
-                            "path": rel_path,
-                            "name": item.name,
-                            "size": item.stat().st_size
-                        })
-                    elif item.is_dir():
-                        directories.append({
-                            "path": rel_path,
-                            "name": item.name
-                        })
-            else:
-                # Non-recursive listing
-                for item in full_path.iterdir():
-                    rel_path = str(item.relative_to(context.kb_root_path))
-                    if item.is_file():
-                        files.append({
-                            "path": rel_path,
-                            "name": item.name,
-                            "size": item.stat().st_size
-                        })
-                    elif item.is_dir():
-                        directories.append({
-                            "path": rel_path,
-                            "name": item.name
-                        })
+            try:
+                if recursive:
+                    # Recursive listing
+                    for item in full_path.rglob("*"):
+                        rel_path = str(item.relative_to(context.kb_root_path))
+                        if item.is_file():
+                            files.append({
+                                "path": rel_path,
+                                "name": item.name,
+                                "size": item.stat().st_size
+                            })
+                        elif item.is_dir():
+                            directories.append({
+                                "path": rel_path,
+                                "name": item.name
+                            })
+                else:
+                    # Non-recursive listing
+                    for item in full_path.iterdir():
+                        rel_path = str(item.relative_to(context.kb_root_path))
+                        if item.is_file():
+                            files.append({
+                                "path": rel_path,
+                                "name": item.name,
+                                "size": item.stat().st_size
+                            })
+                        elif item.is_dir():
+                            directories.append({
+                                "path": rel_path,
+                                "name": item.name
+                            })
+            except (FileNotFoundError, OSError) as e:
+                logger.warning(f"[kb_list_directory] Error accessing directory during listing: {e}")
+                # Return empty listing if directory became inaccessible
+                pass
             
             logger.info(f"[kb_list_directory] ✓ Listed {relative_path or 'root'}: {len(files)} files, {len(directories)} directories")
             
@@ -314,28 +319,33 @@ class KBSearchFilesTool(BaseTool):
             
             # If glob didn't work well, try fnmatch on all files
             if not files and not directories:
-                for item in context.kb_root_path.rglob("*"):
-                    rel_path = str(item.relative_to(context.kb_root_path))
-                    
-                    # Match against full path or just name
-                    if case_sensitive:
-                        matches = fnmatch.fnmatch(rel_path, pattern) or fnmatch.fnmatch(item.name, pattern)
-                    else:
-                        matches = (fnmatch.fnmatch(rel_path.lower(), pattern.lower()) or 
-                                 fnmatch.fnmatch(item.name.lower(), pattern.lower()))
-                    
-                    if matches:
-                        if item.is_file():
-                            files.append({
-                                "path": rel_path,
-                                "name": item.name,
-                                "size": item.stat().st_size
-                            })
-                        elif item.is_dir():
-                            directories.append({
-                                "path": rel_path,
-                                "name": item.name
-                            })
+                try:
+                    for item in context.kb_root_path.rglob("*"):
+                        rel_path = str(item.relative_to(context.kb_root_path))
+                        
+                        # Match against full path or just name
+                        if case_sensitive:
+                            matches = fnmatch.fnmatch(rel_path, pattern) or fnmatch.fnmatch(item.name, pattern)
+                        else:
+                            matches = (fnmatch.fnmatch(rel_path.lower(), pattern.lower()) or 
+                                     fnmatch.fnmatch(item.name.lower(), pattern.lower()))
+                        
+                        if matches:
+                            if item.is_file():
+                                files.append({
+                                    "path": rel_path,
+                                    "name": item.name,
+                                    "size": item.stat().st_size
+                                })
+                            elif item.is_dir():
+                                directories.append({
+                                    "path": rel_path,
+                                    "name": item.name
+                                })
+                except (FileNotFoundError, OSError) as e:
+                    logger.debug(f"[kb_search_files] Error during fnmatch search: {e}")
+                    # Return empty results if directory became inaccessible
+                    pass
             
             logger.info(f"[kb_search_files] ✓ Pattern '{pattern}': found {len(files)} files, {len(directories)} directories")
             
@@ -404,11 +414,15 @@ class KBSearchContentTool(BaseTool):
             matches = []
             
             # Get all files matching the pattern
-            if file_pattern:
-                glob_pattern = str(context.kb_root_path / "**" / file_pattern)
-                files_to_search = glob.glob(glob_pattern, recursive=True)
-            else:
-                files_to_search = [str(f) for f in context.kb_root_path.rglob("*") if f.is_file()]
+            try:
+                if file_pattern:
+                    glob_pattern = str(context.kb_root_path / "**" / file_pattern)
+                    files_to_search = glob.glob(glob_pattern, recursive=True)
+                else:
+                    files_to_search = [str(f) for f in context.kb_root_path.rglob("*") if f.is_file()]
+            except (FileNotFoundError, OSError) as e:
+                logger.debug(f"[kb_search_content] Error getting files to search: {e}")
+                files_to_search = []
             
             # Search in each file
             for file_path_str in files_to_search:

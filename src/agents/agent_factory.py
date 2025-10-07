@@ -153,6 +153,13 @@ def _create_autonomous_agent(config: Dict) -> AutonomousAgent:
         kb_root_path = kb_path
         logger.info(f"Agent has full access to knowledge base: {kb_root_path}")
     
+    # Ensure kb_root_path exists
+    try:
+        kb_root_path.mkdir(parents=True, exist_ok=True)
+        logger.debug(f"Ensured KB root path exists: {kb_root_path}")
+    except Exception as e:
+        logger.warning(f"Could not create KB root path {kb_root_path}: {e}")
+    
     # Create autonomous agent
     return AutonomousAgent(
         llm_connector=llm_connector,
@@ -188,11 +195,20 @@ def _create_qwen_cli_agent(config: Dict) -> QwenCodeCLIAgent:
         kb_topics_only = config.get("kb_topics_only", True)
         
         if kb_topics_only:
-            working_directory = str(kb_path / "topics")
+            working_directory_path = kb_path / "topics"
+            working_directory = str(working_directory_path)
             logger.info(f"Restricting Qwen CLI agent to topics folder: {working_directory}")
         else:
+            working_directory_path = kb_path
             working_directory = str(kb_path)
             logger.info(f"Qwen CLI agent has full access to knowledge base: {working_directory}")
+        
+        # Ensure working directory exists
+        try:
+            working_directory_path.mkdir(parents=True, exist_ok=True)
+            logger.debug(f"Ensured working directory exists: {working_directory}")
+        except Exception as e:
+            logger.warning(f"Could not create working directory {working_directory}: {e}")
     
     return QwenCodeCLIAgent(
         config=config,
