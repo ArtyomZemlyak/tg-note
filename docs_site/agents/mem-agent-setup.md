@@ -40,8 +40,11 @@ AGENT_ENABLE_MCP_MEMORY: true
 MEM_AGENT_MODEL: driaforall/mem-agent
 MEM_AGENT_MODEL_PRECISION: 4bit
 MEM_AGENT_BACKEND: auto
-MEM_AGENT_MEMORY_PATH: ./knowledge_bases/default/memory
+MEM_AGENT_MEMORY_POSTFIX: memory  # Postfix within KB (kb_path/memory)
 MEM_AGENT_MAX_TOOL_TURNS: 20
+
+# MCP settings
+MCP_SERVERS_POSTFIX: .mcp_servers  # Per-user MCP servers (kb_path/.mcp_servers)
 ```
 
 Or use environment variables in `.env`:
@@ -52,6 +55,8 @@ AGENT_ENABLE_MCP_MEMORY=true
 MEM_AGENT_MODEL=driaforall/mem-agent
 MEM_AGENT_MODEL_PRECISION=4bit
 MEM_AGENT_BACKEND=auto
+MEM_AGENT_MEMORY_POSTFIX=memory
+MCP_SERVERS_POSTFIX=.mcp_servers
 ```
 
 ### Verification
@@ -122,18 +127,26 @@ export MEM_AGENT_BACKEND=transformers
 
 ## Memory Structure
 
-The memory agent uses an Obsidian-like file structure stored in `knowledge_bases/{base-name}/memory`:
+The memory agent uses an Obsidian-like file structure stored **per-user** within each knowledge base:
 
 ```
 knowledge_bases/
-└── default/              # or your knowledge base name
-    └── memory/
-        ├── user.md       # Personal information about the user
-        └── entities/     # Information about entities
-            ├── person_name.md
-            ├── company_name.md
-            └── place_name.md
+└── {user_kb_name}/       # Each user has their own KB
+    ├── .mcp_servers/     # Per-user MCP server configs
+    │   └── mem-agent.json
+    ├── memory/           # Per-user memory (postfix configurable)
+    │   ├── user.md       # Personal information
+    │   └── entities/     # Entity files
+    │       ├── person_name.md
+    │       ├── company_name.md
+    │       └── place_name.md
+    └── topics/           # User's notes
 ```
+
+**Key Points:**
+- Memory path is constructed as: `{kb_path}/{MEM_AGENT_MEMORY_POSTFIX}`
+- MCP servers are stored at: `{kb_path}/{MCP_SERVERS_POSTFIX}`
+- Each user gets their own isolated memory and MCP configuration
 
 ### user.md Structure
 
@@ -194,11 +207,16 @@ result = await agent.process({
 
 ```python
 from config.settings import settings
+from pathlib import Path
 
 # Memory agent settings are now part of the main settings module
-# Access them via settings.MEM_AGENT_* properties:
+# Construct paths based on user's KB:
+kb_path = Path("./knowledge_bases/user_kb_name")  # Get from user settings
+
 print(f"Model: {settings.MEM_AGENT_MODEL}")
-print(f"Memory path: {settings.MEM_AGENT_MEMORY_PATH}")
+print(f"Memory postfix: {settings.MEM_AGENT_MEMORY_POSTFIX}")
+print(f"Full memory path: {settings.get_mem_agent_memory_path(kb_path)}")
+print(f"MCP servers dir: {settings.get_mcp_servers_dir(kb_path)}")
 print(f"Backend: {settings.get_mem_agent_backend()}")
 
 # The MemoryAgent and MemoryAgentMCPServer classes are planned for future development
@@ -253,7 +271,7 @@ huggingface-cli delete-cache
 | `MEM_AGENT_MODEL` | `driaforall/mem-agent` | HuggingFace model ID |
 | `MEM_AGENT_MODEL_PRECISION` | `4bit` | Model precision (4bit, 8bit, fp16) |
 | `MEM_AGENT_BACKEND` | `auto` | Backend (auto, vllm, mlx, transformers) |
-| `MEM_AGENT_MEMORY_PATH` | `./knowledge_bases/default/memory` | Memory storage path |
+| `MEM_AGENT_MEMORY_POSTFIX` | `memory` | Memory directory postfix within KB |
 | `MEM_AGENT_MAX_TOOL_TURNS` | `20` | Max tool execution iterations |
 | `MEM_AGENT_TIMEOUT` | `20` | Timeout for code execution (seconds) |
 | `MEM_AGENT_VLLM_HOST` | `127.0.0.1` | vLLM server host |
@@ -261,6 +279,7 @@ huggingface-cli delete-cache
 | `MEM_AGENT_FILE_SIZE_LIMIT` | `1048576` | Max file size (1MB) |
 | `MEM_AGENT_DIR_SIZE_LIMIT` | `10485760` | Max directory size (10MB) |
 | `MEM_AGENT_MEMORY_SIZE_LIMIT` | `104857600` | Max total memory (100MB) |
+| `MCP_SERVERS_POSTFIX` | `.mcp_servers` | MCP servers directory postfix within KB |
 
 ### Backend Selection Logic
 
@@ -366,20 +385,26 @@ MEM_AGENT_MAX_TOOL_TURNS: 10  # Faster but less thorough
 
 1. Check permissions:
    ```bash
-   ls -la knowledge_bases/default/memory/
-   chmod -R 755 knowledge_bases/default/memory/
+   # Replace {user_kb} with actual KB name
+   ls -la knowledge_bases/{user_kb}/memory/
+   chmod -R 755 knowledge_bases/{user_kb}/memory/
    ```
 
 2. Verify path in configuration:
    ```python
    from config.settings import settings
-   print(settings.MEM_AGENT_MEMORY_PATH)
+   from pathlib import Path
+   
+   kb_path = Path("./knowledge_bases/user_kb")
+   print(f"Memory postfix: {settings.MEM_AGENT_MEMORY_POSTFIX}")
+   print(f"Full path: {settings.get_mem_agent_memory_path(kb_path)}")
    ```
 
 3. Create manually:
    ```bash
-   mkdir -p knowledge_bases/default/memory/entities
-   touch knowledge_bases/default/memory/user.md
+   # Replace {user_kb} with actual KB name
+   mkdir -p knowledge_bases/{user_kb}/memory/entities
+   touch knowledge_bases/{user_kb}/memory/user.md
    ```
 
 ### MCP Server Connection Issues
@@ -424,10 +449,11 @@ MEM_AGENT_MAX_TOOL_TURNS: 10  # Faster but less thorough
 
 ### Security
 
-1. **Review memories**: Periodically check `knowledge_bases/{base-name}/memory/` for sensitive info
+1. **Review memories**: Periodically check `knowledge_bases/{user_kb}/memory/` for sensitive info
 2. **Set size limits**: Prevent memory from growing too large
 3. **Backup regularly**: Memory files are plain text, easy to backup
-4. **Knowledge base integration**: Memory is now stored within your knowledge base structure
+4. **Per-user isolation**: Each user has isolated memory and MCP configs in their KB
+5. **Knowledge base integration**: Memory is stored within your knowledge base structure
 
 ## See Also
 

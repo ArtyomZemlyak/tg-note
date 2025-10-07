@@ -146,9 +146,9 @@ class Settings(BaseSettings):
         default=False,
         description="Enable MCP memory agent tool (local mem-agent)"
     )
-    MCP_SERVERS_DIR: Path = Field(
-        default=Path("./data/mcp_servers"),
-        description="Directory containing MCP server configuration files"
+    MCP_SERVERS_POSTFIX: str = Field(
+        default=".mcp_servers",
+        description="Postfix for MCP servers directory within KB (e.g., '.mcp_servers' -> kb_path/.mcp_servers)"
     )
     
     # Memory Agent Settings (can be in YAML)
@@ -172,9 +172,9 @@ class Settings(BaseSettings):
         default=8001,
         description="vLLM server port"
     )
-    MEM_AGENT_MEMORY_PATH: Path = Field(
-        default=Path("./knowledge_bases/default/memory"),
-        description="Path to store memory files (default: knowledge_bases/default/memory)"
+    MEM_AGENT_MEMORY_POSTFIX: str = Field(
+        default="memory",
+        description="Postfix for memory directory within KB (e.g., 'memory' -> kb_path/memory)"
     )
     MEM_AGENT_MAX_TOOL_TURNS: int = Field(
         default=20,
@@ -368,7 +368,7 @@ class Settings(BaseSettings):
             return [int(uid.strip()) for uid in v.split(",") if uid.strip()]
         return []
     
-    @field_validator("KB_PATH", "PROCESSED_LOG_PATH", "LOG_FILE", "MCP_SERVERS_DIR", "MEM_AGENT_MEMORY_PATH", mode="before")
+    @field_validator("KB_PATH", "PROCESSED_LOG_PATH", "LOG_FILE", mode="before")
     @classmethod
     def parse_path(cls, v) -> Optional[Path]:
         """Convert string to Path"""
@@ -420,9 +420,49 @@ class Settings(BaseSettings):
         )
         return Path(cache_home) / "hub" / f"models--{self.MEM_AGENT_MODEL.replace('/', '--')}"
     
-    def ensure_mem_agent_memory_path_exists(self) -> None:
-        """Ensure memory agent memory path exists"""
-        self.MEM_AGENT_MEMORY_PATH.mkdir(parents=True, exist_ok=True)
+    def get_mcp_servers_dir(self, kb_path: Path) -> Path:
+        """
+        Get MCP servers directory for a specific knowledge base
+        
+        Args:
+            kb_path: Path to knowledge base
+        
+        Returns:
+            Full path to MCP servers directory (kb_path/{postfix})
+        """
+        return kb_path / self.MCP_SERVERS_POSTFIX
+    
+    def get_mem_agent_memory_path(self, kb_path: Path) -> Path:
+        """
+        Get memory agent memory path for a specific knowledge base
+        
+        Args:
+            kb_path: Path to knowledge base
+        
+        Returns:
+            Full path to memory directory (kb_path/{postfix})
+        """
+        return kb_path / self.MEM_AGENT_MEMORY_POSTFIX
+    
+    def ensure_mem_agent_memory_path_exists(self, kb_path: Path) -> None:
+        """
+        Ensure memory agent memory path exists for a specific KB
+        
+        Args:
+            kb_path: Path to knowledge base
+        """
+        memory_path = self.get_mem_agent_memory_path(kb_path)
+        memory_path.mkdir(parents=True, exist_ok=True)
+    
+    def ensure_mcp_servers_dir_exists(self, kb_path: Path) -> None:
+        """
+        Ensure MCP servers directory exists for a specific KB
+        
+        Args:
+            kb_path: Path to knowledge base
+        """
+        mcp_dir = self.get_mcp_servers_dir(kb_path)
+        mcp_dir.mkdir(parents=True, exist_ok=True)
     
     def validate(self) -> List[str]:
         """

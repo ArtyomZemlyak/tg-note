@@ -23,18 +23,25 @@
   - MLX для macOS с Apple Silicon
   - Transformers для CPU (работает везде)
 
-### 3. Память в knowledge base
+### 3. Память per-user в knowledge base
 
-Память хранится в `knowledge_bases/{base-name}/memory/` внутри структуры базы знаний:
+Память хранится **для каждого пользователя** в его базе знаний:
 
 ```
 knowledge_bases/
-└── default/          # или имя вашей базы знаний
-    ├── memory/       # Память mem-agent
+└── {user_kb_name}/   # Каждый пользователь имеет свою KB
+    ├── .mcp_servers/ # MCP серверы пользователя
+    │   └── mem-agent.json
+    ├── memory/       # Память пользователя (настраивается через postfix)
     │   ├── user.md   # Информация о пользователе
     │   └── entities/ # Файлы сущностей
-    └── topics/       # Ваши заметки
+    └── topics/       # Заметки пользователя
 ```
+
+**Важно:**
+- Путь к памяти: `{kb_path}/{MEM_AGENT_MEMORY_POSTFIX}`
+- MCP серверы: `{kb_path}/{MCP_SERVERS_POSTFIX}`
+- Каждый пользователь изолирован
 
 ## Быстрый старт
 
@@ -64,7 +71,10 @@ AGENT_ENABLE_MCP_MEMORY: true
 MEM_AGENT_MODEL: driaforall/mem-agent
 MEM_AGENT_MODEL_PRECISION: 4bit  # 4bit, 8bit, или fp16
 MEM_AGENT_BACKEND: auto          # auto, vllm, mlx, или transformers
-MEM_AGENT_MEMORY_PATH: ./knowledge_bases/default/memory
+MEM_AGENT_MEMORY_POSTFIX: memory # Postfix в рамках KB (kb_path/memory)
+
+# Настройки MCP
+MCP_SERVERS_POSTFIX: .mcp_servers # Per-user MCP серверы (kb_path/.mcp_servers)
 ```
 
 ### 3. Установка зависимостей
@@ -91,7 +101,7 @@ pip install vllm
 cat data/mcp_servers/mem-agent.json
 
 # Проверить структуру памяти
-ls -la knowledge_bases/default/memory/
+ls -la knowledge_bases/{user_kb}/memory/
 
 # Проверить загрузку модели
 huggingface-cli scan-cache | grep mem-agent
@@ -193,7 +203,7 @@ MCP Server Registry (чтение JSON конфигов)
 2. Agent → MCP Registry Client → Обнаружить серверы
 3. MCP Registry Client → Подключиться к mem-agent
 4. Agent → mem-agent → Сохранить/найти память
-5. mem-agent → knowledge_bases/default/memory/ → Работа с файлами
+5. mem-agent → knowledge_bases/{user_kb}/memory/ → Работа с файлами (per-user)
 6. Agent → Telegram Bot → Пользователь
 ```
 
@@ -281,8 +291,8 @@ MEM_AGENT_MODEL_PRECISION: 4bit
 MEM_AGENT_BACKEND: auto
 
 # Пути
-MEM_AGENT_MEMORY_PATH: ./knowledge_bases/default/memory
-MCP_SERVERS_DIR: ./data/mcp_servers
+MEM_AGENT_MEMORY_POSTFIX: memory  # Postfix в KB
+MCP_SERVERS_POSTFIX: .mcp_servers  # Per-user MCP серверы
 
 # Лимиты
 MEM_AGENT_MAX_TOOL_TURNS: 20
@@ -391,7 +401,8 @@ export MEM_AGENT_BACKEND=transformers
 ✅ **Полностью локальный mem-agent** без зависимости от внешних API  
 ✅ **Гибкая система MCP серверов** с простым добавлением новых  
 ✅ **Автоматическое управление моделями** через HuggingFace CLI  
-✅ **Память интегрирована в knowledge base** в `knowledge_bases/{base-name}/memory/`  
+✅ **Память per-user в knowledge base** в `{kb_path}/{MEM_AGENT_MEMORY_POSTFIX}/`
+✅ **MCP серверы per-user** в `{kb_path}/{MCP_SERVERS_POSTFIX}/`  
 ✅ **Поддержка всех агентов** через общую MCP прослойку  
 ✅ **Подробная документация** на русском и английском  
 
