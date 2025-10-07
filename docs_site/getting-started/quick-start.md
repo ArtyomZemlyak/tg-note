@@ -176,8 +176,28 @@ AGENT_TYPE: "qwen_code_cli"
 | `/kb` | Show current KB info | `/kb` |
 | `/status` | Display processing statistics | `/status` |
 | `/settings` | Open interactive settings menu | `/settings` |
+| `/note` | Switch to note creation mode | `/note` |
+| `/ask` | Switch to question mode | `/ask` |
+| `/agent` | Switch to agent mode (full access) | `/agent` |
 
 [Full command reference →](../user-guide/bot-commands.md)
+
+---
+
+## Working Modes
+
+The bot has three working modes:
+
+### 📝 Note Mode (Default)
+Analyzes and saves your messages to the knowledge base.
+
+### 🤔 Ask Mode
+Answers questions about your knowledge base content.
+
+### 🤖 Agent Mode
+Full autonomous access - can answer questions, add/edit content, and restructure the KB.
+
+Switch between modes with `/note`, `/ask`, or `/agent` commands.
 
 ---
 

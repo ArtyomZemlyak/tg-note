@@ -215,12 +215,40 @@ Press `Ctrl+C` in the terminal
 
 ## 📖 Usage
 
+### Working Modes
+
+The bot has **three working modes** that you can switch between:
+
+#### 📝 Note Mode (Default) - `/note`
+Analyzes and saves your messages to the knowledge base.
+- Automatic categorization
+- Structured markdown generation
+- Git integration
+
+#### 🤔 Ask Mode - `/ask`
+Answers questions about your knowledge base content.
+- Searches through your KB
+- Provides answers with sources
+- Russian language support
+
+#### 🤖 Agent Mode - `/agent`
+Full autonomous access to your knowledge base.
+- Can answer questions (like Ask mode)
+- Can add/edit/delete content
+- Can restructure and organize KB
+- Shows detailed file changes
+
+Switch between modes: `/note` | `/ask` | `/agent`
+
 ### Bot Commands
 
 | Command | Description | Example |
 |---------|-------------|---------|
 | `/start` | Initialize bot interaction | `/start` |
 | `/help` | Display help information | `/help` |
+| `/note` | Switch to note creation mode | `/note` |
+| `/ask` | Switch to question mode | `/ask` |
+| `/agent` | Switch to agent mode (full access) | `/agent` |
 | `/setkb <name\|url>` | Setup knowledge base | `/setkb my-notes` or `/setkb https://github.com/user/repo` |
 | `/kb` | Show current KB info | `/kb` |
 | `/status` | Display processing statistics | `/status` |

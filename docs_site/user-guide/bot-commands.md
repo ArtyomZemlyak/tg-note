@@ -6,7 +6,7 @@ Complete reference for all tg-note bot commands.
 
 ## Working Modes
 
-The bot has two working modes that you can switch between:
+The bot has three working modes that you can switch between:
 
 ### /note - Note Creation Mode (Default)
 
@@ -51,10 +51,11 @@ Switches the bot to question mode for querying your knowledge base.
 ```
 🤔 Режим вопросов по базе знаний активирован!
 
-Теперь вы можете задавать вопросы агенту о содержимом вашей базы знаний.
+Теперь вы можете задавать вопросы агенту о содержимому вашей базы знаний.
 Агент будет искать информацию в базе и отвечать на ваши вопросы.
 
 Для возврата в режим создания заметок используйте /note
+Для переключения в режим агента используйте /agent
 ```
 
 **What it does:**
@@ -77,6 +78,71 @@ Bot: 🔍 Ищу информацию в базе знаний...
      Источники:
      - ai/models/gpt4.md
      - ai/multimodal/vision.md
+```
+
+---
+
+### /agent - Agent Mode (Full Access)
+
+Switches the bot to agent mode with full autonomous capabilities.
+
+**Usage:**
+```
+/agent
+```
+
+**Requirements:**
+- Knowledge base must be set up via `/setkb`
+
+**Response:**
+```
+🤖 Режим агента активирован!
+
+Теперь агент может выполнять любые задачи с вашей базой знаний:
+• Отвечать на вопросы
+• Добавлять новую информацию
+• Редактировать существующие заметки
+• Переструктурировать базу знаний
+• И многое другое!
+
+Просто опишите что нужно сделать, и агент выполнит задачу автономно.
+
+Переключить: /note | /ask
+```
+
+**What it does:**
+- Accepts any tasks related to knowledge base
+- Can answer questions (like /ask mode)
+- Can add/edit/delete/restructure content
+- Has full autonomous access to KB (restricted to topics/ folder by default)
+- Shows detailed results with file changes
+
+**Example interactions:**
+
+**Answering questions:**
+```
+User: Что такое GPT-4?
+Bot: 💡 Ответ:
+     GPT-4 - это большая языковая модель от OpenAI...
+```
+
+**Adding information:**
+```
+User: Добавь информацию о новой модели Gemini 2.0
+Bot: 📋 Выполнено: Добавлена информация о Gemini 2.0
+     📝 Изменения:
+       ✨ Создано файлов: 1
+         • ai/models/gemini-2.0.md
+```
+
+**Restructuring:**
+```
+User: Переименуй папку "ml" в "machine-learning"
+Bot: 📋 Выполнено: Папка переименована, ссылки обновлены
+     📝 Изменения:
+       📁 Создано папок: 1
+         • machine-learning
+       ✏️ Изменено файлов: 5
 ```
 
 ---
@@ -195,7 +261,7 @@ Display processing statistics and current working mode.
 Git интеграция: Включена
 
 📝 Текущий режим: Создание базы знаний
-Переключить: /note | /ask
+Переключить: /note | /ask | /agent
 ```
 
 ---
@@ -394,6 +460,7 @@ https://arxiv.org/abs/12345
 | `/help` | - | Show help | `/help` |
 | `/note` | - | Switch to note creation mode | `/note` |
 | `/ask` | - | Switch to question mode | `/ask` |
+| `/agent` | - | Switch to agent mode (full access) | `/agent` |
 | `/setkb` | `<name\|url>` | Setup KB | `/setkb my-notes` |
 | `/kb` | - | Show KB info | `/kb` |
 | `/status` | - | Show statistics and mode | `/status` |
