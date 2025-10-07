@@ -237,6 +237,17 @@ class TestHandlersAsync:
         assert call_args[0][0] == test_message
         assert "База знаний не настроена" in call_args[0][1]
     
+    @pytest.mark.asyncio
+    async def test_handle_agent_mode_no_kb(self, handlers, test_message, mock_bot):
+        """Test that /agent command requires KB to be configured"""
+        await handlers.handle_agent_mode(test_message)
+        
+        # Should show error when no KB configured
+        mock_bot.reply_to.assert_called_once()
+        call_args = mock_bot.reply_to.call_args
+        assert call_args[0][0] == test_message
+        assert "База знаний не настроена" in call_args[0][1]
+    
     # No direct mode getter/setter on handlers in refactored version; covered via user_context_manager
 
 

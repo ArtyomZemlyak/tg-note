@@ -13,7 +13,8 @@ from src.services.interfaces import (
     IMessageProcessor,
     IUserContextManager,
     INoteCreationService,
-    IQuestionAnsweringService
+    IQuestionAnsweringService,
+    IAgentTaskService
 )
 from src.processor.message_aggregator import MessageGroup
 from src.knowledge_base.user_settings import UserSettings
@@ -35,7 +36,8 @@ class MessageProcessor(IMessageProcessor):
         user_context_manager: IUserContextManager,
         user_settings: UserSettings,
         note_creation_service: INoteCreationService,
-        question_answering_service: IQuestionAnsweringService
+        question_answering_service: IQuestionAnsweringService,
+        agent_task_service: IAgentTaskService
     ):
         """
         Initialize message processor
@@ -46,12 +48,14 @@ class MessageProcessor(IMessageProcessor):
             user_settings: User settings
             note_creation_service: Note creation service
             question_answering_service: Question answering service
+            agent_task_service: Agent task service
         """
         self.bot = bot
         self.user_context_manager = user_context_manager
         self.user_settings = user_settings
         self.note_creation_service = note_creation_service
         self.question_answering_service = question_answering_service
+        self.agent_task_service = agent_task_service
         self.logger = logger
     
     async def process_message(self, message: Message) -> None:
@@ -144,6 +148,10 @@ class MessageProcessor(IMessageProcessor):
             
             if user_mode == "ask":
                 await self.question_answering_service.answer_question(
+                    group, processing_msg, user_id, user_kb
+                )
+            elif user_mode == "agent":
+                await self.agent_task_service.execute_task(
                     group, processing_msg, user_id, user_kb
                 )
             else:  # default to "note" mode

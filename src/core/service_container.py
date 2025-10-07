@@ -15,6 +15,7 @@ from src.bot.telegram_bot import TelegramBot
 from src.services.user_context_manager import UserContextManager
 from src.services.note_creation_service import NoteCreationService
 from src.services.question_answering_service import QuestionAnsweringService
+from src.services.agent_task_service import AgentTaskService
 from src.services.message_processor import MessageProcessor
 from telebot.async_telebot import AsyncTeleBot
 
@@ -106,13 +107,25 @@ def configure_services(container: Container) -> None:
     )
     
     container.register(
+        "agent_task_service",
+        lambda c: AgentTaskService(
+            bot=c.get("async_bot"),
+            repo_manager=c.get("repo_manager"),
+            user_context_manager=c.get("user_context_manager"),
+            settings_manager=c.get("settings_manager")
+        ),
+        singleton=True
+    )
+    
+    container.register(
         "message_processor",
         lambda c: MessageProcessor(
             bot=c.get("async_bot"),
             user_context_manager=c.get("user_context_manager"),
             user_settings=c.get("user_settings"),
             note_creation_service=c.get("note_creation_service"),
-            question_answering_service=c.get("question_answering_service")
+            question_answering_service=c.get("question_answering_service"),
+            agent_task_service=c.get("agent_task_service")
         ),
         singleton=True
     )

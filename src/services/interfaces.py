@@ -86,3 +86,18 @@ class IQuestionAnsweringService(ABC):
     ) -> None:
         """Answer a question based on knowledge base"""
         pass
+
+
+class IAgentTaskService(ABC):
+    """Interface for agent task service"""
+    
+    @abstractmethod
+    async def execute_task(
+        self,
+        group: MessageGroup,
+        processing_msg: Message,
+        user_id: int,
+        user_kb: dict
+    ) -> None:
+        """Execute a free-form agent task"""
+        pass
