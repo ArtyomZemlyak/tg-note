@@ -196,8 +196,14 @@ class QuestionAnsweringService(IQuestionAnsweringService):
             # Process query with agent
             response = await user_agent.process(query_content)
             
-            # Extract answer from response
-            answer = response.get('answer') or response.get('markdown') or response.get('text', '')
+            # Extract answer from response (priority: answer field, then markdown, then text)
+            # The 'answer' field contains the final formatted answer from agent-result block
+            answer = response.get('answer')
+            
+            # Fallback to markdown or text if answer is not present
+            if not answer:
+                self.logger.warning("Agent did not return 'answer' field, using markdown/text as fallback")
+                answer = response.get('markdown') or response.get('text', '')
             
             if not answer:
                 raise ValueError("Agent did not return an answer")

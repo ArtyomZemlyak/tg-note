@@ -223,7 +223,8 @@ class QwenCodeCLIAgent(BaseAgent):
                 "markdown": agent_result.markdown,
                 "metadata": metadata,
                 "title": title,
-                "kb_structure": kb_structure
+                "kb_structure": kb_structure,
+                "answer": agent_result.answer  # Include answer for ask mode
             }
             
             logger.info(f"[QwenCodeCLIAgent] Successfully processed content: title='{title}'")

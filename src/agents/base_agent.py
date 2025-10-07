@@ -88,6 +88,7 @@ class AgentResult:
     - files_edited: Список отредактированных файлов
     - folders_created: Список созданных папок
     - metadata: Дополнительные метаданные
+    - answer: Итоговый ответ пользователю (для режима ask)
     """
     markdown: str
     summary: str
@@ -95,6 +96,7 @@ class AgentResult:
     files_edited: List[str] = field(default_factory=list)
     folders_created: List[str] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
+    answer: Optional[str] = None  # For ask mode - final answer to user
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary"""
@@ -104,7 +106,8 @@ class AgentResult:
             "files_created": self.files_created,
             "files_edited": self.files_edited,
             "folders_created": self.folders_created,
-            "metadata": self.metadata
+            "metadata": self.metadata,
+            "answer": self.answer
         }
 
 
@@ -160,7 +163,8 @@ class BaseAgent(ABC):
             "links": [
               {"file": "path/to/related.md", "description": "Related topic"}
             ]
-          }
+          },
+          "answer": "Итоговый ответ пользователю (для режима ask)"
         }
         ```
         
@@ -176,6 +180,7 @@ class BaseAgent(ABC):
         folders_created = []
         summary = ""
         metadata = {}
+        answer = None
         
         # Ищем блок ```agent-result
         result_match = re.search(r'```agent-result\s*\n(.*?)\n```', response, re.DOTALL)
@@ -196,6 +201,7 @@ class BaseAgent(ABC):
                 files_edited = result_data.get("files_edited", [])
                 folders_created = result_data.get("folders_created", [])
                 metadata = result_data.get("metadata", {})
+                answer = result_data.get("answer")  # Extract answer for ask mode
             except json.JSONDecodeError as e:
                 # Если не удалось распарсить JSON, используем простой парсинг
                 # Log the error for debugging
@@ -230,7 +236,8 @@ class BaseAgent(ABC):
             files_created=files_created,
             files_edited=files_edited,
             folders_created=folders_created,
-            metadata=metadata
+            metadata=metadata,
+            answer=answer
         )
     
     def extract_kb_structure_from_response(self, response: str, default_category: str = "general") -> KBStructure:
