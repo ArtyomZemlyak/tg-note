@@ -22,14 +22,16 @@ class MCPRegistryClient:
     It automatically discovers enabled servers and creates MCP clients for them.
     """
     
-    def __init__(self, servers_dir: Optional[Path] = None):
+    def __init__(self, servers_dir: Optional[Path] = None, user_id: Optional[int] = None):
         """
         Initialize registry client
         
         Args:
             servers_dir: Directory containing MCP server configs (default: data/mcp_servers)
+            user_id: Optional user ID for per-user server discovery
         """
-        self.manager = MCPServersManager(servers_dir)
+        self.user_id = user_id
+        self.manager = MCPServersManager(servers_dir, user_id=user_id)
         self.clients: Dict[str, MCPClient] = {}
         self._initialized = False
     
@@ -38,7 +40,8 @@ class MCPRegistryClient:
         if self._initialized:
             return
         
-        logger.info("[MCPRegistryClient] Initializing MCP registry client")
+        user_info = f" for user {self.user_id}" if self.user_id else ""
+        logger.info(f"[MCPRegistryClient] Initializing MCP registry client{user_info}")
         self.manager.initialize()
         self._initialized = True
     

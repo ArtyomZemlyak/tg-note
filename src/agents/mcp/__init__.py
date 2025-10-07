@@ -6,12 +6,18 @@ This module provides:
 - MCP registry client for discovering servers from configuration
 - Base classes for MCP tools
 - Built-in MCP tools (memory agent, etc.)
+- Dynamic MCP tools for auto-discovery and integration
 """
 
 from .client import MCPClient, MCPServerConfig
 from .registry_client import MCPRegistryClient
 from .base_mcp_tool import BaseMCPTool
 from .memory_agent_tool import MemoryAgentMCPTool
+from .dynamic_mcp_tools import (
+    discover_and_create_mcp_tools,
+    create_mcp_tools_for_user,
+    DynamicMCPTool,
+)
 
 __all__ = [
     "MCPClient",
@@ -19,4 +25,7 @@ __all__ = [
     "MCPRegistryClient",
     "BaseMCPTool",
     "MemoryAgentMCPTool",
+    "discover_and_create_mcp_tools",
+    "create_mcp_tools_for_user",
+    "DynamicMCPTool",
 ]

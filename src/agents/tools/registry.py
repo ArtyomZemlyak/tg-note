@@ -120,6 +120,7 @@ def build_default_tool_manager(
     vector_search_manager: Optional[Any] = None,
     get_current_plan: Optional[Any] = None,
     set_current_plan: Optional[Any] = None,
+    user_id: Optional[int] = None,
 ) -> ToolManager:
     """
     Create a ToolManager with the default toolset based on flags.
@@ -142,6 +143,7 @@ def build_default_tool_manager(
         vector_search_manager: Optional vector search manager
         get_current_plan: Callback to get current TODO plan
         set_current_plan: Callback to set current TODO plan
+        user_id: Optional user ID for per-user resources (like MCP servers)
         
     Returns:
         Configured ToolManager instance
@@ -155,6 +157,7 @@ def build_default_tool_manager(
         vector_search_manager=vector_search_manager,
         get_current_plan=get_current_plan,
         set_current_plan=set_current_plan,
+        user_id=user_id,
     )
     
     manager = ToolManager(context=ctx)
@@ -205,8 +208,39 @@ def build_default_tool_manager(
         from . import vector_search_tools
         manager.register_many(vector_search_tools.ALL_TOOLS)
     
-    # MCP tools
-    if enable_mcp and enable_mcp_memory:
+    # MCP tools - Dynamic discovery and registration
+    if enable_mcp:
+        try:
+            # Import async runtime for MCP discovery
+            import asyncio
+            from ..mcp import discover_and_create_mcp_tools
+            
+            # Discover and create MCP tools based on user_id
+            # This will find both shared and per-user MCP servers
+            loop = None
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            
+            mcp_tools = loop.run_until_complete(
+                discover_and_create_mcp_tools(user_id=user_id)
+            )
+            
+            if mcp_tools:
+                manager.register_many(mcp_tools)
+                logger.info(f"[ToolManager] Registered {len(mcp_tools)} MCP tools from discovered servers")
+            else:
+                logger.info("[ToolManager] No MCP tools found from discovered servers")
+                
+        except ImportError as e:
+            logger.warning(f"[ToolManager] Failed to import MCP tools: {e}")
+        except Exception as e:
+            logger.error(f"[ToolManager] Failed to initialize MCP tools: {e}")
+    
+    # Legacy MCP memory agent tool (if enable_mcp_memory is set separately)
+    if enable_mcp_memory:
         try:
             from ..mcp import memory_agent_tool
             # Enable MCP tools before registering
@@ -215,9 +249,9 @@ def build_default_tool_manager(
             manager.register_many(memory_agent_tool.ALL_TOOLS)
             logger.info("[ToolManager] MCP memory agent tools enabled")
         except ImportError as e:
-            logger.warning(f"[ToolManager] Failed to import MCP tools: {e}")
+            logger.warning(f"[ToolManager] Failed to import MCP memory tools: {e}")
         except Exception as e:
-            logger.error(f"[ToolManager] Failed to initialize MCP tools: {e}")
+            logger.error(f"[ToolManager] Failed to initialize MCP memory tools: {e}")
     
     logger.info(f"[ToolManager] Initialized with {len(manager.names())} tools")
     

@@ -87,14 +87,16 @@ class MCPServerRegistry:
     }
     """
     
-    def __init__(self, servers_dir: Path):
+    def __init__(self, servers_dir: Path, user_id: Optional[int] = None):
         """
         Initialize registry
         
         Args:
             servers_dir: Directory containing MCP server JSON configs
+            user_id: Optional user ID for per-user server discovery
         """
         self.servers_dir = Path(servers_dir)
+        self.user_id = user_id
         self.servers: Dict[str, MCPServerSpec] = {}
         
         # Ensure servers directory exists
@@ -105,18 +107,45 @@ class MCPServerRegistry:
         Discover all MCP servers from JSON configuration files
         
         Scans the servers_dir for *.json files and loads them as server specs.
+        If user_id is set, also scans user-specific directory.
+        
+        Discovery order:
+        1. Shared servers in servers_dir/ (e.g., data/mcp_servers/)
+        2. User-specific servers in servers_dir/user_{user_id}/ (if user_id is set)
+        
+        User-specific servers override shared servers with the same name.
         """
         logger.info(f"[MCPRegistry] Discovering MCP servers in {self.servers_dir}")
         
-        if not self.servers_dir.exists():
-            logger.warning(f"[MCPRegistry] Servers directory does not exist: {self.servers_dir}")
+        # Discover shared servers
+        self._discover_from_directory(self.servers_dir, scope="shared")
+        
+        # Discover user-specific servers if user_id is set
+        if self.user_id is not None:
+            user_dir = self.servers_dir / f"user_{self.user_id}"
+            if user_dir.exists():
+                logger.info(f"[MCPRegistry] Discovering user-specific MCP servers for user {self.user_id}")
+                self._discover_from_directory(user_dir, scope=f"user_{self.user_id}")
+            else:
+                logger.debug(f"[MCPRegistry] No user-specific servers directory for user {self.user_id}")
+    
+    def _discover_from_directory(self, directory: Path, scope: str) -> None:
+        """
+        Discover servers from a specific directory
+        
+        Args:
+            directory: Directory to scan for JSON configs
+            scope: Scope label for logging (e.g., 'shared', 'user_123')
+        """
+        if not directory.exists():
+            logger.debug(f"[MCPRegistry] Directory does not exist: {directory}")
             return
         
-        # Find all JSON files
-        json_files = list(self.servers_dir.glob("*.json"))
+        # Find all JSON files (non-recursive)
+        json_files = list(directory.glob("*.json"))
         
         if not json_files:
-            logger.info("[MCPRegistry] No MCP server configuration files found")
+            logger.debug(f"[MCPRegistry] No MCP server configuration files in {directory}")
             return
         
         # Load each JSON file
@@ -137,10 +166,12 @@ class MCPServerRegistry:
                     logger.warning(f"[MCPRegistry] Skipping {json_file}: missing 'command' field")
                     continue
                 
-                # Register server
+                # Register server (user-specific servers override shared ones)
+                if spec.name in self.servers:
+                    logger.info(f"[MCPRegistry] Overriding server '{spec.name}' with {scope} version")
                 self.servers[spec.name] = spec
                 status = "enabled" if spec.enabled else "disabled"
-                logger.info(f"[MCPRegistry] ✓ Registered server: {spec.name} ({status})")
+                logger.info(f"[MCPRegistry] ✓ Registered server: {spec.name} ({status}, scope={scope})")
                 
             except json.JSONDecodeError as e:
                 logger.error(f"[MCPRegistry] Failed to parse {json_file}: {e}")

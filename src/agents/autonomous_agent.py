@@ -295,6 +295,9 @@ class AutonomousAgent(BaseAgent):
         # Vector search manager
         self.vector_search_manager = vector_search_manager
         
+        # User ID for per-user MCP server discovery
+        self.user_id = self.config.get("user_id") if self.config else None
+        
         # Agent state
         self.current_plan: Optional[TodoPlan] = None
         self.execution_log: List[Dict[str, Any]] = []
@@ -316,6 +319,7 @@ class AutonomousAgent(BaseAgent):
             vector_search_manager=self.vector_search_manager,
             get_current_plan=lambda: self.current_plan,
             set_current_plan=lambda plan: setattr(self, "current_plan", plan),
+            user_id=self.user_id,
         )
 
         # Back-compat mapping: name -> async callable delegating to ToolManager

@@ -104,6 +104,7 @@ class ToolContext:
     - vector_search_manager: Optional vector search manager
     - get_current_plan: Callback to get current TODO plan
     - set_current_plan: Callback to set current TODO plan
+    - user_id: Optional user ID for per-user resources (like MCP servers)
     """
     kb_root_path: Any  # Path
     base_agent_class: Any
@@ -112,3 +113,4 @@ class ToolContext:
     vector_search_manager: Optional[Any] = None
     get_current_plan: Optional[Any] = None
     set_current_plan: Optional[Any] = None
+    user_id: Optional[int] = None
