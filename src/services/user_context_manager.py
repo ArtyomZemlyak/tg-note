@@ -97,8 +97,13 @@ class UserContextManager(IUserContextManager):
                 "enable_git": self.settings_manager.get_setting(user_id, "AGENT_ENABLE_GIT"),
                 "enable_github": self.settings_manager.get_setting(user_id, "AGENT_ENABLE_GITHUB"),
                 "enable_shell": self.settings_manager.get_setting(user_id, "AGENT_ENABLE_SHELL"),
+                "enable_mcp": self.settings_manager.get_setting(user_id, "AGENT_ENABLE_MCP"),
+                "enable_mcp_memory": self.settings_manager.get_setting(user_id, "AGENT_ENABLE_MCP_MEMORY"),
                 "qwen_cli_path": self.settings_manager.get_setting(user_id, "AGENT_QWEN_CLI_PATH"),
                 "timeout": self.settings_manager.get_setting(user_id, "AGENT_TIMEOUT"),
+                "kb_path": self.settings_manager.get_setting(user_id, "KB_PATH"),
+                "kb_topics_only": self.settings_manager.get_setting(user_id, "KB_TOPICS_ONLY"),
+                "user_id": user_id,  # Pass user_id for per-user MCP server discovery
             }
             
             agent_type = self.settings_manager.get_setting(user_id, "AGENT_TYPE")

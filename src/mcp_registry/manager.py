@@ -24,17 +24,20 @@ class MCPServersManager:
     - Integration with agent tools
     """
     
-    def __init__(self, servers_dir: Optional[Path] = None):
+    def __init__(self, servers_dir: Optional[Path] = None, user_id: Optional[int] = None):
         """
         Initialize MCP servers manager
         
         Args:
             servers_dir: Directory containing MCP server configs (default: data/mcp_servers)
+            user_id: Optional user ID for per-user server discovery
         """
         if servers_dir is None:
             servers_dir = Path("data/mcp_servers")
         
-        self.registry = MCPServerRegistry(servers_dir)
+        self.servers_dir = servers_dir
+        self.user_id = user_id
+        self.registry = MCPServerRegistry(servers_dir, user_id=user_id)
         self._initialized = False
     
     def initialize(self) -> None:
@@ -42,7 +45,8 @@ class MCPServersManager:
         if self._initialized:
             return
         
-        logger.info("[MCPManager] Initializing MCP servers manager")
+        user_info = f" for user {self.user_id}" if self.user_id else ""
+        logger.info(f"[MCPManager] Initializing MCP servers manager{user_info}")
         self.registry.discover_servers()
         self._initialized = True
         
@@ -51,7 +55,7 @@ class MCPServersManager:
         enabled_servers = self.registry.get_enabled_servers()
         logger.info(
             f"[MCPManager] Discovered {len(all_servers)} servers, "
-            f"{len(enabled_servers)} enabled"
+            f"{len(enabled_servers)} enabled{user_info}"
         )
     
     def get_enabled_servers(self) -> List[MCPServerSpec]:

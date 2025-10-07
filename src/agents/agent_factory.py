@@ -54,12 +54,13 @@ class AgentFactory:
         return registry.create(agent_type, config)
     
     @classmethod
-    def from_settings(cls, settings) -> BaseAgent:
+    def from_settings(cls, settings, user_id: Optional[int] = None) -> BaseAgent:
         """
         Create agent from application settings
         
         Args:
             settings: Settings object
+            user_id: Optional user ID for per-user configuration
         
         Returns:
             Agent instance
@@ -83,6 +84,7 @@ class AgentFactory:
             "timeout": settings.AGENT_TIMEOUT,
             "kb_path": settings.KB_PATH,
             "kb_topics_only": settings.KB_TOPICS_ONLY,
+            "user_id": user_id,
         }
         
         return cls.create_agent(
