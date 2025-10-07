@@ -257,6 +257,10 @@ class QwenCodeCLIAgent(BaseAgent):
         Returns:
             Formatted prompt string
         """
+        # If content already has a pre-built prompt (e.g., from /ask mode), use it directly
+        if "prompt" in content:
+            return content["prompt"]
+        
         text = content.get("text", "")
         urls = content.get("urls", [])
         
