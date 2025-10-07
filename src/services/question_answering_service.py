@@ -205,7 +205,9 @@ class QuestionAnsweringService(IQuestionAnsweringService):
                 self.logger.warning("Agent did not return 'answer' field, using markdown/text as fallback")
                 answer = response.get('markdown') or response.get('text', '')
             
-            if not answer:
+            # Ensure answer is not None or empty
+            if not answer or not answer.strip():
+                self.logger.error(f"Agent returned empty answer. Response keys: {list(response.keys())}")
                 raise ValueError("Agent did not return an answer")
             
             return answer

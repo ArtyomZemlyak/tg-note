@@ -230,6 +230,27 @@ class BaseAgent(ABC):
         if not folders_created:
             folders_created = re.findall(r'(?:Created folder|✓ Created folder):?\s*[`"]?([\w\-/]+)[`"]?', response)
         
+        # Fallback: If answer is not in agent-result block, try to extract it from the response
+        if not answer:
+            # Try to extract answer from the main content (excluding agent-result and metadata blocks)
+            # Remove agent-result block (regex needs to match whitespace before closing ```)
+            content_without_result = re.sub(r'```agent-result\s*\n.*?\n\s*```', '', response, flags=re.DOTALL)
+            # Remove metadata block
+            content_without_metadata = re.sub(r'```metadata\s*\n.*?\n\s*```', '', content_without_result, flags=re.DOTALL)
+            
+            # Clean up the content
+            answer = content_without_metadata.strip()
+            
+            # If the cleaned content is empty or too short, use the full response
+            if not answer or len(answer) < 50:
+                answer = response.strip()
+            
+            import logging
+            if answer and answer != response:
+                logging.debug(f"Using extracted answer (length: {len(answer)}) as fallback")
+            elif answer:
+                logging.debug(f"Using full response as answer (length: {len(answer)})")
+        
         return AgentResult(
             markdown=response,
             summary=summary,
