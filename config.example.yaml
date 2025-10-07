@@ -21,6 +21,14 @@
 # - Directory will be created automatically if it doesn't exist
 KB_PATH: ./knowledge_base
 
+# KB_TOPICS_ONLY: Restrict agents to work only in topics/ folder
+# - true: Agents can only create/edit/read files in KB_PATH/topics/ directory
+#         This prevents agents from modifying index.md, README.md, and other meta files
+#         in the knowledge base root. Recommended for production use.
+# - false: Agents have full access to entire knowledge base directory
+#          Useful for testing or if you need agents to manage meta files
+KB_TOPICS_ONLY: true
+
 # KB_GIT_ENABLED: Enable Git integration
 # - true: All changes in the knowledge base will be committed to Git repository
 # - false: Knowledge base works as regular file system without versioning
