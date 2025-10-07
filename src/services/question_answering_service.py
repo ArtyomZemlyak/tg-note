@@ -14,7 +14,7 @@ from src.processor.message_aggregator import MessageGroup
 from src.processor.content_parser import ContentParser
 from src.knowledge_base.repository import RepositoryManager
 from src.bot.utils import escape_markdown, split_long_message
-from config.agent_prompts import KB_QUERY_PROMPT_TEMPLATE
+from config.agent_prompts import KB_QUERY_PROMPT_TEMPLATE, ASK_MODE_AGENT_INSTRUCTION
 
 
 class QuestionAnsweringService(IQuestionAnsweringService):
@@ -179,9 +179,24 @@ class QuestionAnsweringService(IQuestionAnsweringService):
         # Get user agent
         user_agent = self.user_context_manager.get_or_create_agent(user_id)
         
-        # Prepare query prompt
+        # Set working directory to topics folder for qwen-code-cli agent
+        # This ensures CLI works in the correct location with notes
+        topics_path = kb_path / "topics"
+        if hasattr(user_agent, 'set_working_directory'):
+            user_agent.set_working_directory(str(topics_path))
+            self.logger.debug(f"Set agent working directory to: {topics_path}")
+        
+        # Temporarily change agent instruction to ask mode
+        # This prevents the agent from using note creation instructions
+        original_instruction = None
+        if hasattr(user_agent, 'get_instruction') and hasattr(user_agent, 'set_instruction'):
+            original_instruction = user_agent.get_instruction()
+            user_agent.set_instruction(ASK_MODE_AGENT_INSTRUCTION)
+            self.logger.debug(f"Temporarily changed agent instruction to ask mode")
+        
+        # Prepare query prompt with topics path
         query_prompt = KB_QUERY_PROMPT_TEMPLATE.format(
-            kb_path=str(kb_path),
+            kb_path=str(topics_path),
             question=question
         )
         
@@ -217,6 +232,11 @@ class QuestionAnsweringService(IQuestionAnsweringService):
                 f"Попробуйте переформулировать вопрос или проверьте, "
                 f"что база знаний содержит релевантную информацию."
             )
+        finally:
+            # Restore original instruction
+            if original_instruction is not None and hasattr(user_agent, 'set_instruction'):
+                user_agent.set_instruction(original_instruction)
+                self.logger.debug(f"Restored original agent instruction")
     
     async def _send_error_notification(
         self,

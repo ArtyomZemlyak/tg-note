@@ -113,11 +113,12 @@ class NoteCreationService(INoteCreationService):
             
             user_agent = self.user_context_manager.get_or_create_agent(user_id)
             
-            # Set working directory to user's KB path for qwen-code-cli agent
-            # This ensures files created by the CLI are in the correct location
+            # Set working directory to topics folder in user's KB for qwen-code-cli agent
+            # This ensures files created by the CLI are in the correct location (topics/)
+            topics_path = kb_path / "topics"
             if hasattr(user_agent, 'set_working_directory'):
-                user_agent.set_working_directory(str(kb_path))
-                self.logger.debug(f"Set agent working directory to: {kb_path}")
+                user_agent.set_working_directory(str(topics_path))
+                self.logger.debug(f"Set agent working directory to: {topics_path}")
             
             try:
                 processed_content = await user_agent.process(content)
