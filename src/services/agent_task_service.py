@@ -8,6 +8,8 @@ from pathlib import Path
 from loguru import logger
 from telebot.async_telebot import AsyncTeleBot
 from telebot.types import Message
+from telebot.apihelper import ApiTelegramException
+import asyncio
 
 from src.services.interfaces import IAgentTaskService, IUserContextManager
 from src.processor.message_aggregator import MessageGroup
@@ -70,12 +72,20 @@ class AgentTaskService(IAgentTaskService):
             # Get KB path
             kb_path = self.repo_manager.get_kb_path(user_kb['kb_name'])
             if not kb_path:
-                await self.bot.edit_message_text(
+                error_text = (
                     "❌ Локальная копия базы знаний не найдена\n\n"
-                    "Попробуйте настроить базу знаний заново: /setkb",
+                    "Попробуйте настроить базу знаний заново: /setkb"
+                )
+                edit_succeeded = await self._safe_edit_message(
+                    error_text,
                     chat_id=processing_msg.chat.id,
                     message_id=processing_msg.message_id
                 )
+                if not edit_succeeded:
+                    await self.bot.send_message(
+                        chat_id=processing_msg.chat.id,
+                        text=error_text
+                    )
                 return
             
             # Parse task
@@ -83,12 +93,20 @@ class AgentTaskService(IAgentTaskService):
             task_text = content.get('text', '')
             
             if not task_text:
-                await self.bot.edit_message_text(
+                error_text = (
                     "❌ Не могу определить задачу\n\n"
-                    "Пожалуйста, отправьте текстовое сообщение с описанием задачи.",
+                    "Пожалуйста, отправьте текстовое сообщение с описанием задачи."
+                )
+                edit_succeeded = await self._safe_edit_message(
+                    error_text,
                     chat_id=processing_msg.chat.id,
                     message_id=processing_msg.message_id
                 )
+                if not edit_succeeded:
+                    await self.bot.send_message(
+                        chat_id=processing_msg.chat.id,
+                        text=error_text
+                    )
                 return
             
             # Save user message to context (get first message from group for ID)
@@ -100,7 +118,8 @@ class AgentTaskService(IAgentTaskService):
             )
             
             # Execute task with agent
-            await self.bot.edit_message_text(
+            # Try to update status message (but don't fail if it times out)
+            await self._safe_edit_message(
                 "🤖 Выполняю задачу...",
                 chat_id=processing_msg.chat.id,
                 message_id=processing_msg.message_id
@@ -214,6 +233,54 @@ class AgentTaskService(IAgentTaskService):
                 user_agent.set_instruction(original_instruction)
                 self.logger.debug(f"Restored original agent instruction")
     
+    async def _safe_edit_message(
+        self,
+        text: str,
+        chat_id: int,
+        message_id: int,
+        parse_mode: str = None
+    ) -> bool:
+        """
+        Safely edit a message with timeout handling
+        
+        Args:
+            text: Message text
+            chat_id: Chat ID
+            message_id: Message ID to edit
+            parse_mode: Parse mode (e.g., 'Markdown')
+        
+        Returns:
+            True if edit succeeded, False if we should send a new message instead
+        """
+        try:
+            await self.bot.edit_message_text(
+                text,
+                chat_id=chat_id,
+                message_id=message_id,
+                parse_mode=parse_mode
+            )
+            return True
+        except (asyncio.TimeoutError, ApiTelegramException) as e:
+            # Handle timeout or API errors
+            error_msg = str(e).lower()
+            if "timeout" in error_msg or "timed out" in error_msg:
+                self.logger.warning(
+                    f"Message edit timed out (message may be too old), "
+                    f"will send new message instead: {e}"
+                )
+                return False
+            # For other API errors, check if it's a "message not modified" error
+            elif "message is not modified" in error_msg:
+                self.logger.debug(f"Message not modified, skipping edit: {e}")
+                return True
+            else:
+                # Re-raise other exceptions
+                raise
+        except Exception as e:
+            # Log unexpected errors but try to continue
+            self.logger.error(f"Unexpected error editing message: {e}", exc_info=True)
+            return False
+    
     async def _send_result(
         self,
         processing_msg: Message,
@@ -288,13 +355,21 @@ class AgentTaskService(IAgentTaskService):
         message_chunks = split_long_message(escaped_message)
         
         try:
-            # Edit the processing message with the first chunk
-            await self.bot.edit_message_text(
+            # Try to edit the processing message with the first chunk
+            edit_succeeded = await self._safe_edit_message(
                 message_chunks[0],
                 chat_id=processing_msg.chat.id,
                 message_id=processing_msg.message_id,
                 parse_mode='Markdown'
             )
+            
+            # If edit failed (e.g., timeout), send as new message
+            if not edit_succeeded:
+                await self.bot.send_message(
+                    chat_id=processing_msg.chat.id,
+                    text=f"✅ **Результат:**\n\n{message_chunks[0]}",
+                    parse_mode='Markdown'
+                )
             
             # If there are more chunks, send them as separate messages
             for i, chunk in enumerate(message_chunks[1:], start=2):
@@ -312,12 +387,20 @@ class AgentTaskService(IAgentTaskService):
                 full_message_plain = "".join(message_parts)
                 message_chunks_plain = split_long_message(full_message_plain)
                 
-                await self.bot.edit_message_text(
+                # Try to edit, fall back to new message if needed
+                edit_succeeded = await self._safe_edit_message(
                     message_chunks_plain[0],
                     chat_id=processing_msg.chat.id,
                     message_id=processing_msg.message_id,
                     parse_mode=None
                 )
+                
+                if not edit_succeeded:
+                    await self.bot.send_message(
+                        chat_id=processing_msg.chat.id,
+                        text=f"Результат:\n\n{message_chunks_plain[0]}",
+                        parse_mode=None
+                    )
                 
                 for i, chunk in enumerate(message_chunks_plain[1:], start=2):
                     await self.bot.send_message(
@@ -335,10 +418,20 @@ class AgentTaskService(IAgentTaskService):
     ) -> None:
         """Send error notification"""
         try:
-            await self.bot.edit_message_text(
-                f"❌ Ошибка выполнения задачи: {error_message}",
+            error_text = f"❌ Ошибка выполнения задачи: {error_message}"
+            
+            # Try to edit the message, fall back to new message if timeout
+            edit_succeeded = await self._safe_edit_message(
+                error_text,
                 chat_id=processing_msg.chat.id,
                 message_id=processing_msg.message_id
             )
-        except Exception:
-            pass
+            
+            # If edit failed due to timeout, send as new message
+            if not edit_succeeded:
+                await self.bot.send_message(
+                    chat_id=processing_msg.chat.id,
+                    text=error_text
+                )
+        except Exception as e:
+            self.logger.error(f"Failed to send error notification: {e}", exc_info=True)
