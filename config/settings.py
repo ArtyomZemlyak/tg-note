@@ -264,9 +264,13 @@ class Settings(BaseSettings):
     )
     
     # Knowledge Base Settings (can be in YAML)
+    KNOWLEDGE_BASES_ROOT: Path = Field(
+        default=Path("./knowledge_base"),
+        description="Root directory for all knowledge bases (multi-KB setup)"
+    )
     KB_PATH: Path = Field(
         default=Path("./knowledge_base"),
-        description="Path to knowledge base"
+        description="Path to default/single knowledge base (for standalone usage)"
     )
     KB_TOPICS_ONLY: bool = Field(
         default=True,

@@ -27,7 +27,7 @@ except ImportError:
 class RepositoryManager:
     """Manages KB repository (local or GitHub-based)"""
     
-    def __init__(self, base_path: str = "./knowledge_bases"):
+    def __init__(self, base_path: str = "./knowledge_base"):
         """
         Initialize repository manager
         

@@ -16,7 +16,16 @@
 # The knowledge base is used to store and manage documents processed by the bot.
 # Git integration is supported for versioning.
 
-# KB_PATH: Path to the knowledge base directory
+# KNOWLEDGE_BASES_ROOT: Root directory for all knowledge bases (multi-user setup)
+# - This is where all user knowledge bases are stored as subdirectories
+# - Example: ./knowledge_base/my-notes, ./knowledge_base/work-notes, etc.
+# - Can be relative (./knowledge_base) or absolute (/path/to/kbs)
+# - Directory will be created automatically if it doesn't exist
+KNOWLEDGE_BASES_ROOT: ./knowledge_base
+
+# KB_PATH: Path to default/single knowledge base (for standalone usage)
+# - This is used by standalone scripts and examples that work with one KB
+# - For multi-user bot setup, each user's KB is created under KNOWLEDGE_BASES_ROOT
 # - Can be relative (./knowledge_base) or absolute (/path/to/kb)
 # - Directory will be created automatically if it doesn't exist
 KB_PATH: ./knowledge_base
