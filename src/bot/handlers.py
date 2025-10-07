@@ -76,6 +76,7 @@ class BotHandlers:
         self.bot.message_handler(commands=['note'])(self.handle_note_mode)
         self.bot.message_handler(commands=['ask'])(self.handle_ask_mode)
         self.bot.message_handler(commands=['agent'])(self.handle_agent_mode)
+        self.bot.message_handler(commands=['resetcontext'])(self.handle_reset_context)
         
         # All supported content types (decoupled from media processing)
         supported_content_types = [
@@ -214,6 +215,10 @@ class BotHandlers:
             "/agent - режим агента (полный доступ)\n"
             "  В этом режиме агент выполняет любые задачи: отвечает на вопросы,\n"
             "  добавляет информацию, переструктурирует базу знаний и т.д.\n\n"
+            "**Контекст разговора:**\n"
+            "/resetcontext - сбросить контекст разговора\n"
+            "  Бот запоминает предыдущие сообщения для более точных ответов.\n"
+            "  Используйте эту команду, чтобы начать новый разговор с чистого листа.\n\n"
             "Бот работает для всех пользователей без ограничений!"
         )
         
@@ -411,6 +416,30 @@ class BotHandlers:
             "• И многое другое!\n\n"
             "Просто опишите что нужно сделать, и агент выполнит задачу автономно.\n\n"
             "Переключить: /note | /ask"
+        )
+    
+    async def handle_reset_context(self, message: Message) -> None:
+        """Handle /resetcontext command"""
+        self.logger.info(f"Reset context command from user {message.from_user.id}")
+        
+        # Clear conversation context for this user
+        self.user_context_manager.clear_conversation_context(message.from_user.id)
+        
+        # Set reset point to current message ID
+        # Future messages will start a new context from here
+        self.user_context_manager.reset_conversation_context(
+            message.from_user.id,
+            message.message_id
+        )
+        
+        await self.bot.reply_to(
+            message,
+            "🔄 Контекст разговора сброшен!\n\n"
+            "Новый контекст будет начинаться со следующего сообщения.\n\n"
+            "Настройки контекста:\n"
+            "• Используйте /settings для управления настройками контекста\n"
+            "• CONTEXT_ENABLED - включить/выключить использование контекста\n"
+            "• CONTEXT_MAX_TOKENS - максимальное количество токенов в контексте"
         )
     
     # Message handlers

@@ -91,6 +91,14 @@ class QuestionAnsweringService(IQuestionAnsweringService):
                 )
                 return
             
+            # Save user message to context (get first message from group for ID)
+            first_message = group.messages[0] if group.messages else {}
+            message_id = first_message.get('message_id', 0)
+            timestamp = first_message.get('date', 0)
+            self.user_context_manager.add_user_message_to_context(
+                user_id, message_id, question_text, timestamp
+            )
+            
             # Query knowledge base
             await self.bot.edit_message_text(
                 "🔍 Ищу информацию в базе знаний...",
@@ -99,6 +107,13 @@ class QuestionAnsweringService(IQuestionAnsweringService):
             )
             
             answer = await self._query_kb(kb_path, question_text, user_id)
+            
+            # Save assistant response to context
+            import time
+            response_timestamp = int(time.time())
+            self.user_context_manager.add_assistant_message_to_context(
+                user_id, processing_msg.message_id, answer, response_timestamp
+            )
             
             # Send answer - escape the answer text to prevent Markdown parsing errors
             escaped_answer = escape_markdown(answer)
@@ -207,11 +222,18 @@ class QuestionAnsweringService(IQuestionAnsweringService):
             user_agent.set_instruction(ASK_MODE_AGENT_INSTRUCTION)
             self.logger.debug(f"Temporarily changed agent instruction to ask mode")
         
+        # Get conversation context
+        context = self.user_context_manager.get_conversation_context(user_id)
+        
         # Prepare query prompt with appropriate path (based on KB_TOPICS_ONLY setting)
-        query_prompt = KB_QUERY_PROMPT_TEMPLATE.format(
-            kb_path=str(agent_working_dir),
-            question=question
-        )
+        # Include context if available
+        if context:
+            query_prompt = f"{context}\n\n{KB_QUERY_PROMPT_TEMPLATE.format(kb_path=str(agent_working_dir), question=question)}"
+        else:
+            query_prompt = KB_QUERY_PROMPT_TEMPLATE.format(
+                kb_path=str(agent_working_dir),
+                question=question
+            )
         
         # Create query content
         query_content = {

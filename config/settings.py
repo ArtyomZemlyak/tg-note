@@ -247,6 +247,16 @@ class Settings(BaseSettings):
         description="Git branch name"
     )
     
+    # Conversation Context Settings (can be in YAML)
+    CONTEXT_ENABLED: bool = Field(
+        default=True,
+        description="Enable conversation context for agents"
+    )
+    CONTEXT_MAX_TOKENS: int = Field(
+        default=2000,
+        description="Maximum number of tokens to keep in context"
+    )
+    
     # Processing Settings (can be in YAML)
     MESSAGE_GROUP_TIMEOUT: int = Field(
         default=30,
