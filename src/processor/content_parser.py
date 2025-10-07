@@ -110,6 +110,9 @@ class ContentParser:
         """
         result = self.parse_message_group(group.messages)
         
+        # Track unsupported media types for logging
+        unsupported_media = []
+        
         # Process attached files if bot is provided
         if bot and self.file_processor.is_available():
             file_contents = []
@@ -163,6 +166,17 @@ class ContentParser:
                                 self.logger.info(f"Successfully processed photo")
                         except Exception as e:
                             self.logger.error(f"Error processing photo: {e}", exc_info=True)
+                
+                # Log unsupported media types (but still process the message)
+                # This allows graceful handling of video, audio, voice, etc.
+                content_type = msg.get('content_type', '')
+                if content_type in ['video', 'audio', 'voice', 'video_note', 'animation']:
+                    if msg.get(content_type):
+                        unsupported_media.append(content_type)
+                        self.logger.info(
+                            f"Message contains {content_type} media (not yet supported for processing). "
+                            f"Text/caption will still be extracted."
+                        )
             
             # Add file contents to result
             if file_contents:
@@ -177,6 +191,10 @@ class ContentParser:
                     result['text'] = result.get('text', '') + '\n\n'.join(file_texts)
                     # Regenerate hash with file contents
                     result['content_hash'] = self.generate_content_hash(result['text'])
+        
+        # Add metadata about unsupported media
+        if unsupported_media:
+            result['unsupported_media'] = list(set(unsupported_media))
         
         return result
     
