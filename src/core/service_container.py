@@ -13,6 +13,7 @@ from src.knowledge_base.user_settings import UserSettings
 from src.bot.settings_manager import SettingsManager, UserSettingsStorage
 from src.bot.telegram_bot import TelegramBot
 from src.services.user_context_manager import UserContextManager
+from src.services.conversation_context import ConversationContextManager
 from src.services.note_creation_service import NoteCreationService
 from src.services.question_answering_service import QuestionAnsweringService
 from src.services.agent_task_service import AgentTaskService
@@ -66,6 +67,16 @@ def configure_services(container: Container) -> None:
         singleton=True
     )
     
+    # Register conversation context manager
+    container.register(
+        "conversation_context_manager",
+        lambda c: ConversationContextManager(
+            storage_file="./data/conversation_contexts.json",
+            default_max_tokens=c.get("settings").CONTEXT_MAX_TOKENS
+        ),
+        singleton=True
+    )
+    
     # Register bot
     container.register(
         "async_bot",
@@ -78,6 +89,7 @@ def configure_services(container: Container) -> None:
         "user_context_manager",
         lambda c: UserContextManager(
             settings_manager=c.get("settings_manager"),
+            conversation_context_manager=c.get("conversation_context_manager"),
             timeout_callback=None  # Will be set later by message processor
         ),
         singleton=True

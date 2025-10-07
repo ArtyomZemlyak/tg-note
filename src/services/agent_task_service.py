@@ -91,6 +91,14 @@ class AgentTaskService(IAgentTaskService):
                 )
                 return
             
+            # Save user message to context (get first message from group for ID)
+            first_message = group.messages[0] if group.messages else {}
+            message_id = first_message.get('message_id', 0)
+            timestamp = first_message.get('date', 0)
+            self.user_context_manager.add_user_message_to_context(
+                user_id, message_id, task_text, timestamp
+            )
+            
             # Execute task with agent
             await self.bot.edit_message_text(
                 "🤖 Выполняю задачу...",
@@ -99,6 +107,15 @@ class AgentTaskService(IAgentTaskService):
             )
             
             result = await self._execute_with_agent(kb_path, content, user_id)
+            
+            # Save assistant response to context
+            import time
+            response_timestamp = int(time.time())
+            # Build a simple summary of the response for context
+            response_text = result.get('answer') or result.get('summary', 'Задача выполнена')
+            self.user_context_manager.add_assistant_message_to_context(
+                user_id, processing_msg.message_id, response_text, response_timestamp
+            )
             
             # Send result to user
             await self._send_result(processing_msg, result)
@@ -151,11 +168,20 @@ class AgentTaskService(IAgentTaskService):
             user_agent.set_instruction(AGENT_MODE_INSTRUCTION)
             self.logger.debug(f"Temporarily changed agent instruction to agent mode")
         
+        # Get conversation context
+        context = self.user_context_manager.get_conversation_context(user_id)
+        
         # Prepare task content with agent mode instruction
+        # Include context if available
+        if context:
+            task_prompt = f"{context}\n\n{AGENT_MODE_INSTRUCTION}\n\n# Задача от пользователя:\n{content.get('text', '')}"
+        else:
+            task_prompt = f"{AGENT_MODE_INSTRUCTION}\n\n# Задача от пользователя:\n{content.get('text', '')}"
+        
         task_content = {
             'text': content.get('text', ''),
             'urls': content.get('urls', []),
-            'prompt': f"{AGENT_MODE_INSTRUCTION}\n\n# Задача от пользователя:\n{content.get('text', '')}"
+            'prompt': task_prompt
         }
         
         try:

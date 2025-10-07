@@ -1,6 +1,6 @@
 """
 User Context Manager Service
-Manages user-specific contexts (aggregators, agents, modes)
+Manages user-specific contexts (aggregators, agents, modes, conversation context)
 Follows Single Responsibility Principle
 """
 
@@ -11,6 +11,7 @@ from src.services.interfaces import IUserContextManager
 from src.processor.message_aggregator import MessageAggregator
 from src.agents.agent_factory import AgentFactory
 from src.bot.settings_manager import SettingsManager
+from src.services.conversation_context import ConversationContextManager
 
 
 class UserContextManager(IUserContextManager):
@@ -27,6 +28,7 @@ class UserContextManager(IUserContextManager):
     def __init__(
         self,
         settings_manager: SettingsManager,
+        conversation_context_manager: ConversationContextManager,
         timeout_callback=None
     ):
         """
@@ -34,9 +36,11 @@ class UserContextManager(IUserContextManager):
         
         Args:
             settings_manager: Settings manager for user-specific settings
+            conversation_context_manager: Manager for conversation contexts
             timeout_callback: Callback for message aggregator timeouts
         """
         self.settings_manager = settings_manager
+        self.conversation_context_manager = conversation_context_manager
         self.timeout_callback = timeout_callback
         
         # User-specific caches
@@ -127,6 +131,80 @@ class UserContextManager(IUserContextManager):
         """
         self.user_modes[user_id] = mode
         self.logger.info(f"User {user_id} switched to {mode} mode")
+    
+    def get_conversation_context(self, user_id: int) -> str:
+        """
+        Get formatted conversation context for a user
+        
+        Args:
+            user_id: User ID
+        
+        Returns:
+            Formatted context string
+        """
+        context_enabled = self.settings_manager.get_setting(user_id, "CONTEXT_ENABLED")
+        return self.conversation_context_manager.get_context_for_prompt(user_id, context_enabled)
+    
+    def add_user_message_to_context(
+        self,
+        user_id: int,
+        message_id: int,
+        content: str,
+        timestamp: int
+    ) -> None:
+        """
+        Add user message to conversation context
+        
+        Args:
+            user_id: User ID
+            message_id: Message ID
+            content: Message content
+            timestamp: Message timestamp
+        """
+        max_tokens = self.settings_manager.get_setting(user_id, "CONTEXT_MAX_TOKENS")
+        self.conversation_context_manager.add_user_message(
+            user_id, message_id, content, timestamp, max_tokens
+        )
+    
+    def add_assistant_message_to_context(
+        self,
+        user_id: int,
+        message_id: int,
+        content: str,
+        timestamp: int
+    ) -> None:
+        """
+        Add assistant message to conversation context
+        
+        Args:
+            user_id: User ID
+            message_id: Message ID
+            content: Message content
+            timestamp: Message timestamp
+        """
+        max_tokens = self.settings_manager.get_setting(user_id, "CONTEXT_MAX_TOKENS")
+        self.conversation_context_manager.add_assistant_message(
+            user_id, message_id, content, timestamp, max_tokens
+        )
+    
+    def reset_conversation_context(self, user_id: int, from_message_id: int) -> None:
+        """
+        Reset conversation context from a specific message
+        
+        Args:
+            user_id: User ID
+            from_message_id: Start reading context from this message
+        """
+        self.conversation_context_manager.reset_context(user_id, from_message_id)
+    
+    def clear_conversation_context(self, user_id: int) -> None:
+        """
+        Completely clear conversation context for a user
+        
+        Args:
+            user_id: User ID
+        """
+        self.conversation_context_manager.clear_context(user_id)
     
     def invalidate_cache(self, user_id: int) -> None:
         """
