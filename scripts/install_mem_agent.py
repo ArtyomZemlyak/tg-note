@@ -2,7 +2,15 @@
 """
 Memory Agent Installation Script
 
-This script:
+This script installs mem-agent - a personal note-taking and search system 
+specifically designed for the main agent.
+
+The agent uses mem-agent to:
+- Record notes and findings during task execution
+- Search through notes to "remember" previously recorded information
+- Maintain working memory within a single agent session
+
+Installation steps:
 1. Installs mem-agent dependencies
 2. Downloads the model from HuggingFace
 3. Sets up the MCP server configuration
@@ -162,7 +170,7 @@ def create_mcp_server_config(workspace_root: Path, memory_postfix: str) -> bool:
     # Note: Memory directory path will be determined at runtime based on user's KB
     config = {
         "name": "mem-agent",
-        "description": "Local memory agent with intelligent memory management using LLM",
+        "description": "Agent's personal note-taking and search system - allows the agent to record and search notes during task execution",
         "command": sys.executable,
         "args": [
             "-m",
@@ -189,13 +197,17 @@ def create_mcp_server_config(workspace_root: Path, memory_postfix: str) -> bool:
 
 def setup_memory_directory_note() -> None:
     """Print note about memory directory creation"""
-    print("\n=== Memory Directory Setup ===\n")
-    print("[i] Memory directory will be created automatically by the MCP server")
-    print("    when it's first called. This ensures the correct path structure:")
+    print("\n=== Agent Notes Directory Setup ===\n")
+    print("[i] The agent's notes directory will be created automatically by the MCP server")
+    print("    when the agent first records a note. This ensures the correct path structure:")
     print("    knowledge_base/{user-specific-kb}/memory/")
     print("    ")
-    print("    The memory directory is NOT created during installation because")
+    print("    The directory is NOT created during installation because")
     print("    the specific user's knowledge base name is only known at runtime.")
+    print("    ")
+    print("    The agent will use this directory to:")
+    print("    - Record notes during task execution (store action)")
+    print("    - Search notes to recall information (search action)")
     print()
 
 
@@ -284,13 +296,17 @@ def main():
     print("2. Enable it in your config.yaml or .env:")
     print("   AGENT_ENABLE_MCP: true")
     print("   AGENT_ENABLE_MCP_MEMORY: true")
-    print("3. Memory will be stored per-user at runtime:")
+    print("3. Agent's notes will be stored per-user at runtime:")
     print("   knowledge_base/{user-kb-name}/memory/")
-    print("   The MCP server creates this directory when first called.")
-    print("4. You can change settings in config.yaml or .env:")
+    print("   The MCP server creates this directory when the agent first records a note.")
+    print("4. How the agent uses it:")
+    print("   - During tasks: Agent records notes about findings, context, etc.")
+    print("   - When needed: Agent searches notes to recall previously recorded info")
+    print("   - Within session: Maintains working memory across multiple LLM calls")
+    print("5. You can change settings in config.yaml or .env:")
     print("   - MEM_AGENT_MODEL (default: driaforall/mem-agent)")
     print(f"   - MEM_AGENT_MEMORY_POSTFIX (default: {default_memory_postfix})")
-    print("   - Each user's memory is isolated in their own KB")
+    print("   - Each user's notes are isolated in their own KB")
     print("\n")
     
     return 0

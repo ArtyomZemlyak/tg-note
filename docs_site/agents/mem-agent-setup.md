@@ -1,10 +1,18 @@
 # Memory Agent Setup Guide
 
-This guide covers the installation, configuration, and usage of the integrated mem-agent for intelligent memory management.
+This guide covers the installation, configuration, and usage of the integrated mem-agent - a personal note-taking and search system for autonomous agents.
 
 ## Overview
 
-The memory agent is a local LLM-powered system that provides intelligent memory storage and retrieval for your knowledge base. It uses the `driaforall/mem-agent` model from HuggingFace and can run on various backends:
+The memory agent is a local LLM-powered note-taking system specifically designed for the main agent. The agent uses it to:
+
+- **Record notes**: Write down important information, findings, or context during task execution
+- **Search notes**: Find and recall previously recorded information to "remember" details
+- **Maintain context**: Keep working memory across multiple LLM calls within a single session
+
+This is particularly useful for autonomous agents (like qwen code cli) that make many LLM calls within one continuous session.
+
+The system uses the `driaforall/mem-agent` model from HuggingFace and can run on various backends:
 
 - **vLLM** (Linux with GPU) - Best performance
 - **MLX** (macOS with Apple Silicon) - Native ARM support
@@ -182,7 +190,7 @@ knowledge_bases/
 
 ### Through Agent
 
-The agent automatically uses mem-agent when enabled:
+The agent automatically uses mem-agent when enabled to record notes and search them:
 
 ```python
 from src.agents import AgentFactory
@@ -191,16 +199,20 @@ from config.settings import settings
 # Create agent with mem-agent enabled
 agent = AgentFactory.from_settings(settings)
 
-# The agent will automatically store and retrieve memories
+# The agent can record notes during task execution
+# For example, during a complex task:
 result = await agent.process({
-    "text": "Remember that my favorite programming language is Python"
+    "text": "Analyze this codebase and suggest improvements"
 })
+# The agent internally records findings like:
+# - "Found authentication vulnerability in login.py"
+# - "Database queries missing indexes in user_service.py"
+# - "Found 15 TODO comments that need attention"
 
-# Later...
-result = await agent.process({
-    "text": "What's my favorite programming language?"
-})
-# Agent will retrieve from memory and answer correctly
+# Later in the same session, the agent can search its notes:
+# When asked about specific findings, the agent searches:
+# "What security issues did I find?"
+# And retrieves the authentication vulnerability note
 ```
 
 ### Direct API (Advanced)

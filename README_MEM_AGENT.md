@@ -1,5 +1,26 @@
 # Интеграция mem-agent в tg-note
 
+## Назначение
+
+mem-agent - это система заметок и поиска, специально разработанная для **основного агента**.
+
+### Для чего это нужно агенту:
+
+- **Записывать заметки**: Во время выполнения задачи агент может записывать важную информацию, находки или контекст
+- **Искать и "вспоминать"**: Позже агент может искать по своим заметкам, чтобы "вспомнить" что он ранее записал
+- **Поддерживать рабочую память**: Особенно полезно в рамках одной сессии агента, где происходит много вызовов LLM (например, в qwen code cli автономный агент)
+
+### Пример использования:
+
+1. Агент анализирует кодовую базу и **записывает** находки:
+   - "Найдена уязвимость SQL injection в login.py"
+   - "База данных использует PostgreSQL 14 с pgvector"
+   - "Найдено 15 TODO комментариев"
+
+2. Позже в той же сессии агенту задают вопрос "Какие проблемы безопасности ты нашел?"
+
+3. Агент **ищет** в своих заметках и находит информацию о SQL injection
+
 ## Что сделано
 
 Успешно мигрирована реализация mem-agent из https://github.com/firstbatchxyz/mem-agent-mcp в наш репозиторий со следующими улучшениями:
@@ -13,7 +34,7 @@
 - **Поддержка пользовательских серверов** - просто добавь JSON файл
 - **Динамическая конфигурация** без изменения кода
 
-### 2. Локальный mem-agent
+### 2. Локальный mem-agent для агента
 
 - **Без OpenAI API** - использует локальные LLM модели
 - **Python-based** - не нужен Node.js/npm
@@ -207,35 +228,37 @@ MCP Server Registry (чтение JSON конфигов)
 6. Agent → Telegram Bot → Пользователь
 ```
 
-## Структура памяти
+## Структура памяти (заметок агента)
 
-### user.md - основная информация о пользователе
+### user.md - основная информация, записанная агентом
 
 ```markdown
-# User Information
-- user_name: Иван Иванов
-- user_age: 30
-- user_location: Москва
+# Agent Notes
+- current_task: Code analysis of authentication module
+- findings_count: 15
+- priority_issues: 3
 
-## User Relationships
-- работодатель: [[entities/company_name.md]]
-- друг: [[entities/person_name.md]]
+## Key Findings
+- security_issue: [[entities/sql_injection.md]]
+- performance_issue: [[entities/missing_indexes.md]]
 
-## Preferences
-- любимый_язык_программирования: Python
-- любимый_фреймворк: FastAPI
+## Context
+- project_type: FastAPI backend service
+- database: PostgreSQL 14
 ```
 
-### entities/ - информация о сущностях
+### entities/ - детальная информация о находках
 
 ```markdown
-# Название компании
-- entity_type: Компания
-- отрасль: IT
-- location: Москва
+# SQL Injection Vulnerability
+- entity_type: Security Issue
+- severity: High
+- location: /api/auth/login endpoint
+- details: User input not sanitized in SQL query
 
-## Employees
-- ceo: [[entities/ceo_name.md]]
+## Recommendation
+- Use parameterized queries
+- Add input validation
 ```
 
 ## Управление серверами

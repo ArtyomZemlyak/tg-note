@@ -1,12 +1,17 @@
 """
-Memory Agent MCP Tool
+Memory Agent MCP Tool - Agent's Personal Note-Taking System
 
-This tool integrates the local mem-agent MCP server for memory management.
+This tool provides a personal note-taking and search system specifically for the main agent.
+The agent can use it to:
+- Record important notes, findings, or context during task execution
+- Search through recorded notes to "remember" previously written information
+- Maintain working memory within a single agent session
+
+This is designed for autonomous agents (like qwen code cli) where the agent makes many
+LLM calls within one session and needs to maintain context across these calls.
 
 The memory agent uses the driaforall/mem-agent model from HuggingFace
-to provide intelligent memory storage and retrieval for autonomous agents.
-
-The MCP server configuration is loaded from data/mcp_servers/mem-agent.json
+and the MCP server configuration is loaded from data/mcp_servers/mem-agent.json
 which is created by running scripts/install_mem_agent.py.
 
 References:
@@ -27,15 +32,18 @@ from .client import MCPServerConfig
 
 class MemoryAgentMCPTool(BaseMCPTool):
     """
-    Memory Agent MCP Tool
+    Memory Agent MCP Tool - Agent's Personal Note-Taking System
     
-    This tool provides intelligent memory management using the mem-agent model.
-    It can store, retrieve, and search through memories with semantic understanding.
+    This tool provides a personal note-taking and search system for the agent.
+    The agent can use it to record important information and later search through notes to recall details.
     
     Usage:
-        - Store memories: Save information for later retrieval
-        - Search memories: Find relevant memories based on queries
-        - Manage context: Maintain conversation context across sessions
+        - Store notes: Write down important information, context, or findings
+        - Search notes: Find relevant information from previously recorded notes
+        - List notes: View all recorded notes
+    
+    This is designed for use within a single agent session (e.g., qwen code cli autonomous agent),
+    where the agent makes many LLM calls but maintains one continuous session.
     """
     
     @property
@@ -45,10 +53,11 @@ class MemoryAgentMCPTool(BaseMCPTool):
     @property
     def description(self) -> str:
         return (
-            "Intelligent memory management tool. "
-            "Can store and retrieve memories with semantic understanding. "
-            "Use this to remember important information across tasks and sessions. "
-            "Supports: storing memories, searching memories, and managing context."
+            "Personal note-taking and search tool for the agent. "
+            "Use this tool to record important information, notes, or context during task execution, "
+            "and later search through these notes to 'remember' what was recorded. "
+            "This is your personal memory within the current session - write down anything important you want to recall later. "
+            "Actions: 'store' (save a note), 'search' (find relevant notes), 'list' (show all notes)."
         )
     
     @property
@@ -63,11 +72,11 @@ class MemoryAgentMCPTool(BaseMCPTool):
                 },
                 "content": {
                     "type": "string",
-                    "description": "Content to store (for 'store' action) or query (for 'search' action)"
+                    "description": "Note content to record (for 'store' action) or search query to find notes (for 'search' action)"
                 },
                 "context": {
                     "type": "string",
-                    "description": "Optional context or metadata for the memory"
+                    "description": "Optional context or metadata for the note"
                 }
             },
             "required": ["action"]
@@ -179,17 +188,17 @@ class MemoryAgentMCPTool(BaseMCPTool):
         # Add helpful information to the result
         if result.get("success"):
             if action == "store":
-                result["message"] = f"Memory stored successfully: {content[:50]}..."
+                result["message"] = f"Note recorded successfully: {content[:50]}..."
             elif action == "search":
-                result["message"] = f"Search completed for: {content}"
+                result["message"] = f"Note search completed for: {content}"
             elif action == "list":
-                result["message"] = "Retrieved all memories"
+                result["message"] = "Retrieved all recorded notes"
         
         return result
 
 
 class MemoryStoreTool(BaseMCPTool):
-    """Simplified tool for storing memories"""
+    """Simplified tool for storing notes in the agent's personal memory"""
     
     @property
     def name(self) -> str:
@@ -197,7 +206,7 @@ class MemoryStoreTool(BaseMCPTool):
     
     @property
     def description(self) -> str:
-        return "Store a memory for later retrieval. Use this to remember important information."
+        return "Record a note for later retrieval. Use this to write down important information you want to remember during task execution."
     
     @property
     def parameters_schema(self) -> Dict[str, Any]:
@@ -206,12 +215,12 @@ class MemoryStoreTool(BaseMCPTool):
             "properties": {
                 "content": {
                     "type": "string",
-                    "description": "Content to store in memory"
+                    "description": "Note content to record - write down any important information you want to remember"
                 },
                 "tags": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Optional tags for categorizing the memory"
+                    "description": "Optional tags for categorizing the note"
                 }
             },
             "required": ["content"]
@@ -227,7 +236,7 @@ class MemoryStoreTool(BaseMCPTool):
 
 
 class MemorySearchTool(BaseMCPTool):
-    """Simplified tool for searching memories"""
+    """Simplified tool for searching through the agent's recorded notes"""
     
     @property
     def name(self) -> str:
@@ -235,7 +244,7 @@ class MemorySearchTool(BaseMCPTool):
     
     @property
     def description(self) -> str:
-        return "Search through stored memories. Use this to find relevant information from past conversations."
+        return "Search through your recorded notes. Use this to find and recall information you previously wrote down during this session."
     
     @property
     def parameters_schema(self) -> Dict[str, Any]:
@@ -244,11 +253,11 @@ class MemorySearchTool(BaseMCPTool):
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "Search query to find relevant memories"
+                    "description": "Search query to find relevant notes from what you previously recorded"
                 },
                 "limit": {
                     "type": "integer",
-                    "description": "Maximum number of memories to return (default: 5)",
+                    "description": "Maximum number of notes to return (default: 5)",
                     "default": 5
                 }
             },
