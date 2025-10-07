@@ -291,15 +291,10 @@ AGENT_ENABLE_FOLDER_MANAGEMENT: true
 
 
 # ───────────────────────────────────────────────────────────────────────────────
-# MCP (Model Context Protocol) Settings (Advanced Feature)
+# MCP (Model Context Protocol) Settings
 # ───────────────────────────────────────────────────────────────────────────────
 # MCP enables integration with external tools and services via the Model Context
 # Protocol. This allows the agent to access additional capabilities beyond built-in tools.
-#
-# ⚠️ REQUIREMENTS:
-# 1. Node.js and npm must be installed
-# 2. Install MCP servers separately (e.g., npm install -g @firstbatch/mem-agent-mcp)
-# 3. Set required API keys in .env file
 #
 # Documentation: docs_site/agents/mcp-tools.md
 
@@ -310,58 +305,99 @@ AGENT_ENABLE_FOLDER_MANAGEMENT: true
 #
 # - true: Enable MCP tools
 #         Allows connecting external tools via MCP protocol
-#         Requires Node.js and MCP servers to be installed
+#         MCP server configs are stored in data/mcp_servers/*.json
 #
 # NOTE: Individual MCP tools must be enabled separately
 AGENT_ENABLE_MCP: false
-
-# ─── Memory Agent Tool (MCP) ───────────────────────────────────────────────────
-# Intelligent memory management using the mem-agent model from HuggingFace.
-# Provides semantic memory storage and retrieval across agent sessions.
-#
-# Model: https://huggingface.co/driaforall/mem-agent
-# Server: https://github.com/firstbatchxyz/mem-agent-mcp
-#
-# Installation:
-#   npm install -g @firstbatch/mem-agent-mcp
 
 # AGENT_ENABLE_MCP_MEMORY: Enable memory agent tool
 #
 # - false: Memory agent disabled (default)
 #
-# - true: Enable intelligent memory management
-#         Agent can store and retrieve memories with semantic understanding
-#         Maintains context across multiple sessions
+# - true: Enable local memory management with mem-agent
+#         Uses HuggingFace model for intelligent memory storage
 #         Requires:
 #         * AGENT_ENABLE_MCP=true
-#         * mem-agent-mcp server installed (npm)
-#         * OPENAI_API_KEY or ANTHROPIC_API_KEY in .env
+#         * Running scripts/install_mem_agent.py first
+#         * Model: driaforall/mem-agent from HuggingFace
 #
-# Provides tools:
-# - mcp_memory_agent: Unified memory tool (store, search, list)
-# - memory_store: Store a memory
-# - memory_search: Search through memories
+# Installation:
+#   python scripts/install_mem_agent.py
+#
+# Memory storage:
+#   Each user's memory is stored in their KB at: {kb_path}/memory/
+#   This ensures per-user isolation and privacy
 AGENT_ENABLE_MCP_MEMORY: false
 
-# MCP_MEMORY_PROVIDER: LLM provider for memory agent
-#
-# Available providers:
-# - "openai": Use OpenAI API (requires OPENAI_API_KEY in .env)
-# - "anthropic": Use Anthropic API (requires ANTHROPIC_API_KEY in .env)
-#
-# NOTE: The memory agent uses LLM to understand and organize memories
-MCP_MEMORY_PROVIDER: "openai"
 
-# MCP_MEMORY_MODEL: Model to use for memory operations
+# ───────────────────────────────────────────────────────────────────────────────
+# Memory Agent Settings (Local LLM)
+# ───────────────────────────────────────────────────────────────────────────────
+# Configuration for the local mem-agent that provides intelligent memory management
+# using a locally-run LLM model. No API keys required.
+
+# MEM_AGENT_MODEL: HuggingFace model ID for memory agent
 #
-# For OpenAI provider:
-# - "gpt-4": Best quality (RECOMMENDED)
-# - "gpt-3.5-turbo": Faster, cheaper
+# Default: driaforall/mem-agent
+# This is a specialized model trained for memory management tasks
+MEM_AGENT_MODEL: "driaforall/mem-agent"
+
+# MEM_AGENT_MODEL_PRECISION: Model quantization precision
 #
-# For Anthropic provider:
-# - "claude-3-opus-20240229": Best quality
-# - "claude-3-sonnet-20240229": Balanced
-MCP_MEMORY_MODEL: "gpt-4"
+# Available options:
+# - "4bit": Smallest, fastest, lowest quality (RECOMMENDED for most users)
+# - "8bit": Balanced size and quality
+# - "fp16": Full precision, highest quality, requires more resources
+MEM_AGENT_MODEL_PRECISION: "4bit"
+
+# MEM_AGENT_BACKEND: Backend for running the model
+#
+# Available options:
+# - "auto": Automatically detect best backend (RECOMMENDED)
+#           * macOS: Uses MLX if available, otherwise transformers
+#           * Linux/Windows: Uses vLLM if available, otherwise transformers
+# - "vllm": Use vLLM backend (fast, for Linux/Windows)
+# - "mlx": Use MLX backend (optimized for Apple Silicon)
+# - "transformers": Use HuggingFace transformers (fallback, slower)
+MEM_AGENT_BACKEND: "auto"
+
+# MEM_AGENT_VLLM_HOST: vLLM server host (only used if backend is vllm)
+MEM_AGENT_VLLM_HOST: "127.0.0.1"
+
+# MEM_AGENT_VLLM_PORT: vLLM server port (only used if backend is vllm)
+MEM_AGENT_VLLM_PORT: 8001
+
+# MEM_AGENT_MEMORY_POSTFIX: Directory name for memory storage within each user's KB
+#
+# Default: "memory"
+# Full path will be: {kb_path}/memory/
+# Each user gets their own isolated memory directory
+MEM_AGENT_MEMORY_POSTFIX: "memory"
+
+# MEM_AGENT_MAX_TOOL_TURNS: Maximum number of tool execution turns
+#
+# Prevents infinite loops in memory operations
+MEM_AGENT_MAX_TOOL_TURNS: 20
+
+# MEM_AGENT_TIMEOUT: Timeout for sandboxed code execution (seconds)
+#
+# Safety limit for memory operations
+MEM_AGENT_TIMEOUT: 20
+
+# MEM_AGENT_FILE_SIZE_LIMIT: Maximum file size in bytes
+#
+# Default: 1MB - prevents memory files from growing too large
+MEM_AGENT_FILE_SIZE_LIMIT: 1048576
+
+# MEM_AGENT_DIR_SIZE_LIMIT: Maximum directory size in bytes
+#
+# Default: 10MB - limits total size of entities directory
+MEM_AGENT_DIR_SIZE_LIMIT: 10485760
+
+# MEM_AGENT_MEMORY_SIZE_LIMIT: Maximum total memory size in bytes
+#
+# Default: 100MB - limits total size of all memory data
+MEM_AGENT_MEMORY_SIZE_LIMIT: 104857600
 
 
 # ───────────────────────────────────────────────────────────────────────────────
