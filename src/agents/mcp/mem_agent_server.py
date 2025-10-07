@@ -24,6 +24,9 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
+# Import shared memory storage
+from src.mem_agent.storage import MemoryStorage
+
 # Configure logger for standalone mode
 logger.remove()
 logger.add(
@@ -31,132 +34,6 @@ logger.add(
     format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan> - <level>{message}</level>",
     level="INFO"
 )
-
-
-class MemoryStorage:
-    """Simple file-based memory storage"""
-    
-    def __init__(self, data_dir: Path):
-        """
-        Initialize memory storage
-        
-        Args:
-            data_dir: Directory for storing memory files
-        """
-        self.data_dir = data_dir
-        self.data_dir.mkdir(parents=True, exist_ok=True)
-        self.memory_file = self.data_dir / "memory.json"
-        
-        # Load existing memory
-        self.memories: List[Dict[str, Any]] = []
-        if self.memory_file.exists():
-            try:
-                with open(self.memory_file, 'r', encoding='utf-8') as f:
-                    self.memories = json.load(f)
-                logger.info(f"Loaded {len(self.memories)} memories from {self.memory_file}")
-            except Exception as e:
-                logger.error(f"Failed to load memories: {e}")
-    
-    def _save(self) -> None:
-        """Save memories to file"""
-        try:
-            with open(self.memory_file, 'w', encoding='utf-8') as f:
-                json.dump(self.memories, f, indent=2, ensure_ascii=False)
-        except Exception as e:
-            logger.error(f"Failed to save memories: {e}")
-    
-    def store(self, content: str, category: str = "general", metadata: Optional[Dict] = None) -> Dict[str, Any]:
-        """
-        Store information in memory
-        
-        Args:
-            content: Content to store
-            category: Category for organization
-            metadata: Additional metadata
-            
-        Returns:
-            Result with memory ID
-        """
-        memory_id = len(self.memories) + 1
-        
-        memory = {
-            "id": memory_id,
-            "content": content,
-            "category": category,
-            "metadata": metadata or {},
-            "created_at": datetime.now().isoformat(),
-            "updated_at": datetime.now().isoformat()
-        }
-        
-        self.memories.append(memory)
-        self._save()
-        
-        logger.info(f"Stored memory #{memory_id} in category '{category}'")
-        
-        return {
-            "success": True,
-            "memory_id": memory_id,
-            "message": f"Memory stored successfully (ID: {memory_id})"
-        }
-    
-    def retrieve(self, query: Optional[str] = None, category: Optional[str] = None, limit: int = 10) -> Dict[str, Any]:
-        """
-        Retrieve information from memory
-        
-        Args:
-            query: Search query (simple substring match)
-            category: Filter by category
-            limit: Maximum number of results
-            
-        Returns:
-            List of matching memories
-        """
-        results = self.memories.copy()
-        
-        # Filter by category
-        if category:
-            results = [m for m in results if m.get("category") == category]
-        
-        # Filter by query (simple substring search)
-        if query:
-            query_lower = query.lower()
-            results = [
-                m for m in results
-                if query_lower in m.get("content", "").lower()
-                or query_lower in m.get("category", "").lower()
-            ]
-        
-        # Limit results
-        results = results[-limit:]  # Get last N results
-        
-        logger.info(f"Retrieved {len(results)} memories (query='{query}', category='{category}')")
-        
-        return {
-            "success": True,
-            "count": len(results),
-            "memories": results
-        }
-    
-    def list_categories(self) -> Dict[str, Any]:
-        """
-        List all available categories
-        
-        Returns:
-            List of categories with counts
-        """
-        categories: Dict[str, int] = {}
-        
-        for memory in self.memories:
-            cat = memory.get("category", "general")
-            categories[cat] = categories.get(cat, 0) + 1
-        
-        return {
-            "success": True,
-            "categories": [
-                {"name": cat, "count": count}
-                for cat, count in sorted(categories.items())
-            ]
-        }
 
 
 class MemAgentMCPServer:
@@ -204,6 +81,12 @@ class MemAgentMCPServer:
                             "description": "Category for organization (e.g., 'tasks', 'notes', 'ideas')",
                             "default": "general"
                         },
+                        "tags": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Optional tags for categorization",
+                            "default": []
+                        },
                         "metadata": {
                             "type": "object",
                             "description": "Additional metadata (optional)",
@@ -226,6 +109,11 @@ class MemAgentMCPServer:
                         "category": {
                             "type": "string",
                             "description": "Filter by category (optional)"
+                        },
+                        "tags": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Filter by tags (optional)"
                         },
                         "limit": {
                             "type": "integer",
@@ -265,6 +153,7 @@ class MemAgentMCPServer:
                 result = self.storage.store(
                     content=arguments.get("content", ""),
                     category=arguments.get("category", "general"),
+                    tags=arguments.get("tags"),
                     metadata=arguments.get("metadata")
                 )
             
@@ -272,6 +161,7 @@ class MemAgentMCPServer:
                 result = self.storage.retrieve(
                     query=arguments.get("query"),
                     category=arguments.get("category"),
+                    tags=arguments.get("tags"),
                     limit=arguments.get("limit", 10)
                 )
             
