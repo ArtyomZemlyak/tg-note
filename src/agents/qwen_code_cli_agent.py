@@ -89,11 +89,10 @@ class QwenCodeCLIAgent(BaseAgent):
         
         if self.enable_mcp:
             logger.info(
-                "[QwenCodeCLIAgent] MCP enabled. Note: Qwen CLI uses its own MCP client. "
-                "MCP servers must be configured in .qwen/settings.json as standalone processes. "
-                "Python DynamicMCPTool is not compatible with qwen CLI. "
-                "See docs/QWEN_CLI_MCP_CORRECT_APPROACH.md for details."
+                "[QwenCodeCLIAgent] MCP enabled. Qwen CLI uses its own MCP client. "
+                "Generating .qwen/settings.json configuration..."
             )
+            self._setup_qwen_mcp_config()
         
         # Check if qwen CLI is available
         self._check_cli_available()
@@ -101,6 +100,38 @@ class QwenCodeCLIAgent(BaseAgent):
         logger.info(f"QwenCodeCLIAgent initialized")
         logger.info(f"Working directory: {self.working_directory}")
         logger.info(f"CLI path: {self.qwen_cli_path}")
+    
+    def _setup_qwen_mcp_config(self) -> None:
+        """
+        Setup qwen CLI MCP configuration
+        
+        Generates .qwen/settings.json with our MCP servers configuration.
+        This allows qwen CLI to connect to our MCP servers.
+        """
+        try:
+            from .mcp.qwen_config_generator import setup_qwen_mcp_config
+            
+            # Determine where to save config
+            kb_path = Path(self.working_directory) if self.working_directory else None
+            
+            # Generate and save configuration
+            saved_paths = setup_qwen_mcp_config(
+                user_id=self.user_id,
+                kb_path=kb_path,
+                global_config=True  # Always save to global ~/.qwen/settings.json
+            )
+            
+            logger.info(f"[QwenCodeCLIAgent] MCP configuration saved to: {saved_paths}")
+            logger.info(
+                "[QwenCodeCLIAgent] MCP servers configured: mem-agent (memory storage/retrieval)"
+            )
+            
+        except Exception as e:
+            logger.error(f"[QwenCodeCLIAgent] Failed to setup MCP config: {e}", exc_info=True)
+            logger.warning(
+                "[QwenCodeCLIAgent] MCP may not work properly. "
+                "You can manually configure .qwen/settings.json"
+            )
     
     def _check_cli_available(self) -> None:
         """
