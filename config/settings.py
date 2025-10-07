@@ -144,15 +144,33 @@ class Settings(BaseSettings):
     )
     AGENT_ENABLE_MCP_MEMORY: bool = Field(
         default=False,
-        description="Enable MCP memory agent tool (requires mem-agent-mcp)"
+        description="Enable MCP memory agent tool (local mem-agent)"
     )
-    MCP_MEMORY_PROVIDER: str = Field(
-        default="openai",
-        description="LLM provider for memory agent (openai, anthropic, etc.)"
+    MCP_SERVERS_DIR: Path = Field(
+        default=Path("./data/mcp_servers"),
+        description="Directory containing MCP server configuration files"
     )
-    MCP_MEMORY_MODEL: str = Field(
-        default="gpt-4",
-        description="Model for memory agent (e.g., gpt-4, claude-3-opus)"
+    
+    # Memory Agent Settings (can be in YAML)
+    MEM_AGENT_MODEL: str = Field(
+        default="driaforall/mem-agent",
+        description="HuggingFace model ID for memory agent"
+    )
+    MEM_AGENT_MODEL_PRECISION: str = Field(
+        default="4bit",
+        description="Model precision: 4bit, 8bit, or fp16"
+    )
+    MEM_AGENT_BACKEND: str = Field(
+        default="auto",
+        description="Backend to use: auto, vllm, mlx, or transformers"
+    )
+    MEM_AGENT_MEMORY_PATH: Path = Field(
+        default=Path("./data/memory"),
+        description="Path to store memory files"
+    )
+    MEM_AGENT_MAX_TOOL_TURNS: int = Field(
+        default=20,
+        description="Maximum number of tool execution turns for memory agent"
     )
     
     # Vector Search Settings (can be in YAML)
@@ -326,7 +344,7 @@ class Settings(BaseSettings):
             return [int(uid.strip()) for uid in v.split(",") if uid.strip()]
         return []
     
-    @field_validator("KB_PATH", "PROCESSED_LOG_PATH", "LOG_FILE", mode="before")
+    @field_validator("KB_PATH", "PROCESSED_LOG_PATH", "LOG_FILE", "MCP_SERVERS_DIR", "MEM_AGENT_MEMORY_PATH", mode="before")
     @classmethod
     def parse_path(cls, v) -> Optional[Path]:
         """Convert string to Path"""
