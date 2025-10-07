@@ -78,3 +78,16 @@ temp/
 # OS files
 Thumbs.db
 .DS_Store
+# Memory agent files (keep structure, ignore content)
+data/memory/*
+!data/memory/.gitkeep
+!data/memory/user.md
+data/memory/entities/*
+!data/memory/entities/.gitkeep
+
+# MCP server configs (keep .gitkeep)
+data/mcp_servers/*
+!data/mcp_servers/.gitkeep
+
+# HuggingFace cache
+.cache/huggingface/

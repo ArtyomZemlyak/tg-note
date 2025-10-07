@@ -1,0 +1,285 @@
+"""
+MCP Server Registry
+
+Manages registration and discovery of MCP servers from JSON configuration files.
+"""
+
+import json
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, List, Optional, Any
+
+from loguru import logger
+
+
+@dataclass
+class MCPServerSpec:
+    """
+    Specification for an MCP server
+    
+    Attributes:
+        name: Server name (unique identifier)
+        description: Human-readable description
+        command: Command to execute the server
+        args: Command-line arguments
+        env: Environment variables (optional)
+        working_dir: Working directory (optional)
+        enabled: Whether the server is enabled
+        config_file: Path to the JSON config file
+    """
+    name: str
+    description: str
+    command: str
+    args: List[str]
+    env: Optional[Dict[str, str]] = None
+    working_dir: Optional[str] = None
+    enabled: bool = True
+    config_file: Optional[Path] = None
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any], config_file: Optional[Path] = None) -> "MCPServerSpec":
+        """Create MCPServerSpec from dictionary"""
+        return cls(
+            name=data.get("name", ""),
+            description=data.get("description", ""),
+            command=data.get("command", ""),
+            args=data.get("args", []),
+            env=data.get("env"),
+            working_dir=data.get("working_dir"),
+            enabled=data.get("enabled", True),
+            config_file=config_file,
+        )
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary"""
+        result = {
+            "name": self.name,
+            "description": self.description,
+            "command": self.command,
+            "args": self.args,
+            "enabled": self.enabled,
+        }
+        if self.env:
+            result["env"] = self.env
+        if self.working_dir:
+            result["working_dir"] = self.working_dir
+        return result
+
+
+class MCPServerRegistry:
+    """
+    Registry for MCP servers
+    
+    Discovers and manages MCP servers from JSON configuration files.
+    Configuration files should be placed in the servers_dir (default: data/mcp_servers/).
+    
+    JSON format:
+    {
+        "name": "server-name",
+        "description": "Server description",
+        "command": "python",
+        "args": ["-m", "package.server"],
+        "env": {
+            "VAR_NAME": "value"
+        },
+        "working_dir": "/path/to/dir",
+        "enabled": true
+    }
+    """
+    
+    def __init__(self, servers_dir: Path):
+        """
+        Initialize registry
+        
+        Args:
+            servers_dir: Directory containing MCP server JSON configs
+        """
+        self.servers_dir = Path(servers_dir)
+        self.servers: Dict[str, MCPServerSpec] = {}
+        
+        # Ensure servers directory exists
+        self.servers_dir.mkdir(parents=True, exist_ok=True)
+        
+    def discover_servers(self) -> None:
+        """
+        Discover all MCP servers from JSON configuration files
+        
+        Scans the servers_dir for *.json files and loads them as server specs.
+        """
+        logger.info(f"[MCPRegistry] Discovering MCP servers in {self.servers_dir}")
+        
+        if not self.servers_dir.exists():
+            logger.warning(f"[MCPRegistry] Servers directory does not exist: {self.servers_dir}")
+            return
+        
+        # Find all JSON files
+        json_files = list(self.servers_dir.glob("*.json"))
+        
+        if not json_files:
+            logger.info("[MCPRegistry] No MCP server configuration files found")
+            return
+        
+        # Load each JSON file
+        for json_file in json_files:
+            try:
+                with open(json_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                
+                # Create server spec
+                spec = MCPServerSpec.from_dict(data, config_file=json_file)
+                
+                # Validate spec
+                if not spec.name:
+                    logger.warning(f"[MCPRegistry] Skipping {json_file}: missing 'name' field")
+                    continue
+                
+                if not spec.command:
+                    logger.warning(f"[MCPRegistry] Skipping {json_file}: missing 'command' field")
+                    continue
+                
+                # Register server
+                self.servers[spec.name] = spec
+                status = "enabled" if spec.enabled else "disabled"
+                logger.info(f"[MCPRegistry] ✓ Registered server: {spec.name} ({status})")
+                
+            except json.JSONDecodeError as e:
+                logger.error(f"[MCPRegistry] Failed to parse {json_file}: {e}")
+            except Exception as e:
+                logger.error(f"[MCPRegistry] Failed to load {json_file}: {e}")
+    
+    def get_server(self, name: str) -> Optional[MCPServerSpec]:
+        """
+        Get server spec by name
+        
+        Args:
+            name: Server name
+            
+        Returns:
+            Server spec or None if not found
+        """
+        return self.servers.get(name)
+    
+    def get_enabled_servers(self) -> List[MCPServerSpec]:
+        """
+        Get all enabled servers
+        
+        Returns:
+            List of enabled server specs
+        """
+        return [spec for spec in self.servers.values() if spec.enabled]
+    
+    def get_all_servers(self) -> List[MCPServerSpec]:
+        """
+        Get all registered servers
+        
+        Returns:
+            List of all server specs
+        """
+        return list(self.servers.values())
+    
+    def enable_server(self, name: str) -> bool:
+        """
+        Enable a server
+        
+        Args:
+            name: Server name
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        spec = self.servers.get(name)
+        if not spec:
+            logger.warning(f"[MCPRegistry] Server not found: {name}")
+            return False
+        
+        spec.enabled = True
+        self._save_server_config(spec)
+        logger.info(f"[MCPRegistry] Enabled server: {name}")
+        return True
+    
+    def disable_server(self, name: str) -> bool:
+        """
+        Disable a server
+        
+        Args:
+            name: Server name
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        spec = self.servers.get(name)
+        if not spec:
+            logger.warning(f"[MCPRegistry] Server not found: {name}")
+            return False
+        
+        spec.enabled = False
+        self._save_server_config(spec)
+        logger.info(f"[MCPRegistry] Disabled server: {name}")
+        return True
+    
+    def add_server(self, spec: MCPServerSpec) -> bool:
+        """
+        Add a new server to the registry
+        
+        Args:
+            spec: Server specification
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if spec.name in self.servers:
+            logger.warning(f"[MCPRegistry] Server already exists: {spec.name}")
+            return False
+        
+        # Create config file path
+        config_file = self.servers_dir / f"{spec.name}.json"
+        spec.config_file = config_file
+        
+        # Save to file
+        self._save_server_config(spec)
+        
+        # Add to registry
+        self.servers[spec.name] = spec
+        logger.info(f"[MCPRegistry] Added server: {spec.name}")
+        return True
+    
+    def remove_server(self, name: str) -> bool:
+        """
+        Remove a server from the registry
+        
+        Args:
+            name: Server name
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        spec = self.servers.get(name)
+        if not spec:
+            logger.warning(f"[MCPRegistry] Server not found: {name}")
+            return False
+        
+        # Remove config file
+        if spec.config_file and spec.config_file.exists():
+            spec.config_file.unlink()
+        
+        # Remove from registry
+        del self.servers[name]
+        logger.info(f"[MCPRegistry] Removed server: {name}")
+        return True
+    
+    def _save_server_config(self, spec: MCPServerSpec) -> None:
+        """
+        Save server configuration to JSON file
+        
+        Args:
+            spec: Server specification
+        """
+        if not spec.config_file:
+            spec.config_file = self.servers_dir / f"{spec.name}.json"
+        
+        try:
+            with open(spec.config_file, "w", encoding="utf-8") as f:
+                json.dump(spec.to_dict(), f, indent=2, ensure_ascii=False)
+            logger.debug(f"[MCPRegistry] Saved config: {spec.config_file}")
+        except Exception as e:
+            logger.error(f"[MCPRegistry] Failed to save config for {spec.name}: {e}")
