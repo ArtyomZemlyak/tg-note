@@ -11,11 +11,13 @@ from loguru import logger
 
 from src.bot.handlers import BotHandlers
 from src.bot.settings_handlers import SettingsHandlers
+from src.bot.mcp_handlers import MCPHandlers
 from src.tracker.processing_tracker import ProcessingTracker
 from src.knowledge_base.repository import RepositoryManager
 from src.knowledge_base.user_settings import UserSettings
 from src.bot.settings_manager import SettingsManager
 from src.services.interfaces import IUserContextManager, IMessageProcessor
+from src.mcp_registry.manager import MCPServersManager
 
 
 class TelegramBot:
@@ -54,6 +56,10 @@ class TelegramBot:
         # Update the settings_handlers reference in handlers
         self.handlers.settings_handlers = self.settings_handlers
         
+        # Initialize MCP handlers
+        self.mcp_manager = MCPServersManager()
+        self.mcp_handlers = MCPHandlers(self.bot, self.mcp_manager)
+        
         # Bot state
         self.is_running = False
         self._polling_task: Optional[asyncio.Task] = None
@@ -80,6 +86,7 @@ class TelegramBot:
             
             # Register handlers - settings handlers first for proper priority
             await self.settings_handlers.register_handlers_async()
+            await self.mcp_handlers.register_handlers_async()
             await self.handlers.register_handlers_async()
             
             # Start polling
