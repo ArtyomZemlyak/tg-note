@@ -1,0 +1,66 @@
+docs: Correct MCP support analysis for QwenCodeCLIAgent
+
+BREAKING DISCOVERY: Qwen CLI has native MCP support!
+
+Thanks to the documentation link (https://github.com/QwenLM/qwen-code/blob/main/docs/cli/configuration.md),
+discovered that Qwen Code CLI has built-in MCP client that can connect to MCP servers
+via .qwen/settings.json configuration.
+
+Previous analysis incorrectly stated that MCP is not supported with Qwen CLI.
+This was based on the assumption that Python MCP client cannot work across process
+boundaries, which is true. However, Qwen CLI has its own Node.js MCP client!
+
+## What changed
+
+### Code updates
+- src/agents/qwen_code_cli_agent.py: Allow MCP to be enabled, add info message
+- tests/test_qwen_code_cli_agent.py: Update tests to reflect correct behavior
+
+### Documentation updates
+- README.md: Update compatibility matrix, add qwen native MCP examples
+- docs/QWEN_CLI_MCP_CORRECT_APPROACH.md: NEW - Complete guide to integration
+- docs/AGENT_MCP_COMPATIBILITY.md: Update with correct information
+- FINAL_SUMMARY.md: NEW - Direct answer with corrected analysis
+- CORRECTED_ANALYSIS.md: NEW - What was wrong and what's correct
+- CORRECTIONS_AFTER_DISCOVERY.md: NEW - Detailed list of corrections
+
+### Deprecated files (contain incorrect information)
+- docs/QWEN_CLI_MCP_ANALYSIS_RU.md: States "not supported" - INCORRECT
+- docs/QWEN_CLI_MCP_ANALYSIS_EN.md: States "not supported" - INCORRECT
+- ANALYSIS_SUMMARY.md: Based on incorrect assumption - INCORRECT
+
+## Two valid approaches to MCP
+
+1. **AutonomousAgent + Python MCP client**
+   - MCP servers managed from Python code
+   - Works out of the box
+   - YAML: AGENT_TYPE: "autonomous", AGENT_ENABLE_MCP: true
+
+2. **QwenCodeCLIAgent + Qwen native MCP**
+   - MCP servers configured in .qwen/settings.json as standalone processes
+   - Requires creating standalone MCP servers
+   - Qwen CLI connects to them via stdio/HTTP/SSE
+   - JSON: {"mcpServers": {"mem-agent": {...}}}
+
+## Key findings
+
+✅ Qwen CLI SUPPORTS MCP via built-in Node.js MCP client
+✅ AutonomousAgent SUPPORTS MCP via Python MCP client  
+✅ Both approaches work, but for different agents
+❌ Passing MCP description in prompt does NOT create connection
+✅ Configuration in .qwen/settings.json DOES create connection
+
+## Recommendations
+
+- For immediate MCP usage: Use AutonomousAgent (works out of box)
+- For qwen CLI with MCP: Create standalone MCP servers + .qwen/settings.json
+- Both approaches are valid and production-ready
+
+## Thank you
+
+Huge thanks for the documentation link! This discovery completely changes
+the understanding of architecture and opens new integration possibilities.
+
+See docs/QWEN_CLI_MCP_CORRECT_APPROACH.md for complete guide.
+See START_HERE.md for quick navigation.
+See FINAL_SUMMARY.md for direct answer to the original question.

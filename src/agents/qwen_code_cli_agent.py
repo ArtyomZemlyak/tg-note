@@ -79,20 +79,21 @@ class QwenCodeCLIAgent(BaseAgent):
         self.enable_git = enable_git
         self.enable_github = enable_github
         
-        # MCP support - NOT SUPPORTED for qwen CLI
-        # MCP tools cannot be called from Node.js subprocess
-        # Use AutonomousAgent if you need MCP support
-        requested_mcp = config.get("enable_mcp", False) if config else False
-        if requested_mcp:
-            logger.warning(
-                "[QwenCodeCLIAgent] MCP tools are NOT supported with Qwen Code CLI. "
-                "Qwen CLI runs as a separate Node.js process and cannot access Python MCP tools. "
-                "Use AutonomousAgent instead if you need MCP support. "
-                "MCP will be disabled for this agent."
-            )
-        self.enable_mcp = False  # Always disabled for qwen CLI
+        # MCP support via qwen CLI native mechanism
+        # Qwen CLI has built-in MCP client and can connect to MCP servers
+        # via .qwen/settings.json configuration (not via Python DynamicMCPTool)
+        # See: https://github.com/QwenLM/qwen-code/blob/main/docs/cli/configuration.md
+        self.enable_mcp = config.get("enable_mcp", False) if config else False
         self.user_id = config.get("user_id") if config else None
         self._mcp_tools_description: Optional[str] = None
+        
+        if self.enable_mcp:
+            logger.info(
+                "[QwenCodeCLIAgent] MCP enabled. Note: Qwen CLI uses its own MCP client. "
+                "MCP servers must be configured in .qwen/settings.json as standalone processes. "
+                "Python DynamicMCPTool is not compatible with qwen CLI. "
+                "See docs/QWEN_CLI_MCP_CORRECT_APPROACH.md for details."
+            )
         
         # Check if qwen CLI is available
         self._check_cli_available()

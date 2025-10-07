@@ -457,23 +457,26 @@ class TestQwenCodeCLIAgentWithDifferentConfigurations:
         agent = QwenCodeCLIAgent()
         assert agent.enable_mcp is False
     
-    def test_mcp_cannot_be_enabled(self, mock_cli_check):
-        """Test that MCP cannot be enabled for qwen CLI"""
+    def test_mcp_can_be_enabled(self, mock_cli_check):
+        """Test that MCP can be enabled for qwen CLI native support"""
         config = {"enable_mcp": True, "user_id": 123}
         
-        # Should log warning but disable MCP
+        # Should accept MCP config (for qwen native MCP)
         agent = QwenCodeCLIAgent(config=config)
         
-        # MCP should be disabled despite config
-        assert agent.enable_mcp is False
-        assert agent.user_id == 123  # user_id preserved
+        # MCP should be enabled (qwen CLI will handle it via .qwen/settings.json)
+        assert agent.enable_mcp is True
+        assert agent.user_id == 123
     
     @pytest.mark.asyncio
-    async def test_mcp_tools_description_empty(self, mock_cli_check):
-        """Test that MCP tools description is empty when disabled"""
-        agent = QwenCodeCLIAgent()
+    async def test_mcp_tools_description_with_qwen_native(self, mock_cli_check):
+        """Test MCP tools description with qwen native MCP"""
+        config = {"enable_mcp": True}
+        agent = QwenCodeCLIAgent(config=config)
         
+        # Python MCP tools description should be empty
+        # (qwen CLI uses its own MCP client, not Python DynamicMCPTool)
         description = await agent.get_mcp_tools_description()
         
-        # Should return empty string since MCP is disabled
+        # Should return empty - qwen CLI manages MCP servers itself
         assert description == ""
