@@ -15,8 +15,8 @@ Use Cases:
   - Maintaining context when the agent discovers information it needs later
 
 Technical:
-  - Uses local LLM model (driaforall/mem-agent) through vLLM or MLX backends
-  - Adapted from https://github.com/firstbatchxyz/mem-agent-mcp
+  - Shared MemoryStorage class for both Python and MCP server versions
+  - MCP server for autonomous operation
   - Integrated as MCP server component of the tg-note system
   - Settings are in config.settings module
 
@@ -24,7 +24,8 @@ Installation:
   Run: python scripts/install_mem_agent.py
 """
 
+from .storage import MemoryStorage
+
 __all__ = [
-    # Note: MemoryAgent and MemoryAgentMCPServer are not yet implemented
-    # but are planned for future development
+    "MemoryStorage",
 ]

@@ -18,6 +18,7 @@ from src.services.note_creation_service import NoteCreationService
 from src.services.question_answering_service import QuestionAnsweringService
 from src.services.agent_task_service import AgentTaskService
 from src.services.message_processor import MessageProcessor
+from src.agents.mcp.server_manager import MCPServerManager
 from telebot.async_telebot import AsyncTeleBot
 
 
@@ -32,6 +33,13 @@ def configure_services(container: Container) -> None:
     
     # Register singleton instances
     container.register_instance("settings", settings)
+    
+    # Register MCP server manager
+    container.register(
+        "mcp_server_manager",
+        lambda c: MCPServerManager(c.get("settings")),
+        singleton=True
+    )
     
     # Register infrastructure services
     container.register(

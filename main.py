@@ -47,6 +47,7 @@ async def main():
     logger.info("Initializing components...")
     
     telegram_bot = None
+    mcp_server_manager = None
     try:
         # Create and configure service container
         container = create_service_container()
@@ -55,6 +56,14 @@ async def main():
         # Get services from container
         telegram_bot = container.get("telegram_bot")
         tracker = container.get("tracker")
+        mcp_server_manager = container.get("mcp_server_manager")
+        
+        # Auto-start MCP servers if enabled
+        if settings.AGENT_ENABLE_MCP or settings.AGENT_ENABLE_MCP_MEMORY:
+            logger.info("MCP is enabled, auto-starting MCP servers...")
+            await mcp_server_manager.auto_start_servers()
+        else:
+            logger.debug("MCP is disabled, skipping MCP server startup")
         
         # Get initial stats
         stats = tracker.get_stats()
@@ -132,10 +141,14 @@ async def main():
             
     except KeyboardInterrupt:
         logger.info("Received interrupt signal, shutting down...")
+        if mcp_server_manager:
+            await mcp_server_manager.cleanup()
         if telegram_bot:
             await telegram_bot.stop()
     except Exception as e:
         logger.error(f"Unexpected error: {e}", exc_info=True)
+        if mcp_server_manager:
+            await mcp_server_manager.cleanup()
         if telegram_bot:
             await telegram_bot.stop()
         sys.exit(1)

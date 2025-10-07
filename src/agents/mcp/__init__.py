@@ -31,6 +31,7 @@ from .dynamic_mcp_tools import (
 )
 from .tools_description import get_mcp_tools_description, format_mcp_tools_for_prompt
 from .qwen_config_generator import QwenMCPConfigGenerator, setup_qwen_mcp_config
+from .server_manager import MCPServerManager, get_server_manager, set_server_manager
 
 __all__ = [
     # Python MCP Client
@@ -48,4 +49,9 @@ __all__ = [
     # Qwen Native MCP
     "QwenMCPConfigGenerator",
     "setup_qwen_mcp_config",
+    
+    # Server Manager
+    "MCPServerManager",
+    "get_server_manager",
+    "set_server_manager",
 ]

@@ -25,26 +25,43 @@ mem-agent - это система заметок и поиска, специал
 
 Успешно мигрирована реализация mem-agent из https://github.com/firstbatchxyz/mem-agent-mcp в наш репозиторий со следующими улучшениями:
 
-### 1. Система регистрации MCP серверов
+### 1. Рефакторинг для устранения дублирования кода
 
-Создана универсальная система для управления MCP серверами через JSON конфигурации:
+**Новая архитектура** (после рефакторинга):
+
+- **Единый `MemoryStorage` класс** в `src/mem_agent/storage.py` - используется всеми компонентами
+- **MCP сервер** (`mem_agent_server.py`) использует `MemoryStorage` напрямую
+- **Python клиент** (`memory_agent_tool.py`) подключается к MCP серверу
+- **Нет дублирования** логики хранения данных
+
+### 2. Автоматический запуск MCP серверов
+
+**MCPServerManager** - централизованное управление серверами:
+
+- **Автоматический запуск** серверов при старте бота (если `AGENT_ENABLE_MCP_MEMORY=true`)
+- **Управление жизненным циклом** (start, stop, health checks)
+- **Graceful shutdown** - корректное завершение при остановке бота
+- **Централизованная регистрация** - все серверы запускаются из одного места
+
+### 3. Унификация для всех агентов
+
+**Все агенты используют серверную версию**:
+
+- `AutonomousAgent` - использует MCP серверы через `DynamicMCPTool`
+- `QwenCodeCLIAgent` - использует Qwen native MCP конфигурацию
+- Оба агента работают с **одними и теми же MCP серверами**, запущенными через `MCPServerManager`
+- **Упрощенные зависимости** - нет прямого импорта `MemoryStorage` в агентах
+
+### 4. Система регистрации MCP серверов
+
+Универсальная система для управления MCP серверами через JSON конфигурации:
 
 - **Автоматическое обнаружение** серверов из `data/mcp_servers/*.json`
 - **Простое управление** (включение/выключение серверов)
 - **Поддержка пользовательских серверов** - просто добавь JSON файл
 - **Динамическая конфигурация** без изменения кода
 
-### 2. Локальный mem-agent для агента
-
-- **Без OpenAI API** - использует локальные LLM модели
-- **Python-based** - не нужен Node.js/npm
-- **Автоматическая загрузка моделей** через HuggingFace CLI
-- **Множество бэкендов**:
-  - vLLM для Linux с GPU (лучшая производительность)
-  - MLX для macOS с Apple Silicon
-  - Transformers для CPU (работает везде)
-
-### 3. Память per-user в knowledge base
+### 5. Память per-user в knowledge base
 
 Память хранится **для каждого пользователя** в его базе знаний:
 
@@ -202,30 +219,57 @@ manager.add_server_from_json(json_config)
 
 ## Архитектура
 
-### Общая схема
+### Общая схема (после рефакторинга)
 
 ```
-Agent (с включенным MCP)
+Bot Startup
   ↓
-MCP Registry Client (автообнаружение серверов)
+MCPServerManager (в service container)
   ↓
-MCP Server Registry (чтение JSON конфигов)
+Auto-start серверов (если AGENT_ENABLE_MCP_MEMORY=true):
+  ├── mem-agent server (использует MemoryStorage)
+  └── [другие MCP серверы]
   ↓
-Подключение к включенным серверам:
-  ├── mem-agent (локальная память)
-  ├── другие MCP серверы
-  └── ...
+Agents подключаются к запущенным серверам:
+  ├── AutonomousAgent → DynamicMCPTool → MCPClient
+  └── QwenCodeCLIAgent → Qwen native MCP
+```
+
+### Компоненты
+
+```
+src/mem_agent/
+  └── storage.py          # Общий MemoryStorage класс
+
+src/agents/mcp/
+  ├── mem_agent_server.py # MCP сервер (использует MemoryStorage)
+  ├── memory_agent_tool.py # Python клиент (использует MCP сервер)
+  └── server_manager.py   # Управление жизненным циклом серверов
+
+src/core/
+  └── service_container.py # Регистрирует MCPServerManager
+
+main.py                   # Auto-start серверов при запуске
 ```
 
 ### Поток данных
 
 ```
-1. Пользователь → Telegram Bot → Agent
-2. Agent → MCP Registry Client → Обнаружить серверы
-3. MCP Registry Client → Подключиться к mem-agent
-4. Agent → mem-agent → Сохранить/найти память
-5. mem-agent → knowledge_bases/{user_kb}/memory/ → Работа с файлами (per-user)
-6. Agent → Telegram Bot → Пользователь
+1. Bot Startup
+   ↓
+2. MCPServerManager.auto_start_servers()
+   ↓ (запускает mem-agent server процесс)
+3. mem-agent server → MemoryStorage → knowledge_bases/{user_kb}/memory/
+   ↓
+4. Пользователь → Telegram Bot → Agent
+   ↓
+5. Agent → MCP Client → mem-agent server (по stdio)
+   ↓
+6. mem-agent server → MemoryStorage.store()/retrieve()
+   ↓
+7. MemoryStorage → knowledge_bases/{user_kb}/memory/memory.json
+   ↓
+8. Response → Agent → Telegram Bot → Пользователь
 ```
 
 ## Структура памяти (заметок агента)
@@ -419,12 +463,17 @@ export MEM_AGENT_BACKEND=transformers
 
 ## Заключение
 
-Миграция завершена успешно! Теперь у вас есть:
+Миграция и рефакторинг завершены успешно! Теперь у вас есть:
 
 ✅ **Полностью локальный mem-agent** без зависимости от внешних API  
+✅ **Устранено дублирование кода** - единый `MemoryStorage` класс  
+✅ **Автоматический запуск серверов** - `MCPServerManager` стартует при запуске бота  
+✅ **Централизованное управление** - все MCP серверы в одном месте  
+✅ **Unified архитектура** - все агенты используют серверную версию через MCP  
+✅ **Упрощенные зависимости** - агенты не импортируют напрямую `MemoryStorage`  
 ✅ **Гибкая система MCP серверов** с простым добавлением новых  
 ✅ **Автоматическое управление моделями** через HuggingFace CLI  
-✅ **Память per-user в knowledge base** в `{kb_path}/{MEM_AGENT_MEMORY_POSTFIX}/`
+✅ **Память per-user в knowledge base** в `{kb_path}/{MEM_AGENT_MEMORY_POSTFIX}/`  
 ✅ **MCP серверы per-user** в `{kb_path}/{MCP_SERVERS_POSTFIX}/`  
 ✅ **Поддержка всех агентов** через общую MCP прослойку  
 ✅ **Подробная документация** на русском и английском  
