@@ -16,6 +16,7 @@ import json
 import os
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 # Add parent directory to path to import config
@@ -42,6 +43,49 @@ def run_command(cmd: list, description: str) -> bool:
         return False
 
 
+def get_dependencies_from_pyproject() -> list[str]:
+    """Read dependencies from pyproject.toml"""
+    pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
+    
+    try:
+        with open(pyproject_path, "rb") as f:
+            pyproject = tomllib.load(f)
+        
+        # Get core mem-agent dependencies
+        deps = []
+        optional_deps = pyproject.get("project", {}).get("optional-dependencies", {})
+        
+        # Add core mem-agent dependencies
+        core_deps = optional_deps.get("mem-agent", [])
+        deps.extend(core_deps)
+        
+        # Add platform-specific dependencies
+        if sys.platform == "darwin":
+            # macOS - MLX support
+            platform_deps = optional_deps.get("mem-agent-macos", [])
+            deps.extend(platform_deps)
+        else:
+            # Linux/Windows - vLLM support
+            platform_deps = optional_deps.get("mem-agent-linux", [])
+            deps.extend(platform_deps)
+        
+        return deps
+    except Exception as e:
+        print(f"[!] Warning: Could not read dependencies from pyproject.toml: {e}")
+        print("[!] Falling back to minimal dependencies")
+        # Fallback to minimal dependencies
+        return [
+            "transformers",
+            "huggingface-hub",
+            "fastmcp",
+            "aiofiles",
+            "pydantic>=2.0.0",
+            "python-dotenv",
+            "jinja2",
+            "pygments"
+        ]
+
+
 def check_huggingface_cli() -> bool:
     """Check if huggingface-cli is available"""
     try:
@@ -57,19 +101,15 @@ def check_huggingface_cli() -> bool:
 
 
 def install_dependencies() -> bool:
-    """Install mem-agent dependencies"""
+    """Install mem-agent dependencies from pyproject.toml"""
     print("\n=== Installing Dependencies ===\n")
     
-    # Determine which dependencies to install based on platform
-    if sys.platform == "darwin":
-        # macOS - install MLX support
-        deps = ["mlx", "mlx-lm", "transformers", "huggingface-hub", "fastmcp", "aiofiles"]
-    else:
-        # Linux/Windows - install vLLM support
-        deps = ["vllm", "transformers", "huggingface-hub", "fastmcp", "aiofiles"]
+    # Get dependencies from pyproject.toml
+    deps = get_dependencies_from_pyproject()
     
-    # Always install these
-    deps.extend(["pydantic>=2.0.0", "python-dotenv", "jinja2", "pygments"])
+    platform_name = "macOS (MLX)" if sys.platform == "darwin" else "Linux/Windows (vLLM)"
+    print(f"[*] Platform: {platform_name}")
+    print(f"[*] Installing {len(deps)} dependencies from pyproject.toml\n")
     
     for dep in deps:
         if not run_command(

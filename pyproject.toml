@@ -68,18 +68,24 @@ mcp = [
     "fastmcp>=0.1.0",
 ]
 mem-agent = [
-    # Memory Agent dependencies
-    # Core dependencies
+    # Memory Agent dependencies - Core (platform-independent)
     "transformers>=4.51.0,<4.54.0",
+    "huggingface-hub>=0.23.0",
     "fastmcp>=0.1.0",
     "aiofiles>=23.0.0",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
     "jinja2>=3.0.0",
     "pygments>=2.19.0",
-    "black>=23.0.0",
-    # Platform-specific backends (install manually based on platform):
-    # - macOS: pip install mlx mlx-lm
-    # - Linux with GPU: pip install vllm
-    # - CPU fallback: uses transformers (already included)
+]
+mem-agent-macos = [
+    # Memory Agent dependencies for macOS (MLX backend)
+    "mlx>=0.0.1",
+    "mlx-lm>=0.0.1",
+]
+mem-agent-linux = [
+    # Memory Agent dependencies for Linux/Windows (vLLM backend)
+    "vllm>=0.1.0",
 ]
 
 [project.urls]
