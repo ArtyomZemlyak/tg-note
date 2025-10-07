@@ -13,8 +13,9 @@ The agent uses mem-agent to:
 Installation steps:
 1. Installs mem-agent dependencies
 2. Downloads the model from HuggingFace
-3. Sets up the MCP server configuration
-4. Registers the mem-agent MCP server
+
+MCP server configuration and folder creation are handled automatically 
+when the bot starts (see src/agents/mcp/server_manager.py).
 
 Note: Uses settings from config.settings to avoid conflicts
 """
@@ -158,58 +159,6 @@ def download_model(model_id: str, precision: str = "4bit") -> bool:
         return False
 
 
-def create_mcp_server_config(workspace_root: Path, memory_postfix: str) -> bool:
-    """Create MCP server configuration for mem-agent"""
-    print("\n=== Creating MCP Server Configuration ===\n")
-    
-    # MCP configs are global (per-user, not per-KB) and stored in data/mcp_servers/
-    mcp_servers_dir = Path("data/mcp_servers")
-    mcp_servers_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Create mem-agent MCP server configuration
-    # Note: Memory directory path will be determined at runtime based on user's KB
-    # This config is for Python agents (DynamicMCP), NOT for Qwen CLI
-    config = {
-        "name": "mem-agent",
-        "description": "Agent's personal note-taking and search system - allows the agent to record and search notes during task execution",
-        "command": "python3",
-        "args": [
-            "-m",
-            "src.agents.mcp.mem_agent_server"
-        ],
-        "env": {
-            "MEM_AGENT_MEMORY_POSTFIX": memory_postfix
-        },
-        "working_dir": str(workspace_root.resolve()),
-        "enabled": True
-    }
-    
-    config_file = mcp_servers_dir / "mem-agent.json"
-    
-    try:
-        with open(config_file, "w", encoding="utf-8") as f:
-            json.dump(config, f, indent=2, ensure_ascii=False)
-        print(f"[✓] MCP server configuration created: {config_file}")
-        return True
-    except Exception as e:
-        print(f"[✗] Failed to create MCP server configuration: {e}")
-        return False
-
-
-def setup_memory_directory_note() -> None:
-    """Print note about memory directory creation"""
-    print("\n=== Agent Notes Directory Setup ===\n")
-    print("[i] The agent's notes directory will be created automatically by the MCP server")
-    print("    when the agent first records a note. This ensures the correct path structure:")
-    print("    knowledge_base/{user-specific-kb}/memory/")
-    print("    ")
-    print("    The directory is NOT created during installation because")
-    print("    the specific user's knowledge base name is only known at runtime.")
-    print("    ")
-    print("    The agent will use this directory to:")
-    print("    - Record notes during task execution (store action)")
-    print("    - Search notes to recall information (search action)")
-    print()
 
 
 def main():
@@ -220,7 +169,6 @@ def main():
     # Get defaults from config if available
     default_model = app_settings.MEM_AGENT_MODEL if CONFIG_AVAILABLE else "driaforall/mem-agent"
     default_precision = app_settings.MEM_AGENT_MODEL_PRECISION if CONFIG_AVAILABLE else "4bit"
-    default_memory_postfix = app_settings.MEM_AGENT_MEMORY_POSTFIX if CONFIG_AVAILABLE else "memory"
     
     parser.add_argument(
         "--model",
@@ -238,18 +186,6 @@ def main():
         action="store_true",
         help="Skip model download (if already downloaded)"
     )
-    parser.add_argument(
-        "--workspace",
-        type=Path,
-        default=Path.cwd(),
-        help="Workspace root directory (default: current directory)"
-    )
-    parser.add_argument(
-        "--memory-postfix",
-        type=str,
-        default=default_memory_postfix,
-        help=f"Memory directory postfix within KB (default: {default_memory_postfix})"
-    )
     
     args = parser.parse_args()
     
@@ -258,9 +194,6 @@ def main():
     print("=" * 60)
     print(f"\nModel: {args.model}")
     print(f"Precision: {args.precision}")
-    print(f"Workspace: {args.workspace}")
-    print(f"Memory postfix: {args.memory_postfix}")
-    print(f"MCP config location: data/mcp_servers/mem-agent.json")
     if CONFIG_AVAILABLE:
         print("[✓] Using settings from config.settings")
     else:
@@ -281,32 +214,24 @@ def main():
     else:
         print("\n[*] Skipping model download (as requested)")
     
-    # Step 3: Print note about memory directory (will be created at runtime)
-    setup_memory_directory_note()
-    
-    # Step 4: Create MCP server configuration
-    if not create_mcp_server_config(args.workspace, args.memory_postfix):
-        print("\n[✗] Installation failed at MCP server configuration stage")
-        return 1
-    
     print("\n" + "=" * 60)
     print("Installation Complete!")
     print("=" * 60)
     print("\nNext steps:")
-    print("1. The mem-agent MCP server has been registered in data/mcp_servers/")
-    print("2. Enable it in your config.yaml or .env:")
+    print("1. Enable mem-agent in your config.yaml or .env:")
     print("   AGENT_ENABLE_MCP: true")
     print("   AGENT_ENABLE_MCP_MEMORY: true")
-    print("3. Agent's notes will be stored per-user at runtime:")
+    print("2. Start the bot - MCP server will be auto-configured and started")
+    print("3. Agent's notes will be stored per-user at:")
     print("   knowledge_base/{user-kb-name}/memory/")
-    print("   The MCP server creates this directory when the agent first records a note.")
+    print("   (directories are created automatically on first use)")
     print("4. How the agent uses it:")
     print("   - During tasks: Agent records notes about findings, context, etc.")
     print("   - When needed: Agent searches notes to recall previously recorded info")
     print("   - Within session: Maintains working memory across multiple LLM calls")
     print("5. You can change settings in config.yaml or .env:")
     print("   - MEM_AGENT_MODEL (default: driaforall/mem-agent)")
-    print(f"   - MEM_AGENT_MEMORY_POSTFIX (default: {default_memory_postfix})")
+    print("   - MEM_AGENT_MEMORY_POSTFIX (default: memory)")
     print("   - Each user's notes are isolated in their own KB")
     print("\n")
     
