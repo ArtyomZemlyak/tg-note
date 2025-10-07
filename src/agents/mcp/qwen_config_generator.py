@@ -59,20 +59,19 @@ class QwenMCPConfigGenerator:
         Returns:
             Server configuration or None if not available
         """
-        # Path to mem-agent server script
+        # Path to mem-agent server script (relative to project root)
         server_script = self.project_root / "src" / "agents" / "mcp" / "mem_agent_server.py"
         
         if not server_script.exists():
             logger.warning(f"Mem-agent server script not found: {server_script}")
             return None
         
-        # Python executable (use current Python interpreter)
-        python_exec = sys.executable
-        
+        # Use python3 command with relative path to script (relative to cwd)
+        # This allows the configuration to work on any system where the project is located
         config = {
-            "command": python_exec,
+            "command": "python3",
             "args": [
-                str(server_script)
+                str(server_script.relative_to(self.project_root).as_posix())
             ],
             "cwd": str(self.project_root),
             "timeout": 10000,  # 10 seconds
