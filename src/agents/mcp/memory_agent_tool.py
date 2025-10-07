@@ -1,19 +1,25 @@
 """
 Memory Agent MCP Tool
 
-This tool integrates the mem-agent-mcp server for memory management.
+This tool integrates the local mem-agent MCP server for memory management.
 
 The memory agent uses the driaforall/mem-agent model from HuggingFace
 to provide intelligent memory storage and retrieval for autonomous agents.
 
+The MCP server configuration is loaded from data/mcp_servers/mem-agent.json
+which is created by running scripts/install_mem_agent.py.
+
 References:
 - Model: https://huggingface.co/driaforall/mem-agent
-- MCP Server: https://github.com/firstbatchxyz/mem-agent-mcp
+- Installation: scripts/install_mem_agent.py
 """
 
+import json
 import os
 from pathlib import Path
 from typing import Any, Dict
+
+from loguru import logger
 
 from .base_mcp_tool import BaseMCPTool
 from .client import MCPServerConfig
@@ -70,43 +76,47 @@ class MemoryAgentMCPTool(BaseMCPTool):
     @property
     def mcp_server_config(self) -> MCPServerConfig:
         """
-        Configure the mem-agent-mcp server
+        Load MCP server configuration from data/mcp_servers/mem-agent.json
         
-        The server should be installed via npx or locally:
-        npm install -g @firstbatch/mem-agent-mcp
+        The configuration is created by running scripts/install_mem_agent.py
+        and contains the command, args, and environment variables for the
+        local Python-based mem-agent MCP server.
         
-        Environment variables:
-        - MEM_AGENT_MCP_PROVIDER: LLM provider (openai, anthropic, etc.)
-        - MEM_AGENT_MCP_MODEL: Model name (default: gpt-4)
-        - OPENAI_API_KEY or ANTHROPIC_API_KEY: API key for the provider
+        Note: The KB_PATH environment variable is set dynamically at runtime
+        in the execute() method, as it's user-specific.
         """
-        # Try to use locally installed version first, fallback to npx
-        local_path = Path("node_modules/.bin/mem-agent-mcp")
+        config_file = Path("data/mcp_servers/mem-agent.json")
         
-        if local_path.exists():
-            command = str(local_path.absolute())
-        else:
-            # Use npx to run the MCP server
-            command = "npx"
+        if not config_file.exists():
+            logger.warning(
+                f"[MemoryAgentMCPTool] Config file not found: {config_file}. "
+                "Run 'python scripts/install_mem_agent.py' to set up the memory agent."
+            )
+            # Return a default config that won't work but won't crash
+            return MCPServerConfig(
+                command="python",
+                args=["-m", "src.mem_agent.server"],
+                env={}
+            )
         
-        args = []
-        if command == "npx":
-            args.append("@firstbatch/mem-agent-mcp")
-        
-        # Pass through environment variables for API keys
-        env = os.environ.copy()
-        
-        # Set default provider and model if not set
-        if "MEM_AGENT_MCP_PROVIDER" not in env:
-            env["MEM_AGENT_MCP_PROVIDER"] = "openai"
-        if "MEM_AGENT_MCP_MODEL" not in env:
-            env["MEM_AGENT_MCP_MODEL"] = "gpt-4"
-        
-        return MCPServerConfig(
-            command=command,
-            args=args,
-            env=env
-        )
+        try:
+            with open(config_file, "r", encoding="utf-8") as f:
+                config_data = json.load(f)
+            
+            return MCPServerConfig(
+                command=config_data.get("command", "python"),
+                args=config_data.get("args", ["-m", "src.mem_agent.server"]),
+                env=config_data.get("env", {}),
+                cwd=Path(config_data["working_dir"]) if config_data.get("working_dir") else None
+            )
+        except Exception as e:
+            logger.error(f"[MemoryAgentMCPTool] Failed to load config from {config_file}: {e}")
+            # Return a default config
+            return MCPServerConfig(
+                command="python",
+                args=["-m", "src.mem_agent.server"],
+                env={}
+            )
     
     @property
     def mcp_tool_name(self) -> str:
@@ -126,11 +136,31 @@ class MemoryAgentMCPTool(BaseMCPTool):
         
         Args:
             params: Action parameters (action, content, context)
-            context: Tool execution context
+            context: Tool execution context (contains kb_root_path)
             
         Returns:
             Dict with execution result
         """
+        # Add KB_PATH to environment variables for this execution
+        # This allows the MCP server to create the memory directory at runtime
+        # in the correct user-specific location: {kb_path}/memory/
+        if hasattr(context, 'kb_root_path') and context.kb_root_path:
+            # Update the MCP client's environment with the current user's KB path
+            if not hasattr(self, '_original_env'):
+                # Store original env on first execution
+                config = self.mcp_server_config
+                self._original_env = config.env.copy() if config.env else {}
+            
+            # Create new env with KB_PATH for this user
+            kb_path = str(context.kb_root_path)
+            updated_env = self._original_env.copy()
+            updated_env['KB_PATH'] = kb_path
+            
+            # Temporarily update the client's config
+            if self.client:
+                self.client.config.env = updated_env
+                logger.debug(f"[MemoryAgentMCPTool] Set KB_PATH={kb_path} for memory agent")
+        
         action = params.get("action", "")
         content = params.get("content", "")
         memory_context = params.get("context", "")
