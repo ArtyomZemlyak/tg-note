@@ -16,14 +16,18 @@ from loguru import logger
 class QwenMCPConfigGenerator:
     """Generator for qwen CLI MCP configuration"""
     
-    def __init__(self, user_id: Optional[int] = None):
+    def __init__(self, user_id: Optional[int] = None, use_http: bool = False, http_port: int = 8765):
         """
         Initialize config generator
         
         Args:
             user_id: Optional user ID for per-user MCP servers
+            use_http: Use HTTP/SSE transport instead of stdio
+            http_port: Port for HTTP server (default: 8765)
         """
         self.user_id = user_id
+        self.use_http = use_http
+        self.http_port = http_port
         self.project_root = Path(__file__).parent.parent.parent.parent.resolve()
     
     def generate_config(self) -> Dict:
@@ -59,6 +63,16 @@ class QwenMCPConfigGenerator:
         Returns:
             Server configuration or None if not available
         """
+        # Use HTTP/SSE transport
+        if self.use_http:
+            return {
+                "url": f"http://127.0.0.1:{self.http_port}/sse",
+                "timeout": 10000,
+                "trust": True,
+                "description": "Memory storage and retrieval agent (HTTP/SSE)"
+            }
+        
+        # Use stdio transport (default)
         # Path to mem-agent server script (relative to project root)
         server_script = self.project_root / "src" / "agents" / "mcp" / "mem_agent_server.py"
         
@@ -167,7 +181,9 @@ class QwenMCPConfigGenerator:
 def setup_qwen_mcp_config(
     user_id: Optional[int] = None,
     kb_path: Optional[Path] = None,
-    global_config: bool = True
+    global_config: bool = True,
+    use_http: bool = False,
+    http_port: int = 8765
 ) -> List[Path]:
     """
     Setup qwen MCP configuration
@@ -181,11 +197,13 @@ def setup_qwen_mcp_config(
         user_id: Optional user ID for per-user MCP servers
         kb_path: Optional path to knowledge base directory
         global_config: Whether to save to global ~/.qwen/settings.json
+        use_http: Use HTTP/SSE transport instead of stdio (default: False)
+        http_port: Port for HTTP server (default: 8765)
         
     Returns:
         List of paths where configuration was saved
     """
-    generator = QwenMCPConfigGenerator(user_id=user_id)
+    generator = QwenMCPConfigGenerator(user_id=user_id, use_http=use_http, http_port=http_port)
     saved_paths = []
     
     # Save to global config
@@ -228,10 +246,25 @@ def main():
         action="store_true",
         help="Print configuration to stdout instead of saving"
     )
+    parser.add_argument(
+        "--http",
+        action="store_true",
+        help="Use HTTP/SSE transport instead of stdio"
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8765,
+        help="Port for HTTP server (default: 8765)"
+    )
     
     args = parser.parse_args()
     
-    generator = QwenMCPConfigGenerator(user_id=args.user_id)
+    generator = QwenMCPConfigGenerator(
+        user_id=args.user_id,
+        use_http=args.http,
+        http_port=args.port
+    )
     
     if args.print:
         # Just print the configuration
