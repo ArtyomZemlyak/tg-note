@@ -451,3 +451,32 @@ class TestQwenCodeCLIAgentWithDifferentConfigurations:
         # Call other methods and verify working directory hasn't changed
         instruction = agent.get_instruction()
         assert agent.get_working_directory() == "/new/path"
+    
+    def test_mcp_disabled_by_default(self, mock_cli_check):
+        """Test that MCP is disabled by default"""
+        agent = QwenCodeCLIAgent()
+        assert agent.enable_mcp is False
+    
+    def test_mcp_can_be_enabled(self, mock_cli_check):
+        """Test that MCP can be enabled for qwen CLI native support"""
+        config = {"enable_mcp": True, "user_id": 123}
+        
+        # Should accept MCP config (for qwen native MCP)
+        agent = QwenCodeCLIAgent(config=config)
+        
+        # MCP should be enabled (qwen CLI will handle it via .qwen/settings.json)
+        assert agent.enable_mcp is True
+        assert agent.user_id == 123
+    
+    @pytest.mark.asyncio
+    async def test_mcp_tools_description_with_qwen_native(self, mock_cli_check):
+        """Test MCP tools description with qwen native MCP"""
+        config = {"enable_mcp": True}
+        agent = QwenCodeCLIAgent(config=config)
+        
+        # Python MCP tools description should be empty
+        # (qwen CLI uses its own MCP client, not Python DynamicMCPTool)
+        description = await agent.get_mcp_tools_description()
+        
+        # Should return empty - qwen CLI manages MCP servers itself
+        assert description == ""
