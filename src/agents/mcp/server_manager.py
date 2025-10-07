@@ -4,6 +4,7 @@ Manages lifecycle of MCP servers (start, stop, health checks)
 """
 
 import asyncio
+import json
 import subprocess
 from pathlib import Path
 from typing import Dict, List, Optional, Any
@@ -267,10 +268,42 @@ class MCPServerManager:
         
         This registers servers that should be auto-started when enabled in settings:
         - mem-agent server (if AGENT_ENABLE_MCP_MEMORY is True)
+        
+        Also creates necessary configuration files:
+        - data/mcp_servers/mem-agent.json (for Python MCP clients)
+        - ~/.qwen/settings.json (for Qwen CLI)
         """
         # Register mem-agent server if MCP memory is enabled
         if self.settings.AGENT_ENABLE_MCP_MEMORY:
             logger.info("[MCPServerManager] MCP memory agent is enabled, registering mem-agent server")
+            
+            # Create data/mcp_servers directory if it doesn't exist
+            mcp_servers_dir = Path("data/mcp_servers")
+            mcp_servers_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Create mem-agent.json config file if it doesn't exist
+            mem_agent_config_file = mcp_servers_dir / "mem-agent.json"
+            if not mem_agent_config_file.exists():
+                logger.info(f"[MCPServerManager] Creating MCP server config at {mem_agent_config_file}")
+                
+                config = {
+                    "name": "mem-agent",
+                    "description": "Agent's personal note-taking and search system - allows the agent to record and search notes during task execution",
+                    "command": "python",
+                    "args": ["-m", "src.agents.mcp.mem_agent_server"],
+                    "env": {},
+                    "working_dir": str(Path.cwd()),
+                    "enabled": True
+                }
+                
+                try:
+                    with open(mem_agent_config_file, 'w', encoding='utf-8') as f:
+                        json.dump(config, f, indent=2, ensure_ascii=False)
+                    logger.info(f"[MCPServerManager] Created MCP server config: {mem_agent_config_file}")
+                except Exception as e:
+                    logger.error(f"[MCPServerManager] Failed to create MCP server config: {e}")
+            else:
+                logger.debug(f"[MCPServerManager] MCP server config already exists: {mem_agent_config_file}")
             
             # Use Python module path
             self.register_server(
@@ -280,6 +313,34 @@ class MCPServerManager:
                 env={},
                 cwd=Path.cwd()
             )
+        
+        # Also create ~/.qwen/settings.json if MCP is enabled for Qwen CLI support
+        if self.settings.AGENT_ENABLE_MCP or self.settings.AGENT_ENABLE_MCP_MEMORY:
+            self._create_qwen_config()
+    
+    def _create_qwen_config(self) -> None:
+        """
+        Create ~/.qwen/settings.json for Qwen CLI MCP support
+        
+        This allows QwenCodeCLIAgent to use MCP servers via Qwen CLI's native MCP client.
+        """
+        try:
+            from .qwen_config_generator import setup_qwen_mcp_config
+            
+            logger.info("[MCPServerManager] Creating Qwen CLI MCP configuration at ~/.qwen/settings.json")
+            
+            # Generate and save configuration (global only, no KB-specific)
+            saved_paths = setup_qwen_mcp_config(
+                user_id=None,  # No user-specific config
+                kb_path=None,  # No KB-specific config
+                global_config=True  # Only global ~/.qwen/settings.json
+            )
+            
+            logger.info(f"[MCPServerManager] Qwen CLI MCP configuration saved to: {saved_paths}")
+            
+        except Exception as e:
+            logger.warning(f"[MCPServerManager] Failed to create Qwen CLI config (non-critical): {e}")
+            logger.debug(f"[MCPServerManager] Qwen CLI config error details:", exc_info=True)
     
     async def auto_start_servers(self) -> Dict[str, bool]:
         """
