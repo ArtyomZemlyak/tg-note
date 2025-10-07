@@ -13,7 +13,7 @@ from src.services.interfaces import IQuestionAnsweringService, IUserContextManag
 from src.processor.message_aggregator import MessageGroup
 from src.processor.content_parser import ContentParser
 from src.knowledge_base.repository import RepositoryManager
-from src.bot.utils import escape_markdown
+from src.bot.utils import escape_markdown, split_long_message
 from config.agent_prompts import KB_QUERY_PROMPT_TEMPLATE
 
 
@@ -99,22 +99,58 @@ class QuestionAnsweringService(IQuestionAnsweringService):
             
             # Send answer - escape the answer text to prevent Markdown parsing errors
             escaped_answer = escape_markdown(answer)
+            
+            # Handle long messages by splitting them
+            full_message = f"💡 **Ответ:**\n\n{escaped_answer}"
+            message_chunks = split_long_message(full_message)
+            
             try:
+                # Edit the processing message with the first chunk
                 await self.bot.edit_message_text(
-                    f"💡 **Ответ:**\n\n{escaped_answer}",
+                    message_chunks[0],
                     chat_id=processing_msg.chat.id,
                     message_id=processing_msg.message_id,
                     parse_mode='Markdown'
                 )
+                
+                # If there are more chunks, send them as separate messages
+                for i, chunk in enumerate(message_chunks[1:], start=2):
+                    await self.bot.send_message(
+                        chat_id=processing_msg.chat.id,
+                        text=f"💡 **Ответ (часть {i}/{len(message_chunks)}):**\n\n{chunk}",
+                        parse_mode='Markdown'
+                    )
+                    
             except Exception as e:
                 # If Markdown parsing still fails, send without formatting
                 if "can't parse entities" in str(e).lower():
                     self.logger.warning(f"Markdown parsing failed, sending without formatting: {e}")
+                    
+                    # Try again without markdown formatting
+                    full_message_plain = f"💡 Ответ:\n\n{answer}"
+                    message_chunks_plain = split_long_message(full_message_plain)
+                    
                     await self.bot.edit_message_text(
-                        f"💡 Ответ:\n\n{answer}",
+                        message_chunks_plain[0],
                         chat_id=processing_msg.chat.id,
                         message_id=processing_msg.message_id,
                         parse_mode=None
+                    )
+                    
+                    # Send remaining chunks without markdown
+                    for i, chunk in enumerate(message_chunks_plain[1:], start=2):
+                        await self.bot.send_message(
+                            chat_id=processing_msg.chat.id,
+                            text=f"💡 Ответ (часть {i}/{len(message_chunks_plain)}):\n\n{chunk}",
+                            parse_mode=None
+                        )
+                elif "MESSAGE_TOO_LONG" in str(e):
+                    # This shouldn't happen after splitting, but handle it just in case
+                    self.logger.error(f"Message still too long after splitting: {e}")
+                    await self.bot.edit_message_text(
+                        "❌ Ответ слишком длинный даже после разделения. Пожалуйста, попробуйте задать более конкретный вопрос.",
+                        chat_id=processing_msg.chat.id,
+                        message_id=processing_msg.message_id
                     )
                 else:
                     raise
