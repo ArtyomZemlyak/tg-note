@@ -302,6 +302,9 @@ class AutonomousAgent(BaseAgent):
         self.current_plan: Optional[TodoPlan] = None
         self.execution_log: List[Dict[str, Any]] = []
         
+        # MCP tools description (cached)
+        self._mcp_tools_description: Optional[str] = None
+        
         # Initialize tool manager and lightweight wrappers
         self.tool_manager: ToolManager = build_default_tool_manager(
             kb_root_path=self.kb_root_path,
@@ -354,6 +357,44 @@ class AutonomousAgent(BaseAgent):
             lines.append(f"- {tool_name}")
         
         return "\n".join(lines)
+    
+    async def get_mcp_tools_description(self) -> str:
+        """
+        Get description of available MCP tools
+        
+        Returns:
+            Formatted description of MCP tools for use in prompts
+        """
+        # Return cached description if available
+        if self._mcp_tools_description is not None:
+            return self._mcp_tools_description
+        
+        # Only generate if MCP is enabled
+        if not self.enable_mcp:
+            self._mcp_tools_description = ""
+            return ""
+        
+        try:
+            from .mcp import get_mcp_tools_description, format_mcp_tools_for_prompt
+            
+            # Get tools description
+            tools_desc = await get_mcp_tools_description(user_id=self.user_id)
+            
+            # Format for system prompt
+            formatted = format_mcp_tools_for_prompt(tools_desc, include_in_system=True)
+            
+            # Cache the result
+            self._mcp_tools_description = formatted
+            
+            if formatted:
+                logger.info(f"[AutonomousAgent] MCP tools description generated ({len(formatted)} chars)")
+            
+            return formatted
+            
+        except Exception as e:
+            logger.error(f"[AutonomousAgent] Failed to get MCP tools description: {e}")
+            self._mcp_tools_description = ""
+            return ""
     
     async def process(self, content: Dict) -> Dict:
         """
@@ -567,11 +608,19 @@ class AutonomousAgent(BaseAgent):
         """
         logger.debug("[AutonomousAgent] Using LLM-based decision making")
         
+        # Get MCP tools description if enabled
+        mcp_description = await self.get_mcp_tools_description()
+        
+        # Prepare system message with MCP tools info if available
+        system_content = self.instruction
+        if mcp_description:
+            system_content = f"{self.instruction}\n\n{mcp_description}"
+        
         # Подготовить сообщения
         messages = [
             {
                 "role": "system",
-                "content": self.instruction
+                "content": system_content
             },
             {
                 "role": "user",
