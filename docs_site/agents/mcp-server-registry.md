@@ -81,7 +81,8 @@ MCP server configurations are stored as JSON files in `data/mcp_servers/`:
   "command": "python",
   "args": ["-m", "src.mem_agent.server"],
   "env": {
-    "MEM_AGENT_MEMORY_PATH": "data/memory"
+    "MEM_AGENT_MEMORY_POSTFIX": "memory",
+    "KB_PATH": "/workspace/knowledge_bases/user_kb"
   },
   "working_dir": "/workspace",
   "enabled": true
@@ -248,14 +249,14 @@ MCP servers can be configured through `config.yaml` or environment variables:
 AGENT_ENABLE_MCP: true
 AGENT_ENABLE_MCP_MEMORY: true
 
-# MCP servers directory
-MCP_SERVERS_DIR: ./data/mcp_servers
+# MCP servers postfix (per-user within KB)
+MCP_SERVERS_POSTFIX: .mcp_servers
 
 # Memory agent settings
 MEM_AGENT_MODEL: driaforall/mem-agent
 MEM_AGENT_MODEL_PRECISION: 4bit
 MEM_AGENT_BACKEND: auto
-MEM_AGENT_MEMORY_PATH: ./data/memory
+MEM_AGENT_MEMORY_POSTFIX: memory
 ```
 
 ## Best Practices

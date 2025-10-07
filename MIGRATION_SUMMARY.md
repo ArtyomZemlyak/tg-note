@@ -33,12 +33,17 @@ Integrated the mem-agent as a native component with:
 
 **Files Created:**
 - `src/mem_agent/__init__.py` - Memory agent module
-- `src/mem_agent/settings.py` - Memory agent configuration
 - `scripts/install_mem_agent.py` - Installation and setup script
 
-**Directory Structure:**
-- `data/memory/` - Memory storage directory
-- `data/memory/entities/` - Entity files storage
+**Settings Integration:**
+- Memory agent settings are now in `config/settings.py` (consolidated configuration)
+- Settings use **postfix approach** for per-user paths:
+  - `MEM_AGENT_MEMORY_POSTFIX` (default: "memory") - postfix within KB
+  - `MCP_SERVERS_POSTFIX` (default: ".mcp_servers") - postfix within KB
+
+**Directory Structure (Per-User):**
+- `{kb_path}/{MEM_AGENT_MEMORY_POSTFIX}/` - Memory storage (e.g., `knowledge_bases/user_kb/memory/`)
+- `{kb_path}/{MCP_SERVERS_POSTFIX}/` - MCP servers config (e.g., `knowledge_bases/user_kb/.mcp_servers/`)
 
 ### 3. Configuration Updates
 
@@ -49,8 +54,8 @@ Updated application settings to support mem-agent:
   - `MEM_AGENT_MODEL` - HuggingFace model ID
   - `MEM_AGENT_MODEL_PRECISION` - Model precision (4bit/8bit/fp16)
   - `MEM_AGENT_BACKEND` - Backend selection (auto/vllm/mlx/transformers)
-  - `MEM_AGENT_MEMORY_PATH` - Memory storage path
-  - `MCP_SERVERS_DIR` - MCP servers directory
+  - `MEM_AGENT_MEMORY_POSTFIX` - Memory directory postfix within KB (per-user)
+  - `MCP_SERVERS_POSTFIX` - MCP servers directory postfix within KB (per-user)
 
 ### 4. Dependencies
 
@@ -203,7 +208,7 @@ Agent → MCP Registry Client → MCP Server Registry
 2. **Python-based** - No Node.js/npm dependency for mem-agent
 3. **Dynamic discovery** - Servers configured via JSON files
 4. **Easy to extend** - Add new servers by dropping JSON files
-5. **Memory stored locally** - In `data/memory/` alongside topics
+5. **Memory stored per-user in KB** - Path constructed as `{kb_path}/{postfix}` for isolation
 
 ## Configuration Examples
 
@@ -223,13 +228,14 @@ AGENT_ENABLE_MCP_MEMORY: true
 # MCP Settings
 AGENT_ENABLE_MCP: true
 AGENT_ENABLE_MCP_MEMORY: true
-MCP_SERVERS_DIR: ./data/mcp_servers
+MCP_SERVERS_POSTFIX: .mcp_servers
 
 # Memory Agent Settings
 MEM_AGENT_MODEL: driaforall/mem-agent
 MEM_AGENT_MODEL_PRECISION: 4bit
 MEM_AGENT_BACKEND: auto
-MEM_AGENT_MEMORY_PATH: ./data/memory
+MEM_AGENT_MEMORY_POSTFIX: memory  # Postfix within KB
+MCP_SERVERS_POSTFIX: .mcp_servers  # Per-user MCP servers
 MEM_AGENT_MAX_TOOL_TURNS: 20
 
 # vLLM Settings (Linux with GPU)
@@ -298,7 +304,9 @@ print(f'Enabled: {len(manager.get_enabled_servers())} servers')
 "
 
 # Check memory directory
-ls -la data/memory/
+# Example for user with KB at knowledge_bases/user_kb
+ls -la knowledge_bases/user_kb/memory/
+ls -la knowledge_bases/user_kb/.mcp_servers/
 
 # Check mem-agent configuration
 cat data/mcp_servers/mem-agent.json
@@ -307,14 +315,18 @@ cat data/mcp_servers/mem-agent.json
 ### Test Memory Agent
 
 ```python
-from src.mem_agent.settings import MemoryAgentSettings
+from config.settings import settings
+from pathlib import Path
 
-# Check settings
-settings = MemoryAgentSettings()
+# Memory agent settings use postfix approach
+kb_path = Path("./knowledge_bases/user_kb")  # Get from user settings
+
 print(f"Model: {settings.MEM_AGENT_MODEL}")
 print(f"Precision: {settings.MEM_AGENT_MODEL_PRECISION}")
-print(f"Backend: {settings.get_backend()}")
-print(f"Memory path: {settings.MEM_AGENT_MEMORY_PATH}")
+print(f"Backend: {settings.get_mem_agent_backend()}")
+print(f"Memory postfix: {settings.MEM_AGENT_MEMORY_POSTFIX}")
+print(f"Full memory path: {settings.get_mem_agent_memory_path(kb_path)}")
+print(f"MCP servers dir: {settings.get_mcp_servers_dir(kb_path)}")
 ```
 
 ## Known Issues

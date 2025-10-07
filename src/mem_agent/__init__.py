@@ -6,14 +6,11 @@ a local LLM model through vLLM or MLX backends.
 
 This module is adapted from https://github.com/firstbatchxyz/mem-agent-mcp
 to work as an integrated component of the tg-note system.
+
+Note: Settings are now in config.settings module.
 """
 
-from .agent import MemoryAgent
-from .server import MemoryAgentMCPServer
-from .settings import MemoryAgentSettings
-
 __all__ = [
-    "MemoryAgent",
-    "MemoryAgentMCPServer",
-    "MemoryAgentSettings",
+    # Note: MemoryAgent and MemoryAgentMCPServer are not yet implemented
+    # but are planned for future development
 ]

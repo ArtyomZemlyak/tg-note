@@ -146,9 +146,9 @@ class Settings(BaseSettings):
         default=False,
         description="Enable MCP memory agent tool (local mem-agent)"
     )
-    MCP_SERVERS_DIR: Path = Field(
-        default=Path("./data/mcp_servers"),
-        description="Directory containing MCP server configuration files"
+    MCP_SERVERS_POSTFIX: str = Field(
+        default=".mcp_servers",
+        description="Postfix for MCP servers directory within KB (e.g., '.mcp_servers' -> kb_path/.mcp_servers)"
     )
     
     # Memory Agent Settings (can be in YAML)
@@ -164,13 +164,37 @@ class Settings(BaseSettings):
         default="auto",
         description="Backend to use: auto, vllm, mlx, or transformers"
     )
-    MEM_AGENT_MEMORY_PATH: Path = Field(
-        default=Path("./data/memory"),
-        description="Path to store memory files"
+    MEM_AGENT_VLLM_HOST: str = Field(
+        default="127.0.0.1",
+        description="vLLM server host"
+    )
+    MEM_AGENT_VLLM_PORT: int = Field(
+        default=8001,
+        description="vLLM server port"
+    )
+    MEM_AGENT_MEMORY_POSTFIX: str = Field(
+        default="memory",
+        description="Postfix for memory directory within KB (e.g., 'memory' -> kb_path/memory)"
     )
     MEM_AGENT_MAX_TOOL_TURNS: int = Field(
         default=20,
-        description="Maximum number of tool execution turns for memory agent"
+        description="Maximum number of tool execution turns"
+    )
+    MEM_AGENT_TIMEOUT: int = Field(
+        default=20,
+        description="Timeout for sandboxed code execution (seconds)"
+    )
+    MEM_AGENT_FILE_SIZE_LIMIT: int = Field(
+        default=1024 * 1024,  # 1MB
+        description="Maximum file size in bytes"
+    )
+    MEM_AGENT_DIR_SIZE_LIMIT: int = Field(
+        default=1024 * 1024 * 10,  # 10MB
+        description="Maximum directory size in bytes"
+    )
+    MEM_AGENT_MEMORY_SIZE_LIMIT: int = Field(
+        default=1024 * 1024 * 100,  # 100MB
+        description="Maximum total memory size in bytes"
     )
     
     # Vector Search Settings (can be in YAML)
@@ -344,7 +368,7 @@ class Settings(BaseSettings):
             return [int(uid.strip()) for uid in v.split(",") if uid.strip()]
         return []
     
-    @field_validator("KB_PATH", "PROCESSED_LOG_PATH", "LOG_FILE", "MCP_SERVERS_DIR", "MEM_AGENT_MEMORY_PATH", mode="before")
+    @field_validator("KB_PATH", "PROCESSED_LOG_PATH", "LOG_FILE", mode="before")
     @classmethod
     def parse_path(cls, v) -> Optional[Path]:
         """Convert string to Path"""
@@ -353,6 +377,92 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return Path(v)
         return v
+    
+    def get_mem_agent_backend(self) -> str:
+        """
+        Determine the memory agent backend to use
+        
+        Returns:
+            Backend name: vllm, mlx, or transformers
+        """
+        if self.MEM_AGENT_BACKEND != "auto":
+            return self.MEM_AGENT_BACKEND
+        
+        # Auto-detect based on platform
+        import sys
+        if sys.platform == "darwin":
+            # macOS - prefer MLX if available, otherwise transformers
+            try:
+                import mlx
+                return "mlx"
+            except ImportError:
+                return "transformers"
+        else:
+            # Linux/Windows - prefer vLLM if available, otherwise transformers
+            try:
+                import vllm
+                return "vllm"
+            except ImportError:
+                return "transformers"
+    
+    def get_mem_agent_model_path(self) -> Path:
+        """
+        Get the path where the mem-agent model will be cached
+        
+        Returns:
+            Path to model cache
+        """
+        # Use HuggingFace cache directory
+        import os
+        cache_home = os.environ.get(
+            "HF_HOME",
+            os.path.join(os.path.expanduser("~"), ".cache", "huggingface")
+        )
+        return Path(cache_home) / "hub" / f"models--{self.MEM_AGENT_MODEL.replace('/', '--')}"
+    
+    def get_mcp_servers_dir(self, kb_path: Path) -> Path:
+        """
+        Get MCP servers directory for a specific knowledge base
+        
+        Args:
+            kb_path: Path to knowledge base
+        
+        Returns:
+            Full path to MCP servers directory (kb_path/{postfix})
+        """
+        return kb_path / self.MCP_SERVERS_POSTFIX
+    
+    def get_mem_agent_memory_path(self, kb_path: Path) -> Path:
+        """
+        Get memory agent memory path for a specific knowledge base
+        
+        Args:
+            kb_path: Path to knowledge base
+        
+        Returns:
+            Full path to memory directory (kb_path/{postfix})
+        """
+        return kb_path / self.MEM_AGENT_MEMORY_POSTFIX
+    
+    def ensure_mem_agent_memory_path_exists(self, kb_path: Path) -> None:
+        """
+        Ensure memory agent memory path exists for a specific KB
+        
+        Args:
+            kb_path: Path to knowledge base
+        """
+        memory_path = self.get_mem_agent_memory_path(kb_path)
+        memory_path.mkdir(parents=True, exist_ok=True)
+    
+    def ensure_mcp_servers_dir_exists(self, kb_path: Path) -> None:
+        """
+        Ensure MCP servers directory exists for a specific KB
+        
+        Args:
+            kb_path: Path to knowledge base
+        """
+        mcp_dir = self.get_mcp_servers_dir(kb_path)
+        mcp_dir.mkdir(parents=True, exist_ok=True)
     
     def validate(self) -> List[str]:
         """
