@@ -13,6 +13,7 @@ from src.services.interfaces import IQuestionAnsweringService, IUserContextManag
 from src.processor.message_aggregator import MessageGroup
 from src.processor.content_parser import ContentParser
 from src.knowledge_base.repository import RepositoryManager
+from src.bot.utils import escape_markdown
 from config.agent_prompts import KB_QUERY_PROMPT_TEMPLATE
 
 
@@ -96,13 +97,27 @@ class QuestionAnsweringService(IQuestionAnsweringService):
             
             answer = await self._query_kb(kb_path, question_text, user_id)
             
-            # Send answer
-            await self.bot.edit_message_text(
-                f"💡 **Ответ:**\n\n{answer}",
-                chat_id=processing_msg.chat.id,
-                message_id=processing_msg.message_id,
-                parse_mode='Markdown'
-            )
+            # Send answer - escape the answer text to prevent Markdown parsing errors
+            escaped_answer = escape_markdown(answer)
+            try:
+                await self.bot.edit_message_text(
+                    f"💡 **Ответ:**\n\n{escaped_answer}",
+                    chat_id=processing_msg.chat.id,
+                    message_id=processing_msg.message_id,
+                    parse_mode='Markdown'
+                )
+            except Exception as e:
+                # If Markdown parsing still fails, send without formatting
+                if "can't parse entities" in str(e).lower():
+                    self.logger.warning(f"Markdown parsing failed, sending without formatting: {e}")
+                    await self.bot.edit_message_text(
+                        f"💡 Ответ:\n\n{answer}",
+                        chat_id=processing_msg.chat.id,
+                        message_id=processing_msg.message_id,
+                        parse_mode=None
+                    )
+                else:
+                    raise
             
         except Exception as e:
             self.logger.error(f"Error in question processing: {e}", exc_info=True)
