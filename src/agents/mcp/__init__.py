@@ -18,6 +18,7 @@ from .dynamic_mcp_tools import (
     create_mcp_tools_for_user,
     DynamicMCPTool,
 )
+from .tools_description import get_mcp_tools_description, format_mcp_tools_for_prompt
 
 __all__ = [
     "MCPClient",
@@ -28,4 +29,6 @@ __all__ = [
     "discover_and_create_mcp_tools",
     "create_mcp_tools_for_user",
     "DynamicMCPTool",
+    "get_mcp_tools_description",
+    "format_mcp_tools_for_prompt",
 ]
