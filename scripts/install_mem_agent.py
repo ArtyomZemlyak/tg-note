@@ -168,18 +168,19 @@ def create_mcp_server_config(workspace_root: Path, memory_postfix: str) -> bool:
     
     # Create mem-agent MCP server configuration
     # Note: Memory directory path will be determined at runtime based on user's KB
+    # This config is for Python agents (DynamicMCP), NOT for Qwen CLI
     config = {
         "name": "mem-agent",
         "description": "Agent's personal note-taking and search system - allows the agent to record and search notes during task execution",
-        "command": sys.executable,
+        "command": "python3",
         "args": [
             "-m",
-            "src.mem_agent.server"
+            "src.agents.mcp.mem_agent_server"
         ],
         "env": {
             "MEM_AGENT_MEMORY_POSTFIX": memory_postfix
         },
-        "working_dir": str(workspace_root),
+        "working_dir": str(workspace_root.resolve()),
         "enabled": True
     }
     
