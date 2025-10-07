@@ -12,18 +12,23 @@ Currently, the following built-in MCP tools are available:
 
 #### Memory Agent Tool
 
-Intelligent memory management using the [mem-agent](https://huggingface.co/driaforall/mem-agent) model.
+Personal note-taking and search system for the agent using the [mem-agent](https://huggingface.co/driaforall/mem-agent) model.
 
-**Features:**
-- Store memories with semantic understanding
-- Search memories based on queries
-- Maintain conversation context across sessions
-- Automatic categorization and tagging
+**Purpose:**
+This tool is specifically designed for the main agent to:
+- **Record notes**: Write down important information, findings, or context during task execution
+- **Search notes**: Find and recall previously recorded information
+- **Maintain working memory**: Keep context across multiple LLM calls within a single session
+
+**Use Cases:**
+- During complex multi-step tasks, the agent records findings and retrieves them later
+- Autonomous agents (like qwen code cli) making many LLM calls in one session
+- Maintaining context when the agent needs to remember what it discovered earlier
 
 **Tools:**
-- `mcp_memory_agent` - Unified memory management (store, search, list)
-- `memory_store` - Store a memory
-- `memory_search` - Search through memories
+- `mcp_memory_agent` - Unified note management (store, search, list)
+- `memory_store` - Record a note
+- `memory_search` - Search through recorded notes
 
 ## Configuration
 
@@ -88,53 +93,55 @@ agent = AutonomousAgent(
 )
 ```
 
-### Store Memories
+### Record Notes (Store)
 
 ```python
+# The agent records a note during task execution
 result = await agent.tool_manager.execute(
     "memory_store",
     {
-        "content": "User prefers Python for backend development",
-        "tags": ["preferences", "programming"]
+        "content": "Found SQL injection vulnerability in login endpoint /api/auth",
+        "tags": ["security", "findings"]
     }
 )
 ```
 
-### Search Memories
+### Search Notes (Recall)
 
 ```python
+# Later, the agent searches its notes to remember
 result = await agent.tool_manager.execute(
     "memory_search",
     {
-        "query": "What are the user's programming preferences?",
+        "query": "What security issues did I find?",
         "limit": 5
     }
 )
 ```
 
-### Unified Memory Agent
+### Unified Note Management
 
 ```python
-# Store
+# Record a note
 await agent.tool_manager.execute(
     "mcp_memory_agent",
     {
         "action": "store",
-        "content": "Important information",
-        "context": "Project context"
+        "content": "Database uses PostgreSQL 14 with pgvector extension",
+        "context": "Infrastructure analysis"
     }
 )
 
-# Search
+# Search notes to recall information
 await agent.tool_manager.execute(
     "mcp_memory_agent",
     {
         "action": "search",
-        "content": "query text"
+        "content": "What database technology is used?"
     }
 )
 
-# List all
+# List all recorded notes
 await agent.tool_manager.execute(
     "mcp_memory_agent",
     {
