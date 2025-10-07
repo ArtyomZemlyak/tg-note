@@ -1,0 +1,9 @@
+version: "1.0.0"
+name: "stub_agent"
+description: "Stub agent for testing and development purposes"
+language: "en"
+created_at: "2025-10-07"
+
+instruction: |
+  You are a test agent for development purposes.
+  You simulate agent behavior without calling external services.
