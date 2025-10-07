@@ -171,9 +171,17 @@ class KBListDirectoryTool(BaseTool):
         try:
             # Check if directory exists
             if not full_path.exists():
-                error_msg = f"Directory does not exist: {relative_path}"
-                logger.warning(f"[kb_list_directory] {error_msg}")
-                return {"success": False, "error": error_msg}
+                logger.warning(f"[kb_list_directory] Directory does not exist: {relative_path or 'root'}")
+                return {
+                    "success": True,
+                    "path": relative_path or "root",
+                    "recursive": recursive,
+                    "files": [],
+                    "directories": [],
+                    "file_count": 0,
+                    "directory_count": 0,
+                    "message": "Directory does not exist yet. It will be created when you add files."
+                }
             
             if not full_path.is_dir():
                 error_msg = f"Path is not a directory: {relative_path}"
@@ -261,6 +269,20 @@ class KBSearchFilesTool(BaseTool):
         if not pattern:
             logger.error("[kb_search_files] No pattern provided")
             return {"success": False, "error": "No pattern provided"}
+        
+        # Check if KB root exists
+        if not context.kb_root_path.exists():
+            logger.warning(f"[kb_search_files] KB root does not exist: {context.kb_root_path}")
+            return {
+                "success": True,
+                "pattern": pattern,
+                "case_sensitive": case_sensitive,
+                "files": [],
+                "directories": [],
+                "file_count": 0,
+                "directory_count": 0,
+                "message": "Knowledge base directory does not exist yet. It will be created when you add files."
+            }
         
         try:
             files = []
@@ -364,6 +386,19 @@ class KBSearchContentTool(BaseTool):
         if not query:
             logger.error("[kb_search_content] No query provided")
             return {"success": False, "error": "No query provided"}
+        
+        # Check if KB root exists
+        if not context.kb_root_path.exists():
+            logger.warning(f"[kb_search_content] KB root does not exist: {context.kb_root_path}")
+            return {
+                "success": True,
+                "query": query,
+                "case_sensitive": case_sensitive,
+                "file_pattern": file_pattern,
+                "matches": [],
+                "files_found": 0,
+                "message": "Knowledge base directory does not exist yet. It will be created when you add files."
+            }
         
         try:
             matches = []

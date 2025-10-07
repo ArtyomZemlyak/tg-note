@@ -285,6 +285,13 @@ class AutonomousAgent(BaseAgent):
         self.kb_root_path = kb_root_path or Path("./knowledge_base")
         self.kb_root_path = self.kb_root_path.resolve()
         
+        # Ensure KB root path exists
+        try:
+            self.kb_root_path.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Knowledge base root path ensured: {self.kb_root_path}")
+        except Exception as e:
+            logger.warning(f"Could not create KB root path {self.kb_root_path}: {e}")
+        
         # Vector search manager
         self.vector_search_manager = vector_search_manager
         
