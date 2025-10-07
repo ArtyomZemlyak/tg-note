@@ -226,6 +226,10 @@ class Settings(BaseSettings):
         default=Path("./knowledge_base"),
         description="Path to knowledge base"
     )
+    KB_TOPICS_ONLY: bool = Field(
+        default=True,
+        description="Restrict agents to work only in topics/ folder"
+    )
     KB_GIT_ENABLED: bool = Field(
         default=True,
         description="Enable Git operations"

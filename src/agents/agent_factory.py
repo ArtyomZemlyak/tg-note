@@ -82,6 +82,7 @@ class AgentFactory:
             "qwen_cli_path": settings.AGENT_QWEN_CLI_PATH,
             "timeout": settings.AGENT_TIMEOUT,
             "kb_path": settings.KB_PATH,
+            "kb_topics_only": settings.KB_TOPICS_ONLY,
         }
         
         return cls.create_agent(
@@ -141,6 +142,17 @@ def _create_autonomous_agent(config: Dict) -> AutonomousAgent:
     else:
         logger.info("No API key provided, agent will use rule-based decision making")
     
+    # Determine kb_root_path based on kb_topics_only setting
+    kb_path = Path(config.get("kb_path", "./knowledge_base"))
+    kb_topics_only = config.get("kb_topics_only", True)
+    
+    if kb_topics_only:
+        kb_root_path = kb_path / "topics"
+        logger.info(f"Restricting agent to topics folder: {kb_root_path}")
+    else:
+        kb_root_path = kb_path
+        logger.info(f"Agent has full access to knowledge base: {kb_root_path}")
+    
     # Create autonomous agent
     return AutonomousAgent(
         llm_connector=llm_connector,
@@ -155,7 +167,7 @@ def _create_autonomous_agent(config: Dict) -> AutonomousAgent:
         enable_folder_management=config.get("enable_folder_management", True),
         enable_mcp=config.get("enable_mcp", False),
         enable_mcp_memory=config.get("enable_mcp_memory", False),
-        kb_root_path=Path(config.get("kb_path", "./knowledge_base"))
+        kb_root_path=kb_root_path
     )
 
 
@@ -169,11 +181,24 @@ def _create_qwen_cli_agent(config: Dict) -> QwenCodeCLIAgent:
     Returns:
         QwenCodeCLIAgent instance
     """
+    # Determine working_directory based on kb_topics_only setting
+    working_directory = config.get("working_directory")
+    if not working_directory:
+        kb_path = Path(config.get("kb_path", "./knowledge_base"))
+        kb_topics_only = config.get("kb_topics_only", True)
+        
+        if kb_topics_only:
+            working_directory = str(kb_path / "topics")
+            logger.info(f"Restricting Qwen CLI agent to topics folder: {working_directory}")
+        else:
+            working_directory = str(kb_path)
+            logger.info(f"Qwen CLI agent has full access to knowledge base: {working_directory}")
+    
     return QwenCodeCLIAgent(
         config=config,
         instruction=config.get("instruction"),
         qwen_cli_path=config.get("qwen_cli_path", "qwen"),
-        working_directory=config.get("working_directory"),
+        working_directory=working_directory,
         enable_web_search=config.get("enable_web_search", True),
         enable_git=config.get("enable_git", True),
         enable_github=config.get("enable_github", True),
