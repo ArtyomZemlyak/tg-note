@@ -16,13 +16,15 @@
 # The knowledge base is used to store and manage documents processed by the bot.
 # Git integration is supported for versioning.
 
-# KB_PATH: Path to the knowledge base directory
-# - Can be relative (./knowledge_base) or absolute (/path/to/kb)
+# KB_PATH: Root directory for all knowledge bases
+# - This is the base directory where all user knowledge bases are stored
+# - Each user's KB is created as a subdirectory: KB_PATH/my-notes, KB_PATH/work-kb, etc.
+# - Can be relative (./knowledge_base) or absolute (/path/to/kbs)
 # - Directory will be created automatically if it doesn't exist
 KB_PATH: ./knowledge_base
 
 # KB_TOPICS_ONLY: Restrict agents to work only in topics/ folder
-# - true: Agents can only create/edit/read files in KB_PATH/topics/ directory
+# - true: Agents can only create/edit/read files in {kb_name}/topics/ directory
 #         This prevents agents from modifying index.md, README.md, and other meta files
 #         in the knowledge base root. Recommended for production use.
 # - false: Agents have full access to entire knowledge base directory

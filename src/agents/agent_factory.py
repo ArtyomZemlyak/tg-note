@@ -145,6 +145,8 @@ def _create_autonomous_agent(config: Dict) -> AutonomousAgent:
         logger.info("No API key provided, agent will use rule-based decision making")
     
     # Determine kb_root_path based on kb_topics_only setting
+    # Note: kb_path here is the path to a specific KB (e.g., ./knowledge_base/my-notes),
+    # not the root of all KBs. It's provided by services via repo_manager.get_kb_path()
     kb_path = Path(config.get("kb_path", "./knowledge_base"))
     kb_topics_only = config.get("kb_topics_only", True)
     
@@ -191,6 +193,8 @@ def _create_qwen_cli_agent(config: Dict) -> QwenCodeCLIAgent:
         QwenCodeCLIAgent instance
     """
     # Determine working_directory based on kb_topics_only setting
+    # Note: kb_path here is the path to a specific KB (e.g., ./knowledge_base/my-notes),
+    # not the root of all KBs. It's provided by services via repo_manager.get_kb_path()
     working_directory = config.get("working_directory")
     if not working_directory:
         kb_path = Path(config.get("kb_path", "./knowledge_base"))
