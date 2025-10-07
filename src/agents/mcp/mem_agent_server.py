@@ -17,6 +17,7 @@ Usage:
 import argparse
 import asyncio
 import json
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -49,11 +50,27 @@ class MemAgentMCPServer:
         self.user_id = user_id
         
         # Setup storage directory
-        if user_id:
-            data_dir = Path(f"data/memory/user_{user_id}")
-        else:
-            data_dir = Path("data/memory/shared")
+        # Priority:
+        # 1. KB_PATH env var (set by memory_agent_tool.py for user-specific KB)
+        # 2. Legacy user_id-based path (for backward compatibility)
+        # 3. Shared memory (fallback)
+        kb_path = os.getenv('KB_PATH')
+        memory_postfix = os.getenv('MEM_AGENT_MEMORY_POSTFIX', 'memory')
         
+        if kb_path:
+            # Use KB-based path: {kb_path}/{memory_postfix}
+            data_dir = Path(kb_path) / memory_postfix
+            logger.info(f"Using KB-based memory path: {data_dir}")
+        elif user_id:
+            # Legacy: user_id-based path
+            data_dir = Path(f"data/memory/user_{user_id}")
+            logger.info(f"Using legacy user-based memory path: {data_dir}")
+        else:
+            # Fallback: shared memory
+            data_dir = Path("data/memory/shared")
+            logger.info(f"Using shared memory path: {data_dir}")
+        
+        # MemoryStorage will create the directory automatically
         self.storage = MemoryStorage(data_dir)
         
         logger.info(f"MCP Server initialized (user_id={user_id}, data_dir={data_dir})")
