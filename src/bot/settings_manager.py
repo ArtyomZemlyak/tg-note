@@ -42,7 +42,6 @@ class SettingsInspector:
         "QWEN_": "credentials",
         "GITHUB_": "credentials",
         "AGENT_": "agent",
-        "KNOWLEDGE_": "knowledge_base",
         "KB_": "knowledge_base",
         "MESSAGE_": "processing",
         "PROCESSED_": "processing",

@@ -50,7 +50,7 @@ def configure_services(container: Container) -> None:
     
     container.register(
         "repo_manager",
-        lambda c: RepositoryManager(base_path=str(c.get("settings").KNOWLEDGE_BASES_ROOT)),
+        lambda c: RepositoryManager(base_path=str(c.get("settings").KB_PATH)),
         singleton=True
     )
     
