@@ -175,7 +175,7 @@ def create_mcp_server_config(workspace_root: Path, memory_postfix: str) -> bool:
         "command": "python3",
         "args": [
             "-m",
-            "src.mem_agent.server"
+            "src.agents.mcp.mem_agent_server"
         ],
         "env": {
             "MEM_AGENT_MEMORY_POSTFIX": memory_postfix
