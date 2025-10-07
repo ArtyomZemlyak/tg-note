@@ -451,3 +451,29 @@ class TestQwenCodeCLIAgentWithDifferentConfigurations:
         # Call other methods and verify working directory hasn't changed
         instruction = agent.get_instruction()
         assert agent.get_working_directory() == "/new/path"
+    
+    def test_mcp_disabled_by_default(self, mock_cli_check):
+        """Test that MCP is disabled by default"""
+        agent = QwenCodeCLIAgent()
+        assert agent.enable_mcp is False
+    
+    def test_mcp_cannot_be_enabled(self, mock_cli_check):
+        """Test that MCP cannot be enabled for qwen CLI"""
+        config = {"enable_mcp": True, "user_id": 123}
+        
+        # Should log warning but disable MCP
+        agent = QwenCodeCLIAgent(config=config)
+        
+        # MCP should be disabled despite config
+        assert agent.enable_mcp is False
+        assert agent.user_id == 123  # user_id preserved
+    
+    @pytest.mark.asyncio
+    async def test_mcp_tools_description_empty(self, mock_cli_check):
+        """Test that MCP tools description is empty when disabled"""
+        agent = QwenCodeCLIAgent()
+        
+        description = await agent.get_mcp_tools_description()
+        
+        # Should return empty string since MCP is disabled
+        assert description == ""

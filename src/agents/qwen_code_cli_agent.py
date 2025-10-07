@@ -79,8 +79,18 @@ class QwenCodeCLIAgent(BaseAgent):
         self.enable_git = enable_git
         self.enable_github = enable_github
         
-        # MCP support
-        self.enable_mcp = config.get("enable_mcp", False) if config else False
+        # MCP support - NOT SUPPORTED for qwen CLI
+        # MCP tools cannot be called from Node.js subprocess
+        # Use AutonomousAgent if you need MCP support
+        requested_mcp = config.get("enable_mcp", False) if config else False
+        if requested_mcp:
+            logger.warning(
+                "[QwenCodeCLIAgent] MCP tools are NOT supported with Qwen Code CLI. "
+                "Qwen CLI runs as a separate Node.js process and cannot access Python MCP tools. "
+                "Use AutonomousAgent instead if you need MCP support. "
+                "MCP will be disabled for this agent."
+            )
+        self.enable_mcp = False  # Always disabled for qwen CLI
         self.user_id = config.get("user_id") if config else None
         self._mcp_tools_description: Optional[str] = None
         

@@ -343,37 +343,28 @@ knowledge_base/
 
 The system supports three types of agents for content processing:
 
-### 1. qwen_code_cli (Recommended) ✅
+### Agent Compatibility Matrix
 
-Uses [Qwen Code CLI](https://github.com/QwenLM/qwen-code) for advanced AI processing.
+| Feature | AutonomousAgent | QwenCodeCLIAgent | StubAgent |
+|---------|----------------|------------------|-----------|
+| **Language** | Python | Node.js (subprocess) | Python |
+| **MCP Tools** | ✅ Yes | ❌ No | ❌ No |
+| **Built-in Tools** | ✅ Yes | ✅ Yes | ❌ No |
+| **Custom Tools** | ✅ Easy | ❌ Difficult | ❌ No |
+| **Free Tier** | Provider-dependent | 2000/day | ✅ Always |
+| **Setup Complexity** | Medium | High | Low |
+| **AI Quality** | High | High | Basic |
 
-**Features:**
-- ✅ Full integration with Qwen3-Coder models
-- ✅ Automatic TODO planning
-- ✅ Built-in tools: web search, git, github, shell
-- ✅ Free tier: 2000 requests/day
-- ✅ Vision model support
+> **💡 MCP Support Note**: MCP (Model Context Protocol) tools are only supported with **AutonomousAgent**. QwenCodeCLIAgent runs as a separate Node.js process and cannot access Python MCP tools. [Learn more about MCP compatibility →](docs/AGENT_MCP_COMPATIBILITY.md)
 
-**Setup:**
-```bash
-npm install -g @qwen-code/qwen-code@latest
-qwen  # authenticate
-```
+---
 
-**Configuration:**
-```yaml
-AGENT_TYPE: "qwen_code_cli"
-AGENT_QWEN_CLI_PATH: "qwen"
-AGENT_ENABLE_WEB_SEARCH: true
-```
+### 1. autonomous (Recommended for MCP) ✅
 
-📚 [Detailed Documentation →](https://artyomzemlyak.github.io/tg-note/agents/qwen-code-cli/)
-
-### 2. autonomous
-
-Python-based autonomous agent with OpenAI-compatible API support.
+Python-based autonomous agent with OpenAI-compatible API support and **full MCP support**.
 
 **Features:**
+- ✅ **MCP Tools Support** - Full access to Model Context Protocol tools
 - ✅ OpenAI-compatible API integration
 - ✅ Autonomous planning and decision-making
 - ✅ Built-in tools: web search, git, github, file management
@@ -389,6 +380,7 @@ pip install openai  # included in requirements
 ```yaml
 AGENT_TYPE: "autonomous"
 AGENT_MODEL: "gpt-3.5-turbo"  # or any compatible model
+AGENT_ENABLE_MCP: true  # Enable MCP tools
 AGENT_ENABLE_WEB_SEARCH: true
 AGENT_ENABLE_FILE_MANAGEMENT: true
 ```
@@ -401,7 +393,41 @@ OPENAI_BASE_URL=https://api.openai.com/v1  # Optional, for custom endpoints
 
 📚 [Detailed Documentation →](https://artyomzemlyak.github.io/tg-note/agents/autonomous-agent/)
 
-### 3. stub
+---
+
+### 2. qwen_code_cli (Best for Free Tier) ✅
+
+Uses [Qwen Code CLI](https://github.com/QwenLM/qwen-code) for advanced AI processing.
+
+**Features:**
+- ✅ Full integration with Qwen3-Coder models
+- ✅ Automatic TODO planning
+- ✅ Built-in tools: web search, git, github, shell
+- ✅ Free tier: 2000 requests/day
+- ✅ Vision model support
+- ❌ **No MCP support** (Node.js process limitation)
+
+**Setup:**
+```bash
+npm install -g @qwen-code/qwen-code@latest
+qwen  # authenticate
+```
+
+**Configuration:**
+```yaml
+AGENT_TYPE: "qwen_code_cli"
+AGENT_QWEN_CLI_PATH: "qwen"
+AGENT_ENABLE_WEB_SEARCH: true
+# AGENT_ENABLE_MCP: false  # Not supported - automatically disabled
+```
+
+> ⚠️ **Note**: MCP tools are not supported with Qwen Code CLI because it runs as a separate Node.js process. If you need MCP support, use the **AutonomousAgent** instead.
+
+📚 [Detailed Documentation →](https://artyomzemlyak.github.io/tg-note/agents/qwen-code-cli/)
+
+---
+
+### 3. stub (Testing Only)
 
 Simple stub agent for testing and MVP.
 
@@ -417,6 +443,28 @@ AGENT_TYPE: "stub"
 ```
 
 **Best for:** Quick testing, MVP demos, development without API keys
+
+---
+
+### Choosing the Right Agent
+
+**Use AutonomousAgent when:**
+- ✅ You need **MCP tools** (memory, custom integrations)
+- ✅ You have an OpenAI-compatible API key
+- ✅ You want Python-native integration
+- ✅ You need custom tool development
+
+**Use QwenCodeCLIAgent when:**
+- ✅ You want **free tier** (2000 requests/day)
+- ✅ You need **vision model** support
+- ✅ Built-in tools are sufficient
+- ✅ You prefer official Qwen integration
+- ❌ You don't need MCP tools
+
+**Use StubAgent when:**
+- ✅ Testing without API keys
+- ✅ MVP development
+- ✅ Quick prototyping
 
 ---
 
