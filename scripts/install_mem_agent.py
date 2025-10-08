@@ -167,7 +167,8 @@ def main():
     )
     
     # Get defaults from config if available
-    default_model = app_settings.MEM_AGENT_MODEL if CONFIG_AVAILABLE else "BAAI/bge-m3"
+    # Note: Using driaforall/mem-agent as the default model (not BAAI/bge-m3 which is for embeddings)
+    default_model = "driaforall/mem-agent"
     default_precision = app_settings.MEM_AGENT_MODEL_PRECISION if CONFIG_AVAILABLE else "4bit"
     
     parser.add_argument(
@@ -230,9 +231,11 @@ def main():
     print("   - When needed: Agent searches notes to recall previously recorded info")
     print("   - Within session: Maintains working memory across multiple LLM calls")
     print("5. You can change settings in config.yaml or .env:")
-    print("   - MEM_AGENT_MODEL (default: BAAI/bge-m3)")
+    print("   - Model: driaforall/mem-agent (LLM-based memory agent)")
     print("   - MEM_AGENT_MEMORY_POSTFIX (default: memory)")
     print("   - Each user's notes are isolated in their own KB")
+    print("6. To start the MCP server:")
+    print("   python -m src.agents.mem_agent.mcp_server --host 127.0.0.1 --port 8766")
     print("\n")
     
     return 0
