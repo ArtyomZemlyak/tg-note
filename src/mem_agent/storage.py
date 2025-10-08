@@ -1,60 +1,151 @@
 """
-Shared Memory Storage
-Provides core memory storage functionality for both Python and server versions
+Legacy Memory Storage Wrapper
+
+This module provides backward compatibility by wrapping the new storage implementations.
+Uses the factory pattern to create the appropriate storage based on configuration.
+
+For new code, prefer using the factory directly:
+    from src.mem_agent import MemoryStorageFactory
+    storage = MemoryStorageFactory.create("json", data_dir)
 """
 
-import json
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
+from .base import BaseMemoryStorage
+from .factory import MemoryStorageFactory
 
-class MemoryStorage:
+
+class MemoryStorage(BaseMemoryStorage):
     """
-    Shared memory storage implementation
+    Legacy memory storage wrapper for backward compatibility
     
-    Used by:
-    - mem_agent_server.py (MCP server version)
-    - memory_agent_tool.py (Python client version)
-    - Direct Python usage
+    This class maintains the same interface as the original MemoryStorage
+    but delegates to the appropriate storage implementation based on configuration.
     
-    Features:
-    - File-based JSON storage
-    - Simple substring search
-    - Category-based organization
-    - Metadata support
+    By default, uses JsonMemoryStorage for backward compatibility.
+    Can be configured to use ModelBasedMemoryStorage via environment or settings.
+    
+    Usage (legacy code continues to work):
+        storage = MemoryStorage(data_dir)
+        storage.store(content="Hello", category="test")
+        results = storage.retrieve(query="Hello")
+    
+    Note: For new code, prefer using the factory directly for more control:
+        from src.mem_agent import MemoryStorageFactory
+        storage = MemoryStorageFactory.create("model", data_dir, model_name="...")
     """
     
-    def __init__(self, data_dir: Path):
+    def __init__(
+        self,
+        data_dir: Path,
+        storage_type: Optional[str] = None,
+        model_name: Optional[str] = None
+    ):
         """
         Initialize memory storage
         
         Args:
             data_dir: Directory for storing memory files
+            storage_type: Type of storage ("json" or "model"). 
+                         If None, tries to read from environment/settings.
+            model_name: Model name for model-based storage. 
+                       If None, tries to read from settings.
         """
+        # Don't call super().__init__ because we delegate to another storage
         self.data_dir = Path(data_dir)
         self.data_dir.mkdir(parents=True, exist_ok=True)
-        self.memory_file = self.data_dir / "memory.json"
         
-        # Load existing memory
-        self.memories: List[Dict[str, Any]] = []
-        if self.memory_file.exists():
-            try:
-                with open(self.memory_file, 'r', encoding='utf-8') as f:
-                    self.memories = json.load(f)
-                logger.info(f"[MemoryStorage] Loaded {len(self.memories)} memories from {self.memory_file}")
-            except Exception as e:
-                logger.error(f"[MemoryStorage] Failed to load memories: {e}")
-    
-    def _save(self) -> None:
-        """Save memories to file"""
+        # Determine storage type
+        if storage_type is None:
+            storage_type = self._get_storage_type_from_config()
+        
+        # Determine model name for model-based storage
+        if model_name is None and storage_type == "model":
+            model_name = self._get_model_name_from_config()
+        
+        # Create the actual storage implementation
         try:
-            with open(self.memory_file, 'w', encoding='utf-8') as f:
-                json.dump(self.memories, f, indent=2, ensure_ascii=False)
+            self._storage = MemoryStorageFactory.create(
+                storage_type=storage_type,
+                data_dir=data_dir,
+                model_name=model_name
+            )
+            logger.info(
+                f"[MemoryStorage] Initialized with '{storage_type}' storage at {data_dir}"
+            )
         except Exception as e:
-            logger.error(f"[MemoryStorage] Failed to save memories: {e}")
+            logger.warning(
+                f"[MemoryStorage] Failed to create '{storage_type}' storage: {e}. "
+                f"Falling back to 'json' storage."
+            )
+            # Fallback to json storage
+            self._storage = MemoryStorageFactory.create(
+                storage_type="json",
+                data_dir=data_dir
+            )
+    
+    def _get_storage_type_from_config(self) -> str:
+        """
+        Get storage type from configuration
+        
+        Priority:
+        1. Environment variable MEM_AGENT_STORAGE_TYPE
+        2. Settings module (if available)
+        3. Default to "json"
+        
+        Returns:
+            Storage type name
+        """
+        import os
+        
+        # Try environment variable first
+        storage_type = os.getenv("MEM_AGENT_STORAGE_TYPE")
+        if storage_type:
+            return storage_type.lower()
+        
+        # Try settings module
+        try:
+            from config.settings import settings
+            return settings.MEM_AGENT_STORAGE_TYPE.lower()
+        except (ImportError, AttributeError):
+            pass
+        
+        # Default to json
+        return "json"
+    
+    def _get_model_name_from_config(self) -> str:
+        """
+        Get model name from configuration
+        
+        Priority:
+        1. Environment variable MEM_AGENT_MODEL
+        2. Settings module (if available)
+        3. Default to "driaforall/mem-agent"
+        
+        Returns:
+            Model name
+        """
+        import os
+        
+        # Try environment variable first
+        model_name = os.getenv("MEM_AGENT_MODEL")
+        if model_name:
+            return model_name
+        
+        # Try settings module
+        try:
+            from config.settings import settings
+            return settings.MEM_AGENT_MODEL
+        except (ImportError, AttributeError):
+            pass
+        
+        # Default model
+        return "driaforall/mem-agent"
+    
+    # Delegate all methods to the underlying storage implementation
     
     def store(
         self,
@@ -63,40 +154,8 @@ class MemoryStorage:
         metadata: Optional[Dict] = None,
         tags: Optional[List[str]] = None
     ) -> Dict[str, Any]:
-        """
-        Store information in memory
-        
-        Args:
-            content: Content to store
-            category: Category for organization
-            metadata: Additional metadata
-            tags: Optional tags for categorization
-            
-        Returns:
-            Result with memory ID
-        """
-        memory_id = len(self.memories) + 1
-        
-        memory = {
-            "id": memory_id,
-            "content": content,
-            "category": category,
-            "metadata": metadata or {},
-            "tags": tags or [],
-            "created_at": datetime.now().isoformat(),
-            "updated_at": datetime.now().isoformat()
-        }
-        
-        self.memories.append(memory)
-        self._save()
-        
-        logger.info(f"[MemoryStorage] Stored memory #{memory_id} in category '{category}'")
-        
-        return {
-            "success": True,
-            "memory_id": memory_id,
-            "message": f"Memory stored successfully (ID: {memory_id})"
-        }
+        """Store information in memory"""
+        return self._storage.store(content, category, metadata, tags)
     
     def retrieve(
         self,
@@ -105,158 +164,25 @@ class MemoryStorage:
         tags: Optional[List[str]] = None,
         limit: int = 10
     ) -> Dict[str, Any]:
-        """
-        Retrieve information from memory
-        
-        Args:
-            query: Search query (simple substring match)
-            category: Filter by category
-            tags: Filter by tags
-            limit: Maximum number of results
-            
-        Returns:
-            List of matching memories
-        """
-        results = self.memories.copy()
-        
-        # Filter by category
-        if category:
-            results = [m for m in results if m.get("category") == category]
-        
-        # Filter by tags
-        if tags:
-            results = [
-                m for m in results
-                if any(tag in m.get("tags", []) for tag in tags)
-            ]
-        
-        # Filter by query (simple substring search)
-        if query:
-            query_lower = query.lower()
-            results = [
-                m for m in results
-                if query_lower in m.get("content", "").lower()
-                or query_lower in m.get("category", "").lower()
-            ]
-        
-        # Limit results
-        results = results[-limit:]  # Get last N results
-        
-        logger.info(
-            f"[MemoryStorage] Retrieved {len(results)} memories "
-            f"(query='{query}', category='{category}', tags={tags})"
-        )
-        
-        return {
-            "success": True,
-            "count": len(results),
-            "memories": results
-        }
+        """Retrieve information from memory"""
+        return self._storage.retrieve(query, category, tags, limit)
     
     def search(self, query: str, limit: int = 5) -> Dict[str, Any]:
-        """
-        Search memories (alias for retrieve with query)
-        
-        Args:
-            query: Search query
-            limit: Maximum number of results
-            
-        Returns:
-            Search results
-        """
-        return self.retrieve(query=query, limit=limit)
+        """Search memories"""
+        return self._storage.search(query, limit)
     
     def list_all(self, limit: Optional[int] = None) -> Dict[str, Any]:
-        """
-        List all memories
-        
-        Args:
-            limit: Optional limit on number of results
-            
-        Returns:
-            All memories (up to limit)
-        """
-        results = self.memories.copy()
-        if limit:
-            results = results[-limit:]
-        
-        return {
-            "success": True,
-            "count": len(results),
-            "memories": results
-        }
+        """List all memories"""
+        return self._storage.list_all(limit)
     
     def list_categories(self) -> Dict[str, Any]:
-        """
-        List all available categories
-        
-        Returns:
-            List of categories with counts
-        """
-        categories: Dict[str, int] = {}
-        
-        for memory in self.memories:
-            cat = memory.get("category", "general")
-            categories[cat] = categories.get(cat, 0) + 1
-        
-        return {
-            "success": True,
-            "categories": [
-                {"name": cat, "count": count}
-                for cat, count in sorted(categories.items())
-            ]
-        }
+        """List all categories"""
+        return self._storage.list_categories()
     
     def delete(self, memory_id: int) -> Dict[str, Any]:
-        """
-        Delete a memory by ID
-        
-        Args:
-            memory_id: ID of memory to delete
-            
-        Returns:
-            Result of deletion
-        """
-        original_count = len(self.memories)
-        self.memories = [m for m in self.memories if m.get("id") != memory_id]
-        
-        if len(self.memories) < original_count:
-            self._save()
-            logger.info(f"[MemoryStorage] Deleted memory #{memory_id}")
-            return {
-                "success": True,
-                "message": f"Memory {memory_id} deleted successfully"
-            }
-        else:
-            return {
-                "success": False,
-                "error": f"Memory {memory_id} not found"
-            }
+        """Delete a memory by ID"""
+        return self._storage.delete(memory_id)
     
     def clear(self, category: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Clear memories (all or by category)
-        
-        Args:
-            category: Optional category to clear (clears all if None)
-            
-        Returns:
-            Result of clearing
-        """
-        original_count = len(self.memories)
-        
-        if category:
-            self.memories = [m for m in self.memories if m.get("category") != category]
-            message = f"Cleared {original_count - len(self.memories)} memories from category '{category}'"
-        else:
-            self.memories = []
-            message = f"Cleared all {original_count} memories"
-        
-        self._save()
-        logger.info(f"[MemoryStorage] {message}")
-        
-        return {
-            "success": True,
-            "message": message,
-            "deleted_count": original_count - len(self.memories)
-        }
+        """Clear memories"""
+        return self._storage.clear(category)
