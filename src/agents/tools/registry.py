@@ -211,11 +211,11 @@ def build_default_tool_manager(
     # MCP Memory Agent Tools (when enabled) - Uses HTTP server
     if enable_mcp_memory:
         try:
-            from ..mcp import memory_agent_tool
+            from ..mcp.memory import memory_tool
             # Enable MCP tools before registering
-            for tool in memory_agent_tool.ALL_TOOLS:
+            for tool in memory_tool.ALL_TOOLS:
                 tool.enable()
-            manager.register_many(memory_agent_tool.ALL_TOOLS)
+            manager.register_many(memory_tool.ALL_TOOLS)
             logger.info("[ToolManager] MCP memory agent tools enabled (HTTP server)")
         except ImportError as e:
             logger.warning(f"[ToolManager] Failed to import MCP memory tools: {e}")
