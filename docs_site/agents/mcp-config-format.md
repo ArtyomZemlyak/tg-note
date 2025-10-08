@@ -205,7 +205,7 @@ This will:
 - [Model Context Protocol Specification](https://modelcontextprotocol.io/)
 - [Cursor MCP Documentation](https://docs.cursor.com/context/mcp)
 - [Claude Desktop MCP Support](https://docs.anthropic.com/claude/docs/mcp)
-- [Qwen CLI Configuration](../qwen_cli_setup.md)
+- [Qwen Code CLI Agent](./qwen-code-cli.md)
 
 ## Migration from Old Format
 
