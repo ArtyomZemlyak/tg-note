@@ -266,53 +266,53 @@ class MCPServerManager:
         """
         Setup default MCP servers based on settings
         
-        This registers servers that should be auto-started when enabled in settings:
-        - mem-agent server (if AGENT_ENABLE_MCP_MEMORY is True)
+        This registers servers that should be auto-started:
+        - mem-agent server (ALWAYS enabled - core feature)
         
         Also creates necessary configuration files:
         - data/mcp_servers/mem-agent.json (for Python MCP clients)
         - ~/.qwen/settings.json (for Qwen CLI)
         """
-        # Register mem-agent server if MCP memory is enabled
-        if self.settings.AGENT_ENABLE_MCP_MEMORY:
-            logger.info("[MCPServerManager] MCP memory agent is enabled, registering mem-agent server")
+        # Register mem-agent server (always enabled)
+        # Note: AGENT_ENABLE_MCP_MEMORY is deprecated but kept for backward compatibility
+        logger.info("[MCPServerManager] Registering mem-agent server (always on)")
+        
+        # Create data/mcp_servers directory if it doesn't exist
+        mcp_servers_dir = Path("data/mcp_servers")
+        mcp_servers_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Create mem-agent.json config file if it doesn't exist
+        mem_agent_config_file = mcp_servers_dir / "mem-agent.json"
+        if not mem_agent_config_file.exists():
+            logger.info(f"[MCPServerManager] Creating MCP server config at {mem_agent_config_file}")
             
-            # Create data/mcp_servers directory if it doesn't exist
-            mcp_servers_dir = Path("data/mcp_servers")
-            mcp_servers_dir.mkdir(parents=True, exist_ok=True)
+            config = {
+                "name": "mem-agent",
+                "description": "Agent's personal note-taking and search system - allows the agent to record and search notes during task execution",
+                "command": "python",
+                "args": ["-m", "src.agents.mcp.mem_agent_server"],
+                "env": {},
+                "working_dir": str(Path.cwd()),
+                "enabled": True
+            }
             
-            # Create mem-agent.json config file if it doesn't exist
-            mem_agent_config_file = mcp_servers_dir / "mem-agent.json"
-            if not mem_agent_config_file.exists():
-                logger.info(f"[MCPServerManager] Creating MCP server config at {mem_agent_config_file}")
-                
-                config = {
-                    "name": "mem-agent",
-                    "description": "Agent's personal note-taking and search system - allows the agent to record and search notes during task execution",
-                    "command": "python",
-                    "args": ["-m", "src.agents.mcp.mem_agent_server"],
-                    "env": {},
-                    "working_dir": str(Path.cwd()),
-                    "enabled": True
-                }
-                
-                try:
-                    with open(mem_agent_config_file, 'w', encoding='utf-8') as f:
-                        json.dump(config, f, indent=2, ensure_ascii=False)
-                    logger.info(f"[MCPServerManager] Created MCP server config: {mem_agent_config_file}")
-                except Exception as e:
-                    logger.error(f"[MCPServerManager] Failed to create MCP server config: {e}")
-            else:
-                logger.debug(f"[MCPServerManager] MCP server config already exists: {mem_agent_config_file}")
-            
-            # Use Python module path
-            self.register_server(
-                name="mem-agent",
-                command="python",
-                args=["-m", "src.agents.mcp.mem_agent_server"],
-                env={},
-                cwd=Path.cwd()
-            )
+            try:
+                with open(mem_agent_config_file, 'w', encoding='utf-8') as f:
+                    json.dump(config, f, indent=2, ensure_ascii=False)
+                logger.info(f"[MCPServerManager] Created MCP server config: {mem_agent_config_file}")
+            except Exception as e:
+                logger.error(f"[MCPServerManager] Failed to create MCP server config: {e}")
+        else:
+            logger.debug(f"[MCPServerManager] MCP server config already exists: {mem_agent_config_file}")
+        
+        # Use Python module path
+        self.register_server(
+            name="mem-agent",
+            command="python",
+            args=["-m", "src.agents.mcp.mem_agent_server"],
+            env={},
+            cwd=Path.cwd()
+        )
         
         # Also create ~/.qwen/settings.json if MCP is enabled for Qwen CLI support
         if self.settings.AGENT_ENABLE_MCP or self.settings.AGENT_ENABLE_MCP_MEMORY:

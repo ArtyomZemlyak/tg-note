@@ -70,8 +70,14 @@ class TestAgentFactory:
         mock_settings.AGENT_ENABLE_GIT = True
         mock_settings.AGENT_ENABLE_GITHUB = True
         mock_settings.AGENT_ENABLE_SHELL = False
+        mock_settings.AGENT_ENABLE_FILE_MANAGEMENT = True
+        mock_settings.AGENT_ENABLE_FOLDER_MANAGEMENT = True
+        mock_settings.AGENT_ENABLE_MCP = False
+        # Note: AGENT_ENABLE_MCP_MEMORY removed - MCP memory is always enabled
         mock_settings.AGENT_QWEN_CLI_PATH = "qwen"
         mock_settings.AGENT_TIMEOUT = 300
+        mock_settings.KB_PATH = "./knowledge_base"
+        mock_settings.KB_TOPICS_ONLY = True
         
         agent = AgentFactory.from_settings(mock_settings)
         
@@ -93,9 +99,12 @@ class TestAgentFactory:
         mock_settings.AGENT_ENABLE_SHELL = False
         mock_settings.AGENT_ENABLE_FILE_MANAGEMENT = True
         mock_settings.AGENT_ENABLE_FOLDER_MANAGEMENT = True
+        mock_settings.AGENT_ENABLE_MCP = False
+        # Note: AGENT_ENABLE_MCP_MEMORY removed - MCP memory is always enabled
         mock_settings.AGENT_QWEN_CLI_PATH = "qwen"
         mock_settings.AGENT_TIMEOUT = 300
         mock_settings.KB_PATH = "./knowledge_base"
+        mock_settings.KB_TOPICS_ONLY = True
         
         agent = AgentFactory.from_settings(mock_settings)
         
@@ -109,12 +118,21 @@ class TestAgentFactory:
     
     def test_agent_types_registered(self):
         """Test that all agent types are registered"""
-        assert "stub" in AgentFactory.AGENT_TYPES
-        assert "qwen_code" in AgentFactory.AGENT_TYPES
-        assert "autonomous" in AgentFactory.AGENT_TYPES
-        assert AgentFactory.AGENT_TYPES["stub"] == StubAgent
-        assert AgentFactory.AGENT_TYPES["qwen_code"] == AutonomousAgent
-        assert AgentFactory.AGENT_TYPES["autonomous"] == AutonomousAgent
+        from src.agents.agent_registry import get_registry
+        
+        registry = get_registry()
+        available_types = registry.get_available_types()
+        
+        assert "stub" in available_types
+        assert "qwen_code" in available_types
+        assert "autonomous" in available_types
+        
+        # Test that we can create agents of these types
+        stub_agent = registry.create("stub", {})
+        assert isinstance(stub_agent, StubAgent)
+        
+        autonomous_agent = registry.create("autonomous", {})
+        assert isinstance(autonomous_agent, AutonomousAgent)
     
     def test_qwen_agent_default_config(self):
         """Test Qwen agent with default configuration"""

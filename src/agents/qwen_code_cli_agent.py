@@ -79,20 +79,19 @@ class QwenCodeCLIAgent(BaseAgent):
         self.enable_git = enable_git
         self.enable_github = enable_github
         
-        # MCP support via qwen CLI native mechanism
+        # MCP memory agent is ALWAYS enabled via qwen CLI native mechanism
         # Qwen CLI has built-in MCP client and can connect to MCP servers
         # via .qwen/settings.json configuration (not via Python DynamicMCPTool)
         # See: https://github.com/QwenLM/qwen-code/blob/main/docs/cli/configuration.md
-        self.enable_mcp = config.get("enable_mcp", False) if config else False
         self.user_id = config.get("user_id") if config else None
         self._mcp_tools_description: Optional[str] = None
         
-        if self.enable_mcp:
-            logger.info(
-                "[QwenCodeCLIAgent] MCP enabled. Qwen CLI uses its own MCP client. "
-                "Generating .qwen/settings.json configuration..."
-            )
-            self._setup_qwen_mcp_config()
+        # Always setup MCP configuration for mem-agent
+        logger.info(
+            "[QwenCodeCLIAgent] Setting up MCP mem-agent (always on). "
+            "Generating .qwen/settings.json configuration..."
+        )
+        self._setup_qwen_mcp_config()
         
         # Check if qwen CLI is available
         self._check_cli_available()
@@ -305,11 +304,7 @@ class QwenCodeCLIAgent(BaseAgent):
         if self._mcp_tools_description is not None:
             return self._mcp_tools_description
         
-        # Only generate if MCP is enabled
-        if not self.enable_mcp:
-            self._mcp_tools_description = ""
-            return ""
-        
+        # MCP is always enabled - always generate description
         try:
             from .mcp import get_mcp_tools_description, format_mcp_tools_for_prompt
             
