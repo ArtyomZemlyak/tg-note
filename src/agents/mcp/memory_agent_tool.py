@@ -87,9 +87,8 @@ class MemoryAgentMCPTool(BaseMCPTool):
         """
         Load MCP server configuration from data/mcp_servers/mem-agent.json
         
-        The configuration is created by running scripts/install_mem_agent.py
-        and contains the command, args, and environment variables for the
-        local Python-based mem-agent MCP server.
+        The configuration is created by MCPServerManager and contains settings
+        for the mem-agent HTTP server (SSE transport).
         
         Note: The KB_PATH environment variable is set dynamically at runtime
         in the execute() method, as it's user-specific.
@@ -99,32 +98,54 @@ class MemoryAgentMCPTool(BaseMCPTool):
         if not config_file.exists():
             logger.warning(
                 f"[MemoryAgentMCPTool] Config file not found: {config_file}. "
-                "Run 'python scripts/install_mem_agent.py' to set up the memory agent."
+                "Using default HTTP server configuration."
             )
-            # Return a default config that won't work but won't crash
+            # Return default HTTP server config
             return MCPServerConfig(
                 command="python",
-                args=["-m", "src.mem_agent.server"],
-                env={}
+                args=["-m", "src.agents.mcp.mem_agent_server_http", "--host", "127.0.0.1", "--port", "8765"],
+                env={},
+                transport="sse",
+                url="http://127.0.0.1:8765/sse"
             )
         
         try:
             with open(config_file, "r", encoding="utf-8") as f:
                 config_data = json.load(f)
             
+            # Check if this is HTTP transport
+            transport = config_data.get("transport", "stdio")
+            url = None
+            if transport == "http":
+                # Parse host and port from args
+                host = "127.0.0.1"
+                port = "8765"
+                args = config_data.get("args", [])
+                for i, arg in enumerate(args):
+                    if arg == "--host" and i + 1 < len(args):
+                        host = args[i + 1]
+                    elif arg == "--port" and i + 1 < len(args):
+                        port = args[i + 1]
+                url = f"http://{host}:{port}/sse"
+                transport = "sse"  # FastMCP uses SSE for HTTP
+            
             return MCPServerConfig(
                 command=config_data.get("command", "python"),
-                args=config_data.get("args", ["-m", "src.mem_agent.server"]),
+                args=config_data.get("args", ["-m", "src.agents.mcp.mem_agent_server_http"]),
                 env=config_data.get("env", {}),
-                cwd=Path(config_data["working_dir"]) if config_data.get("working_dir") else None
+                cwd=Path(config_data["working_dir"]) if config_data.get("working_dir") else None,
+                transport=transport,
+                url=url
             )
         except Exception as e:
             logger.error(f"[MemoryAgentMCPTool] Failed to load config from {config_file}: {e}")
-            # Return a default config
+            # Return default HTTP config
             return MCPServerConfig(
                 command="python",
-                args=["-m", "src.mem_agent.server"],
-                env={}
+                args=["-m", "src.agents.mcp.mem_agent_server_http", "--host", "127.0.0.1", "--port", "8765"],
+                env={},
+                transport="sse",
+                url="http://127.0.0.1:8765/sse"
             )
     
     @property

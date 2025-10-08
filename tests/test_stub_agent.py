@@ -21,8 +21,8 @@ async def test_stub_agent_process():
     assert "markdown" in result
     assert "metadata" in result
     assert "title" in result
-    assert "category" in result
-    assert result["category"] == "general"
+    assert "kb_structure" in result
+    assert result["kb_structure"].category == "general"
 
 
 @pytest.mark.asyncio

@@ -267,15 +267,15 @@ class MCPServerManager:
         Setup default MCP servers based on settings
         
         This registers servers that should be auto-started when enabled in settings:
-        - mem-agent server (if AGENT_ENABLE_MCP_MEMORY is True)
+        - mem-agent HTTP server (if AGENT_ENABLE_MCP_MEMORY is True)
         
         Also creates necessary configuration files:
         - data/mcp_servers/mem-agent.json (for Python MCP clients)
         - ~/.qwen/settings.json (for Qwen CLI)
         """
-        # Register mem-agent server if MCP memory is enabled
+        # Register mem-agent HTTP server if MCP memory is enabled
         if self.settings.AGENT_ENABLE_MCP_MEMORY:
-            logger.info("[MCPServerManager] MCP memory agent is enabled, registering mem-agent server")
+            logger.info("[MCPServerManager] MCP memory agent is enabled, registering mem-agent HTTP server")
             
             # Create data/mcp_servers directory if it doesn't exist
             mcp_servers_dir = Path("data/mcp_servers")
@@ -290,10 +290,11 @@ class MCPServerManager:
                     "name": "mem-agent",
                     "description": "Agent's personal note-taking and search system - allows the agent to record and search notes during task execution",
                     "command": "python",
-                    "args": ["-m", "src.agents.mcp.mem_agent_server"],
+                    "args": ["-m", "src.agents.mcp.mem_agent_server_http", "--host", "127.0.0.1", "--port", "8765"],
                     "env": {},
                     "working_dir": str(Path.cwd()),
-                    "enabled": True
+                    "enabled": True,
+                    "transport": "http"
                 }
                 
                 try:
@@ -305,11 +306,11 @@ class MCPServerManager:
             else:
                 logger.debug(f"[MCPServerManager] MCP server config already exists: {mem_agent_config_file}")
             
-            # Use Python module path
+            # Use Python module path for HTTP server
             self.register_server(
                 name="mem-agent",
                 command="python",
-                args=["-m", "src.agents.mcp.mem_agent_server"],
+                args=["-m", "src.agents.mcp.mem_agent_server_http", "--host", "127.0.0.1", "--port", "8765"],
                 env={},
                 cwd=Path.cwd()
             )

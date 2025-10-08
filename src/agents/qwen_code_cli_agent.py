@@ -84,10 +84,12 @@ class QwenCodeCLIAgent(BaseAgent):
         # via .qwen/settings.json configuration (not via Python DynamicMCPTool)
         # See: https://github.com/QwenLM/qwen-code/blob/main/docs/cli/configuration.md
         self.enable_mcp = config.get("enable_mcp", False) if config else False
+        self.enable_mcp_memory = config.get("enable_mcp_memory", False) if config else False
         self.user_id = config.get("user_id") if config else None
         self._mcp_tools_description: Optional[str] = None
         
-        if self.enable_mcp:
+        # Setup MCP configuration if enabled
+        if self.enable_mcp or self.enable_mcp_memory:
             logger.info(
                 "[QwenCodeCLIAgent] MCP enabled. Qwen CLI uses its own MCP client. "
                 "Generating .qwen/settings.json configuration..."
@@ -306,7 +308,7 @@ class QwenCodeCLIAgent(BaseAgent):
             return self._mcp_tools_description
         
         # Only generate if MCP is enabled
-        if not self.enable_mcp:
+        if not (self.enable_mcp or self.enable_mcp_memory):
             self._mcp_tools_description = ""
             return ""
         

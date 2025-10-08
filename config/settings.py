@@ -144,7 +144,7 @@ class Settings(BaseSettings):
     )
     AGENT_ENABLE_MCP_MEMORY: bool = Field(
         default=False,
-        description="Enable MCP memory agent tool (local mem-agent)"
+        description="Enable MCP memory agent tool (local mem-agent via HTTP)"
     )
     MCP_SERVERS_POSTFIX: str = Field(
         default=".mcp_servers",
