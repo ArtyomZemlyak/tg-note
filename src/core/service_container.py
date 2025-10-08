@@ -12,6 +12,7 @@ from src.knowledge_base.repository import RepositoryManager
 from src.knowledge_base.user_settings import UserSettings
 from src.bot.settings_manager import SettingsManager, UserSettingsStorage
 from src.bot.telegram_bot import TelegramBot
+from src.bot.telegram_adapter import TelegramBotAdapter
 from src.services.user_context_manager import UserContextManager
 from src.services.conversation_context import ConversationContextManager
 from src.services.note_creation_service import NoteCreationService
@@ -92,6 +93,13 @@ def configure_services(container: Container) -> None:
         singleton=True
     )
     
+    # Register bot adapter (transport abstraction)
+    container.register(
+        "bot_adapter",
+        lambda c: TelegramBotAdapter(c.get("async_bot")),
+        singleton=True
+    )
+    
     # Register business logic services
     container.register(
         "user_context_manager",
@@ -106,7 +114,7 @@ def configure_services(container: Container) -> None:
     container.register(
         "note_creation_service",
         lambda c: NoteCreationService(
-            bot=c.get("async_bot"),
+            bot=c.get("bot_adapter"),
             tracker=c.get("tracker"),
             repo_manager=c.get("repo_manager"),
             user_context_manager=c.get("user_context_manager"),
@@ -118,7 +126,7 @@ def configure_services(container: Container) -> None:
     container.register(
         "question_answering_service",
         lambda c: QuestionAnsweringService(
-            bot=c.get("async_bot"),
+            bot=c.get("bot_adapter"),
             repo_manager=c.get("repo_manager"),
             user_context_manager=c.get("user_context_manager"),
             settings_manager=c.get("settings_manager")
@@ -129,7 +137,7 @@ def configure_services(container: Container) -> None:
     container.register(
         "agent_task_service",
         lambda c: AgentTaskService(
-            bot=c.get("async_bot"),
+            bot=c.get("bot_adapter"),
             repo_manager=c.get("repo_manager"),
             user_context_manager=c.get("user_context_manager"),
             settings_manager=c.get("settings_manager")
@@ -140,7 +148,7 @@ def configure_services(container: Container) -> None:
     container.register(
         "message_processor",
         lambda c: MessageProcessor(
-            bot=c.get("async_bot"),
+            bot=c.get("bot_adapter"),
             user_context_manager=c.get("user_context_manager"),
             user_settings=c.get("user_settings"),
             note_creation_service=c.get("note_creation_service"),
@@ -155,6 +163,7 @@ def configure_services(container: Container) -> None:
         "telegram_bot",
         lambda c: TelegramBot(
             bot=c.get("async_bot"),
+            bot_adapter=c.get("bot_adapter"),
             tracker=c.get("tracker"),
             repo_manager=c.get("repo_manager"),
             user_settings=c.get("user_settings"),

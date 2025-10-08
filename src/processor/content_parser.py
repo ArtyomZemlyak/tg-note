@@ -103,7 +103,7 @@ class ContentParser:
         
         Args:
             group: MessageGroup object with messages attribute
-            bot: Telegram bot instance (required for downloading files)
+            bot: Bot messaging interface (required for downloading files)
         
         Returns:
             Parsed content dictionary with file contents

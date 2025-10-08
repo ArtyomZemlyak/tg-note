@@ -6,9 +6,9 @@ Follows Single Responsibility Principle
 
 from typing import Any, Dict
 from loguru import logger
-from telebot.async_telebot import AsyncTeleBot
 from telebot.types import Message
 
+from src.bot.bot_port import BotPort
 from src.services.interfaces import (
     IMessageProcessor,
     IUserContextManager,
@@ -32,7 +32,7 @@ class MessageProcessor(IMessageProcessor):
     
     def __init__(
         self,
-        bot: AsyncTeleBot,
+        bot: BotPort,
         user_context_manager: IUserContextManager,
         user_settings: UserSettings,
         note_creation_service: INoteCreationService,
@@ -43,7 +43,7 @@ class MessageProcessor(IMessageProcessor):
         Initialize message processor
         
         Args:
-            bot: Telegram bot instance
+            bot: Bot messaging interface (transport abstraction)
             user_context_manager: User context manager
             user_settings: User settings
             note_creation_service: Note creation service

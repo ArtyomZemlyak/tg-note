@@ -12,6 +12,7 @@ from loguru import logger
 from src.bot.handlers import BotHandlers
 from src.bot.settings_handlers import SettingsHandlers
 from src.bot.mcp_handlers import MCPHandlers
+from src.bot.bot_port import BotPort
 from src.tracker.processing_tracker import ProcessingTracker
 from src.knowledge_base.repository import RepositoryManager
 from src.knowledge_base.user_settings import UserSettings
@@ -26,6 +27,7 @@ class TelegramBot:
     def __init__(
         self,
         bot: AsyncTeleBot,
+        bot_adapter: BotPort,
         tracker: ProcessingTracker,
         repo_manager: RepositoryManager,
         user_settings: UserSettings,
@@ -34,6 +36,7 @@ class TelegramBot:
         message_processor: IMessageProcessor,
     ):
         self.bot = bot
+        self.bot_adapter = bot_adapter
         self.tracker = tracker
         self.repo_manager = repo_manager
         self.user_settings = user_settings
@@ -43,7 +46,8 @@ class TelegramBot:
         
         # Initialize handlers (with cross-references for cache invalidation)
         self.handlers = BotHandlers(
-            bot=self.bot,
+            bot=self.bot_adapter,
+            async_bot=self.bot,
             tracker=tracker,
             repo_manager=repo_manager,
             user_settings=user_settings,

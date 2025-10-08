@@ -7,9 +7,9 @@ Follows Single Responsibility Principle
 from pathlib import Path
 from typing import Optional
 from loguru import logger
-from telebot.async_telebot import AsyncTeleBot
 from telebot.types import Message
 
+from src.bot.bot_port import BotPort
 from src.services.interfaces import INoteCreationService, IUserContextManager
 from src.processor.message_aggregator import MessageGroup
 from src.processor.content_parser import ContentParser
@@ -34,7 +34,7 @@ class NoteCreationService(INoteCreationService):
     
     def __init__(
         self,
-        bot: AsyncTeleBot,
+        bot: BotPort,
         tracker: ProcessingTracker,
         repo_manager: RepositoryManager,
         user_context_manager: IUserContextManager,
@@ -44,7 +44,7 @@ class NoteCreationService(INoteCreationService):
         Initialize note creation service
         
         Args:
-            bot: Telegram bot instance
+            bot: Bot messaging interface (transport abstraction)
             tracker: Processing tracker
             repo_manager: Repository manager
             user_context_manager: User context manager
