@@ -113,30 +113,35 @@ class MemoryAgentMCPTool(BaseMCPTool):
             with open(config_file, "r", encoding="utf-8") as f:
                 config_data = json.load(f)
             
-            # Check if this is HTTP transport
-            transport = config_data.get("transport", "stdio")
-            url = None
-            if transport == "http":
-                # Parse host and port from args
-                host = "127.0.0.1"
-                port = "8765"
-                args = config_data.get("args", [])
-                for i, arg in enumerate(args):
-                    if arg == "--host" and i + 1 < len(args):
-                        host = args[i + 1]
-                    elif arg == "--port" and i + 1 < len(args):
-                        port = args[i + 1]
-                url = f"http://{host}:{port}/sse"
-                transport = "sse"  # FastMCP uses SSE for HTTP
+            # Standard MCP format: {"mcpServers": {"mem-agent": {...}}}
+            mcp_servers = config_data.get("mcpServers", {})
+            mem_agent_config = mcp_servers.get("mem-agent", {})
             
-            return MCPServerConfig(
-                command=config_data.get("command", "python"),
-                args=config_data.get("args", ["-m", "src.agents.mcp.mem_agent_server_http"]),
-                env=config_data.get("env", {}),
-                cwd=Path(config_data["working_dir"]) if config_data.get("working_dir") else None,
-                transport=transport,
-                url=url
-            )
+            if not mem_agent_config:
+                logger.warning(f"[MemoryAgentMCPTool] No mem-agent config found in {config_file}")
+                raise ValueError("mem-agent not found in mcpServers")
+            
+            # Check if this is HTTP/SSE transport (has "url" field)
+            if "url" in mem_agent_config:
+                # HTTP/SSE transport
+                return MCPServerConfig(
+                    command=mem_agent_config.get("_command", "python"),
+                    args=mem_agent_config.get("_args", ["-m", "src.agents.mcp.mem_agent_server_http", "--host", "127.0.0.1", "--port", "8765"]),
+                    env={},
+                    cwd=Path(mem_agent_config.get("_cwd", Path.cwd())) if mem_agent_config.get("_cwd") else None,
+                    transport="sse",
+                    url=mem_agent_config["url"]
+                )
+            else:
+                # stdio transport (has "command" and "args" fields)
+                return MCPServerConfig(
+                    command=mem_agent_config.get("command", "python"),
+                    args=mem_agent_config.get("args", ["-m", "src.agents.mcp.mem_agent_server_http"]),
+                    env=mem_agent_config.get("env", {}),
+                    cwd=Path(mem_agent_config["cwd"]) if mem_agent_config.get("cwd") else None,
+                    transport="stdio",
+                    url=None
+                )
         except Exception as e:
             logger.error(f"[MemoryAgentMCPTool] Failed to load config from {config_file}: {e}")
             # Return default HTTP config

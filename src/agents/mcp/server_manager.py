@@ -286,15 +286,34 @@ class MCPServerManager:
             if not mem_agent_config_file.exists():
                 logger.info(f"[MCPServerManager] Creating MCP server config at {mem_agent_config_file}")
                 
+                # Standard MCP server configuration format
+                # This follows the format used by Cursor, Claude Desktop, and Qwen CLI
                 config = {
-                    "name": "mem-agent",
-                    "description": "Agent's personal note-taking and search system - allows the agent to record and search notes during task execution",
+                    "mcpServers": {
+                        "mem-agent": {
+                            # HTTP/SSE transport (default)
+                            "url": "http://127.0.0.1:8765/sse",
+                            "timeout": 10000,
+                            "trust": True,
+                            "description": "Agent's personal note-taking and search system - allows the agent to record and search notes during task execution",
+                            # Additional metadata for internal use
+                            "_transport": "http",
+                            "_command": "python",
+                            "_args": ["-m", "src.agents.mcp.mem_agent_server_http", "--host", "127.0.0.1", "--port", "8765"],
+                            "_cwd": str(Path.cwd())
+                        }
+                    }
+                }
+                
+                # Also save stdio variant for reference
+                config["mcpServers"]["mem-agent"]["_stdio_variant"] = {
                     "command": "python",
                     "args": ["-m", "src.agents.mcp.mem_agent_server_http", "--host", "127.0.0.1", "--port", "8765"],
+                    "cwd": str(Path.cwd()),
                     "env": {},
-                    "working_dir": str(Path.cwd()),
-                    "enabled": True,
-                    "transport": "http"
+                    "timeout": 10000,
+                    "trust": True,
+                    "description": "Agent's personal note-taking and search system (stdio variant)"
                 }
                 
                 try:
