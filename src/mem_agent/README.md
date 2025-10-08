@@ -1,6 +1,13 @@
-# Memory Agent Storage Architecture
+# Memory Storage Architecture
 
 This module implements memory storage for autonomous agents using SOLID principles.
+
+> **Note on Terminology:**
+> - **Memory Storage** (this module) - Provides storage backends (JSON, Vector) for the MCP Memory tool
+> - **MCP Memory Tool** - The agent's note-taking interface (implemented)
+> - **mem-agent** - A future LLM-based memory assistant (not yet implemented)
+> 
+> The naming "mem_agent" in paths is historical; the actual functionality is memory storage.
 
 ## Architecture Overview
 
@@ -30,7 +37,7 @@ MemoryStorage (Legacy wrapper for backward compatibility)
 - Resource-constrained environments
 
 ### 2. VectorBasedMemoryStorage
-**File:** `model_storage.py`
+**File:** `vector_storage.py`
 
 - AI-powered semantic search
 - Uses embeddings from HuggingFace models
@@ -63,7 +70,7 @@ storage = MemoryStorageFactory.create(
 
 # Create vector-based storage
 storage = MemoryStorageFactory.create(
-    storage_type="model",
+    storage_type="vector",
     data_dir=Path("data/memory"),
     model_name="BAAI/bge-m3"
 )
@@ -81,7 +88,7 @@ storage = MemoryStorage(Path("data/memory"))
 # Or specify explicitly
 storage = MemoryStorage(
     Path("data/memory"),
-    storage_type="model",
+    storage_type="vector",
     model_name="BAAI/bge-m3"
 )
 ```
@@ -126,14 +133,14 @@ storage.clear()                   # Clear all
 Storage type is configured in `config/settings.py`:
 
 ```python
-MEM_AGENT_STORAGE_TYPE: str = "json"  # or "model"
+MEM_AGENT_STORAGE_TYPE: str = "json"  # or "vector"
 MEM_AGENT_MODEL: str = "BAAI/bge-m3"
 ```
 
 Or via environment variables:
 
 ```bash
-export MEM_AGENT_STORAGE_TYPE=model
+export MEM_AGENT_STORAGE_TYPE=vector
 export MEM_AGENT_MODEL=BAAI/bge-m3
 ```
 
@@ -203,7 +210,7 @@ src/mem_agent/
 ├── README.md             # This file
 ├── base.py               # BaseMemoryStorage abstract class
 ├── json_storage.py       # JSON storage implementation
-├── model_storage.py      # Vector-based storage implementation
+├── vector_storage.py     # Vector-based storage implementation
 ├── factory.py            # MemoryStorageFactory
 └── storage.py            # Legacy wrapper for backward compatibility
 ```
@@ -229,10 +236,10 @@ def test_json_storage():
         assert results["count"] > 0
         assert "Test content" in results["memories"][0]["content"]
 
-def test_model_storage():
+def test_vector_storage():
     with TemporaryDirectory() as tmpdir:
         storage = MemoryStorageFactory.create(
-            "model", 
+            "vector", 
             Path(tmpdir),
             model_name="all-MiniLM-L6-v2"  # Small model for testing
         )

@@ -85,7 +85,7 @@ def example_model_storage():
             # Create vector-based storage using factory
             logger.info("Loading model for semantic search...")
             storage = MemoryStorageFactory.create(
-                storage_type="model",
+                storage_type="vector",
                 data_dir=Path(tmpdir),
                 model_name="all-MiniLM-L6-v2"  # Small, fast model for demo
             )
@@ -200,8 +200,8 @@ def example_comparison():
         try:
             logger.info("\n2. Vector-Based Storage (semantic search):")
             model_storage = MemoryStorageFactory.create(
-                "model",
-                Path(tmpdir) / "model",
+                "vector",
+                Path(tmpdir) / "vector",
                 model_name="all-MiniLM-L6-v2"
             )
             

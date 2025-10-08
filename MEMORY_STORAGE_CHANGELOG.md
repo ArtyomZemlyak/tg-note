@@ -10,10 +10,10 @@ Refactored memory storage architecture to support multiple backends using SOLID 
 
 #### Multiple Storage Types
 - **JSON Storage (default)**: Simple, fast, file-based with substring search
-- **Model-Based Storage**: AI-powered semantic search using HuggingFace models
+- **Vector-Based Storage**: AI-powered semantic search using HuggingFace embeddings
 
 #### Configuration
-- New setting: `MEM_AGENT_STORAGE_TYPE` (values: `json`, `model`)
+- New setting: `MEM_AGENT_STORAGE_TYPE` (values: `json`, `vector`)
 - Default: `json` for backward compatibility
 - Configurable via YAML or environment variables
 
@@ -28,7 +28,7 @@ Refactored memory storage architecture to support multiple backends using SOLID 
 src/mem_agent/
 ├── base.py                          # Abstract base class (174 lines)
 ├── json_storage.py                  # JSON implementation (286 lines)
-├── model_storage.py                 # Model-based implementation (610 lines)
+├── vector_storage.py                # Vector-based implementation (610 lines)
 ├── factory.py                       # Factory for creation (170 lines)
 └── README.md                        # Developer docs (260 lines)
 
@@ -128,15 +128,15 @@ MemoryStorage (Legacy wrapper)
 MEM_AGENT_STORAGE_TYPE: json
 ```
 
-#### Model-Based Storage
+#### Vector-Based Storage
 ```yaml
-MEM_AGENT_STORAGE_TYPE: model
+MEM_AGENT_STORAGE_TYPE: vector
 MEM_AGENT_MODEL: BAAI/bge-m3
 ```
 
 Environment variables:
 ```bash
-export MEM_AGENT_STORAGE_TYPE=model
+export MEM_AGENT_STORAGE_TYPE=vector
 export MEM_AGENT_MODEL=BAAI/bge-m3
 ```
 
@@ -147,7 +147,7 @@ export MEM_AGENT_MODEL=BAAI/bge-m3
 from src.mem_agent import MemoryStorageFactory
 
 storage = MemoryStorageFactory.create("json", data_dir)
-storage = MemoryStorageFactory.create("model", data_dir, model_name="BAAI/bge-m3")
+storage = MemoryStorageFactory.create("vector", data_dir, model_name="BAAI/bge-m3")
 ```
 
 #### Legacy Pattern (Backward Compatible)
@@ -201,7 +201,7 @@ storage = MemoryStorage(data_dir)  # Still works!
 
 #### Optional: Enable Semantic Search
 1. Install: `pip install sentence-transformers transformers torch`
-2. Configure: `MEM_AGENT_STORAGE_TYPE: model`
+2. Configure: `MEM_AGENT_STORAGE_TYPE: vector`
 3. Done! Code remains the same
 
 ### 🐛 Bug Fixes
@@ -220,7 +220,7 @@ None! 100% backward compatible.
 - Search: O(n) substring match
 - Best for: < 10,000 memories
 
-#### Model-Based Storage
+#### Vector-Based Storage
 - Startup: 2-10 seconds (model loading)
 - Memory: ~500 MB (model) + ~100 KB per 1000 embeddings
 - Search: O(n) cosine similarity

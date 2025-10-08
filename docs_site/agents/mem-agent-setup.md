@@ -1,10 +1,16 @@
-# Memory Agent Setup Guide
+# Memory System Setup Guide
 
-This guide covers the installation, configuration, and usage of the integrated mem-agent - a personal note-taking and search system for autonomous agents.
+This guide covers the installation, configuration, and usage of the MCP Memory tool - a personal note-taking and search system for autonomous agents.
+
+> **Terminology Note:**
+> - **MCP Memory** - The current note-taking tool for agents (what you're setting up here)
+> - **mem-agent** - A planned future LLM-based memory assistant (not yet implemented)
+> 
+> The configuration still uses `MEM_AGENT_*` prefixes for historical reasons.
 
 ## Overview
 
-The memory agent is a local note-taking system specifically designed for the main agent. The agent uses it to:
+The MCP Memory tool is a local note-taking system specifically designed for the main agent. The agent uses it to:
 
 - **Record notes**: Write down important information, findings, or context during task execution
 - **Search notes**: Find and recall previously recorded information to "remember" details
@@ -57,8 +63,8 @@ AGENT_ENABLE_MCP: true
 AGENT_ENABLE_MCP_MEMORY: true
 
 # Memory agent settings
-MEM_AGENT_STORAGE_TYPE: json  # Storage type: "json" (default) or "model"
-MEM_AGENT_MODEL: BAAI/bge-m3  # Model for semantic search (if using "model" storage)
+MEM_AGENT_STORAGE_TYPE: json  # Storage type: "json" (default) or "vector"
+MEM_AGENT_MODEL: BAAI/bge-m3  # Model for semantic search (if using "vector" storage)
 MEM_AGENT_MODEL_PRECISION: 4bit
 MEM_AGENT_BACKEND: auto
 MEM_AGENT_MEMORY_POSTFIX: memory  # Postfix within KB (kb_path/memory)
@@ -73,7 +79,7 @@ Or use environment variables in `.env`:
 ```bash
 AGENT_ENABLE_MCP=true
 AGENT_ENABLE_MCP_MEMORY=true
-MEM_AGENT_STORAGE_TYPE=json  # or "model" for semantic search
+MEM_AGENT_STORAGE_TYPE=json  # or "vector" for semantic search
 MEM_AGENT_MODEL=BAAI/bge-m3
 MEM_AGENT_MODEL_PRECISION=4bit
 MEM_AGENT_BACKEND=auto
@@ -97,7 +103,7 @@ MCP_SERVERS_POSTFIX=.mcp_servers
 
 To enable model-based storage:
 
-1. Set `MEM_AGENT_STORAGE_TYPE: model` in config
+1. Set `MEM_AGENT_STORAGE_TYPE: vector` in config
 2. Install additional dependencies:
    ```bash
    pip install sentence-transformers transformers torch
@@ -316,8 +322,8 @@ huggingface-cli delete-cache
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `MEM_AGENT_STORAGE_TYPE` | `json` | Storage type: `json` (simple) or `model` (AI-powered) |
-| `MEM_AGENT_MODEL` | `BAAI/bge-m3` | HuggingFace model ID (for `model` storage type) |
+| `MEM_AGENT_STORAGE_TYPE` | `json` | Storage type: `json` (simple) or `vector` (AI-powered) |
+| `MEM_AGENT_MODEL` | `BAAI/bge-m3` | HuggingFace model ID (for `vector` storage type) |
 | `MEM_AGENT_MODEL_PRECISION` | `4bit` | Model precision (4bit, 8bit, fp16) |
 | `MEM_AGENT_BACKEND` | `auto` | Backend (auto, vllm, mlx, transformers) |
 | `MEM_AGENT_MEMORY_POSTFIX` | `memory` | Memory directory postfix within KB |

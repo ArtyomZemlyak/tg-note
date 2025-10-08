@@ -345,7 +345,7 @@ AGENT_ENABLE_MCP_MEMORY: false
 #           * Fast and lightweight
 #           * No ML dependencies required
 #           * Works immediately without model download
-# - "model": AI-powered semantic search using embeddings
+# - "vector": AI-powered semantic search using embeddings
 #           * Semantic similarity search
 #           * Better understanding of queries
 #           * Requires model download and ML dependencies (transformers, sentence-transformers)
@@ -357,7 +357,7 @@ MEM_AGENT_STORAGE_TYPE: "json"
 #
 # Default: BAAI/bge-m3
 # This is an embedding model for vector-based semantic search
-# Only used when MEM_AGENT_STORAGE_TYPE is set to "model"
+# Only used when MEM_AGENT_STORAGE_TYPE is set to "vector"
 MEM_AGENT_MODEL: "BAAI/bge-m3"
 
 # MEM_AGENT_MODEL_PRECISION: Model quantization precision

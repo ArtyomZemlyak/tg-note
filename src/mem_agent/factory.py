@@ -12,7 +12,7 @@ from loguru import logger
 
 from .base import BaseMemoryStorage
 from .json_storage import JsonMemoryStorage
-from .model_storage import VectorBasedMemoryStorage
+from .vector_storage import VectorBasedMemoryStorage
 
 
 class MemoryStorageFactory:
@@ -29,7 +29,7 @@ class MemoryStorageFactory:
     # Registry of available storage types
     STORAGE_TYPES = {
         "json": JsonMemoryStorage,
-        "model": VectorBasedMemoryStorage,
+        "vector": VectorBasedMemoryStorage,
     }
     
     @classmethod
@@ -44,9 +44,9 @@ class MemoryStorageFactory:
         Create a memory storage instance
         
         Args:
-            storage_type: Type of storage ("json" or "model")
+            storage_type: Type of storage ("json" or "vector")
             data_dir: Directory for storing memory data
-            model_name: Model name for model-based storage (optional)
+            model_name: Model name for vector-based storage (optional)
             **kwargs: Additional arguments for specific storage implementations
             
         Returns:
@@ -73,11 +73,11 @@ class MemoryStorageFactory:
                 storage = storage_class(data_dir=data_dir)
                 logger.info(f"[MemoryStorageFactory] Created JsonMemoryStorage at {data_dir}")
                 
-            elif storage_type == "model":
-                # Model-based storage requires model_name
+            elif storage_type == "vector":
+                # Vector-based storage requires model_name
                 if model_name is None:
                     raise ValueError(
-                        "model_name is required for model-based storage"
+                        "model_name is required for vector-based storage"
                     )
                 storage = storage_class(data_dir=data_dir, model_name=model_name)
                 logger.info(
@@ -151,9 +151,9 @@ def create_memory_storage(
     This is a simplified interface to the factory for common use cases.
     
     Args:
-        storage_type: Type of storage ("json" or "model")
+        storage_type: Type of storage ("json" or "vector")
         data_dir: Directory for storing memory data
-        model_name: Model name for model-based storage (optional)
+        model_name: Model name for vector-based storage (optional)
         **kwargs: Additional arguments for specific storage implementations
         
     Returns:

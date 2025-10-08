@@ -35,7 +35,7 @@ class MemoryStorage(BaseMemoryStorage):
     
     Note: For new code, prefer using the factory directly for more control:
         from src.mem_agent import MemoryStorageFactory
-        storage = MemoryStorageFactory.create("model", data_dir, model_name="...")
+        storage = MemoryStorageFactory.create("vector", data_dir, model_name="...")
     """
     
     def __init__(
@@ -49,9 +49,9 @@ class MemoryStorage(BaseMemoryStorage):
         
         Args:
             data_dir: Directory for storing memory files
-            storage_type: Type of storage ("json" or "model"). 
+            storage_type: Type of storage ("json" or "vector"). 
                          If None, tries to read from environment/settings.
-            model_name: Model name for model-based storage. 
+            model_name: Model name for vector-based storage. 
                        If None, tries to read from settings.
         """
         # Don't call super().__init__ because we delegate to another storage
@@ -62,8 +62,8 @@ class MemoryStorage(BaseMemoryStorage):
         if storage_type is None:
             storage_type = self._get_storage_type_from_config()
         
-        # Determine model name for model-based storage
-        if model_name is None and storage_type == "model":
+        # Determine model name for vector-based storage
+        if model_name is None and storage_type == "vector":
             model_name = self._get_model_name_from_config()
         
         # Create the actual storage implementation

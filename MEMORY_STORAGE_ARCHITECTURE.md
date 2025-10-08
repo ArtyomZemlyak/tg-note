@@ -25,7 +25,7 @@ After:
 
 1. **Multiple Storage Types**
    - `json`: Simple JSON storage with substring search (default)
-   - `model`: AI-powered semantic search using HuggingFace models
+   - `vector`: AI-powered semantic search using HuggingFace embeddings
 
 2. **SOLID Principles**
    - Single Responsibility: Each class has one purpose
@@ -64,13 +64,13 @@ If you want AI-powered semantic search:
 2. **Update configuration:**
    ```yaml
    # In config.yaml
-   MEM_AGENT_STORAGE_TYPE: model
+   MEM_AGENT_STORAGE_TYPE: vector
    MEM_AGENT_MODEL: BAAI/bge-m3
    ```
    
    Or use environment variables:
    ```bash
-   export MEM_AGENT_STORAGE_TYPE=model
+   export MEM_AGENT_STORAGE_TYPE=vector
    ```
 
 3. **No code changes needed!** The storage automatically switches.
@@ -91,7 +91,7 @@ storage = MemoryStorageFactory.create(
 
 # Create model-based storage
 storage = MemoryStorageFactory.create(
-    storage_type="model",
+    storage_type="vector",
     data_dir=Path("data/memory"),
     model_name="BAAI/bge-m3"
 )
@@ -108,14 +108,14 @@ storage = MemoryStorage(data_dir)
 # Or specify explicitly
 storage = MemoryStorage(
     data_dir,
-    storage_type="model",
+    storage_type="vector",
     model_name="BAAI/bge-m3"
 )
 ```
 
 ## Storage Type Comparison
 
-| Feature | JSON Storage | Model-Based Storage |
+| Feature | JSON Storage | Vector-Based Storage |
 |---------|-------------|---------------------|
 | **Search** | Substring match | Semantic similarity |
 | **Speed** | Very fast | Moderate (first query slower) |
@@ -211,7 +211,7 @@ storage = MemoryStorageFactory.create(
 ### New Files
 - `src/mem_agent/base.py` - Abstract base class
 - `src/mem_agent/json_storage.py` - JSON storage implementation
-- `src/mem_agent/model_storage.py` - Model-based storage implementation
+- `src/mem_agent/vector_storage.py` - Vector-based storage implementation
 - `src/mem_agent/factory.py` - Storage factory
 - `src/mem_agent/README.md` - Developer documentation
 - `examples/memory_storage_types_example.py` - Usage examples

@@ -19,8 +19,8 @@ All tasks completed successfully following SOLID principles!
 - Substring search for queries
 - Default storage type
 
-### 3. ✅ Created Model-Based Storage
-**File:** `src/mem_agent/model_storage.py` (~610 lines)
+### 3. ✅ Created Vector-Based Storage
+**File:** `src/mem_agent/vector_storage.py` (~610 lines)
 
 - AI-powered semantic search using embeddings
 - Uses `BAAI/bge-m3` or any sentence-transformers model
@@ -154,13 +154,13 @@ All tasks completed successfully following SOLID principles!
 MEM_AGENT_STORAGE_TYPE: json  # Fast, simple, no dependencies
 ```
 
-### AI-Powered (Model-Based Storage)
+### AI-Powered (Vector-Based Storage)
 ```yaml
-MEM_AGENT_STORAGE_TYPE: model  # Semantic search
+MEM_AGENT_STORAGE_TYPE: vector  # Semantic search
 MEM_AGENT_MODEL: BAAI/bge-m3  # Or any sentence-transformers model
 ```
 
-Dependencies for model-based storage:
+Dependencies for vector-based storage:
 ```bash
 pip install sentence-transformers transformers torch
 ```
@@ -174,8 +174,8 @@ from src.mem_agent import MemoryStorageFactory
 # JSON storage
 storage = MemoryStorageFactory.create("json", data_dir)
 
-# Model-based storage
-storage = MemoryStorageFactory.create("model", data_dir, model_name="BAAI/bge-m3")
+# Vector-based storage
+storage = MemoryStorageFactory.create("vector", data_dir, model_name="BAAI/bge-m3")
 ```
 
 ### Legacy Pattern (Still Works)
@@ -228,7 +228,7 @@ storage.clear(category)
 
 ### For Users
 1. No action needed - everything works as before
-2. Optional: Try model-based storage for semantic search
+2. Optional: Try vector-based storage for semantic search
 3. Optional: Review updated documentation
 
 ### For Developers
@@ -243,7 +243,7 @@ src/mem_agent/
 ├── __init__.py              # Public API (updated)
 ├── base.py                  # BaseMemoryStorage abstract class (NEW)
 ├── json_storage.py          # JSON storage implementation (NEW)
-├── model_storage.py         # Model-based storage implementation (NEW)
+├── vector_storage.py        # Vector-based storage implementation (NEW)
 ├── factory.py               # MemoryStorageFactory (NEW)
 ├── storage.py               # Legacy wrapper (refactored)
 └── README.md                # Developer documentation (NEW)
@@ -290,7 +290,7 @@ Want to understand the architecture better?
 
 4. **Practical Examples:**
    - Run `examples/memory_storage_types_example.py`
-   - Compare JSON vs Model-based storage
+   - Compare JSON vs Vector-based storage
 
 ## 🤝 Contributing
 
