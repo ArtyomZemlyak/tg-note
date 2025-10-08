@@ -22,6 +22,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+import tempfile
 
 from loguru import logger
 
@@ -63,8 +64,11 @@ class MemoryMCPServer:
             data_dir = Path(kb_path) / memory_postfix
             logger.info(f"Using KB-based memory path: {data_dir}")
         elif user_id:
-            # Legacy: user_id-based path
-            data_dir = Path(f"data/memory/user_{user_id}")
+            # Legacy: user_id-based path (use isolated tmp dir during pytest)
+            if os.getenv("PYTEST_CURRENT_TEST"):
+                data_dir = Path(tempfile.mkdtemp(prefix=f"memsrv_user_{user_id}_"))
+            else:
+                data_dir = Path(f"data/memory/user_{user_id}")
             logger.info(f"Using legacy user-based memory path: {data_dir}")
         else:
             # Fallback: shared memory
@@ -259,7 +263,7 @@ class MemoryMCPServer:
                         "tools": {}
                     },
                     "serverInfo": {
-                        "name": "memory",
+                        "name": "mem-agent",
                         "version": "1.0.0"
                     }
                 }

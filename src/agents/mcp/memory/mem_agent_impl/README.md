@@ -65,7 +65,7 @@ print(response.reply)
 Start the MCP server:
 
 ```bash
-python -m src.agents.mem_agent.mcp_server --host 127.0.0.1 --port 8766
+python -m src.agents.mcp.memory.mem_agent_impl.mcp_server --host 127.0.0.1 --port 8766
 ```
 
 Or use it in your code:

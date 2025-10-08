@@ -235,7 +235,7 @@ def main():
     print("   - MEM_AGENT_MEMORY_POSTFIX (default: memory)")
     print("   - Each user's notes are isolated in their own KB")
     print("6. To start the MCP server:")
-    print("   python -m src.agents.mem_agent.mcp_server --host 127.0.0.1 --port 8766")
+    print("   python -m src.agents.mcp.memory.mem_agent_impl.mcp_server --host 127.0.0.1 --port 8766")
     print("\n")
     
     return 0

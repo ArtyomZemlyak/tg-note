@@ -186,3 +186,9 @@ class MemoryStorage(BaseMemoryStorage):
     def clear(self, category: Optional[str] = None) -> Dict[str, Any]:
         """Clear memories"""
         return self._storage.clear(category)
+
+    # Compatibility: expose in-memory list if underlying storage has it (e.g., JsonMemoryStorage)
+    @property
+    def memories(self):
+        """Provide direct access to underlying storage's memories for legacy tests."""
+        return getattr(self._storage, "memories", [])

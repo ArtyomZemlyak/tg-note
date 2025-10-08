@@ -8,7 +8,7 @@ Successfully integrated the mem-agent implementation from [firstbatchxyz/mem-age
 
 ### Core Implementation Files
 
-All files are located in `/workspace/src/agents/mem_agent/`:
+All files are located in `/workspace/src/agents/mcp/memory/mem_agent_impl/`:
 
 1. **`__init__.py`** - Package initialization with main exports
 2. **`agent.py`** - Main Agent class for chat and memory operations
@@ -149,10 +149,10 @@ print(response.reply)
 
 ```bash
 # Start MCP server
-python3 -m src.agents.mem_agent.mcp_server --host 127.0.0.1 --port 8766
+python3 -m src.agents.mcp.memory.mem_agent_impl.mcp_server --host 127.0.0.1 --port 8766
 
 # Or with custom settings
-python3 -m src.agents.mem_agent.mcp_server --host 0.0.0.0 --port 9000
+python3 -m src.agents.mcp.memory.mem_agent_impl.mcp_server --host 0.0.0.0 --port 9000
 ```
 
 ### With vLLM Backend
