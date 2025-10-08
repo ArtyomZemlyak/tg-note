@@ -68,6 +68,10 @@ class MCPRegistryClient:
             MCP client or None if creation failed
         """
         try:
+            # Skip non-stdio transports for Python MCP client
+            if spec.transport and spec.transport.lower() in {"http", "sse"}:
+                logger.info(f"[MCPRegistryClient] Skipping non-stdio server: {spec.name} ({spec.transport})")
+                return None
             # Convert server spec to MCP client config
             config = MCPServerConfig(
                 command=spec.command,

@@ -49,7 +49,16 @@ class BaseMCPTool(BaseTool):
         """
         pass
     
-    async def _ensure_connected(self) -> bool:
+    def build_runtime_env(self, context: ToolContext) -> Optional[Dict[str, str]]:
+        """
+        Build per-execution environment overrides for the MCP client.
+
+        Subclasses can override to inject dynamic variables (e.g., KB_PATH).
+        Default: no overrides.
+        """
+        return None
+
+    async def _ensure_connected(self, context: ToolContext) -> bool:
         """
         Ensure MCP client is connected
         
@@ -60,7 +69,23 @@ class BaseMCPTool(BaseTool):
             return True
         
         if not self.client:
-            self.client = MCPClient(self.mcp_server_config)
+            # Merge base config with runtime env overrides
+            base_cfg = self.mcp_server_config
+            runtime_env = self.build_runtime_env(context) or {}
+            merged_env = {}
+            if base_cfg.env:
+                merged_env.update(base_cfg.env)
+            if runtime_env:
+                merged_env.update(runtime_env)
+            config = MCPServerConfig(
+                command=base_cfg.command,
+                args=base_cfg.args,
+                env=merged_env or None,
+                cwd=base_cfg.cwd,
+                transport=base_cfg.transport,
+                url=base_cfg.url,
+            )
+            self.client = MCPClient(config)
         
         self._connected = await self.client.connect()
         return self._connected
@@ -83,7 +108,7 @@ class BaseMCPTool(BaseTool):
             }
         
         # Ensure connection
-        if not await self._ensure_connected():
+        if not await self._ensure_connected(context):
             return {
                 "success": False,
                 "error": f"Failed to connect to MCP server for {self.name}"

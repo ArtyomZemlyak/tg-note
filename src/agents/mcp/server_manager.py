@@ -266,35 +266,32 @@ class MCPServerManager:
         """
         Setup default MCP servers based on settings
         
-        This registers servers that should be auto-started when enabled in settings:
-        - mem-agent HTTP server (if AGENT_ENABLE_MCP_MEMORY is True)
-        
-        Also creates necessary configuration files:
-        - data/mcp_servers/mem-agent.json (for Python MCP clients)
+        This registers servers based on settings and prepares configuration files:
+        - data/mcp_servers/mem-agent.json (stdio config for Python MCP clients)
         - ~/.qwen/settings.json (for Qwen CLI)
         """
-        # Register mem-agent HTTP server if MCP memory is enabled
+        # Prepare mem-agent stdio config if MCP memory is enabled
         if self.settings.AGENT_ENABLE_MCP_MEMORY:
-            logger.info("[MCPServerManager] MCP memory agent is enabled, registering mem-agent HTTP server")
+            logger.info("[MCPServerManager] MCP memory agent is enabled, ensuring mem-agent stdio config")
             
             # Create data/mcp_servers directory if it doesn't exist
             mcp_servers_dir = Path("data/mcp_servers")
             mcp_servers_dir.mkdir(parents=True, exist_ok=True)
             
-            # Create mem-agent.json config file if it doesn't exist
+            # Create mem-agent.json config file if it doesn't exist (stdio)
             mem_agent_config_file = mcp_servers_dir / "mem-agent.json"
             if not mem_agent_config_file.exists():
                 logger.info(f"[MCPServerManager] Creating MCP server config at {mem_agent_config_file}")
                 
                 config = {
                     "name": "mem-agent",
-                    "description": "Agent's personal note-taking and search system - allows the agent to record and search notes during task execution",
-                    "command": "python",
-                    "args": ["-m", "src.agents.mcp.mem_agent_server_http", "--host", "127.0.0.1", "--port", "8765"],
+                    "description": "Agent's personal note-taking and search system - stdio server",
+                    "command": "python3",
+                    "args": ["-m", "src.agents.mcp.mem_agent_server"],
                     "env": {},
                     "working_dir": str(Path.cwd()),
                     "enabled": True,
-                    "transport": "http"
+                    "transport": "stdio"
                 }
                 
                 try:
@@ -306,14 +303,7 @@ class MCPServerManager:
             else:
                 logger.debug(f"[MCPServerManager] MCP server config already exists: {mem_agent_config_file}")
             
-            # Use Python module path for HTTP server
-            self.register_server(
-                name="mem-agent",
-                command="python",
-                args=["-m", "src.agents.mcp.mem_agent_server_http", "--host", "127.0.0.1", "--port", "8765"],
-                env={},
-                cwd=Path.cwd()
-            )
+            # Do not auto-start HTTP server here; stdio servers are spawned by clients when needed
         
         # Also create ~/.qwen/settings.json if MCP is enabled for Qwen CLI support
         if self.settings.AGENT_ENABLE_MCP or self.settings.AGENT_ENABLE_MCP_MEMORY:

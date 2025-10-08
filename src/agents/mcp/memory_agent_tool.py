@@ -85,80 +85,71 @@ class MemoryAgentMCPTool(BaseMCPTool):
     @property
     def mcp_server_config(self) -> MCPServerConfig:
         """
-        Load MCP server configuration from data/mcp_servers/mem-agent.json
-        
-        The configuration is created by MCPServerManager and contains settings
-        for the mem-agent HTTP server (SSE transport).
-        
-        Note: The KB_PATH environment variable is set dynamically at runtime
-        in the execute() method, as it's user-specific.
+        Prefer stdio mem-agent configuration for Python MCP client.
+        Falls back to a safe stdio default if config file is missing or invalid.
         """
         config_file = Path("data/mcp_servers/mem-agent.json")
         
         if not config_file.exists():
-            logger.warning(
-                f"[MemoryAgentMCPTool] Config file not found: {config_file}. "
-                "Using default HTTP server configuration."
+            logger.info(
+                f"[MemoryAgentMCPTool] Config file not found: {config_file}. Using stdio fallback."
             )
-            # Return default HTTP server config
+            # Default to stdio server
             return MCPServerConfig(
-                command="python",
-                args=["-m", "src.agents.mcp.mem_agent_server_http", "--host", "127.0.0.1", "--port", "8765"],
+                command="python3",
+                args=["-m", "src.agents.mcp.mem_agent_server"],
                 env={},
-                transport="sse",
-                url="http://127.0.0.1:8765/sse"
+                transport="stdio",
+                url=None
             )
         
         try:
             with open(config_file, "r", encoding="utf-8") as f:
                 config_data = json.load(f)
             
-            # Check if this is HTTP transport
-            transport = config_data.get("transport", "stdio")
-            url = None
-            if transport == "http":
-                # Parse host and port from args
-                host = "127.0.0.1"
-                port = "8765"
-                args = config_data.get("args", [])
-                for i, arg in enumerate(args):
-                    if arg == "--host" and i + 1 < len(args):
-                        host = args[i + 1]
-                    elif arg == "--port" and i + 1 < len(args):
-                        port = args[i + 1]
-                url = f"http://{host}:{port}/sse"
-                transport = "sse"  # FastMCP uses SSE for HTTP
+            # If config explicitly specifies HTTP/SSE, prefer stdio fallback for Python client
+            transport = config_data.get("transport")
+            if transport and transport.lower() in {"http", "sse"}:
+                logger.info("[MemoryAgentMCPTool] HTTP/SSE config detected. Using stdio fallback for Python client.")
+                return MCPServerConfig(
+                    command="python3",
+                    args=["-m", "src.agents.mcp.mem_agent_server"],
+                    env=config_data.get("env", {}),
+                    cwd=Path(config_data["working_dir"]) if config_data.get("working_dir") else None,
+                    transport="stdio",
+                    url=None
+                )
             
+            # Otherwise, assume config is suitable for stdio
             return MCPServerConfig(
-                command=config_data.get("command", "python"),
-                args=config_data.get("args", ["-m", "src.agents.mcp.mem_agent_server_http"]),
+                command=config_data.get("command", "python3"),
+                args=config_data.get("args", ["-m", "src.agents.mcp.mem_agent_server"]),
                 env=config_data.get("env", {}),
                 cwd=Path(config_data["working_dir"]) if config_data.get("working_dir") else None,
-                transport=transport,
-                url=url
+                transport="stdio",
+                url=None
             )
         except Exception as e:
             logger.error(f"[MemoryAgentMCPTool] Failed to load config from {config_file}: {e}")
-            # Return default HTTP config
+            # Return default stdio config
             return MCPServerConfig(
-                command="python",
-                args=["-m", "src.agents.mcp.mem_agent_server_http", "--host", "127.0.0.1", "--port", "8765"],
+                command="python3",
+                args=["-m", "src.agents.mcp.mem_agent_server"],
                 env={},
-                transport="sse",
-                url="http://127.0.0.1:8765/sse"
+                transport="stdio",
+                url=None
             )
     
     @property
     def mcp_tool_name(self) -> str:
-        """
-        The tool name in the MCP server
-        
-        Note: This depends on how the mem-agent-mcp server exposes its tools.
-        Common names might be: 'memory', 'store_memory', 'search_memory', etc.
-        
-        We'll use a generic approach and map our actions to the server's tools.
-        """
-        return "memory"
+        # Not used directly; execute() selects tool dynamically
+        return "store_memory"
+
+    def build_runtime_env(self, context: 'ToolContext') -> Dict[str, str]:
+        env = {}
+        if hasattr(context, 'kb_root_path') and context.kb_root_path:
+            env['KB_PATH'] = str(context.kb_root_path)
+        return env
     
     async def execute(self, params: Dict[str, Any], context: 'ToolContext') -> Dict[str, Any]:
         """
@@ -171,40 +162,46 @@ class MemoryAgentMCPTool(BaseMCPTool):
         Returns:
             Dict with execution result
         """
-        # Add KB_PATH to environment variables for this execution
-        # This allows the MCP server to create the memory directory at runtime
-        # in the correct user-specific location: {kb_path}/memory/
-        if hasattr(context, 'kb_root_path') and context.kb_root_path:
-            # Update the MCP client's environment with the current user's KB path
-            if not hasattr(self, '_original_env'):
-                # Store original env on first execution
-                config = self.mcp_server_config
-                self._original_env = config.env.copy() if config.env else {}
-            
-            # Create new env with KB_PATH for this user
-            kb_path = str(context.kb_root_path)
-            updated_env = self._original_env.copy()
-            updated_env['KB_PATH'] = kb_path
-            
-            # Temporarily update the client's config
-            if self.client:
-                self.client.config.env = updated_env
-                logger.debug(f"[MemoryAgentMCPTool] Set KB_PATH={kb_path} for memory agent")
-        
         action = params.get("action", "")
         content = params.get("content", "")
         memory_context = params.get("context", "")
         
-        # Map our action to MCP tool parameters
-        # The actual parameter names depend on the mem-agent-mcp implementation
-        mcp_params = {
-            "action": action,
-            "text": content,
-            "metadata": {"context": memory_context} if memory_context else {}
-        }
-        
-        # Call parent execute which handles MCP connection and tool calling
-        result = await super().execute(mcp_params, context)
+        # Ensure connection with runtime env
+        connected = await self._ensure_connected(context)
+        if not connected:
+            return {"success": False, "error": "Failed to connect to mem-agent MCP server"}
+
+        # Determine actual tool and params
+        if action == "store":
+            tool_name = "store_memory"
+            mcp_params = {
+                "content": content,
+                "category": "general",
+                "tags": [],
+                "metadata": {"context": memory_context} if memory_context else {}
+            }
+        elif action == "search":
+            tool_name = "retrieve_memory"
+            mcp_params = {
+                "query": content,
+                "limit": 10
+            }
+        elif action == "list":
+            tool_name = "list_categories"
+            mcp_params = {}
+        else:
+            return {"success": False, "error": f"Unknown action: {action}"}
+
+        # Validate tool availability
+        available_tools = [tool.name for tool in self.client.get_tools()]
+        if tool_name not in available_tools:
+            return {
+                "success": False,
+                "error": f"Tool '{tool_name}' not available. Available: {available_tools}"
+            }
+
+        # Execute
+        result = await self.client.call_tool(tool_name, mcp_params)
         
         # Add helpful information to the result
         if result.get("success"):
@@ -251,6 +248,12 @@ class MemoryStoreTool(BaseMCPTool):
     def mcp_server_config(self) -> MCPServerConfig:
         return MemoryAgentMCPTool().mcp_server_config
     
+    def build_runtime_env(self, context: 'ToolContext') -> Dict[str, str]:
+        env = {}
+        if hasattr(context, 'kb_root_path') and context.kb_root_path:
+            env['KB_PATH'] = str(context.kb_root_path)
+        return env
+    
     @property
     def mcp_tool_name(self) -> str:
         return "store_memory"
@@ -289,9 +292,15 @@ class MemorySearchTool(BaseMCPTool):
     def mcp_server_config(self) -> MCPServerConfig:
         return MemoryAgentMCPTool().mcp_server_config
     
+    def build_runtime_env(self, context: 'ToolContext') -> Dict[str, str]:
+        env = {}
+        if hasattr(context, 'kb_root_path') and context.kb_root_path:
+            env['KB_PATH'] = str(context.kb_root_path)
+        return env
+    
     @property
     def mcp_tool_name(self) -> str:
-        return "search_memory"
+        return "retrieve_memory"
 
 
 # Export all memory tools

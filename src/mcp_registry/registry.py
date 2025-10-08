@@ -35,6 +35,8 @@ class MCPServerSpec:
     working_dir: Optional[str] = None
     enabled: bool = True
     config_file: Optional[Path] = None
+    transport: Optional[str] = None  # e.g., "stdio", "http", "sse"
+    url: Optional[str] = None  # for HTTP/SSE
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any], config_file: Optional[Path] = None) -> "MCPServerSpec":
@@ -48,6 +50,8 @@ class MCPServerSpec:
             working_dir=data.get("working_dir"),
             enabled=data.get("enabled", True),
             config_file=config_file,
+            transport=data.get("transport"),
+            url=data.get("url"),
         )
     
     def to_dict(self) -> Dict[str, Any]:
@@ -63,6 +67,10 @@ class MCPServerSpec:
             result["env"] = self.env
         if self.working_dir:
             result["working_dir"] = self.working_dir
+        if self.transport:
+            result["transport"] = self.transport
+        if self.url:
+            result["url"] = self.url
         return result
 
 
