@@ -17,7 +17,7 @@ Use Cases:
 Architecture (SOLID principles):
   - BaseMemoryStorage: Abstract interface for all storage implementations
   - JsonMemoryStorage: Simple JSON-based storage with substring search
-  - ModelBasedMemoryStorage: AI-powered storage with semantic search using driaforall/mem-agent
+  - VectorBasedMemoryStorage: AI-powered storage with semantic search using embeddings
   - MemoryStorageFactory: Factory for creating appropriate storage instances
   - MemoryStorage: Legacy compatibility class (delegates to factory)
 
@@ -34,7 +34,7 @@ Installation:
 # Core interfaces and implementations
 from .base import BaseMemoryStorage
 from .json_storage import JsonMemoryStorage
-from .model_storage import ModelBasedMemoryStorage
+from .model_storage import VectorBasedMemoryStorage
 from .factory import MemoryStorageFactory, create_memory_storage
 
 # Legacy compatibility
@@ -46,7 +46,7 @@ __all__ = [
     
     # Concrete implementations
     "JsonMemoryStorage",
-    "ModelBasedMemoryStorage",
+    "VectorBasedMemoryStorage",
     
     # Factory
     "MemoryStorageFactory",

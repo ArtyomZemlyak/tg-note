@@ -253,7 +253,7 @@ AGENT_ENABLE_MCP_MEMORY: true
 MCP_SERVERS_POSTFIX: .mcp_servers
 
 # Memory agent settings
-MEM_AGENT_MODEL: driaforall/mem-agent
+MEM_AGENT_MODEL: BAAI/bge-m3
 MEM_AGENT_MODEL_PRECISION: 4bit
 MEM_AGENT_BACKEND: auto
 MEM_AGENT_MEMORY_POSTFIX: memory

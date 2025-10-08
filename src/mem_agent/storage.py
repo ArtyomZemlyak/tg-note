@@ -26,7 +26,7 @@ class MemoryStorage(BaseMemoryStorage):
     but delegates to the appropriate storage implementation based on configuration.
     
     By default, uses JsonMemoryStorage for backward compatibility.
-    Can be configured to use ModelBasedMemoryStorage via environment or settings.
+    Can be configured to use VectorBasedMemoryStorage via environment or settings.
     
     Usage (legacy code continues to work):
         storage = MemoryStorage(data_dir)
@@ -123,7 +123,7 @@ class MemoryStorage(BaseMemoryStorage):
         Priority:
         1. Environment variable MEM_AGENT_MODEL
         2. Settings module (if available)
-        3. Default to "driaforall/mem-agent"
+        3. Default to "BAAI/bge-m3"
         
         Returns:
             Model name
@@ -143,7 +143,7 @@ class MemoryStorage(BaseMemoryStorage):
             pass
         
         # Default model
-        return "driaforall/mem-agent"
+        return "BAAI/bge-m3"
     
     # Delegate all methods to the underlying storage implementation
     

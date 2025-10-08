@@ -7,7 +7,7 @@ This module implements memory storage for autonomous agents using SOLID principl
 ```
 BaseMemoryStorage (Abstract Interface)
     ├── JsonMemoryStorage (Simple JSON-based)
-    └── ModelBasedMemoryStorage (AI-powered semantic search)
+    └── VectorBasedMemoryStorage (AI-powered semantic search)
 
 MemoryStorageFactory (Creates appropriate storage)
 MemoryStorage (Legacy wrapper for backward compatibility)
@@ -29,7 +29,7 @@ MemoryStorage (Legacy wrapper for backward compatibility)
 - Simple keyword search
 - Resource-constrained environments
 
-### 2. ModelBasedMemoryStorage
+### 2. VectorBasedMemoryStorage
 **File:** `model_storage.py`
 
 - AI-powered semantic search
@@ -61,11 +61,11 @@ storage = MemoryStorageFactory.create(
     data_dir=Path("data/memory")
 )
 
-# Create model-based storage
+# Create vector-based storage
 storage = MemoryStorageFactory.create(
     storage_type="model",
     data_dir=Path("data/memory"),
-    model_name="driaforall/mem-agent"
+    model_name="BAAI/bge-m3"
 )
 ```
 
@@ -82,7 +82,7 @@ storage = MemoryStorage(Path("data/memory"))
 storage = MemoryStorage(
     Path("data/memory"),
     storage_type="model",
-    model_name="driaforall/mem-agent"
+    model_name="BAAI/bge-m3"
 )
 ```
 
@@ -127,14 +127,14 @@ Storage type is configured in `config/settings.py`:
 
 ```python
 MEM_AGENT_STORAGE_TYPE: str = "json"  # or "model"
-MEM_AGENT_MODEL: str = "driaforall/mem-agent"
+MEM_AGENT_MODEL: str = "BAAI/bge-m3"
 ```
 
 Or via environment variables:
 
 ```bash
 export MEM_AGENT_STORAGE_TYPE=model
-export MEM_AGENT_MODEL=driaforall/mem-agent
+export MEM_AGENT_MODEL=BAAI/bge-m3
 ```
 
 ## Extending with New Storage Types
@@ -203,7 +203,7 @@ src/mem_agent/
 ├── README.md             # This file
 ├── base.py               # BaseMemoryStorage abstract class
 ├── json_storage.py       # JSON storage implementation
-├── model_storage.py      # Model-based storage implementation
+├── model_storage.py      # Vector-based storage implementation
 ├── factory.py            # MemoryStorageFactory
 └── storage.py            # Legacy wrapper for backward compatibility
 ```
@@ -255,7 +255,7 @@ def test_model_storage():
 - **Startup**: Instant
 - **Scalability**: Good up to ~10,000 memories
 
-### Model-Based Storage
+### Vector-Based Storage
 - **Memory**: ~200-500 MB (model) + ~100 KB per 1000 memories (embeddings)
 - **Search**: O(n) cosine similarity (can be optimized with FAISS)
 - **Startup**: 2-10 seconds (model loading)

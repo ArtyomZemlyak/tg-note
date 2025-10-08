@@ -23,7 +23,7 @@ All tasks completed successfully following SOLID principles!
 **File:** `src/mem_agent/model_storage.py` (~610 lines)
 
 - AI-powered semantic search using embeddings
-- Uses `driaforall/mem-agent` or any sentence-transformers model
+- Uses `BAAI/bge-m3` or any sentence-transformers model
 - Cosine similarity for relevance ranking
 - Fallback to default model if specified model fails
 
@@ -111,7 +111,7 @@ All tasks completed successfully following SOLID principles!
 
 1. **Single Responsibility (SRP)**
    - `JsonMemoryStorage`: Only handles JSON operations
-   - `ModelBasedMemoryStorage`: Only handles model-based operations
+   - `VectorBasedMemoryStorage`: Only handles vector-based operations
    - `MemoryStorageFactory`: Only handles creation logic
 
 2. **Open/Closed (OCP)**
@@ -157,7 +157,7 @@ MEM_AGENT_STORAGE_TYPE: json  # Fast, simple, no dependencies
 ### AI-Powered (Model-Based Storage)
 ```yaml
 MEM_AGENT_STORAGE_TYPE: model  # Semantic search
-MEM_AGENT_MODEL: driaforall/mem-agent  # Or any sentence-transformers model
+MEM_AGENT_MODEL: BAAI/bge-m3  # Or any sentence-transformers model
 ```
 
 Dependencies for model-based storage:
@@ -175,7 +175,7 @@ from src.mem_agent import MemoryStorageFactory
 storage = MemoryStorageFactory.create("json", data_dir)
 
 # Model-based storage
-storage = MemoryStorageFactory.create("model", data_dir, model_name="driaforall/mem-agent")
+storage = MemoryStorageFactory.create("model", data_dir, model_name="BAAI/bge-m3")
 ```
 
 ### Legacy Pattern (Still Works)

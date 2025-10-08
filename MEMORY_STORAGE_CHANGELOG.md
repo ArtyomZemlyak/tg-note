@@ -86,7 +86,7 @@ docs_site/agents/
 ```
 BaseMemoryStorage (ABC)
 ├── JsonMemoryStorage
-├── ModelBasedMemoryStorage
+├── VectorBasedMemoryStorage
 └── [Future: Custom implementations]
 
 MemoryStorageFactory
@@ -131,13 +131,13 @@ MEM_AGENT_STORAGE_TYPE: json
 #### Model-Based Storage
 ```yaml
 MEM_AGENT_STORAGE_TYPE: model
-MEM_AGENT_MODEL: driaforall/mem-agent
+MEM_AGENT_MODEL: BAAI/bge-m3
 ```
 
 Environment variables:
 ```bash
 export MEM_AGENT_STORAGE_TYPE=model
-export MEM_AGENT_MODEL=driaforall/mem-agent
+export MEM_AGENT_MODEL=BAAI/bge-m3
 ```
 
 ### 📝 Usage Examples
@@ -147,7 +147,7 @@ export MEM_AGENT_MODEL=driaforall/mem-agent
 from src.mem_agent import MemoryStorageFactory
 
 storage = MemoryStorageFactory.create("json", data_dir)
-storage = MemoryStorageFactory.create("model", data_dir, model_name="driaforall/mem-agent")
+storage = MemoryStorageFactory.create("model", data_dir, model_name="BAAI/bge-m3")
 ```
 
 #### Legacy Pattern (Backward Compatible)
@@ -251,7 +251,7 @@ All can be added without modifying existing code!
 
 - Architecture: SOLID Principles
 - Semantic Search: sentence-transformers library
-- Model: driaforall/mem-agent (HuggingFace)
+- Model: BAAI/bge-m3 (HuggingFace)
 
 ### 📄 License
 

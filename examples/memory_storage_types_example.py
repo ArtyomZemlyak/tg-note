@@ -3,7 +3,7 @@ Example: Using Different Memory Storage Types
 
 This example demonstrates the new memory storage architecture with two types:
 1. JSON Storage (simple, fast, no ML dependencies)
-2. Model-Based Storage (AI-powered semantic search)
+2. Vector-Based Storage (AI-powered semantic search)
 
 Both implement the same interface, following SOLID principles.
 """
@@ -18,7 +18,7 @@ from loguru import logger
 from src.mem_agent import (
     MemoryStorageFactory,
     JsonMemoryStorage,
-    ModelBasedMemoryStorage,
+    VectorBasedMemoryStorage,
     MemoryStorage  # Legacy wrapper
 )
 
@@ -76,13 +76,13 @@ def example_json_storage():
 
 
 def example_model_storage():
-    """Example: Using model-based storage (semantic search)"""
+    """Example: Using vector-based storage (semantic search)"""
     
-    logger.info("\n\n=== Model-Based Storage Example ===\n")
+    logger.info("\n\n=== Vector-Based Storage Example ===\n")
     
     with TemporaryDirectory() as tmpdir:
         try:
-            # Create model-based storage using factory
+            # Create vector-based storage using factory
             logger.info("Loading model for semantic search...")
             storage = MemoryStorageFactory.create(
                 storage_type="model",
@@ -138,10 +138,10 @@ def example_model_storage():
             logger.info("  Even though queries use different words, it finds the right memories.")
             
         except ImportError as e:
-            logger.warning(f"Model-based storage requires additional dependencies: {e}")
+            logger.warning(f"Vector-based storage requires additional dependencies: {e}")
             logger.warning("Install with: pip install sentence-transformers transformers torch")
         except Exception as e:
-            logger.error(f"Error with model-based storage: {e}")
+            logger.error(f"Error with vector-based storage: {e}")
 
 
 def example_legacy_interface():
@@ -169,7 +169,7 @@ def example_legacy_interface():
 
 
 def example_comparison():
-    """Example: Comparing JSON vs Model-based storage"""
+    """Example: Comparing JSON vs Vector-based storage"""
     
     logger.info("\n\n=== Storage Type Comparison ===\n")
     
@@ -196,9 +196,9 @@ def example_comparison():
         for memory in results['memories']:
             logger.info(f"   - {memory['content']}")
         
-        # Model-Based Storage
+        # Vector-Based Storage
         try:
-            logger.info("\n2. Model-Based Storage (semantic search):")
+            logger.info("\n2. Vector-Based Storage (semantic search):")
             model_storage = MemoryStorageFactory.create(
                 "model",
                 Path(tmpdir) / "model",
@@ -218,7 +218,7 @@ def example_comparison():
             logger.info("\n✓ Semantic search understands 'kitten'≈'cat' and 'rug'≈'mat'!")
             
         except (ImportError, Exception) as e:
-            logger.warning(f"Model-based storage skipped: {e}")
+            logger.warning(f"Vector-based storage skipped: {e}")
 
 
 def main():
@@ -232,7 +232,7 @@ def main():
         # Example 1: JSON storage
         example_json_storage()
         
-        # Example 2: Model-based storage
+        # Example 2: Vector-based storage
         example_model_storage()
         
         # Example 3: Legacy interface

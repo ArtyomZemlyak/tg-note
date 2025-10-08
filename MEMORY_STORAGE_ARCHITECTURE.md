@@ -15,7 +15,7 @@ Before:
 After:
   BaseMemoryStorage (Abstract Interface)
     ├── JsonMemoryStorage (JSON-based, default)
-    └── ModelBasedMemoryStorage (AI-powered semantic search)
+    └── VectorBasedMemoryStorage (AI-powered semantic search)
   
   MemoryStorageFactory (Creates appropriate storage)
   MemoryStorage (Legacy wrapper - backward compatible)
@@ -65,7 +65,7 @@ If you want AI-powered semantic search:
    ```yaml
    # In config.yaml
    MEM_AGENT_STORAGE_TYPE: model
-   MEM_AGENT_MODEL: driaforall/mem-agent
+   MEM_AGENT_MODEL: BAAI/bge-m3
    ```
    
    Or use environment variables:
@@ -93,7 +93,7 @@ storage = MemoryStorageFactory.create(
 storage = MemoryStorageFactory.create(
     storage_type="model",
     data_dir=Path("data/memory"),
-    model_name="driaforall/mem-agent"
+    model_name="BAAI/bge-m3"
 )
 ```
 
@@ -109,7 +109,7 @@ storage = MemoryStorage(data_dir)
 storage = MemoryStorage(
     data_dir,
     storage_type="model",
-    model_name="driaforall/mem-agent"
+    model_name="BAAI/bge-m3"
 )
 ```
 
@@ -284,7 +284,7 @@ The model couldn't be downloaded from HuggingFace.
 First run downloads the model (~400 MB). Subsequent runs load from cache (~2-5 seconds).
 
 **Solutions:**
-- Pre-download model: `huggingface-cli download driaforall/mem-agent`
+- Pre-download model: `huggingface-cli download BAAI/bge-m3`
 - Use JSON storage if speed is critical
 - Model is loaded once per process
 
@@ -299,7 +299,7 @@ A: Start with JSON (default). Switch to model-based if you need semantic search.
 **Q: Can I switch storage types later?**
 A: Yes, just update the config. Existing data is preserved (both use same data directory structure).
 
-**Q: Is the driaforall/mem-agent model required?**
+**Q: Is the BAAI/bge-m3 model required?**
 A: Only for model-based storage. JSON storage works without it.
 
 **Q: Can I use a different model?**

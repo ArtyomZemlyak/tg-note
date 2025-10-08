@@ -12,7 +12,7 @@ from loguru import logger
 
 from .base import BaseMemoryStorage
 from .json_storage import JsonMemoryStorage
-from .model_storage import ModelBasedMemoryStorage
+from .model_storage import VectorBasedMemoryStorage
 
 
 class MemoryStorageFactory:
@@ -29,7 +29,7 @@ class MemoryStorageFactory:
     # Registry of available storage types
     STORAGE_TYPES = {
         "json": JsonMemoryStorage,
-        "model": ModelBasedMemoryStorage,
+        "model": VectorBasedMemoryStorage,
     }
     
     @classmethod
@@ -81,7 +81,7 @@ class MemoryStorageFactory:
                     )
                 storage = storage_class(data_dir=data_dir, model_name=model_name)
                 logger.info(
-                    f"[MemoryStorageFactory] Created ModelBasedMemoryStorage "
+                    f"[MemoryStorageFactory] Created VectorBasedMemoryStorage "
                     f"with model '{model_name}' at {data_dir}"
                 )
             

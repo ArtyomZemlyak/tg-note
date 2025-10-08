@@ -167,7 +167,7 @@ def main():
     )
     
     # Get defaults from config if available
-    default_model = app_settings.MEM_AGENT_MODEL if CONFIG_AVAILABLE else "driaforall/mem-agent"
+    default_model = app_settings.MEM_AGENT_MODEL if CONFIG_AVAILABLE else "BAAI/bge-m3"
     default_precision = app_settings.MEM_AGENT_MODEL_PRECISION if CONFIG_AVAILABLE else "4bit"
     
     parser.add_argument(
@@ -230,7 +230,7 @@ def main():
     print("   - When needed: Agent searches notes to recall previously recorded info")
     print("   - Within session: Maintains working memory across multiple LLM calls")
     print("5. You can change settings in config.yaml or .env:")
-    print("   - MEM_AGENT_MODEL (default: driaforall/mem-agent)")
+    print("   - MEM_AGENT_MODEL (default: BAAI/bge-m3)")
     print("   - MEM_AGENT_MEMORY_POSTFIX (default: memory)")
     print("   - Each user's notes are isolated in their own KB")
     print("\n")

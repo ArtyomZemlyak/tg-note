@@ -12,7 +12,7 @@ Currently, the following built-in MCP tools are available:
 
 #### Memory Agent Tool
 
-Personal note-taking and search system for the agent using the [mem-agent](https://huggingface.co/driaforall/mem-agent) model.
+Personal note-taking and search system for the agent using embeddings (e.g., [bge-m3](https://huggingface.co/BAAI/bge-m3)).
 
 **Purpose:**
 This tool is specifically designed for the main agent to:
@@ -294,6 +294,6 @@ See `examples/mcp_memory_agent_example.py` for complete working examples.
 ## References
 
 - [MCP Protocol Specification](https://modelcontextprotocol.io/)
-- [mem-agent Model](https://huggingface.co/driaforall/mem-agent)
+- [bge-m3 Model](https://huggingface.co/BAAI/bge-m3)
 - [mem-agent-mcp Server](https://github.com/firstbatchxyz/mem-agent-mcp)
 - [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk)
