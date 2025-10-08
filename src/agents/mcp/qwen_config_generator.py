@@ -3,6 +3,13 @@ Qwen CLI MCP Configuration Generator
 
 Generates .qwen/settings.json configuration for qwen CLI to connect to MCP servers.
 Supports both per-user and shared MCP servers.
+
+Transport Modes:
+- HTTP/SSE (default): Uses Server-Sent Events over HTTP for better compatibility
+- STDIO (legacy): Uses stdio-based JSON-RPC communication
+
+Default: HTTP/SSE mode (use_http=True)
+For STDIO mode, set use_http=False
 """
 
 import json
@@ -16,13 +23,13 @@ from loguru import logger
 class QwenMCPConfigGenerator:
     """Generator for qwen CLI MCP configuration"""
     
-    def __init__(self, user_id: Optional[int] = None, use_http: bool = False, http_port: int = 8765):
+    def __init__(self, user_id: Optional[int] = None, use_http: bool = True, http_port: int = 8765):
         """
         Initialize config generator
         
         Args:
             user_id: Optional user ID for per-user MCP servers
-            use_http: Use HTTP/SSE transport instead of stdio
+            use_http: Use HTTP/SSE transport instead of stdio (default: True)
             http_port: Port for HTTP server (default: 8765)
         """
         self.user_id = user_id
@@ -182,7 +189,7 @@ def setup_qwen_mcp_config(
     user_id: Optional[int] = None,
     kb_path: Optional[Path] = None,
     global_config: bool = True,
-    use_http: bool = False,
+    use_http: bool = True,
     http_port: int = 8765
 ) -> List[Path]:
     """
@@ -197,7 +204,7 @@ def setup_qwen_mcp_config(
         user_id: Optional user ID for per-user MCP servers
         kb_path: Optional path to knowledge base directory
         global_config: Whether to save to global ~/.qwen/settings.json
-        use_http: Use HTTP/SSE transport instead of stdio (default: False)
+        use_http: Use HTTP/SSE transport instead of stdio (default: True)
         http_port: Port for HTTP server (default: 8765)
         
     Returns:

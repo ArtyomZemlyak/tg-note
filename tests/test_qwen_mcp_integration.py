@@ -317,27 +317,50 @@ class TestQwenMCPConfigGenerator:
         assert "mem-agent" in config["allowMCPServers"]
     
     def test_mem_agent_config(self, generator):
-        """Test mem-agent configuration"""
+        """Test mem-agent configuration (HTTP mode by default)"""
+        config = generator._generate_mem_agent_config()
+        
+        assert config is not None
+        assert "url" in config
+        assert "trust" in config
+        assert config["trust"] is True
+        assert config["url"] == "http://127.0.0.1:8765/sse"
+        
+        # HTTP mode doesn't use user-id in config (handled by server)
+        assert "timeout" in config
+    
+    def test_mem_agent_config_no_user_id(self):
+        """Test mem-agent config without user ID (HTTP mode)"""
+        generator = QwenMCPConfigGenerator(user_id=None)
+        config = generator._generate_mem_agent_config()
+        
+        assert config is not None
+        assert "url" in config
+        assert config["url"] == "http://127.0.0.1:8765/sse"
+    
+    def test_mem_agent_config_stdio_mode(self):
+        """Test mem-agent config in STDIO mode (backward compatibility)"""
+        generator = QwenMCPConfigGenerator(user_id=123, use_http=False)
         config = generator._generate_mem_agent_config()
         
         assert config is not None
         assert "command" in config
         assert "args" in config
         assert "cwd" in config
-        assert "trust" in config
-        assert config["trust"] is True
+        assert config["command"] == "python3"
         
-        # Should include user-id argument
+        # Should include user-id argument in STDIO mode
         assert "--user-id" in config["args"]
         assert "123" in config["args"]
     
-    def test_mem_agent_config_no_user_id(self):
-        """Test mem-agent config without user ID"""
-        generator = QwenMCPConfigGenerator(user_id=None)
+    def test_mem_agent_config_custom_port(self):
+        """Test mem-agent config with custom HTTP port"""
+        generator = QwenMCPConfigGenerator(user_id=None, use_http=True, http_port=9000)
         config = generator._generate_mem_agent_config()
         
         assert config is not None
-        assert "--user-id" not in config["args"]
+        assert "url" in config
+        assert config["url"] == "http://127.0.0.1:9000/sse"
     
     def test_save_to_qwen_dir(self, generator):
         """Test saving to qwen directory"""

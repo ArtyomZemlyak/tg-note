@@ -109,6 +109,9 @@ class QwenCodeCLIAgent(BaseAgent):
         
         Generates .qwen/settings.json with our MCP servers configuration.
         This allows qwen CLI to connect to our MCP servers.
+        
+        Note: Uses HTTP/SSE transport by default (use_http=True).
+        For STDIO mode, pass use_http=False to setup_qwen_mcp_config().
         """
         try:
             from .mcp.qwen_config_generator import setup_qwen_mcp_config
@@ -116,7 +119,7 @@ class QwenCodeCLIAgent(BaseAgent):
             # Determine where to save config
             kb_path = Path(self.working_directory) if self.working_directory else None
             
-            # Generate and save configuration
+            # Generate and save configuration (HTTP/SSE mode by default)
             saved_paths = setup_qwen_mcp_config(
                 user_id=self.user_id,
                 kb_path=kb_path,
@@ -125,7 +128,7 @@ class QwenCodeCLIAgent(BaseAgent):
             
             logger.info(f"[QwenCodeCLIAgent] MCP configuration saved to: {saved_paths}")
             logger.info(
-                "[QwenCodeCLIAgent] MCP servers configured: mem-agent (memory storage/retrieval)"
+                "[QwenCodeCLIAgent] MCP servers configured: mem-agent (memory storage/retrieval) [HTTP/SSE mode]"
             )
             
         except Exception as e:
