@@ -328,9 +328,10 @@ class MCPServerManager:
         try:
             from .qwen_config_generator import setup_qwen_mcp_config
             
-            logger.info("[MCPServerManager] Creating Qwen CLI MCP configuration at ~/.qwen/settings.json")
+            logger.info("[MCPServerManager] Creating Qwen CLI MCP configuration at ~/.qwen/settings.json (HTTP/SSE mode)")
             
             # Generate and save configuration (global only, no KB-specific)
+            # HTTP/SSE mode is default (use_http=True)
             saved_paths = setup_qwen_mcp_config(
                 user_id=None,  # No user-specific config
                 kb_path=None,  # No KB-specific config

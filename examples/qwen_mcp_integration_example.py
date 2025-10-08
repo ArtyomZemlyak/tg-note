@@ -1,17 +1,21 @@
 """
-Example: Qwen CLI with MCP Integration
+Example: Qwen CLI with MCP Integration (HTTP Mode)
 
-This example demonstrates how to use QwenCodeCLIAgent with MCP support.
+This example demonstrates how to use QwenCodeCLIAgent with MCP support using HTTP/SSE transport.
 
 The agent will:
-1. Automatically generate .qwen/settings.json configuration
-2. Configure mem-agent MCP server (memory storage/retrieval)
-3. Qwen CLI will connect to the MCP server
+1. Automatically generate .qwen/settings.json configuration (HTTP mode)
+2. Configure mem-agent MCP server with HTTP/SSE transport
+3. Qwen CLI will connect to the HTTP MCP server via SSE
 4. MCP tools will be available to the LLM
 
 Prerequisites:
 - qwen CLI installed: npm install -g @qwen-code/qwen-code@latest
 - qwen CLI authenticated: qwen (follow prompts)
+- HTTP server running: python3 -m src.agents.mcp.mem_agent_server_http
+
+Note: HTTP/SSE mode is now the default (use_http=True).
+For STDIO mode, set use_http=False in setup_qwen_mcp_config().
 """
 
 import asyncio
@@ -94,17 +98,18 @@ async def example_manual_config():
     """Manual MCP configuration without agent"""
     
     print("\n" + "=" * 80)
-    print("Example 2: Manual MCP Configuration")
+    print("Example 2: Manual MCP Configuration (HTTP Mode)")
     print("=" * 80)
     
     # Manually generate qwen MCP config
     from src.agents.mcp.qwen_config_generator import QwenMCPConfigGenerator
     
+    # HTTP mode is default (use_http=True)
     generator = QwenMCPConfigGenerator(user_id=456)
     
     # Preview configuration
     config_json = generator.get_config_json()
-    print("\nGenerated configuration:")
+    print("\nGenerated configuration (HTTP/SSE):")
     print(config_json)
     
     # Save to specific location
@@ -113,6 +118,14 @@ async def example_manual_config():
     
     saved_path = generator.save_to_kb_dir(kb_path)
     print(f"\n✅ Configuration saved to: {saved_path}")
+    
+    # Example: Generate STDIO config (backward compatibility)
+    print("\n" + "-" * 80)
+    print("Alternative: STDIO mode (for backward compatibility)")
+    generator_stdio = QwenMCPConfigGenerator(user_id=456, use_http=False)
+    config_stdio = generator_stdio.get_config_json()
+    print("\nGenerated configuration (STDIO):")
+    print(config_stdio)
 
 
 async def example_standalone_mcp_server():
@@ -224,10 +237,18 @@ async def main():
     print("Examples completed!")
     print("=" * 80)
     print("\n📚 Next steps:")
-    print("1. Check ~/.qwen/settings.json to see generated configuration")
-    print("2. Run: qwen (CLI will connect to configured MCP servers)")
-    print("3. Test MCP tools in qwen CLI")
-    print("4. Check data/memory/user_*/memory.json for stored memories")
+    print("1. Start HTTP server: python3 -m src.agents.mcp.mem_agent_server_http")
+    print("2. Check ~/.qwen/settings.json to see generated configuration")
+    print("3. Run: qwen (CLI will connect to configured MCP servers)")
+    print("4. Test MCP tools in qwen CLI")
+    print("5. Check data/memory/user_*/memory.json for stored memories")
+    print("\n🔧 Configuration:")
+    print("- HTTP mode (default): use_http=True, port 8765")
+    print("- STDIO mode (legacy): use_http=False")
+    print("\n📖 Documentation:")
+    print("- Setup guide: docs_site/agents/mem-agent-setup.md")
+    print("- HTTP server: src/agents/mcp/mem_agent_server_http.py")
+    print("- Test script: scripts/test_mem_agent_connection.sh")
 
 
 if __name__ == "__main__":

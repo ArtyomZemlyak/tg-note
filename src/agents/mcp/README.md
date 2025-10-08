@@ -6,6 +6,15 @@ This directory contains MCP (Model Context Protocol) support for the autonomous 
 
 MCP is a protocol for connecting AI agents to external tools and data sources. The implementation here allows the autonomous agent to communicate with MCP servers and use their tools seamlessly.
 
+### Transport Modes
+
+This implementation supports two transport modes:
+
+- **HTTP/SSE (default)**: Uses Server-Sent Events over HTTP for better compatibility and reliability
+- **STDIO (legacy)**: Uses stdio-based JSON-RPC communication
+
+As of the latest update, HTTP/SSE is the default mode for `mem-agent` MCP server configurations. To use STDIO mode, set `use_http=False` when calling `setup_qwen_mcp_config()`.
+
 ## Architecture
 
 ```
@@ -34,7 +43,8 @@ The MCP client handles communication with MCP servers:
 - ✅ Resources (resources/list, resources/read)
 - ✅ Prompts (prompts/list, prompts/get)
 - ✅ JSON-RPC 2.0 protocol
-- ✅ Stdio transport
+- ✅ HTTP/SSE transport (default for mem-agent)
+- ✅ Stdio transport (legacy)
 
 **Usage:**
 ```python
