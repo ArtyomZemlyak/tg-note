@@ -19,6 +19,7 @@ from src.knowledge_base.user_settings import UserSettings
 from src.bot.settings_manager import SettingsManager
 from src.services.interfaces import IUserContextManager, IMessageProcessor
 from src.mcp_registry.manager import MCPServersManager
+from src.core.background_task_manager import BackgroundTaskManager
 
 
 class TelegramBot:
@@ -34,6 +35,7 @@ class TelegramBot:
         settings_manager: SettingsManager,
         user_context_manager: IUserContextManager,
         message_processor: IMessageProcessor,
+        background_task_manager: BackgroundTaskManager,
     ):
         self.bot = bot
         self.bot_adapter = bot_adapter
@@ -43,6 +45,7 @@ class TelegramBot:
         self.settings_manager = settings_manager
         self.user_context_manager = user_context_manager
         self.message_processor = message_processor
+        self.background_task_manager = background_task_manager
         
         # Initialize handlers (with cross-references for cache invalidation)
         self.handlers = BotHandlers(
@@ -85,6 +88,10 @@ class TelegramBot:
             )
             logger.info(f"Bot connected: @{bot_info.username} ({bot_info.first_name})")
             
+            # Start background task manager
+            self.background_task_manager.start()
+            logger.info("Background task manager started")
+            
             # Start background tasks for message aggregator
             self.handlers.start_background_tasks()
             
@@ -124,9 +131,16 @@ class TelegramBot:
         
         # Stop background tasks
         try:
-            self.handlers.stop_background_tasks()
+            await self.handlers.stop_background_tasks()
         except Exception as e:
             logger.warning(f"Error stopping background tasks: {e}")
+        
+        # Stop background task manager
+        try:
+            await self.background_task_manager.stop()
+            logger.info("Background task manager stopped")
+        except Exception as e:
+            logger.warning(f"Error stopping background task manager: {e}")
         
         # Cancel polling task
         if self._polling_task and not self._polling_task.done():

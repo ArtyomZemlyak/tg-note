@@ -115,18 +115,18 @@ class BotHandlers:
         """Check if message is a command"""
         return message.text and message.text.startswith('/')
     
-    def invalidate_user_cache(self, user_id: int) -> None:
+    async def invalidate_user_cache(self, user_id: int) -> None:
         """Invalidate cached user-specific components"""
-        self.user_context_manager.invalidate_cache(user_id)
+        await self.user_context_manager.invalidate_cache(user_id)
     
     def start_background_tasks(self) -> None:
         """Start background tasks"""
         self.logger.info("Starting background tasks")
     
-    def stop_background_tasks(self) -> None:
+    async def stop_background_tasks(self) -> None:
         """Stop background tasks"""
         self.logger.info("Stopping background tasks")
-        self.user_context_manager.cleanup()
+        await self.user_context_manager.cleanup()
     
     async def _handle_timeout(self, chat_id: int, group: MessageGroup) -> None:
         """Handle timed-out message group"""

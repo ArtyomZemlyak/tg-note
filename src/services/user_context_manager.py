@@ -4,7 +4,7 @@ Manages user-specific contexts (aggregators, agents, modes, conversation context
 Follows Single Responsibility Principle
 """
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from loguru import logger
 
 from src.services.interfaces import IUserContextManager
@@ -12,6 +12,7 @@ from src.processor.message_aggregator import MessageAggregator
 from src.agents.agent_factory import AgentFactory
 from src.bot.settings_manager import SettingsManager
 from src.services.conversation_context import ConversationContextManager
+from src.core.background_task_manager import BackgroundTaskManager
 
 
 class UserContextManager(IUserContextManager):
@@ -23,12 +24,14 @@ class UserContextManager(IUserContextManager):
     - Create and cache user-specific agents
     - Manage user modes (note/ask)
     - Invalidate user caches when settings change
+    - Управление жизненным циклом агрегаторов через BackgroundTaskManager
     """
     
     def __init__(
         self,
         settings_manager: SettingsManager,
         conversation_context_manager: ConversationContextManager,
+        background_task_manager: Optional[BackgroundTaskManager] = None,
         timeout_callback=None
     ):
         """
@@ -37,10 +40,12 @@ class UserContextManager(IUserContextManager):
         Args:
             settings_manager: Settings manager for user-specific settings
             conversation_context_manager: Manager for conversation contexts
+            background_task_manager: Централизованный менеджер фоновых задач
             timeout_callback: Callback for message aggregator timeouts
         """
         self.settings_manager = settings_manager
         self.conversation_context_manager = conversation_context_manager
+        self.background_task_manager = background_task_manager
         self.timeout_callback = timeout_callback
         
         # User-specific caches
@@ -65,9 +70,16 @@ class UserContextManager(IUserContextManager):
             timeout = self.settings_manager.get_setting(user_id, "MESSAGE_GROUP_TIMEOUT")
             self.logger.info(f"Creating MessageAggregator for user {user_id} with timeout {timeout}s")
             
-            aggregator = MessageAggregator(timeout)
+            # Создать агрегатор с поддержкой BackgroundTaskManager
+            aggregator = MessageAggregator(
+                timeout=timeout,
+                user_id=user_id,
+                task_manager=self.background_task_manager
+            )
             if self.timeout_callback:
                 aggregator.set_timeout_callback(self.timeout_callback)
+            
+            # Запустить фоновую задачу (будет управляться через BackgroundTaskManager)
             aggregator.start_background_task()
             
             self.user_aggregators[user_id] = aggregator
@@ -211,7 +223,7 @@ class UserContextManager(IUserContextManager):
         """
         self.conversation_context_manager.clear_context(user_id)
     
-    def invalidate_cache(self, user_id: int) -> None:
+    async def invalidate_cache(self, user_id: int) -> None:
         """
         Invalidate cached user-specific components
         
@@ -222,20 +234,23 @@ class UserContextManager(IUserContextManager):
         
         # Stop and remove user's message aggregator
         if user_id in self.user_aggregators:
-            self.user_aggregators[user_id].stop_background_task()
+            await self.user_aggregators[user_id].stop_background_task()
             del self.user_aggregators[user_id]
         
         # Remove user's agent
         if user_id in self.user_agents:
             del self.user_agents[user_id]
     
-    def cleanup(self) -> None:
+    async def cleanup(self) -> None:
         """Cleanup all user contexts"""
         self.logger.info("Cleaning up all user contexts")
         
         # Stop all user aggregators
-        for aggregator in self.user_aggregators.values():
-            aggregator.stop_background_task()
+        import asyncio
+        await asyncio.gather(
+            *[aggregator.stop_background_task() for aggregator in self.user_aggregators.values()],
+            return_exceptions=True
+        )
         
         self.user_aggregators.clear()
         self.user_agents.clear()

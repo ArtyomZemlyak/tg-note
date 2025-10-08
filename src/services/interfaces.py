@@ -34,12 +34,12 @@ class IUserContextManager(ABC):
         pass
     
     @abstractmethod
-    def invalidate_cache(self, user_id: int) -> None:
+    async def invalidate_cache(self, user_id: int) -> None:
         """Invalidate cached user-specific components"""
         pass
     
     @abstractmethod
-    def cleanup(self) -> None:
+    async def cleanup(self) -> None:
         """Cleanup all user contexts"""
         pass
 

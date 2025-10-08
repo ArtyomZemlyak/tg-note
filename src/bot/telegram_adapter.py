@@ -16,16 +16,34 @@ class TelegramBotAdapter(BotPort):
     Telegram implementation of BotPort interface
     
     This adapter wraps AsyncTeleBot and provides a clean interface
-    for bot operations, following the Adapter pattern
+    for bot operations, following the Adapter pattern.
+    Includes retry and throttling mechanisms via BotPort base class.
     """
     
-    def __init__(self, bot: AsyncTeleBot):
+    def __init__(
+        self,
+        bot: AsyncTeleBot,
+        max_retries: int = 3,
+        retry_delay: float = 1.0,
+        rate_limit: float = 30.0,
+        rate_limit_period: float = 1.0
+    ):
         """
         Initialize Telegram bot adapter
         
         Args:
             bot: AsyncTeleBot instance
+            max_retries: Максимальное количество повторов при ошибке
+            retry_delay: Начальная задержка между повторами (секунды)
+            rate_limit: Количество запросов для rate limiting
+            rate_limit_period: Период для rate limiting (секунды)
         """
+        super().__init__(
+            max_retries=max_retries,
+            retry_delay=retry_delay,
+            rate_limit=rate_limit,
+            rate_limit_period=rate_limit_period
+        )
         self._bot = bot
     
     @property
@@ -38,14 +56,14 @@ class TelegramBotAdapter(BotPort):
         """
         return self._bot
     
-    async def send_message(
+    async def _send_message_impl(
         self,
         chat_id: int,
         text: str,
         **kwargs
     ) -> Message:
         """
-        Send a message to a chat
+        Реализация отправки сообщения (без retry/throttling)
         
         Args:
             chat_id: Chat identifier
@@ -57,14 +75,14 @@ class TelegramBotAdapter(BotPort):
         """
         return await self._bot.send_message(chat_id, text, **kwargs)
     
-    async def reply_to(
+    async def _reply_to_impl(
         self,
         message: Message,
         text: str,
         **kwargs
     ) -> Message:
         """
-        Reply to a message
+        Реализация ответа на сообщение (без retry/throttling)
         
         Args:
             message: Original Telegram message to reply to
@@ -76,7 +94,7 @@ class TelegramBotAdapter(BotPort):
         """
         return await self._bot.reply_to(message, text, **kwargs)
     
-    async def edit_message_text(
+    async def _edit_message_text_impl(
         self,
         text: str,
         chat_id: int,
@@ -84,7 +102,7 @@ class TelegramBotAdapter(BotPort):
         **kwargs
     ) -> Any:
         """
-        Edit a message text
+        Реализация редактирования сообщения (без retry/throttling)
         
         Args:
             text: New message text

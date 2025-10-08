@@ -7,6 +7,7 @@ from loguru import logger
 
 from config import settings
 from src.core.container import Container
+from src.core.background_task_manager import BackgroundTaskManager
 from src.tracker.processing_tracker import ProcessingTracker
 from src.knowledge_base.repository import RepositoryManager
 from src.knowledge_base.user_settings import UserSettings
@@ -34,6 +35,13 @@ def configure_services(container: Container) -> None:
     
     # Register singleton instances
     container.register_instance("settings", settings)
+    
+    # Register background task manager
+    container.register(
+        "background_task_manager",
+        lambda c: BackgroundTaskManager(),
+        singleton=True
+    )
     
     # Register MCP server manager
     container.register(
@@ -93,10 +101,16 @@ def configure_services(container: Container) -> None:
         singleton=True
     )
     
-    # Register bot adapter (transport abstraction)
+    # Register bot adapter (transport abstraction) with retry and rate limiting
     container.register(
         "bot_adapter",
-        lambda c: TelegramBotAdapter(c.get("async_bot")),
+        lambda c: TelegramBotAdapter(
+            bot=c.get("async_bot"),
+            max_retries=3,
+            retry_delay=1.0,
+            rate_limit=30.0,  # 30 запросов
+            rate_limit_period=1.0  # в секунду
+        ),
         singleton=True
     )
     
@@ -106,6 +120,7 @@ def configure_services(container: Container) -> None:
         lambda c: UserContextManager(
             settings_manager=c.get("settings_manager"),
             conversation_context_manager=c.get("conversation_context_manager"),
+            background_task_manager=c.get("background_task_manager"),
             timeout_callback=None  # Will be set later by message processor
         ),
         singleton=True
@@ -170,6 +185,7 @@ def configure_services(container: Container) -> None:
             settings_manager=c.get("settings_manager"),
             user_context_manager=c.get("user_context_manager"),
             message_processor=c.get("message_processor"),
+            background_task_manager=c.get("background_task_manager"),
         ),
         singleton=True
     )
