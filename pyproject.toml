@@ -37,7 +37,7 @@ dependencies = [
     "openai>=1.0.0",
     # Utilities
     "aiohttp==3.9.1",
-    "requests==2.31.0",
+    "requests>=2.32.2,<3.0.0",
     # Logging
     "loguru==0.7.2",
     # Document processing
