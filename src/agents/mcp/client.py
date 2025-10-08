@@ -44,6 +44,8 @@ class MCPServerConfig:
     args: List[str]
     env: Optional[Dict[str, str]] = None
     cwd: Optional[Path] = None
+    transport: str = "stdio"  # "stdio" or "sse" (HTTP Server-Sent Events)
+    url: Optional[str] = None  # URL for SSE transport (e.g., "http://127.0.0.1:8765/sse")
 
 
 class MCPClient:

@@ -73,7 +73,7 @@ class TestAgentFactory:
         mock_settings.AGENT_ENABLE_FILE_MANAGEMENT = True
         mock_settings.AGENT_ENABLE_FOLDER_MANAGEMENT = True
         mock_settings.AGENT_ENABLE_MCP = False
-        # Note: AGENT_ENABLE_MCP_MEMORY removed - MCP memory is always enabled
+        mock_settings.AGENT_ENABLE_MCP_MEMORY = False
         mock_settings.AGENT_QWEN_CLI_PATH = "qwen"
         mock_settings.AGENT_TIMEOUT = 300
         mock_settings.KB_PATH = "./knowledge_base"
@@ -100,7 +100,7 @@ class TestAgentFactory:
         mock_settings.AGENT_ENABLE_FILE_MANAGEMENT = True
         mock_settings.AGENT_ENABLE_FOLDER_MANAGEMENT = True
         mock_settings.AGENT_ENABLE_MCP = False
-        # Note: AGENT_ENABLE_MCP_MEMORY removed - MCP memory is always enabled
+        mock_settings.AGENT_ENABLE_MCP_MEMORY = False
         mock_settings.AGENT_QWEN_CLI_PATH = "qwen"
         mock_settings.AGENT_TIMEOUT = 300
         mock_settings.KB_PATH = "./knowledge_base"

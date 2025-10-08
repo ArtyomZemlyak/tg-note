@@ -115,6 +115,7 @@ def build_default_tool_manager(
     enable_folder_management: bool = True,
     enable_vector_search: bool = False,
     enable_mcp: bool = False,
+    enable_mcp_memory: bool = False,
     github_token: Optional[str] = None,
     vector_search_manager: Optional[Any] = None,
     get_current_plan: Optional[Any] = None,
@@ -126,8 +127,6 @@ def build_default_tool_manager(
     
     Auto-discovers tools from tool modules and registers them based on configuration.
     
-    NOTE: MCP memory agent is ALWAYS enabled for all agents.
-    
     Args:
         kb_root_path: Root path of knowledge base
         base_agent_class: BaseAgent class for utility methods
@@ -138,7 +137,8 @@ def build_default_tool_manager(
         enable_file_management: Enable file management tools
         enable_folder_management: Enable folder management tools
         enable_vector_search: Enable vector search tools
-        enable_mcp: Enable additional MCP (Model Context Protocol) servers discovery
+        enable_mcp: Enable MCP (Model Context Protocol) support
+        enable_mcp_memory: Enable MCP memory agent tool (mem-agent HTTP server)
         github_token: Optional GitHub API token
         vector_search_manager: Optional vector search manager
         get_current_plan: Callback to get current TODO plan
@@ -208,19 +208,19 @@ def build_default_tool_manager(
         from . import vector_search_tools
         manager.register_many(vector_search_tools.ALL_TOOLS)
     
-    # MCP Memory Agent Tools - ALWAYS ENABLED
-    # All agents use mem-agent MCP HTTP server for memory storage/retrieval
-    try:
-        from ..mcp import memory_agent_tool
-        # Enable MCP tools before registering
-        for tool in memory_agent_tool.ALL_TOOLS:
-            tool.enable()
-        manager.register_many(memory_agent_tool.ALL_TOOLS)
-        logger.info("[ToolManager] MCP memory agent tools enabled (always on)")
-    except ImportError as e:
-        logger.warning(f"[ToolManager] Failed to import MCP memory tools: {e}")
-    except Exception as e:
-        logger.error(f"[ToolManager] Failed to initialize MCP memory tools: {e}")
+    # MCP Memory Agent Tools (when enabled) - Uses HTTP server
+    if enable_mcp_memory:
+        try:
+            from ..mcp import memory_agent_tool
+            # Enable MCP tools before registering
+            for tool in memory_agent_tool.ALL_TOOLS:
+                tool.enable()
+            manager.register_many(memory_agent_tool.ALL_TOOLS)
+            logger.info("[ToolManager] MCP memory agent tools enabled (HTTP server)")
+        except ImportError as e:
+            logger.warning(f"[ToolManager] Failed to import MCP memory tools: {e}")
+        except Exception as e:
+            logger.error(f"[ToolManager] Failed to initialize MCP memory tools: {e}")
     
     # Additional MCP tools - Dynamic discovery and registration
     if enable_mcp:

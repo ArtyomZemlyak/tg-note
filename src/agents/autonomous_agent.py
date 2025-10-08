@@ -240,7 +240,8 @@ class AutonomousAgent(BaseAgent):
         kb_root_path: Optional[Path] = None,
         enable_vector_search: bool = False,
         vector_search_manager: Optional['VectorSearchManager'] = None,
-        enable_mcp: bool = False
+        enable_mcp: bool = False,
+        enable_mcp_memory: bool = False
     ):
         """
         Initialize autonomous agent
@@ -259,10 +260,8 @@ class AutonomousAgent(BaseAgent):
             kb_root_path: Root path for knowledge base
             enable_vector_search: Enable vector search tool
             vector_search_manager: Optional pre-configured vector search manager
-            enable_mcp: Enable additional MCP (Model Context Protocol) server discovery
-            
-        Note:
-            MCP memory agent is ALWAYS enabled for all autonomous agents.
+            enable_mcp: Enable MCP (Model Context Protocol) support
+            enable_mcp_memory: Enable MCP memory agent tool (mem-agent HTTP server)
         """
         super().__init__(config)
         
@@ -280,7 +279,7 @@ class AutonomousAgent(BaseAgent):
         self.enable_folder_management = enable_folder_management
         self.enable_vector_search = enable_vector_search
         self.enable_mcp = enable_mcp
-        # Note: MCP memory is always enabled via build_default_tool_manager
+        self.enable_mcp_memory = enable_mcp_memory
         
         # Knowledge base root path for safe file operations
         self.kb_root_path = kb_root_path or Path("./knowledge_base")
@@ -307,7 +306,6 @@ class AutonomousAgent(BaseAgent):
         self._mcp_tools_description: Optional[str] = None
         
         # Initialize tool manager and lightweight wrappers
-        # Note: MCP memory agent is ALWAYS enabled in build_default_tool_manager
         self.tool_manager: ToolManager = build_default_tool_manager(
             kb_root_path=self.kb_root_path,
             base_agent_class=BaseAgent,
@@ -319,6 +317,7 @@ class AutonomousAgent(BaseAgent):
             enable_folder_management=self.enable_folder_management,
             enable_vector_search=self.enable_vector_search,
             enable_mcp=self.enable_mcp,
+            enable_mcp_memory=self.enable_mcp_memory,
             github_token=self.config.get("github_token"),
             vector_search_manager=self.vector_search_manager,
             get_current_plan=lambda: self.current_plan,

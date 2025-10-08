@@ -140,11 +140,11 @@ class Settings(BaseSettings):
     # MCP (Model Context Protocol) Settings (can be in YAML)
     AGENT_ENABLE_MCP: bool = Field(
         default=False,
-        description="Enable additional MCP (Model Context Protocol) server discovery"
+        description="Enable MCP (Model Context Protocol) tools"
     )
     AGENT_ENABLE_MCP_MEMORY: bool = Field(
-        default=True,
-        description="[DEPRECATED] MCP memory agent is now ALWAYS enabled. This setting is kept for backward compatibility."
+        default=False,
+        description="Enable MCP memory agent tool (local mem-agent via HTTP)"
     )
     MCP_SERVERS_POSTFIX: str = Field(
         default=".mcp_servers",

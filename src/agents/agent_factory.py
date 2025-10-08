@@ -79,7 +79,7 @@ class AgentFactory:
             "enable_file_management": settings.AGENT_ENABLE_FILE_MANAGEMENT,
             "enable_folder_management": settings.AGENT_ENABLE_FOLDER_MANAGEMENT,
             "enable_mcp": settings.AGENT_ENABLE_MCP,
-            # Note: enable_mcp_memory removed - MCP memory is always enabled
+            "enable_mcp_memory": settings.AGENT_ENABLE_MCP_MEMORY,
             "qwen_cli_path": settings.AGENT_QWEN_CLI_PATH,
             "timeout": settings.AGENT_TIMEOUT,
             "kb_path": settings.KB_PATH,
@@ -98,45 +98,16 @@ def _register_default_agents():
     """Register default agent types in the registry"""
     registry = get_registry()
     
+    # Register simple agents
+    registry.register("stub", agent_class=StubAgent)
+    
     # Register agents with custom factories
-    registry.register("stub", factory=_create_stub_agent)
     registry.register("autonomous", factory=_create_autonomous_agent)
     registry.register("qwen_code_cli", factory=_create_qwen_cli_agent)
     
     # Backward compatibility aliases
     registry.register("qwen_code", factory=_create_autonomous_agent)
     registry.register("openai", factory=_create_autonomous_agent)
-
-
-def _create_stub_agent(config: Dict) -> StubAgent:
-    """
-    Create Stub Agent with kb_root_path for MCP memory support
-    
-    Args:
-        config: Configuration dictionary
-    
-    Returns:
-        StubAgent instance
-    """
-    # Determine kb_root_path based on kb_topics_only setting
-    kb_path = Path(config.get("kb_path", "./knowledge_base"))
-    kb_topics_only = config.get("kb_topics_only", True)
-    
-    if kb_topics_only:
-        kb_root_path = kb_path / "topics"
-        logger.info(f"Restricting stub agent to topics folder: {kb_root_path}")
-    else:
-        kb_root_path = kb_path
-        logger.info(f"Stub agent has full access to knowledge base: {kb_root_path}")
-    
-    # Ensure kb_root_path exists
-    try:
-        kb_root_path.mkdir(parents=True, exist_ok=True)
-        logger.debug(f"Ensured KB root path exists: {kb_root_path}")
-    except Exception as e:
-        logger.warning(f"Could not create KB root path {kb_root_path}: {e}")
-    
-    return StubAgent(config=config, kb_root_path=kb_root_path)
 
 
 def _create_autonomous_agent(config: Dict) -> AutonomousAgent:
@@ -194,7 +165,6 @@ def _create_autonomous_agent(config: Dict) -> AutonomousAgent:
         logger.warning(f"Could not create KB root path {kb_root_path}: {e}")
     
     # Create autonomous agent
-    # Note: MCP memory is always enabled via build_default_tool_manager
     return AutonomousAgent(
         llm_connector=llm_connector,
         config=config,
@@ -207,6 +177,7 @@ def _create_autonomous_agent(config: Dict) -> AutonomousAgent:
         enable_file_management=config.get("enable_file_management", True),
         enable_folder_management=config.get("enable_folder_management", True),
         enable_mcp=config.get("enable_mcp", False),
+        enable_mcp_memory=config.get("enable_mcp_memory", False),
         kb_root_path=kb_root_path
     )
 
