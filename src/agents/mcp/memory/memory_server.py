@@ -25,8 +25,9 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
-# Import shared memory storage
+# Import shared memory storage and factory
 from src.agents.mcp.memory.memory_storage import MemoryStorage
+from src.agents.mcp.memory.memory_factory import MemoryStorageFactory
 
 # Configure logger for standalone mode
 logger.remove()
@@ -70,10 +71,32 @@ class MemoryMCPServer:
             data_dir = Path("data/memory/shared")
             logger.info(f"Using shared memory path: {data_dir}")
         
-        # MemoryStorage will create the directory automatically
-        self.storage = MemoryStorage(data_dir)
+        # Get storage type from environment (default: json)
+        # Can be "json", "vector", or "mem-agent"
+        storage_type = os.getenv('MEM_AGENT_STORAGE_TYPE', 'json')
         
-        logger.info(f"MCP Server initialized (user_id={user_id}, data_dir={data_dir})")
+        # Create storage using factory or legacy wrapper
+        if storage_type != 'json':
+            # Use factory for non-default storage types
+            try:
+                model_name = os.getenv('MEM_AGENT_MODEL', None)
+                use_vllm = os.getenv('MEM_AGENT_USE_VLLM', 'true').lower() == 'true'
+                
+                self.storage = MemoryStorageFactory.create(
+                    storage_type=storage_type,
+                    data_dir=data_dir,
+                    model_name=model_name,
+                    use_vllm=use_vllm
+                )
+                logger.info(f"Created {storage_type} storage via factory")
+            except Exception as e:
+                logger.warning(f"Failed to create {storage_type} storage: {e}. Falling back to json.")
+                self.storage = MemoryStorage(data_dir)
+        else:
+            # Use legacy wrapper for JSON (default)
+            self.storage = MemoryStorage(data_dir)
+        
+        logger.info(f"MCP Server initialized (user_id={user_id}, storage_type={storage_type}, data_dir={data_dir})")
     
     async def handle_list_tools(self) -> List[Dict[str, Any]]:
         """

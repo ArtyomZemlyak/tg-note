@@ -127,7 +127,7 @@ MEM_AGENT_MEMORY_SIZE_LIMIT: 104857600  # 100MB
 ### Standalone Usage
 
 ```python
-from src.agents.mem_agent import Agent
+from src.agents.mcp.memory.mem_agent_impl import Agent
 
 # Create agent
 agent = Agent(
@@ -196,16 +196,16 @@ The mem-agent integrates seamlessly with existing settings:
 
 ```python
 # Main imports
-from src.agents.mem_agent import Agent, AgentResponse
+from src.agents.mcp.memory.mem_agent_impl import Agent, AgentResponse
 
 # MCP server
-from src.agents.mem_agent.mcp_server import run_server
+from src.agents.mcp.memory.mem_agent_impl.mcp_server import run_server
 
 # Settings
-from src.agents.mem_agent.settings import get_memory_path
+from src.agents.mcp.memory.mem_agent_impl.settings import get_memory_path
 
 # Schemas
-from src.agents.mem_agent.schemas import ChatMessage, Role
+from src.agents.mcp.memory.mem_agent_impl.schemas import ChatMessage, Role
 ```
 
 ## Agent Response Format
@@ -319,7 +319,7 @@ curl http://127.0.0.1:8000/v1/models
 
 ```python
 # Verify memory path exists and is writable
-from src.agents.mem_agent.settings import get_memory_path
+from src.agents.mcp.memory.mem_agent_impl.settings import get_memory_path
 from pathlib import Path
 
 memory_path = get_memory_path(Path("/path/to/kb"))

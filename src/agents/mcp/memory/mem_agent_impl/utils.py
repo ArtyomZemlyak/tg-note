@@ -3,7 +3,7 @@ import shutil
 
 import black
 
-from src.agents.mem_agent.settings import (
+from src.agents.mcp.memory.mem_agent_impl.settings import (
     SYSTEM_PROMPT_PATH,
     FILE_SIZE_LIMIT,
     DIR_SIZE_LIMIT,

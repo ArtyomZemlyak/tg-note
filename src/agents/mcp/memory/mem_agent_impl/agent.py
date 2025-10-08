@@ -1,7 +1,7 @@
 import sys
-from src.agents.mem_agent.engine import execute_sandboxed_code
-from src.agents.mem_agent.model import get_model_response, create_openai_client, create_vllm_client
-from src.agents.mem_agent.utils import (
+from src.agents.mcp.memory.mem_agent_impl.engine import execute_sandboxed_code
+from src.agents.mcp.memory.mem_agent_impl.model import get_model_response, create_openai_client, create_vllm_client
+from src.agents.mcp.memory.mem_agent_impl.utils import (
     load_system_prompt,
     create_memory_if_not_exists,
     extract_python_code,
@@ -9,7 +9,7 @@ from src.agents.mem_agent.utils import (
     extract_reply,
     extract_thoughts,
 )
-from src.agents.mem_agent.settings import (
+from src.agents.mcp.memory.mem_agent_impl.settings import (
     MEMORY_PATH,
     SAVE_CONVERSATION_PATH,
     MAX_TOOL_TURNS,
@@ -17,7 +17,7 @@ from src.agents.mem_agent.settings import (
     VLLM_PORT,
     OPENROUTER_STRONG_MODEL,
 )
-from src.agents.mem_agent.schemas import ChatMessage, Role, AgentResponse
+from src.agents.mcp.memory.mem_agent_impl.schemas import ChatMessage, Role, AgentResponse
 
 from typing import Union, Tuple
 
@@ -154,7 +154,7 @@ class Agent:
                 result = execute_sandboxed_code(
                     code=python_code,
                     allowed_path=self.memory_path,
-                    import_module="src.agents.mem_agent.tools",
+                    import_module="src.agents.mcp.memory.mem_agent_impl.tools",
                 )
             else:
                 # Reset result when no Python code is executed
