@@ -9,6 +9,7 @@ from telebot.async_telebot import AsyncTeleBot
 from telebot.types import Message
 
 from src.bot.bot_port import BotPort
+from src.bot.message_mapper import MessageMapper
 from src.tracker.processing_tracker import ProcessingTracker
 from src.knowledge_base.repository import RepositoryManager
 from src.knowledge_base.user_settings import UserSettings
@@ -140,7 +141,11 @@ class BotHandlers:
                 "🔄 Обрабатываю завершенную группу сообщений..."
             )
             
-            await self.message_processor.process_message_group(group, processing_msg)
+            await self.message_processor.process_message_group(
+                group, 
+                processing_msg.message_id,
+                chat_id
+            )
             
         except Exception as e:
             self.logger.error(
@@ -482,8 +487,11 @@ class BotHandlers:
             log_msg += f": {message.text[:50]}..."
         self.logger.info(log_msg)
         
+        # Convert Telegram message to DTO
+        message_dto = MessageMapper.from_telegram_message(message)
+        
         # Process message regardless of content type
-        await self.message_processor.process_message(message)
+        await self.message_processor.process_message(message_dto)
     
     async def handle_forwarded_message(self, message: Message) -> None:
         """Handle forwarded messages (all content types)"""
@@ -500,5 +508,8 @@ class BotHandlers:
         content_type = message.content_type
         self.logger.info(f"Forwarded {content_type} message from user {message.from_user.id}")
         
+        # Convert Telegram message to DTO
+        message_dto = MessageMapper.from_telegram_message(message)
+        
         # Process message regardless of content type
-        await self.message_processor.process_message(message)
+        await self.message_processor.process_message(message_dto)

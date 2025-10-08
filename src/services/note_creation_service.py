@@ -7,7 +7,6 @@ Follows Single Responsibility Principle
 from pathlib import Path
 from typing import Optional
 from loguru import logger
-from telebot.types import Message
 
 from src.bot.bot_port import BotPort
 from src.services.interfaces import INoteCreationService, IUserContextManager
@@ -61,7 +60,8 @@ class NoteCreationService(INoteCreationService):
     async def create_note(
         self,
         group: MessageGroup,
-        processing_msg: Message,
+        processing_msg_id: int,
+        chat_id: int,
         user_id: int,
         user_kb: dict
     ) -> None:
@@ -70,7 +70,8 @@ class NoteCreationService(INoteCreationService):
         
         Args:
             group: Message group to process
-            processing_msg: Processing status message
+            processing_msg_id: ID of the processing status message
+            chat_id: Chat ID where message group was sent
             user_id: User ID
             user_kb: User's knowledge base configuration
         """
@@ -81,8 +82,8 @@ class NoteCreationService(INoteCreationService):
                 await self.bot.edit_message_text(
                     "❌ Локальная копия базы знаний не найдена\n\n"
                     "Попробуйте настроить базу знаний заново: /setkb",
-                    chat_id=processing_msg.chat.id,
-                    message_id=processing_msg.message_id
+                    chat_id=chat_id,
+                    message_id=processing_msg_id
                 )
                 return
             
@@ -99,16 +100,16 @@ class NoteCreationService(INoteCreationService):
             if self.tracker.is_processed(content_hash):
                 await self.bot.edit_message_text(
                     "✅ Это сообщение уже было обработано ранее",
-                    chat_id=processing_msg.chat.id,
-                    message_id=processing_msg.message_id
+                    chat_id=chat_id,
+                    message_id=processing_msg_id
                 )
                 return
             
             # Process with agent
             await self.bot.edit_message_text(
                 "🤖 Анализирую контент...",
-                chat_id=processing_msg.chat.id,
-                message_id=processing_msg.message_id
+                chat_id=chat_id,
+                message_id=processing_msg_id
             )
             
             user_agent = self.user_context_manager.get_or_create_agent(user_id)
@@ -137,8 +138,8 @@ class NoteCreationService(INoteCreationService):
                 await self.bot.edit_message_text(
                     f"❌ Ошибка обработки контента агентом:\n{str(agent_error)}\n\n"
                     f"Проверьте, что агент правильно настроен.",
-                    chat_id=processing_msg.chat.id,
-                    message_id=processing_msg.message_id
+                    chat_id=chat_id,
+                    message_id=processing_msg_id
                 )
                 return
             
@@ -150,7 +151,8 @@ class NoteCreationService(INoteCreationService):
                 agent_working_dir,
                 processed_content,
                 user_id,
-                processing_msg
+                processing_msg_id,
+                chat_id
             )
             
             # Track processed message
@@ -158,14 +160,15 @@ class NoteCreationService(INoteCreationService):
             
             # Send success notification
             await self._send_success_notification(
-                processing_msg,
+                processing_msg_id,
+                chat_id,
                 kb_path,
                 processed_content
             )
             
         except Exception as e:
             self.logger.error(f"Error in note creation: {e}", exc_info=True)
-            await self._send_error_notification(processing_msg, str(e))
+            await self._send_error_notification(processing_msg_id, chat_id, str(e))
     
     async def _save_to_kb(
         self,
@@ -175,7 +178,8 @@ class NoteCreationService(INoteCreationService):
         agent_working_dir: Path,
         processed_content: dict,
         user_id: int,
-        processing_msg: Message
+        processing_msg_id: int,
+        chat_id: int
     ) -> None:
         """
         Save content to knowledge base
@@ -187,12 +191,13 @@ class NoteCreationService(INoteCreationService):
             agent_working_dir: Working directory used by agent (may be kb_path or kb_path/topics)
             processed_content: Processed content from agent
             user_id: User ID
-            processing_msg: Processing message
+            processing_msg_id: ID of the processing status message
+            chat_id: Chat ID
         """
         await self.bot.edit_message_text(
             "💾 Сохраняю в базу знаний...",
-            chat_id=processing_msg.chat.id,
-            message_id=processing_msg.message_id
+            chat_id=chat_id,
+            message_id=processing_msg_id
         )
         
         # Extract metadata from processed content
@@ -292,7 +297,8 @@ class NoteCreationService(INoteCreationService):
     
     async def _send_success_notification(
         self,
-        processing_msg: Message,
+        processing_msg_id: int,
+        chat_id: int,
         kb_path: Path,
         processed_content: dict
     ) -> None:
@@ -364,13 +370,14 @@ class NoteCreationService(INoteCreationService):
         
         await self.bot.edit_message_text(
             "\n".join(message_parts),
-            chat_id=processing_msg.chat.id,
-            message_id=processing_msg.message_id
+            chat_id=chat_id,
+            message_id=processing_msg_id
         )
     
     async def _send_error_notification(
         self,
-        processing_msg: Message,
+        processing_msg_id: int,
+        chat_id: int,
         error_message: str
     ) -> None:
         """Send error notification"""
@@ -378,8 +385,8 @@ class NoteCreationService(INoteCreationService):
             # Don't use parse_mode for error messages to avoid parsing issues
             await self.bot.edit_message_text(
                 f"❌ Ошибка обработки сообщения: {error_message}",
-                chat_id=processing_msg.chat.id,
-                message_id=processing_msg.message_id
+                chat_id=chat_id,
+                message_id=processing_msg_id
             )
         except Exception:
             pass

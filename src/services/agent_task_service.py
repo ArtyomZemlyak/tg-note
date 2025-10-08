@@ -6,8 +6,6 @@ Follows Single Responsibility Principle
 
 from pathlib import Path
 from loguru import logger
-from telebot.types import Message
-from telebot.apihelper import ApiTelegramException
 import asyncio
 
 from src.bot.bot_port import BotPort
@@ -55,7 +53,8 @@ class AgentTaskService(IAgentTaskService):
     async def execute_task(
         self,
         group: MessageGroup,
-        processing_msg: Message,
+        processing_msg_id: int,
+        chat_id: int,
         user_id: int,
         user_kb: dict
     ) -> None:
@@ -64,7 +63,8 @@ class AgentTaskService(IAgentTaskService):
         
         Args:
             group: Message group containing the task
-            processing_msg: Processing status message
+            processing_msg_id: ID of the processing status message
+            chat_id: Chat ID where task was requested
             user_id: User ID
             user_kb: User's knowledge base configuration
         """
@@ -78,12 +78,12 @@ class AgentTaskService(IAgentTaskService):
                 )
                 edit_succeeded = await self._safe_edit_message(
                     error_text,
-                    chat_id=processing_msg.chat.id,
-                    message_id=processing_msg.message_id
+                    chat_id=chat_id,
+                    message_id=processing_msg_id
                 )
                 if not edit_succeeded:
                     await self.bot.send_message(
-                        chat_id=processing_msg.chat.id,
+                        chat_id=chat_id,
                         text=error_text
                     )
                 return
@@ -99,12 +99,12 @@ class AgentTaskService(IAgentTaskService):
                 )
                 edit_succeeded = await self._safe_edit_message(
                     error_text,
-                    chat_id=processing_msg.chat.id,
-                    message_id=processing_msg.message_id
+                    chat_id=chat_id,
+                    message_id=processing_msg_id
                 )
                 if not edit_succeeded:
                     await self.bot.send_message(
-                        chat_id=processing_msg.chat.id,
+                        chat_id=chat_id,
                         text=error_text
                     )
                 return
@@ -121,8 +121,8 @@ class AgentTaskService(IAgentTaskService):
             # Try to update status message (but don't fail if it times out)
             await self._safe_edit_message(
                 "🤖 Выполняю задачу...",
-                chat_id=processing_msg.chat.id,
-                message_id=processing_msg.message_id
+                chat_id=chat_id,
+                message_id=processing_msg_id
             )
             
             result = await self._execute_with_agent(kb_path, content, user_id)
@@ -133,15 +133,15 @@ class AgentTaskService(IAgentTaskService):
             # Build a simple summary of the response for context
             response_text = result.get('answer') or result.get('summary', 'Задача выполнена')
             self.user_context_manager.add_assistant_message_to_context(
-                user_id, processing_msg.message_id, response_text, response_timestamp
+                user_id, processing_msg_id, response_text, response_timestamp
             )
             
             # Send result to user
-            await self._send_result(processing_msg, result)
+            await self._send_result(processing_msg_id, chat_id, result)
             
         except Exception as e:
             self.logger.error(f"Error in agent task execution: {e}", exc_info=True)
-            await self._send_error_notification(processing_msg, str(e))
+            await self._send_error_notification(processing_msg_id, chat_id, str(e))
     
     async def _execute_with_agent(
         self,
@@ -260,37 +260,44 @@ class AgentTaskService(IAgentTaskService):
                 parse_mode=parse_mode
             )
             return True
-        except (asyncio.TimeoutError, ApiTelegramException) as e:
-            # Handle timeout or API errors
+        except asyncio.TimeoutError as e:
+            # Handle timeout
+            self.logger.warning(
+                f"Message edit timed out (message may be too old), "
+                f"will send new message instead: {e}"
+            )
+            return False
+        except Exception as e:
+            # Handle all other errors (including platform-specific API errors)
             error_msg = str(e).lower()
+            
+            # Check for common error patterns
             if "timeout" in error_msg or "timed out" in error_msg:
-                self.logger.warning(
-                    f"Message edit timed out (message may be too old), "
-                    f"will send new message instead: {e}"
-                )
+                self.logger.warning(f"Message edit timed out, will send new message: {e}")
                 return False
-            # For other API errors, check if it's a "message not modified" error
             elif "message is not modified" in error_msg:
                 self.logger.debug(f"Message not modified, skipping edit: {e}")
                 return True
+            elif "message can't be edited" in error_msg or "message to edit not found" in error_msg:
+                self.logger.warning(f"Cannot edit message (too old or deleted), will send new: {e}")
+                return False
             else:
-                # Re-raise other exceptions
-                raise
-        except Exception as e:
-            # Log unexpected errors but try to continue
-            self.logger.error(f"Unexpected error editing message: {e}", exc_info=True)
-            return False
+                # Log unexpected errors but try to continue
+                self.logger.error(f"Unexpected error editing message: {e}", exc_info=True)
+                return False
     
     async def _send_result(
         self,
-        processing_msg: Message,
+        processing_msg_id: int,
+        chat_id: int,
         result: dict
     ) -> None:
         """
         Send task result to user
         
         Args:
-            processing_msg: Processing status message
+            processing_msg_id: ID of the processing status message
+            chat_id: Chat ID
             result: Task execution result
         """
         # Build result message
@@ -358,15 +365,15 @@ class AgentTaskService(IAgentTaskService):
             # Try to edit the processing message with the first chunk
             edit_succeeded = await self._safe_edit_message(
                 message_chunks[0],
-                chat_id=processing_msg.chat.id,
-                message_id=processing_msg.message_id,
+                chat_id=chat_id,
+                message_id=processing_msg_id,
                 parse_mode='Markdown'
             )
             
             # If edit failed (e.g., timeout), send as new message
             if not edit_succeeded:
                 await self.bot.send_message(
-                    chat_id=processing_msg.chat.id,
+                    chat_id=chat_id,
                     text=f"✅ **Результат:**\n\n{message_chunks[0]}",
                     parse_mode='Markdown'
                 )
@@ -374,7 +381,7 @@ class AgentTaskService(IAgentTaskService):
             # If there are more chunks, send them as separate messages
             for i, chunk in enumerate(message_chunks[1:], start=2):
                 await self.bot.send_message(
-                    chat_id=processing_msg.chat.id,
+                    chat_id=chat_id,
                     text=f"💡 **(часть {i}/{len(message_chunks)}):**\n\n{chunk}",
                     parse_mode='Markdown'
                 )
@@ -390,21 +397,21 @@ class AgentTaskService(IAgentTaskService):
                 # Try to edit, fall back to new message if needed
                 edit_succeeded = await self._safe_edit_message(
                     message_chunks_plain[0],
-                    chat_id=processing_msg.chat.id,
-                    message_id=processing_msg.message_id,
+                    chat_id=chat_id,
+                    message_id=processing_msg_id,
                     parse_mode=None
                 )
                 
                 if not edit_succeeded:
                     await self.bot.send_message(
-                        chat_id=processing_msg.chat.id,
+                        chat_id=chat_id,
                         text=f"Результат:\n\n{message_chunks_plain[0]}",
                         parse_mode=None
                     )
                 
                 for i, chunk in enumerate(message_chunks_plain[1:], start=2):
                     await self.bot.send_message(
-                        chat_id=processing_msg.chat.id,
+                        chat_id=chat_id,
                         text=f"(часть {i}/{len(message_chunks_plain)}):\n\n{chunk}",
                         parse_mode=None
                     )
@@ -413,7 +420,8 @@ class AgentTaskService(IAgentTaskService):
     
     async def _send_error_notification(
         self,
-        processing_msg: Message,
+        processing_msg_id: int,
+        chat_id: int,
         error_message: str
     ) -> None:
         """Send error notification"""
@@ -423,14 +431,14 @@ class AgentTaskService(IAgentTaskService):
             # Try to edit the message, fall back to new message if timeout
             edit_succeeded = await self._safe_edit_message(
                 error_text,
-                chat_id=processing_msg.chat.id,
-                message_id=processing_msg.message_id
+                chat_id=chat_id,
+                message_id=processing_msg_id
             )
             
             # If edit failed due to timeout, send as new message
             if not edit_succeeded:
                 await self.bot.send_message(
-                    chat_id=processing_msg.chat.id,
+                    chat_id=chat_id,
                     text=error_text
                 )
         except Exception as e:

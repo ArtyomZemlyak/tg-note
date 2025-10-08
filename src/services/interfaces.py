@@ -5,9 +5,9 @@ Defines abstract interfaces for services (Dependency Inversion Principle)
 
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional
-from telebot.types import Message
 
 from src.processor.message_aggregator import MessageGroup
+from src.bot.dto import IncomingMessageDTO
 
 
 class IUserContextManager(ABC):
@@ -48,12 +48,12 @@ class IMessageProcessor(ABC):
     """Interface for processing messages"""
     
     @abstractmethod
-    async def process_message(self, message: Message) -> None:
+    async def process_message(self, message: IncomingMessageDTO) -> None:
         """Process an incoming message"""
         pass
     
     @abstractmethod
-    async def process_message_group(self, group: MessageGroup, processing_msg: Message) -> None:
+    async def process_message_group(self, group: MessageGroup, processing_msg_id: int, chat_id: int) -> None:
         """Process a complete message group"""
         pass
 
@@ -65,7 +65,8 @@ class INoteCreationService(ABC):
     async def create_note(
         self,
         group: MessageGroup,
-        processing_msg: Message,
+        processing_msg_id: int,
+        chat_id: int,
         user_id: int,
         user_kb: dict
     ) -> None:
@@ -80,7 +81,8 @@ class IQuestionAnsweringService(ABC):
     async def answer_question(
         self,
         group: MessageGroup,
-        processing_msg: Message,
+        processing_msg_id: int,
+        chat_id: int,
         user_id: int,
         user_kb: dict
     ) -> None:
@@ -95,7 +97,8 @@ class IAgentTaskService(ABC):
     async def execute_task(
         self,
         group: MessageGroup,
-        processing_msg: Message,
+        processing_msg_id: int,
+        chat_id: int,
         user_id: int,
         user_kb: dict
     ) -> None:
