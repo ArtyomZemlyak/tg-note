@@ -6,7 +6,6 @@ Follows Single Responsibility Principle
 
 from pathlib import Path
 from loguru import logger
-from telebot.types import Message
 
 from src.bot.bot_port import BotPort
 from src.services.interfaces import IQuestionAnsweringService, IUserContextManager
@@ -53,7 +52,8 @@ class QuestionAnsweringService(IQuestionAnsweringService):
     async def answer_question(
         self,
         group: MessageGroup,
-        processing_msg: Message,
+        processing_msg_id: int,
+        chat_id: int,
         user_id: int,
         user_kb: dict
     ) -> None:
@@ -62,7 +62,8 @@ class QuestionAnsweringService(IQuestionAnsweringService):
         
         Args:
             group: Message group containing the question
-            processing_msg: Processing status message
+            processing_msg_id: ID of the processing status message
+            chat_id: Chat ID where question was asked
             user_id: User ID
             user_kb: User's knowledge base configuration
         """
@@ -73,8 +74,8 @@ class QuestionAnsweringService(IQuestionAnsweringService):
                 await self.bot.edit_message_text(
                     "❌ Локальная копия базы знаний не найдена\n\n"
                     "Попробуйте настроить базу знаний заново: /setkb",
-                    chat_id=processing_msg.chat.id,
-                    message_id=processing_msg.message_id
+                    chat_id=chat_id,
+                    message_id=processing_msg_id
                 )
                 return
             
@@ -86,8 +87,8 @@ class QuestionAnsweringService(IQuestionAnsweringService):
                 await self.bot.edit_message_text(
                     "❌ Не могу определить вопрос\n\n"
                     "Пожалуйста, отправьте текстовое сообщение с вопросом.",
-                    chat_id=processing_msg.chat.id,
-                    message_id=processing_msg.message_id
+                    chat_id=chat_id,
+                    message_id=processing_msg_id
                 )
                 return
             
@@ -102,8 +103,8 @@ class QuestionAnsweringService(IQuestionAnsweringService):
             # Query knowledge base
             await self.bot.edit_message_text(
                 "🔍 Ищу информацию в базе знаний...",
-                chat_id=processing_msg.chat.id,
-                message_id=processing_msg.message_id
+                chat_id=chat_id,
+                message_id=processing_msg_id
             )
             
             answer = await self._query_kb(kb_path, question_text, user_id)
@@ -112,7 +113,7 @@ class QuestionAnsweringService(IQuestionAnsweringService):
             import time
             response_timestamp = int(time.time())
             self.user_context_manager.add_assistant_message_to_context(
-                user_id, processing_msg.message_id, answer, response_timestamp
+                user_id, processing_msg_id, answer, response_timestamp
             )
             
             # Send answer - escape the answer text to prevent Markdown parsing errors
@@ -126,15 +127,15 @@ class QuestionAnsweringService(IQuestionAnsweringService):
                 # Edit the processing message with the first chunk
                 await self.bot.edit_message_text(
                     message_chunks[0],
-                    chat_id=processing_msg.chat.id,
-                    message_id=processing_msg.message_id,
+                    chat_id=chat_id,
+                    message_id=processing_msg_id,
                     parse_mode='Markdown'
                 )
                 
                 # If there are more chunks, send them as separate messages
                 for i, chunk in enumerate(message_chunks[1:], start=2):
                     await self.bot.send_message(
-                        chat_id=processing_msg.chat.id,
+                        chat_id=chat_id,
                         text=f"💡 **Ответ (часть {i}/{len(message_chunks)}):**\n\n{chunk}",
                         parse_mode='Markdown'
                     )
@@ -150,15 +151,15 @@ class QuestionAnsweringService(IQuestionAnsweringService):
                     
                     await self.bot.edit_message_text(
                         message_chunks_plain[0],
-                        chat_id=processing_msg.chat.id,
-                        message_id=processing_msg.message_id,
+                        chat_id=chat_id,
+                        message_id=processing_msg_id,
                         parse_mode=None
                     )
                     
                     # Send remaining chunks without markdown
                     for i, chunk in enumerate(message_chunks_plain[1:], start=2):
                         await self.bot.send_message(
-                            chat_id=processing_msg.chat.id,
+                            chat_id=chat_id,
                             text=f"💡 Ответ (часть {i}/{len(message_chunks_plain)}):\n\n{chunk}",
                             parse_mode=None
                         )
@@ -167,15 +168,15 @@ class QuestionAnsweringService(IQuestionAnsweringService):
                     self.logger.error(f"Message still too long after splitting: {e}")
                     await self.bot.edit_message_text(
                         "❌ Ответ слишком длинный даже после разделения. Пожалуйста, попробуйте задать более конкретный вопрос.",
-                        chat_id=processing_msg.chat.id,
-                        message_id=processing_msg.message_id
+                        chat_id=chat_id,
+                        message_id=processing_msg_id
                     )
                 else:
                     raise
             
         except Exception as e:
             self.logger.error(f"Error in question processing: {e}", exc_info=True)
-            await self._send_error_notification(processing_msg, str(e))
+            await self._send_error_notification(processing_msg_id, chat_id, str(e))
     
     async def _query_kb(
         self,
@@ -275,15 +276,16 @@ class QuestionAnsweringService(IQuestionAnsweringService):
     
     async def _send_error_notification(
         self,
-        processing_msg: Message,
+        processing_msg_id: int,
+        chat_id: int,
         error_message: str
     ) -> None:
         """Send error notification"""
         try:
             await self.bot.edit_message_text(
                 f"❌ Ошибка обработки вопроса: {error_message}",
-                chat_id=processing_msg.chat.id,
-                message_id=processing_msg.message_id
+                chat_id=chat_id,
+                message_id=processing_msg_id
             )
         except Exception:
             pass
