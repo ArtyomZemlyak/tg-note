@@ -285,7 +285,7 @@ def execute_sandboxed_code(
 
     try:
         result = subprocess.run(
-            [sys.executable, "-m", "src.agents.mem_agent.engine"],
+            [sys.executable, "-m", "src.agents.mcp.memory.mem_agent_impl.engine"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             timeout=timeout,

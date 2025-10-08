@@ -127,7 +127,7 @@ class Agent:
             result = execute_sandboxed_code(
                 code=python_code,
                 allowed_path=self.memory_path,
-                import_module="src.agents.mem_agent.tools",
+                import_module="src.agents.mcp.memory.mem_agent_impl.tools",
             )
 
         # Add the agent's response to the conversation history

@@ -47,7 +47,7 @@ print(response.reply)
 
 **MCP Server:**
 ```bash
-python3 -m src.agents.mem_agent.mcp_server --port 8766
+python3 -m src.agents.mcp.memory.mem_agent_impl.mcp_server --port 8766
 ```
 
 ## Quick Examples
@@ -73,7 +73,7 @@ agent.chat("Show me your memory structure")
 ## Files Added
 
 ```
-src/agents/mem_agent/
+src/agents/mcp/memory/mem_agent_impl/
 ├── __init__.py              # Package exports
 ├── agent.py                 # Main Agent class
 ├── engine.py                # Sandboxed execution
@@ -144,10 +144,10 @@ memory/
 ## Resources
 
 - **Model**: https://huggingface.co/driaforall/mem-agent
-- **Full Docs**: `src/agents/mem_agent/README.md`
+- **Full Docs**: `src/agents/mcp/memory/mem_agent_impl/README.md`
 - **Summary**: `MEM_AGENT_INTEGRATION_SUMMARY.md`
 - **Original**: https://github.com/firstbatchxyz/mem-agent-mcp
 
 ---
 
-**Questions?** Check `src/agents/mem_agent/README.md` for detailed documentation.
+**Questions?** Check `src/agents/mcp/memory/mem_agent_impl/README.md` for detailed documentation.
