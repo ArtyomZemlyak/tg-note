@@ -138,11 +138,11 @@ class FileProcessor:
         original_filename: Optional[str] = None
     ) -> Optional[Dict]:
         """
-        Download Telegram file and process it
+        Download file and process it
         
         Args:
-            bot: Telegram bot instance
-            file_info: Telegram file info object (from bot.get_file)
+            bot: Bot messaging interface
+            file_info: File info object (from bot.get_file)
             original_filename: Original filename (optional, for extension detection)
         
         Returns:

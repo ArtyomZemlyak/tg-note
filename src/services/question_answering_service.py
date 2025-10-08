@@ -6,9 +6,9 @@ Follows Single Responsibility Principle
 
 from pathlib import Path
 from loguru import logger
-from telebot.async_telebot import AsyncTeleBot
 from telebot.types import Message
 
+from src.bot.bot_port import BotPort
 from src.services.interfaces import IQuestionAnsweringService, IUserContextManager
 from src.processor.message_aggregator import MessageGroup
 from src.processor.content_parser import ContentParser
@@ -29,7 +29,7 @@ class QuestionAnsweringService(IQuestionAnsweringService):
     
     def __init__(
         self,
-        bot: AsyncTeleBot,
+        bot: BotPort,
         repo_manager: RepositoryManager,
         user_context_manager: IUserContextManager,
         settings_manager
@@ -38,7 +38,7 @@ class QuestionAnsweringService(IQuestionAnsweringService):
         Initialize question answering service
         
         Args:
-            bot: Telegram bot instance
+            bot: Bot messaging interface (transport abstraction)
             repo_manager: Repository manager
             user_context_manager: User context manager
             settings_manager: Settings manager for user-specific settings

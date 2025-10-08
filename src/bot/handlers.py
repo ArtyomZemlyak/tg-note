@@ -8,6 +8,7 @@ from loguru import logger
 from telebot.async_telebot import AsyncTeleBot
 from telebot.types import Message
 
+from src.bot.bot_port import BotPort
 from src.tracker.processing_tracker import ProcessingTracker
 from src.knowledge_base.repository import RepositoryManager
 from src.knowledge_base.user_settings import UserSettings
@@ -28,7 +29,8 @@ class BotHandlers:
     
     def __init__(
         self,
-        bot: AsyncTeleBot,
+        bot: BotPort,
+        async_bot: AsyncTeleBot,
         tracker: ProcessingTracker,
         repo_manager: RepositoryManager,
         user_settings: UserSettings,
@@ -41,7 +43,8 @@ class BotHandlers:
         Initialize bot handlers
         
         Args:
-            bot: Telegram bot instance
+            bot: Bot messaging interface (transport abstraction)
+            async_bot: Telegram bot instance (for handler registration)
             tracker: Processing tracker
             repo_manager: Repository manager
             user_settings: User settings
@@ -51,6 +54,7 @@ class BotHandlers:
             settings_handlers: Settings handlers (optional)
         """
         self.bot = bot
+        self.async_bot = async_bot
         self.tracker = tracker
         self.repo_manager = repo_manager
         self.user_settings = user_settings
@@ -68,15 +72,15 @@ class BotHandlers:
     async def register_handlers_async(self):
         """Register all bot handlers (async)"""
         # Command handlers
-        self.bot.message_handler(commands=['start'])(self.handle_start)
-        self.bot.message_handler(commands=['help'])(self.handle_help)
-        self.bot.message_handler(commands=['status'])(self.handle_status)
-        self.bot.message_handler(commands=['setkb'])(self.handle_setkb)
-        self.bot.message_handler(commands=['kb'])(self.handle_kb_info)
-        self.bot.message_handler(commands=['note'])(self.handle_note_mode)
-        self.bot.message_handler(commands=['ask'])(self.handle_ask_mode)
-        self.bot.message_handler(commands=['agent'])(self.handle_agent_mode)
-        self.bot.message_handler(commands=['resetcontext'])(self.handle_reset_context)
+        self.async_bot.message_handler(commands=['start'])(self.handle_start)
+        self.async_bot.message_handler(commands=['help'])(self.handle_help)
+        self.async_bot.message_handler(commands=['status'])(self.handle_status)
+        self.async_bot.message_handler(commands=['setkb'])(self.handle_setkb)
+        self.async_bot.message_handler(commands=['kb'])(self.handle_kb_info)
+        self.async_bot.message_handler(commands=['note'])(self.handle_note_mode)
+        self.async_bot.message_handler(commands=['ask'])(self.handle_ask_mode)
+        self.async_bot.message_handler(commands=['agent'])(self.handle_agent_mode)
+        self.async_bot.message_handler(commands=['resetcontext'])(self.handle_reset_context)
         
         # All supported content types (decoupled from media processing)
         supported_content_types = [
@@ -85,13 +89,13 @@ class BotHandlers:
         ]
         
         # Forwarded messages (all content types)
-        self.bot.message_handler(
+        self.async_bot.message_handler(
             content_types=supported_content_types,
             func=lambda m: self._is_forwarded_message(m)
         )(self.handle_forwarded_message)
         
         # Regular messages (all content types, unified handler)
-        self.bot.message_handler(
+        self.async_bot.message_handler(
             content_types=supported_content_types,
             func=lambda m: not self._is_forwarded_message(m) and not self._is_command_message(m)
         )(self.handle_message)
