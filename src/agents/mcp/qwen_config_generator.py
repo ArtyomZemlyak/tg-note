@@ -80,8 +80,8 @@ class QwenMCPConfigGenerator:
             }
         
         # Use stdio transport (default)
-        # Path to mem-agent server script (relative to project root)
-        server_script = self.project_root / "src" / "agents" / "mcp" / "mem_agent_server.py"
+        # Path to memory server script (relative to project root)
+        server_script = self.project_root / "src" / "agents" / "mcp" / "memory" / "memory_server.py"
         
         if not server_script.exists():
             logger.warning(f"Mem-agent server script not found: {server_script}")

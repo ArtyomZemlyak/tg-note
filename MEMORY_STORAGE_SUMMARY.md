@@ -169,7 +169,7 @@ pip install sentence-transformers transformers torch
 
 ### Factory Pattern (Recommended)
 ```python
-from src.mem_agent import MemoryStorageFactory
+from src.agents.mcp.memory import MemoryStorageFactory
 
 # JSON storage
 storage = MemoryStorageFactory.create("json", data_dir)
@@ -180,7 +180,7 @@ storage = MemoryStorageFactory.create("vector", data_dir, model_name="BAAI/bge-m
 
 ### Legacy Pattern (Still Works)
 ```python
-from src.mem_agent import MemoryStorage
+from src.agents.mcp.memory import MemoryStorage
 
 # Auto-selects based on config
 storage = MemoryStorage(data_dir)
@@ -188,7 +188,7 @@ storage = MemoryStorage(data_dir)
 
 ### Extending with Custom Storage
 ```python
-from src.mem_agent import BaseMemoryStorage, MemoryStorageFactory
+from src.agents.mcp.memory import BaseMemoryStorage, MemoryStorageFactory
 
 class CustomStorage(BaseMemoryStorage):
     # Implement abstract methods

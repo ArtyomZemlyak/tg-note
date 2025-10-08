@@ -23,7 +23,7 @@ Two integration approaches:
 from .client import MCPClient, MCPServerConfig
 from .registry_client import MCPRegistryClient
 from .base_mcp_tool import BaseMCPTool
-from .memory_agent_tool import MemoryAgentMCPTool
+from .memory.memory_tool import MemoryMCPTool
 from .dynamic_mcp_tools import (
     discover_and_create_mcp_tools,
     create_mcp_tools_for_user,
@@ -39,7 +39,7 @@ __all__ = [
     "MCPServerConfig",
     "MCPRegistryClient",
     "BaseMCPTool",
-    "MemoryAgentMCPTool",
+    "MemoryMCPTool",
     "discover_and_create_mcp_tools",
     "create_mcp_tools_for_user",
     "DynamicMCPTool",

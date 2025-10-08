@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Standalone MCP Server for mem-agent
+Standalone MCP Server for Memory Storage
 
 This server runs as a separate process and provides memory storage/retrieval tools
 via the Model Context Protocol (MCP).
@@ -11,7 +11,7 @@ Can be run as:
 - Standalone daemon
 
 Usage:
-    python -m src.agents.mcp.mem_agent_server [--user-id USER_ID]
+    python -m src.agents.mcp.memory.memory_server [--user-id USER_ID]
 """
 
 import argparse
@@ -26,7 +26,7 @@ from typing import Any, Dict, List, Optional
 from loguru import logger
 
 # Import shared memory storage
-from src.mem_agent.storage import MemoryStorage
+from src.agents.mcp.memory.memory_storage import MemoryStorage
 
 # Configure logger for standalone mode
 logger.remove()
@@ -37,8 +37,8 @@ logger.add(
 )
 
 
-class MemAgentMCPServer:
-    """MCP Server for mem-agent"""
+class MemoryMCPServer:
+    """MCP Server for memory storage"""
     
     def __init__(self, user_id: Optional[int] = None):
         """
@@ -51,7 +51,7 @@ class MemAgentMCPServer:
         
         # Setup storage directory
         # Priority:
-        # 1. KB_PATH env var (set by memory_agent_tool.py for user-specific KB)
+        # 1. KB_PATH env var (set by memory_tool.py for user-specific KB)
         # 2. Legacy user_id-based path (for backward compatibility)
         # 3. Shared memory (fallback)
         kb_path = os.getenv('KB_PATH')
@@ -236,7 +236,7 @@ class MemAgentMCPServer:
                         "tools": {}
                     },
                     "serverInfo": {
-                        "name": "mem-agent",
+                        "name": "memory",
                         "version": "1.0.0"
                     }
                 }
@@ -334,7 +334,7 @@ class MemAgentMCPServer:
 def main():
     """Main entry point"""
     parser = argparse.ArgumentParser(
-        description="Mem-agent MCP Server - Memory storage and retrieval via MCP"
+        description="Memory MCP Server - Memory storage and retrieval via MCP"
     )
     parser.add_argument(
         "--user-id",
@@ -359,7 +359,7 @@ def main():
     )
     
     # Create and run server
-    server = MemAgentMCPServer(user_id=args.user_id)
+    server = MemoryMCPServer(user_id=args.user_id)
     
     try:
         asyncio.run(server.run())

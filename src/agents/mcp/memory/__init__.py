@@ -1,5 +1,5 @@
 """
-Memory Agent - Personal Note-Taking System for Autonomous Agents
+Memory Storage - Personal Note-Taking System for Autonomous Agents
 
 A local note-taking and search system specifically designed for the main agent.
 
@@ -27,7 +27,6 @@ Storage Types:
 
 Note:
   This module provides the storage backend for MCP Memory tool.
-  "mem-agent" refers to a future LLM-based assistant implementation (not yet implemented).
 
 Settings are in config.settings module (MEM_AGENT_STORAGE_TYPE).
 
@@ -36,13 +35,13 @@ Installation:
 """
 
 # Core interfaces and implementations
-from .base import BaseMemoryStorage
-from .json_storage import JsonMemoryStorage
-from .vector_storage import VectorBasedMemoryStorage
-from .factory import MemoryStorageFactory, create_memory_storage
+from .memory_base import BaseMemoryStorage
+from .memory_json_storage import JsonMemoryStorage
+from .memory_vector_storage import VectorBasedMemoryStorage
+from .memory_factory import MemoryStorageFactory, create_memory_storage
 
 # Legacy compatibility
-from .storage import MemoryStorage
+from .memory_storage import MemoryStorage
 
 __all__ = [
     # Abstract interface

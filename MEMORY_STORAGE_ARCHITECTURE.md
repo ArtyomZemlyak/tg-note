@@ -46,7 +46,7 @@ After:
 
 ```python
 # This still works exactly as before
-from src.mem_agent import MemoryStorage
+from src.agents.mcp.memory import MemoryStorage
 storage = MemoryStorage(data_dir)
 ```
 
@@ -80,7 +80,7 @@ If you want AI-powered semantic search:
 **New recommended way** (more explicit):
 
 ```python
-from src.mem_agent import MemoryStorageFactory
+from src.agents.mcp.memory import MemoryStorageFactory
 from pathlib import Path
 
 # Create JSON storage
@@ -100,7 +100,7 @@ storage = MemoryStorageFactory.create(
 **Legacy way** (still works):
 
 ```python
-from src.mem_agent import MemoryStorage
+from src.agents.mcp.memory import MemoryStorage
 
 # Auto-selects based on config
 storage = MemoryStorage(data_dir)
@@ -178,7 +178,7 @@ storage.clear()                      # Clear all
 You can easily add new storage types:
 
 ```python
-from src.mem_agent import BaseMemoryStorage, MemoryStorageFactory
+from src.agents.mcp.memory import BaseMemoryStorage, MemoryStorageFactory
 
 class RedisMemoryStorage(BaseMemoryStorage):
     """Custom Redis-based storage"""

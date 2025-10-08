@@ -10,9 +10,9 @@ from typing import Optional
 
 from loguru import logger
 
-from .base import BaseMemoryStorage
-from .json_storage import JsonMemoryStorage
-from .vector_storage import VectorBasedMemoryStorage
+from .memory_base import BaseMemoryStorage
+from .memory_json_storage import JsonMemoryStorage
+from .memory_vector_storage import VectorBasedMemoryStorage
 
 
 class MemoryStorageFactory:

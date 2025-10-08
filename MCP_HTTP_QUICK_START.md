@@ -5,7 +5,7 @@
 ### 1. Запустите HTTP сервер / Start HTTP Server
 
 ```bash
-python3 -m src.agents.mcp.mem_agent_server_http
+python3 -m src.agents.mcp.memory.memory_server_http
 ```
 
 Сервер запустится на `http://127.0.0.1:8765`
@@ -149,7 +149,7 @@ tail -f mem_agent.log
 
 # Перезапустить сервер / Restart server
 pkill -f mem_agent_server_http
-python3 -m src.agents.mcp.mem_agent_server_http
+python3 -m src.agents.mcp.memory.memory_server_http
 ```
 
 ## 📊 Проверка конфигурации / Check Configuration

@@ -15,7 +15,7 @@ from tempfile import TemporaryDirectory
 from loguru import logger
 
 # Import the factory and storage types
-from src.mem_agent import (
+from src.agents.mcp.memory import (
     MemoryStorageFactory,
     JsonMemoryStorage,
     VectorBasedMemoryStorage,

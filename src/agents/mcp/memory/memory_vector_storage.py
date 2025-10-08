@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from loguru import logger
 
-from .base import BaseMemoryStorage
+from .memory_base import BaseMemoryStorage
 
 
 class VectorBasedMemoryStorage(BaseMemoryStorage):

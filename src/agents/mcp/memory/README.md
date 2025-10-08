@@ -5,9 +5,8 @@ This module implements memory storage for autonomous agents using SOLID principl
 > **Note on Terminology:**
 > - **Memory Storage** (this module) - Provides storage backends (JSON, Vector) for the MCP Memory tool
 > - **MCP Memory Tool** - The agent's note-taking interface (implemented)
-> - **mem-agent** - A future LLM-based memory assistant (not yet implemented)
 > 
-> The naming "mem_agent" in paths is historical; the actual functionality is memory storage.
+> The module provides the storage backend for MCP Memory tool.
 
 ## Architecture Overview
 
@@ -23,7 +22,7 @@ MemoryStorage (Legacy wrapper for backward compatibility)
 ## Storage Types
 
 ### 1. JsonMemoryStorage
-**File:** `json_storage.py`
+**File:** `memory_json_storage.py`
 
 - Simple JSON file storage
 - Substring-based search
@@ -37,7 +36,7 @@ MemoryStorage (Legacy wrapper for backward compatibility)
 - Resource-constrained environments
 
 ### 2. VectorBasedMemoryStorage
-**File:** `vector_storage.py`
+**File:** `memory_vector_storage.py`
 
 - AI-powered semantic search
 - Uses embeddings from HuggingFace models
@@ -59,7 +58,7 @@ MemoryStorage (Legacy wrapper for backward compatibility)
 ### Using the Factory (Recommended)
 
 ```python
-from src.mem_agent import MemoryStorageFactory
+from src.agents.mcp.memory import MemoryStorageFactory
 from pathlib import Path
 
 # Create JSON storage
@@ -79,7 +78,7 @@ storage = MemoryStorageFactory.create(
 ### Using Legacy Interface (Backward Compatible)
 
 ```python
-from src.mem_agent import MemoryStorage
+from src.agents.mcp.memory import MemoryStorage
 from pathlib import Path
 
 # Automatically selects storage type from config
@@ -149,7 +148,7 @@ export MEM_AGENT_MODEL=BAAI/bge-m3
 Following the Open/Closed Principle, you can add new storage types without modifying existing code:
 
 ```python
-from src.mem_agent import BaseMemoryStorage, MemoryStorageFactory
+from src.agents.mcp.memory import BaseMemoryStorage, MemoryStorageFactory
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -205,21 +204,24 @@ storage = MemoryStorageFactory.create(
 ## Files Structure
 
 ```
-src/mem_agent/
-├── __init__.py           # Public API exports
-├── README.md             # This file
-├── base.py               # BaseMemoryStorage abstract class
-├── json_storage.py       # JSON storage implementation
-├── vector_storage.py     # Vector-based storage implementation
-├── factory.py            # MemoryStorageFactory
-└── storage.py            # Legacy wrapper for backward compatibility
+src/agents/mcp/memory/
+├── __init__.py                    # Public API exports
+├── README.md                      # This file
+├── memory_base.py                 # BaseMemoryStorage abstract class
+├── memory_json_storage.py         # JSON storage implementation
+├── memory_vector_storage.py       # Vector-based storage implementation
+├── memory_factory.py              # MemoryStorageFactory
+├── memory_storage.py              # Legacy wrapper for backward compatibility
+├── memory_server.py               # MCP server (stdio transport)
+├── memory_server_http.py          # MCP server (HTTP/SSE transport)
+└── memory_tool.py                 # MCP tool for agent integration
 ```
 
 ## Testing
 
 ```python
 import pytest
-from src.mem_agent import MemoryStorageFactory
+from src.agents.mcp.memory import MemoryStorageFactory
 from pathlib import Path
 from tempfile import TemporaryDirectory
 

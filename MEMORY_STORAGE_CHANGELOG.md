@@ -144,7 +144,7 @@ export MEM_AGENT_MODEL=BAAI/bge-m3
 
 #### Factory Pattern (Recommended)
 ```python
-from src.mem_agent import MemoryStorageFactory
+from src.agents.mcp.memory import MemoryStorageFactory
 
 storage = MemoryStorageFactory.create("json", data_dir)
 storage = MemoryStorageFactory.create("vector", data_dir, model_name="BAAI/bge-m3")
@@ -152,7 +152,7 @@ storage = MemoryStorageFactory.create("vector", data_dir, model_name="BAAI/bge-m
 
 #### Legacy Pattern (Backward Compatible)
 ```python
-from src.mem_agent import MemoryStorage
+from src.agents.mcp.memory import MemoryStorage
 
 storage = MemoryStorage(data_dir)  # Auto-selects from config
 ```
@@ -195,7 +195,7 @@ storage.clear(category)
 #### No Changes Required
 Existing code works without modifications:
 ```python
-from src.mem_agent import MemoryStorage
+from src.agents.mcp.memory import MemoryStorage
 storage = MemoryStorage(data_dir)  # Still works!
 ```
 
