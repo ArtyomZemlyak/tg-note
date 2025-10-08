@@ -18,12 +18,14 @@ Architecture (SOLID principles):
   - BaseMemoryStorage: Abstract interface for all storage implementations
   - JsonMemoryStorage: Simple JSON-based storage with substring search
   - VectorBasedMemoryStorage: AI-powered storage with semantic search using embeddings
+  - MemAgentStorage: LLM-based agent for intelligent memory management (Obsidian-style)
   - MemoryStorageFactory: Factory for creating appropriate storage instances
   - MemoryStorage: Legacy compatibility class (delegates to factory)
 
 Storage Types:
   - "json": Fast, lightweight, no ML dependencies (default)
   - "vector": Semantic search using embeddings, requires transformers/sentence-transformers
+  - "mem-agent": LLM-based intelligent memory with Obsidian-style markdown
 
 Note:
   This module provides the storage backend for MCP Memory tool.
@@ -38,6 +40,7 @@ Installation:
 from .memory_base import BaseMemoryStorage
 from .memory_json_storage import JsonMemoryStorage
 from .memory_vector_storage import VectorBasedMemoryStorage
+from .memory_mem_agent_storage import MemAgentStorage
 from .memory_factory import MemoryStorageFactory, create_memory_storage
 
 # Legacy compatibility
@@ -50,6 +53,7 @@ __all__ = [
     # Concrete implementations
     "JsonMemoryStorage",
     "VectorBasedMemoryStorage",
+    "MemAgentStorage",
     
     # Factory
     "MemoryStorageFactory",

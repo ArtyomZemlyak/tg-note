@@ -42,7 +42,7 @@ Each memory file uses markdown with:
 ### Standalone Usage
 
 ```python
-from src.agents.mem_agent import Agent
+from src.agents.mcp.memory.mem_agent_impl import Agent
 
 # Create agent
 agent = Agent(
@@ -71,7 +71,7 @@ python -m src.agents.mem_agent.mcp_server --host 127.0.0.1 --port 8766
 Or use it in your code:
 
 ```python
-from src.agents.mem_agent.mcp_server import run_server
+from src.agents.mcp.memory.mem_agent_impl.mcp_server import run_server
 
 run_server(host="127.0.0.1", port=8766)
 ```

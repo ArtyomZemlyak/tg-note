@@ -13,7 +13,8 @@ This module implements memory storage for autonomous agents using SOLID principl
 ```
 BaseMemoryStorage (Abstract Interface)
     ├── JsonMemoryStorage (Simple JSON-based)
-    └── VectorBasedMemoryStorage (AI-powered semantic search)
+    ├── VectorBasedMemoryStorage (AI-powered semantic search)
+    └── MemAgentStorage (LLM-based intelligent memory with Obsidian-style markdown)
 
 MemoryStorageFactory (Creates appropriate storage)
 MemoryStorage (Legacy wrapper for backward compatibility)
@@ -53,6 +54,37 @@ MemoryStorage (Legacy wrapper for backward compatibility)
 - `transformers`
 - `torch` or `numpy`
 
+### 3. MemAgentStorage
+**File:** `memory_mem_agent_storage.py`
+
+- LLM-based intelligent memory management
+- Obsidian-style markdown files with wiki-links
+- Sandboxed Python code execution
+- Natural language interface for memory operations
+- Intelligent information organization
+
+**Best for:**
+- Complex memory scenarios requiring reasoning
+- Natural language memory interactions
+- Intelligent information organization and linking
+- When you need the agent to "think" about memory operations
+
+**Requires:**
+- `fastmcp`
+- `transformers`
+- `openai` (for OpenRouter) or vLLM setup
+- Model: `driaforall/mem-agent` or compatible
+
+**Architecture:**
+The mem-agent is a complete LLM-based agent system that:
+- Uses its own LLM to reason about memory operations
+- Executes sandboxed Python code to manipulate files
+- Maintains Obsidian-style markdown with wiki-links
+- Provides structured memory (user.md, entities/*.md)
+
+**Important:** This is a wrapper around the original mem-agent implementation,
+maintaining minimal changes to the original code following SOLID principles.
+
 ## Usage
 
 ### Using the Factory (Recommended)
@@ -72,6 +104,15 @@ storage = MemoryStorageFactory.create(
     storage_type="vector",
     data_dir=Path("data/memory"),
     model_name="BAAI/bge-m3"
+)
+
+# Create mem-agent storage (LLM-based)
+storage = MemoryStorageFactory.create(
+    storage_type="mem-agent",
+    data_dir=Path("data/memory"),
+    model="driaforall/mem-agent",
+    use_vllm=True,
+    max_tool_turns=20
 )
 ```
 
@@ -129,18 +170,24 @@ storage.clear()                   # Clear all
 
 ## Configuration
 
-Storage type is configured in `config/settings.py`:
-
-```python
-MEM_AGENT_STORAGE_TYPE: str = "json"  # or "vector"
-MEM_AGENT_MODEL: str = "BAAI/bge-m3"
-```
-
-Or via environment variables:
+Storage type is configured in `config/settings.py` or via environment variables:
 
 ```bash
-export MEM_AGENT_STORAGE_TYPE=vector
+# Storage type: "json" (default), "vector", or "mem-agent"
+export MEM_AGENT_STORAGE_TYPE=json
+
+# For vector storage
 export MEM_AGENT_MODEL=BAAI/bge-m3
+
+# For mem-agent storage
+export MEM_AGENT_STORAGE_TYPE=mem-agent
+export MEM_AGENT_MODEL=driaforall/mem-agent
+export MEM_AGENT_USE_VLLM=true
+export MEM_AGENT_MAX_TOOL_TURNS=20
+
+# vLLM configuration (for mem-agent)
+export VLLM_HOST=127.0.0.1
+export VLLM_PORT=8000
 ```
 
 ## Extending with New Storage Types
@@ -205,16 +252,30 @@ storage = MemoryStorageFactory.create(
 
 ```
 src/agents/mcp/memory/
-├── __init__.py                    # Public API exports
-├── README.md                      # This file
-├── memory_base.py                 # BaseMemoryStorage abstract class
-├── memory_json_storage.py         # JSON storage implementation
-├── memory_vector_storage.py       # Vector-based storage implementation
-├── memory_factory.py              # MemoryStorageFactory
-├── memory_storage.py              # Legacy wrapper for backward compatibility
-├── memory_server.py               # MCP server (stdio transport)
-├── memory_server_http.py          # MCP server (HTTP/SSE transport)
-└── memory_tool.py                 # MCP tool for agent integration
+├── __init__.py                      # Public API exports
+├── README.md                        # This file
+├── memory_base.py                   # BaseMemoryStorage abstract class
+├── memory_json_storage.py           # JSON storage implementation
+├── memory_vector_storage.py         # Vector-based storage implementation
+├── memory_mem_agent_storage.py      # Mem-agent storage implementation (LLM-based)
+├── memory_factory.py                # MemoryStorageFactory
+├── memory_storage.py                # Legacy wrapper for backward compatibility
+├── memory_server.py                 # MCP server (stdio transport)
+├── memory_server_http.py            # MCP server (HTTP/SSE transport)
+├── memory_tool.py                   # MCP tool for agent integration
+├── memory_mem_agent_tools.py        # Direct mem-agent tools (chat, query)
+└── mem_agent_impl/                  # Mem-agent implementation
+    ├── __init__.py
+    ├── agent.py                     # Main agent class
+    ├── engine.py                    # Sandboxed code execution
+    ├── model.py                     # LLM interface (vLLM/OpenRouter)
+    ├── tools.py                     # File/directory operations
+    ├── schemas.py                   # Data models
+    ├── settings.py                  # Configuration
+    ├── utils.py                     # Utility functions
+    ├── system_prompt.txt            # Agent system prompt
+    ├── mcp_server.py                # Standalone MCP server (deprecated, use memory_server.py)
+    └── README.md                    # Mem-agent documentation
 ```
 
 ## Testing
@@ -289,6 +350,99 @@ Possible improvements following SOLID principles:
 4. **Distributed Storage** (Redis, Cassandra)
    - New implementation of BaseMemoryStorage
    - Same interface, different backend
+
+## Mem-Agent Integration
+
+The mem-agent is integrated following SOLID principles with minimal changes to the original code:
+
+### Integration Architecture
+
+1. **MemAgentStorage** (`memory_mem_agent_storage.py`)
+   - Adapter class implementing `BaseMemoryStorage` interface
+   - Wraps the original `Agent` class from `mem_agent_impl`
+   - Converts structured method calls to natural language instructions
+   - Follows Adapter pattern to maintain compatibility
+
+2. **Original mem-agent** (`mem_agent_impl/`)
+   - Complete LLM-based agent system
+   - Minimal modifications (only import path updates)
+   - Maintains its own:
+     - LLM client (vLLM/OpenRouter)
+     - Sandboxed execution engine
+     - File operation tools
+     - System prompt
+
+3. **Factory Registration**
+   - Registered as "mem-agent" storage type in `MemoryStorageFactory`
+   - Can be created alongside json/vector storage types
+   - Follows Open/Closed Principle
+
+### Usage Patterns
+
+#### Via Storage Interface (Recommended)
+```python
+from src.agents.mcp.memory import MemoryStorageFactory
+from pathlib import Path
+
+# Create mem-agent storage
+storage = MemoryStorageFactory.create(
+    storage_type="mem-agent",
+    data_dir=Path("data/memory"),
+    model="driaforall/mem-agent",
+    use_vllm=True
+)
+
+# Use standard storage interface
+result = storage.store(
+    content="Important project information",
+    category="project",
+    tags=["important"]
+)
+
+results = storage.retrieve(query="project information")
+```
+
+#### Via Direct Chat Tools
+```python
+from src.agents.mcp.memory.memory_mem_agent_tools import ChatWithMemoryTool
+
+# Direct conversation with mem-agent
+tool = ChatWithMemoryTool()
+response = await tool.execute(
+    {"message": "Remember that I prefer Python for backend development"},
+    context
+)
+```
+
+#### Via MCP Server
+Set environment variable and use memory_server.py:
+```bash
+export MEM_AGENT_STORAGE_TYPE=mem-agent
+export MEM_AGENT_MODEL=driaforall/mem-agent
+python -m src.agents.mcp.memory.memory_server
+```
+
+### Benefits of This Integration
+
+1. **SOLID Compliance**
+   - Follows all SOLID principles
+   - Minimal changes to original mem-agent code
+   - Easy to maintain and extend
+
+2. **Flexibility**
+   - Can use mem-agent via standard storage interface
+   - Can chat directly with agent when needed
+   - Can switch between storage types easily
+
+3. **Backward Compatibility**
+   - Existing code continues to work
+   - New mem-agent features available optionally
+   - Legacy storage types still supported
+
+4. **Separation of Concerns**
+   - Storage abstraction handled by adapter
+   - LLM operations handled by original agent
+   - Each component has single responsibility
 
 ## License
 

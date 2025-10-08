@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 def test_mem_agent_imports():
     """Test that mem-agent modules can be imported"""
     try:
-        from src.agents.mem_agent import Agent, AgentResponse, ChatMessage, Role
+        from src.agents.mcp.memory.mem_agent_impl import Agent, AgentResponse, ChatMessage, Role
         assert Agent is not None
         assert AgentResponse is not None
         assert ChatMessage is not None
@@ -27,7 +27,7 @@ def test_mem_agent_imports():
 def test_mem_agent_settings():
     """Test that mem-agent settings can be loaded"""
     try:
-        from src.agents.mem_agent.settings import (
+        from src.agents.mcp.memory.mem_agent_impl.settings import (
             MAX_TOOL_TURNS,
             VLLM_HOST,
             VLLM_PORT,
@@ -57,7 +57,7 @@ def test_mem_agent_settings():
 
 def test_mem_agent_schemas():
     """Test that mem-agent schemas work correctly"""
-    from src.agents.mem_agent.schemas import ChatMessage, Role, AgentResponse
+    from src.agents.mcp.memory.mem_agent_impl.schemas import ChatMessage, Role, AgentResponse
     
     # Test ChatMessage
     msg = ChatMessage(role=Role.USER, content="Hello")
@@ -77,7 +77,7 @@ def test_mem_agent_schemas():
 
 def test_mem_agent_utils():
     """Test mem-agent utility functions"""
-    from src.agents.mem_agent.utils import (
+    from src.agents.mcp.memory.mem_agent_impl.utils import (
         extract_python_code,
         extract_reply,
         extract_thoughts,
@@ -117,7 +117,7 @@ def test_mem_agent_utils():
 
 def test_mem_agent_tools():
     """Test mem-agent tool functions"""
-    from src.agents.mem_agent.tools import (
+    from src.agents.mcp.memory.mem_agent_impl.tools import (
         create_file,
         read_file,
         check_if_file_exists,
@@ -148,7 +148,7 @@ def test_mem_agent_tools():
 def test_mcp_server_import():
     """Test that MCP server can be imported"""
     try:
-        from src.agents.mem_agent.mcp_server import mcp, get_agent
+        from src.agents.mcp.memory.mem_agent_impl.mcp_server import mcp, get_agent
         assert mcp is not None
         assert callable(get_agent)
     except ImportError as e:
@@ -157,7 +157,7 @@ def test_mcp_server_import():
 
 def test_agent_response_format():
     """Test AgentResponse string formatting"""
-    from src.agents.mem_agent.schemas import AgentResponse
+    from src.agents.mcp.memory.mem_agent_impl.schemas import AgentResponse
     
     response = AgentResponse(
         thoughts="Testing thoughts",
@@ -173,7 +173,7 @@ def test_agent_response_format():
 
 def test_static_memory_schema():
     """Test StaticMemory schema"""
-    from src.agents.mem_agent.schemas import StaticMemory, EntityFile
+    from src.agents.mcp.memory.mem_agent_impl.schemas import StaticMemory, EntityFile
     
     entity = EntityFile(
         entity_name="test_entity",
@@ -194,7 +194,7 @@ def test_static_memory_schema():
 
 def test_sandbox_safety():
     """Test that sandbox environment is configured for safety"""
-    from src.agents.mem_agent.settings import SANDBOX_TIMEOUT, FILE_SIZE_LIMIT
+    from src.agents.mcp.memory.mem_agent_impl.settings import SANDBOX_TIMEOUT, FILE_SIZE_LIMIT
     
     # Verify safety limits are reasonable
     assert SANDBOX_TIMEOUT > 0 and SANDBOX_TIMEOUT <= 60, "Timeout should be reasonable"

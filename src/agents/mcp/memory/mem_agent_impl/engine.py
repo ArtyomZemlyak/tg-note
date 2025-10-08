@@ -9,7 +9,7 @@ import pickle
 import subprocess
 import base64
 
-from src.agents.mem_agent.settings import SANDBOX_TIMEOUT
+from src.agents.mcp.memory.mem_agent_impl.settings import SANDBOX_TIMEOUT
 
 # Configure a logger for the sandbox (in real use, configure handlers/level as needed)
 logger = logging.getLogger(__name__)

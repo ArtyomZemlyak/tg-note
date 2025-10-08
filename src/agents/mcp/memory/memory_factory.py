@@ -13,6 +13,7 @@ from loguru import logger
 from .memory_base import BaseMemoryStorage
 from .memory_json_storage import JsonMemoryStorage
 from .memory_vector_storage import VectorBasedMemoryStorage
+from .memory_mem_agent_storage import MemAgentStorage
 
 
 class MemoryStorageFactory:
@@ -30,6 +31,7 @@ class MemoryStorageFactory:
     STORAGE_TYPES = {
         "json": JsonMemoryStorage,
         "vector": VectorBasedMemoryStorage,
+        "mem-agent": MemAgentStorage,
     }
     
     @classmethod
@@ -44,10 +46,11 @@ class MemoryStorageFactory:
         Create a memory storage instance
         
         Args:
-            storage_type: Type of storage ("json" or "vector")
+            storage_type: Type of storage ("json", "vector", or "mem-agent")
             data_dir: Directory for storing memory data
-            model_name: Model name for vector-based storage (optional)
+            model_name: Model name for vector-based storage or mem-agent (optional)
             **kwargs: Additional arguments for specific storage implementations
+                     For mem-agent: use_vllm (bool), max_tool_turns (int)
             
         Returns:
             Memory storage instance
@@ -83,6 +86,21 @@ class MemoryStorageFactory:
                 logger.info(
                     f"[MemoryStorageFactory] Created VectorBasedMemoryStorage "
                     f"with model '{model_name}' at {data_dir}"
+                )
+            
+            elif storage_type == "mem-agent":
+                # Mem-agent storage with LLM-based memory management
+                use_vllm = kwargs.get("use_vllm", True)
+                max_tool_turns = kwargs.get("max_tool_turns", 20)
+                storage = storage_class(
+                    data_dir=data_dir,
+                    model=model_name,  # Model name for mem-agent
+                    use_vllm=use_vllm,
+                    max_tool_turns=max_tool_turns
+                )
+                logger.info(
+                    f"[MemoryStorageFactory] Created MemAgentStorage "
+                    f"with model '{model_name or 'default'}', vLLM={use_vllm} at {data_dir}"
                 )
             
             else:
@@ -151,9 +169,9 @@ def create_memory_storage(
     This is a simplified interface to the factory for common use cases.
     
     Args:
-        storage_type: Type of storage ("json" or "vector")
+        storage_type: Type of storage ("json", "vector", or "mem-agent")
         data_dir: Directory for storing memory data
-        model_name: Model name for vector-based storage (optional)
+        model_name: Model name for vector-based storage or mem-agent (optional)
         **kwargs: Additional arguments for specific storage implementations
         
     Returns:

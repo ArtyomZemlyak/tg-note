@@ -34,7 +34,7 @@ export OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 
 **Python:**
 ```python
-from src.agents.mem_agent import Agent
+from src.agents.mcp.memory.mem_agent_impl import Agent
 
 agent = Agent(
     memory_path="/path/to/memory",

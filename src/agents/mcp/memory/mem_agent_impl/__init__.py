@@ -1,5 +1,13 @@
 """
 Memory Agent package - LLM-based agent for interacting with Obsidian-like memory systems.
+
+This is the mem-agent implementation that provides LLM-based memory management
+with Obsidian-style markdown files and sandboxed code execution.
+
+Part of the memory storage architecture:
+- memory/json: JsonMemoryStorage (simple JSON-based)
+- memory/vector: VectorBasedMemoryStorage (semantic search)
+- memory/mem-agent: MemAgentStorage (LLM-based agent with tools)
 """
 
 try:

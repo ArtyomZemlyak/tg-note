@@ -13,8 +13,8 @@ from typing import Optional, Dict, Any
 
 from fastmcp import FastMCP, Context
 
-from src.agents.mem_agent.agent import Agent
-from src.agents.mem_agent.settings import get_memory_path
+from src.agents.mcp.memory.mem_agent_impl.agent import Agent
+from src.agents.mcp.memory.mem_agent_impl.settings import get_memory_path
 
 
 # Initialize FastMCP server
