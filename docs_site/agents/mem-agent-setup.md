@@ -425,23 +425,41 @@ MEM_AGENT_MAX_TOOL_TURNS: 10  # Faster but less thorough
 
 **Solutions**:
 
-1. Verify server is registered:
+1. Verify server configuration follows standard MCP format:
    ```bash
    cat data/mcp_servers/mem-agent.json
    ```
+   
+   Should contain:
+   ```json
+   {
+     "mcpServers": {
+       "mem-agent": {
+         "url": "http://127.0.0.1:8765/sse",
+         "timeout": 10000,
+         "trust": true,
+         "description": "..."
+       }
+     }
+   }
+   ```
+   
+   See [MCP Configuration Format](mcp-config-format.md) for details.
 
-2. Check if enabled:
-   ```python
-   from src.mcp_registry import MCPServersManager
-   manager = MCPServersManager()
-   manager.initialize()
-   server = manager.get_server("mem-agent")
-   print(f"Enabled: {server.enabled}")
+2. Verify HTTP server is running:
+   ```bash
+   # Server should auto-start with bot
+   # Check logs for: "[MCPServerManager] ✓ Server 'mem-agent' started successfully"
    ```
 
 3. Test server manually:
    ```bash
-   python -m src.mem_agent.server
+   python -m src.agents.mcp.mem_agent_server_http --host 127.0.0.1 --port 8765
+   ```
+
+4. Test SSE endpoint:
+   ```bash
+   curl http://127.0.0.1:8765/sse
    ```
 
 ## Best Practices

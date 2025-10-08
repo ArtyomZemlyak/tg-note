@@ -31,12 +31,14 @@ Each user's knowledge base contains:
 knowledge_bases/
 └── {user_kb_name}/           # User's KB (from setkb command)
     ├── .mcp_servers/          # Per-user MCP server configs
-    │   └── mem-agent.json
+    │   └── mem-agent.json     # Standard MCP format (see mcp-config-format.md)
     ├── memory/                # Per-user memory
     │   ├── user.md
     │   └── entities/
     └── topics/                # User's notes
 ```
+
+> **Note**: The `mem-agent.json` file follows the standard MCP server configuration format. See [MCP Configuration Format](../agents/mcp-config-format.md) for details.
 
 ## Usage in Code
 
@@ -206,4 +208,5 @@ MEM_AGENT_MEMORY_POSTFIX = "memory"   # Per-user: kb_path/memory
 
 - [Settings Architecture](./settings-architecture.md) - Overall settings design
 - [Memory Agent Setup](../agents/mem-agent-setup.md) - Using memory agent
+- [MCP Configuration Format](../agents/mcp-config-format.md) - Standard MCP config format
 - [MCP Server Registry](../agents/mcp-server-registry.md) - Managing MCP servers
