@@ -102,25 +102,36 @@ nav:
     - Qwen CLI Debug Trace: agents/qwen-cli-debug-trace.md
     - Autonomous Agent: agents/autonomous-agent.md
     - Stub Agent: agents/stub-agent.md
+    - MCP Tools:
+      - MCP Tools Overview: agents/mcp-tools.md
+      - Memory Agent Setup: agents/mem-agent-setup.md
+      - MCP Server Registry: agents/mcp-server-registry.md
+      - MCP Config Format: agents/mcp-config-format.md
+      - KB Reading Tools: agents/kb-reading-tools.md
   
   - Architecture:
     - System Overview: architecture/overview.md
     - Agent Architecture: architecture/agent-architecture.md
     - Settings System: architecture/settings-architecture.md
     - Data Flow: architecture/data-flow.md
+    - Per-User Storage: architecture/per-user-storage.md
   
   - Development:
+    - Overview: development/overview.md
     - Project Structure: development/project-structure.md
     - Running Tests: development/testing.md
     - Code Quality: development/code-quality.md
     - Contributing: development/contributing.md
   
   - Deployment:
+    - Overview: deployment/overview.md
     - Production Setup: deployment/production.md
     - Docker: deployment/docker.md
     - CI/CD: deployment/cicd.md
+    - PyPI Trusted Publisher: deployment/pypi-trusted-publisher-setup.md
   
   - Reference:
+    - Overview: reference/overview.md
     - Configuration Options: reference/configuration.md
     - API Documentation: reference/api.md
     - Troubleshooting: reference/troubleshooting.md
