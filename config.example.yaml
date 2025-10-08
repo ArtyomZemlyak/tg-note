@@ -321,7 +321,7 @@ AGENT_ENABLE_MCP: false
 #         Requires:
 #         * AGENT_ENABLE_MCP=true
 #         * Running scripts/install_mem_agent.py first
-#         * Model: driaforall/mem-agent from HuggingFace
+#         * Model: BAAI/bge-m3 from HuggingFace
 #
 # Installation:
 #   python scripts/install_mem_agent.py
@@ -345,7 +345,7 @@ AGENT_ENABLE_MCP_MEMORY: false
 #           * Fast and lightweight
 #           * No ML dependencies required
 #           * Works immediately without model download
-# - "model": AI-powered semantic search using embeddings
+# - "vector": AI-powered semantic search using embeddings
 #           * Semantic similarity search
 #           * Better understanding of queries
 #           * Requires model download and ML dependencies (transformers, sentence-transformers)
@@ -355,10 +355,10 @@ MEM_AGENT_STORAGE_TYPE: "json"
 
 # MEM_AGENT_MODEL: HuggingFace model ID for memory agent
 #
-# Default: driaforall/mem-agent
-# This is a specialized model trained for memory management tasks
-# Only used when MEM_AGENT_STORAGE_TYPE is set to "model"
-MEM_AGENT_MODEL: "driaforall/mem-agent"
+# Default: BAAI/bge-m3
+# This is an embedding model for vector-based semantic search
+# Only used when MEM_AGENT_STORAGE_TYPE is set to "vector"
+MEM_AGENT_MODEL: "BAAI/bge-m3"
 
 # MEM_AGENT_MODEL_PRECISION: Model quantization precision
 #

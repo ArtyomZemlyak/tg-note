@@ -115,7 +115,7 @@ Built-in MCP tool for intelligent memory management:
 - **MemoryStoreTool**: Simplified tool for storing memories
 - **MemorySearchTool**: Simplified tool for searching memories
 
-Uses the [mem-agent](https://huggingface.co/driaforall/mem-agent) model via [mem-agent-mcp](https://github.com/firstbatchxyz/mem-agent-mcp) server.
+Uses embeddings (e.g., [bge-m3](https://huggingface.co/BAAI/bge-m3)) via [mem-agent-mcp](https://github.com/firstbatchxyz/mem-agent-mcp) server.
 
 ## Built-in MCP Tools
 

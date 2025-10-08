@@ -107,7 +107,7 @@
 2. НАСТРОИТЬ (config.yaml)
    AGENT_ENABLE_MCP: true
    AGENT_ENABLE_MCP_MEMORY: true
-   MEM_AGENT_MODEL: driaforall/mem-agent
+   MEM_AGENT_MODEL: BAAI/bge-m3
    MEM_AGENT_MODEL_PRECISION: 4bit
 
 3. УСТАНОВИТЬ ЗАВИСИМОСТИ

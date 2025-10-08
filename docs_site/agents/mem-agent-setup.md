@@ -1,10 +1,16 @@
-# Memory Agent Setup Guide
+# Memory System Setup Guide
 
-This guide covers the installation, configuration, and usage of the integrated mem-agent - a personal note-taking and search system for autonomous agents.
+This guide covers the installation, configuration, and usage of the MCP Memory tool - a personal note-taking and search system for autonomous agents.
+
+> **Terminology Note:**
+> - **MCP Memory** - The current note-taking tool for agents (what you're setting up here)
+> - **mem-agent** - A planned future LLM-based memory assistant (not yet implemented)
+> 
+> The configuration still uses `MEM_AGENT_*` prefixes for historical reasons.
 
 ## Overview
 
-The memory agent is a local note-taking system specifically designed for the main agent. The agent uses it to:
+The MCP Memory tool is a local note-taking system specifically designed for the main agent. The agent uses it to:
 
 - **Record notes**: Write down important information, findings, or context during task execution
 - **Search notes**: Find and recall previously recorded information to "remember" details
@@ -23,7 +29,7 @@ The system supports two storage backends:
 - **Best for**: Most users, small to medium memory sizes, simple search needs
 
 #### 2. Model-Based Storage
-- **AI-Powered**: Semantic search using the `driaforall/mem-agent` model from HuggingFace
+- **AI-Powered**: Semantic search using the `BAAI/bge-m3` model from HuggingFace
 - **Smart Search**: Understands meaning, not just keywords
 - **Best for**: Large memory sizes, complex queries, semantic understanding needed
 - **Requires**: Additional dependencies (transformers, sentence-transformers)
@@ -57,8 +63,8 @@ AGENT_ENABLE_MCP: true
 AGENT_ENABLE_MCP_MEMORY: true
 
 # Memory agent settings
-MEM_AGENT_STORAGE_TYPE: json  # Storage type: "json" (default) or "model"
-MEM_AGENT_MODEL: driaforall/mem-agent  # Model for semantic search (if using "model" storage)
+MEM_AGENT_STORAGE_TYPE: json  # Storage type: "json" (default) or "vector"
+MEM_AGENT_MODEL: BAAI/bge-m3  # Model for semantic search (if using "vector" storage)
 MEM_AGENT_MODEL_PRECISION: 4bit
 MEM_AGENT_BACKEND: auto
 MEM_AGENT_MEMORY_POSTFIX: memory  # Postfix within KB (kb_path/memory)
@@ -73,8 +79,8 @@ Or use environment variables in `.env`:
 ```bash
 AGENT_ENABLE_MCP=true
 AGENT_ENABLE_MCP_MEMORY=true
-MEM_AGENT_STORAGE_TYPE=json  # or "model" for semantic search
-MEM_AGENT_MODEL=driaforall/mem-agent
+MEM_AGENT_STORAGE_TYPE=json  # or "vector" for semantic search
+MEM_AGENT_MODEL=BAAI/bge-m3
 MEM_AGENT_MODEL_PRECISION=4bit
 MEM_AGENT_BACKEND=auto
 MEM_AGENT_MEMORY_POSTFIX=memory
@@ -97,7 +103,7 @@ MCP_SERVERS_POSTFIX=.mcp_servers
 
 To enable model-based storage:
 
-1. Set `MEM_AGENT_STORAGE_TYPE: model` in config
+1. Set `MEM_AGENT_STORAGE_TYPE: vector` in config
 2. Install additional dependencies:
    ```bash
    pip install sentence-transformers transformers torch
@@ -125,7 +131,7 @@ ls -la knowledge_bases/default/memory/
 
 ```bash
 python scripts/install_mem_agent.py \
-  --model driaforall/mem-agent \
+  --model BAAI/bge-m3 \
   --precision 8bit \
   --workspace /path/to/workspace
 ```
@@ -275,23 +281,22 @@ print(f"Backend: {settings.get_mem_agent_backend()}")
 
 ### Available Models
 
-- **driaforall/mem-agent** (default) - Optimized for memory tasks
-- **driaforall/mem-agent-8bit** - 8-bit quantized version
-- **driaforall/mem-agent-4bit** - 4-bit quantized version (smallest)
+- **BAAI/bge-m3** (default) - High-quality multilingual embedding model
+- Any sentence-transformers compatible model can be used
 
 ### Changing Models
 
 1. Update configuration:
 
 ```yaml
-MEM_AGENT_MODEL: driaforall/mem-agent-8bit
-MEM_AGENT_MODEL_PRECISION: 8bit
+MEM_AGENT_MODEL: sentence-transformers/all-MiniLM-L6-v2
+MEM_AGENT_MODEL_PRECISION: fp16
 ```
 
 2. Download new model:
 
 ```bash
-huggingface-cli download driaforall/mem-agent-8bit
+huggingface-cli download BAAI/bge-m3
 ```
 
 3. Restart the application
@@ -305,7 +310,7 @@ Models are cached in HuggingFace cache directory:
 huggingface-cli scan-cache
 
 # Delete specific model
-huggingface-cli delete-cache --repo driaforall/mem-agent
+huggingface-cli delete-cache --repo BAAI/bge-m3
 
 # Clear entire cache
 huggingface-cli delete-cache
@@ -317,8 +322,8 @@ huggingface-cli delete-cache
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `MEM_AGENT_STORAGE_TYPE` | `json` | Storage type: `json` (simple) or `model` (AI-powered) |
-| `MEM_AGENT_MODEL` | `driaforall/mem-agent` | HuggingFace model ID (for `model` storage type) |
+| `MEM_AGENT_STORAGE_TYPE` | `json` | Storage type: `json` (simple) or `vector` (AI-powered) |
+| `MEM_AGENT_MODEL` | `BAAI/bge-m3` | HuggingFace model ID (for `vector` storage type) |
 | `MEM_AGENT_MODEL_PRECISION` | `4bit` | Model precision (4bit, 8bit, fp16) |
 | `MEM_AGENT_BACKEND` | `auto` | Backend (auto, vllm, mlx, transformers) |
 | `MEM_AGENT_MEMORY_POSTFIX` | `memory` | Memory directory postfix within KB |
@@ -365,10 +370,11 @@ MEM_AGENT_MODEL_PRECISION: fp16
 Adjust vLLM parameters:
 
 ```bash
-# Run vLLM server separately for better control
-vllm serve driaforall/mem-agent \
-  --host 127.0.0.1 \
-  --port 8001 \
+# Note: vLLM is for LLM inference, not for embeddings
+# For embeddings, the model is loaded directly via sentence-transformers
+# vllm serve BAAI/bge-m3 \
+#   --host 127.0.0.1 \
+#   --port 8001 \
   --tensor-parallel-size 1
 ```
 
@@ -405,7 +411,7 @@ MEM_AGENT_MAX_TOOL_TURNS: 10  # Faster but less thorough
    ```
 3. Download manually:
    ```bash
-   huggingface-cli download driaforall/mem-agent --local-dir ./models/mem-agent
+   huggingface-cli download BAAI/bge-m3 --local-dir ./models/bge-m3
    ```
 
 ### Backend Issues

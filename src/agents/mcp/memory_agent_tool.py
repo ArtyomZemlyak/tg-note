@@ -10,12 +10,12 @@ The agent can use it to:
 This is designed for autonomous agents (like qwen code cli) where the agent makes many
 LLM calls within one session and needs to maintain context across these calls.
 
-The memory agent uses the driaforall/mem-agent model from HuggingFace
+The memory agent uses embeddings (e.g., BAAI/bge-m3) from HuggingFace
 and the MCP server configuration is loaded from data/mcp_servers/mem-agent.json
 which is created by running scripts/install_mem_agent.py.
 
 References:
-- Model: https://huggingface.co/driaforall/mem-agent
+- Model: https://huggingface.co/BAAI/bge-m3
 - Installation: scripts/install_mem_agent.py
 """
 

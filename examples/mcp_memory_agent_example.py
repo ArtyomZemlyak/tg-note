@@ -13,7 +13,7 @@ for the agent to:
 This is especially useful for autonomous agents (like qwen code cli) that make
 many LLM calls within a single session.
 
-The memory agent uses the driaforall/mem-agent model from HuggingFace.
+The memory agent uses embeddings (e.g., BAAI/bge-m3) from HuggingFace.
 
 Prerequisites:
 1. Run: python scripts/install_mem_agent.py
@@ -21,7 +21,7 @@ Prerequisites:
    OPENAI_API_KEY=your_key_here
 
 References:
-- Model: https://huggingface.co/driaforall/mem-agent
+- Model: https://huggingface.co/BAAI/bge-m3
 - Installation: scripts/install_mem_agent.py
 """
 

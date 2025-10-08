@@ -154,11 +154,11 @@ class Settings(BaseSettings):
     # Memory Agent Settings (can be in YAML)
     MEM_AGENT_STORAGE_TYPE: str = Field(
         default="json",
-        description="Memory storage type: json (simple, fast) or model (AI-powered semantic search)"
+        description="Memory storage type: json (simple, fast) or vector (AI-powered semantic search)"
     )
     MEM_AGENT_MODEL: str = Field(
-        default="driaforall/mem-agent",
-        description="HuggingFace model ID for memory agent (used with 'model' storage type)"
+        default="BAAI/bge-m3",
+        description="HuggingFace model ID for embeddings (used with 'vector' storage type)"
     )
     MEM_AGENT_MODEL_PRECISION: str = Field(
         default="4bit",

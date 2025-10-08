@@ -1,7 +1,7 @@
 """
-Model-based Memory Storage Implementation
+Vector-based Memory Storage Implementation
 
-Uses the driaforall/mem-agent model for semantic search and retrieval.
+Uses embedding models for semantic search and retrieval via vector similarity.
 Combines JSON storage with vector embeddings for semantic similarity search.
 """
 
@@ -15,12 +15,12 @@ from loguru import logger
 from .base import BaseMemoryStorage
 
 
-class ModelBasedMemoryStorage(BaseMemoryStorage):
+class VectorBasedMemoryStorage(BaseMemoryStorage):
     """
-    Model-based memory storage with semantic search
+    Vector-based memory storage with semantic search
     
     Features:
-    - Semantic search using embeddings from driaforall/mem-agent model
+    - Semantic search using embeddings from sentence-transformers models
     - Vector similarity search with cosine similarity
     - Fallback to JSON storage for data persistence
     - Category and tag filtering
@@ -36,7 +36,7 @@ class ModelBasedMemoryStorage(BaseMemoryStorage):
     Requires additional dependencies: transformers, torch, sentence-transformers
     """
     
-    def __init__(self, data_dir: Path, model_name: str = "driaforall/mem-agent"):
+    def __init__(self, data_dir: Path, model_name: str = "BAAI/bge-m3"):
         """
         Initialize model-based memory storage
         
@@ -58,7 +58,7 @@ class ModelBasedMemoryStorage(BaseMemoryStorage):
         self._load_data()
         
         logger.info(
-            f"[ModelBasedMemoryStorage] Initialized with model '{model_name}' "
+            f"[VectorBasedMemoryStorage] Initialized with model '{model_name}' "
             f"({len(self.memories)} memories loaded)"
         )
     
@@ -74,28 +74,28 @@ class ModelBasedMemoryStorage(BaseMemoryStorage):
                 # Try to use sentence-transformers (most compatible)
                 from sentence_transformers import SentenceTransformer
                 
-                logger.info(f"[ModelBasedMemoryStorage] Loading model '{self.model_name}'...")
+                logger.info(f"[VectorBasedMemoryStorage] Loading model '{self.model_name}'...")
                 self._model = SentenceTransformer(self.model_name)
-                logger.info(f"[ModelBasedMemoryStorage] Model loaded successfully")
+                logger.info(f"[VectorBasedMemoryStorage] Model loaded successfully")
                 
             except ImportError:
                 logger.error(
-                    "[ModelBasedMemoryStorage] sentence-transformers not installed. "
+                    "[VectorBasedMemoryStorage] sentence-transformers not installed. "
                     "Install with: pip install sentence-transformers"
                 )
                 raise
             except Exception as e:
-                logger.error(f"[ModelBasedMemoryStorage] Failed to load model: {e}")
+                logger.error(f"[VectorBasedMemoryStorage] Failed to load model: {e}")
                 # Try to fallback to a default model
                 try:
                     from sentence_transformers import SentenceTransformer
                     logger.warning(
-                        f"[ModelBasedMemoryStorage] Falling back to default model 'all-MiniLM-L6-v2'"
+                        f"[VectorBasedMemoryStorage] Falling back to default model 'all-MiniLM-L6-v2'"
                     )
                     self._model = SentenceTransformer('all-MiniLM-L6-v2')
                 except Exception as fallback_error:
                     logger.error(
-                        f"[ModelBasedMemoryStorage] Fallback model also failed: {fallback_error}"
+                        f"[VectorBasedMemoryStorage] Fallback model also failed: {fallback_error}"
                     )
                     raise
         
@@ -108,9 +108,9 @@ class ModelBasedMemoryStorage(BaseMemoryStorage):
             try:
                 with open(self.memory_file, 'r', encoding='utf-8') as f:
                     self.memories = json.load(f)
-                logger.debug(f"[ModelBasedMemoryStorage] Loaded {len(self.memories)} memories")
+                logger.debug(f"[VectorBasedMemoryStorage] Loaded {len(self.memories)} memories")
             except Exception as e:
-                logger.error(f"[ModelBasedMemoryStorage] Failed to load memories: {e}")
+                logger.error(f"[VectorBasedMemoryStorage] Failed to load memories: {e}")
                 self.memories = []
         
         # Load embeddings from numpy file
@@ -118,10 +118,10 @@ class ModelBasedMemoryStorage(BaseMemoryStorage):
             try:
                 self._embeddings = np.load(self.embeddings_file)
                 logger.debug(
-                    f"[ModelBasedMemoryStorage] Loaded embeddings with shape {self._embeddings.shape}"
+                    f"[VectorBasedMemoryStorage] Loaded embeddings with shape {self._embeddings.shape}"
                 )
             except Exception as e:
-                logger.error(f"[ModelBasedMemoryStorage] Failed to load embeddings: {e}")
+                logger.error(f"[VectorBasedMemoryStorage] Failed to load embeddings: {e}")
                 self._embeddings = None
     
     def _save_data(self) -> None:
@@ -131,14 +131,14 @@ class ModelBasedMemoryStorage(BaseMemoryStorage):
             with open(self.memory_file, 'w', encoding='utf-8') as f:
                 json.dump(self.memories, f, indent=2, ensure_ascii=False)
         except Exception as e:
-            logger.error(f"[ModelBasedMemoryStorage] Failed to save memories: {e}")
+            logger.error(f"[VectorBasedMemoryStorage] Failed to save memories: {e}")
         
         # Save embeddings to numpy file
         if self._embeddings is not None:
             try:
                 np.save(self.embeddings_file, self._embeddings)
             except Exception as e:
-                logger.error(f"[ModelBasedMemoryStorage] Failed to save embeddings: {e}")
+                logger.error(f"[VectorBasedMemoryStorage] Failed to save embeddings: {e}")
     
     def _compute_embedding(self, text: str) -> np.ndarray:
         """
@@ -213,16 +213,16 @@ class ModelBasedMemoryStorage(BaseMemoryStorage):
             else:
                 self._embeddings = np.vstack([self._embeddings, embedding])
             
-            logger.debug(f"[ModelBasedMemoryStorage] Computed embedding for memory #{memory_id}")
+            logger.debug(f"[VectorBasedMemoryStorage] Computed embedding for memory #{memory_id}")
             
         except Exception as e:
-            logger.error(f"[ModelBasedMemoryStorage] Failed to compute embedding: {e}")
+            logger.error(f"[VectorBasedMemoryStorage] Failed to compute embedding: {e}")
             # Continue without embedding (will fall back to keyword search)
         
         self.memories.append(memory)
         self._save_data()
         
-        logger.info(f"[ModelBasedMemoryStorage] Stored memory #{memory_id} in category '{category}'")
+        logger.info(f"[VectorBasedMemoryStorage] Stored memory #{memory_id} in category '{category}'")
         
         return {
             "success": True,
@@ -270,7 +270,7 @@ class ModelBasedMemoryStorage(BaseMemoryStorage):
         if not query:
             results = [m for _, m in candidates[-limit:]]
             logger.info(
-                f"[ModelBasedMemoryStorage] Retrieved {len(results)} memories "
+                f"[VectorBasedMemoryStorage] Retrieved {len(results)} memories "
                 f"(no query, category='{category}', tags={tags})"
             )
             return {
@@ -282,7 +282,7 @@ class ModelBasedMemoryStorage(BaseMemoryStorage):
         # Semantic search with query
         if self._embeddings is None or len(candidates) == 0:
             # No embeddings available, fall back to keyword search
-            logger.warning("[ModelBasedMemoryStorage] No embeddings, falling back to keyword search")
+            logger.warning("[VectorBasedMemoryStorage] No embeddings, falling back to keyword search")
             query_lower = query.lower()
             scored_results = [
                 (i, m, 1.0 if query_lower in m.get("content", "").lower() else 0.0)
@@ -307,12 +307,12 @@ class ModelBasedMemoryStorage(BaseMemoryStorage):
                 ]
                 
                 logger.debug(
-                    f"[ModelBasedMemoryStorage] Computed semantic similarities "
+                    f"[VectorBasedMemoryStorage] Computed semantic similarities "
                     f"(top score: {max(similarities):.3f})"
                 )
                 
             except Exception as e:
-                logger.error(f"[ModelBasedMemoryStorage] Semantic search failed: {e}")
+                logger.error(f"[VectorBasedMemoryStorage] Semantic search failed: {e}")
                 # Fall back to keyword search
                 query_lower = query.lower()
                 scored_results = [
@@ -328,7 +328,7 @@ class ModelBasedMemoryStorage(BaseMemoryStorage):
         ]
         
         logger.info(
-            f"[ModelBasedMemoryStorage] Retrieved {len(results)} memories "
+            f"[VectorBasedMemoryStorage] Retrieved {len(results)} memories "
             f"(query='{query}', category='{category}', tags={tags})"
         )
         
@@ -425,7 +425,7 @@ class ModelBasedMemoryStorage(BaseMemoryStorage):
             self._embeddings = np.delete(self._embeddings, memory_index, axis=0)
         
         self._save_data()
-        logger.info(f"[ModelBasedMemoryStorage] Deleted memory #{memory_id}")
+        logger.info(f"[VectorBasedMemoryStorage] Deleted memory #{memory_id}")
         
         return {
             "success": True,
@@ -469,7 +469,7 @@ class ModelBasedMemoryStorage(BaseMemoryStorage):
             message = f"Cleared all {original_count} memories"
         
         self._save_data()
-        logger.info(f"[ModelBasedMemoryStorage] {message}")
+        logger.info(f"[VectorBasedMemoryStorage] {message}")
         
         return {
             "success": True,
