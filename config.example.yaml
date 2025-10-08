@@ -338,10 +338,26 @@ AGENT_ENABLE_MCP_MEMORY: false
 # Configuration for the local mem-agent that provides intelligent memory management
 # using a locally-run LLM model. No API keys required.
 
+# MEM_AGENT_STORAGE_TYPE: Type of memory storage to use
+#
+# Available options:
+# - "json": Simple JSON file storage with substring search (RECOMMENDED for most users)
+#           * Fast and lightweight
+#           * No ML dependencies required
+#           * Works immediately without model download
+# - "model": AI-powered semantic search using embeddings
+#           * Semantic similarity search
+#           * Better understanding of queries
+#           * Requires model download and ML dependencies (transformers, sentence-transformers)
+#
+# Default: "json"
+MEM_AGENT_STORAGE_TYPE: "json"
+
 # MEM_AGENT_MODEL: HuggingFace model ID for memory agent
 #
 # Default: driaforall/mem-agent
 # This is a specialized model trained for memory management tasks
+# Only used when MEM_AGENT_STORAGE_TYPE is set to "model"
 MEM_AGENT_MODEL: "driaforall/mem-agent"
 
 # MEM_AGENT_MODEL_PRECISION: Model quantization precision

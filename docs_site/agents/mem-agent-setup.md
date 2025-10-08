@@ -4,7 +4,7 @@ This guide covers the installation, configuration, and usage of the integrated m
 
 ## Overview
 
-The memory agent is a local LLM-powered note-taking system specifically designed for the main agent. The agent uses it to:
+The memory agent is a local note-taking system specifically designed for the main agent. The agent uses it to:
 
 - **Record notes**: Write down important information, findings, or context during task execution
 - **Search notes**: Find and recall previously recorded information to "remember" details
@@ -12,11 +12,23 @@ The memory agent is a local LLM-powered note-taking system specifically designed
 
 This is particularly useful for autonomous agents (like qwen code cli) that make many LLM calls within one continuous session.
 
-The system uses the `driaforall/mem-agent` model from HuggingFace and can run on various backends:
+### Storage Types
 
-- **vLLM** (Linux with GPU) - Best performance
-- **MLX** (macOS with Apple Silicon) - Native ARM support
-- **Transformers** (CPU fallback) - Works everywhere, slower
+The system supports two storage backends:
+
+#### 1. JSON Storage (Default)
+- **Simple and Fast**: File-based JSON storage with substring search
+- **No Dependencies**: No ML models or additional libraries required
+- **Lightweight**: Minimal memory footprint
+- **Best for**: Most users, small to medium memory sizes, simple search needs
+
+#### 2. Model-Based Storage
+- **AI-Powered**: Semantic search using the `driaforall/mem-agent` model from HuggingFace
+- **Smart Search**: Understands meaning, not just keywords
+- **Best for**: Large memory sizes, complex queries, semantic understanding needed
+- **Requires**: Additional dependencies (transformers, sentence-transformers)
+
+The storage type is configured via `MEM_AGENT_STORAGE_TYPE` setting (default: `json`).
 
 ## Quick Start
 
@@ -45,7 +57,8 @@ AGENT_ENABLE_MCP: true
 AGENT_ENABLE_MCP_MEMORY: true
 
 # Memory agent settings
-MEM_AGENT_MODEL: driaforall/mem-agent
+MEM_AGENT_STORAGE_TYPE: json  # Storage type: "json" (default) or "model"
+MEM_AGENT_MODEL: driaforall/mem-agent  # Model for semantic search (if using "model" storage)
 MEM_AGENT_MODEL_PRECISION: 4bit
 MEM_AGENT_BACKEND: auto
 MEM_AGENT_MEMORY_POSTFIX: memory  # Postfix within KB (kb_path/memory)
@@ -60,12 +73,36 @@ Or use environment variables in `.env`:
 ```bash
 AGENT_ENABLE_MCP=true
 AGENT_ENABLE_MCP_MEMORY=true
+MEM_AGENT_STORAGE_TYPE=json  # or "model" for semantic search
 MEM_AGENT_MODEL=driaforall/mem-agent
 MEM_AGENT_MODEL_PRECISION=4bit
 MEM_AGENT_BACKEND=auto
 MEM_AGENT_MEMORY_POSTFIX=memory
 MCP_SERVERS_POSTFIX=.mcp_servers
 ```
+
+#### Choosing Storage Type
+
+**Use JSON storage (default) if:**
+- You want fast, lightweight storage
+- Simple keyword search is sufficient
+- You don't want to download ML models
+- You have limited resources
+
+**Use Model-based storage if:**
+- You need semantic search (understands meaning)
+- You have large amounts of memories
+- You want AI-powered relevance ranking
+- You have resources for ML models
+
+To enable model-based storage:
+
+1. Set `MEM_AGENT_STORAGE_TYPE: model` in config
+2. Install additional dependencies:
+   ```bash
+   pip install sentence-transformers transformers torch
+   ```
+3. The model will be downloaded automatically on first use
 
 ### Verification
 
@@ -280,7 +317,8 @@ huggingface-cli delete-cache
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `MEM_AGENT_MODEL` | `driaforall/mem-agent` | HuggingFace model ID |
+| `MEM_AGENT_STORAGE_TYPE` | `json` | Storage type: `json` (simple) or `model` (AI-powered) |
+| `MEM_AGENT_MODEL` | `driaforall/mem-agent` | HuggingFace model ID (for `model` storage type) |
 | `MEM_AGENT_MODEL_PRECISION` | `4bit` | Model precision (4bit, 8bit, fp16) |
 | `MEM_AGENT_BACKEND` | `auto` | Backend (auto, vllm, mlx, transformers) |
 | `MEM_AGENT_MEMORY_POSTFIX` | `memory` | Memory directory postfix within KB |
@@ -292,6 +330,18 @@ huggingface-cli delete-cache
 | `MEM_AGENT_DIR_SIZE_LIMIT` | `10485760` | Max directory size (10MB) |
 | `MEM_AGENT_MEMORY_SIZE_LIMIT` | `104857600` | Max total memory (100MB) |
 | `MCP_SERVERS_POSTFIX` | `.mcp_servers` | MCP servers directory postfix within KB |
+
+### Storage Type Comparison
+
+| Feature | JSON Storage | Model-Based Storage |
+|---------|-------------|---------------------|
+| Search Type | Substring match | Semantic similarity |
+| Speed | Very fast | Moderate (first query slower) |
+| Memory Usage | Minimal | Higher (model in memory) |
+| Dependencies | None | transformers, sentence-transformers |
+| Model Download | Not required | Required (~400MB) |
+| Best Use Case | Simple searches | Complex semantic queries |
+| Example Query | "vulnerability" finds "vulnerability" | "security issue" finds "vulnerability" |
 
 ### Backend Selection Logic
 
