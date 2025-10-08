@@ -12,7 +12,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from src.agents.mcp.qwen_config_generator import QwenMCPConfigGenerator, setup_qwen_mcp_config
-from src.agents.mcp.mem_agent_server import MemoryStorage, MemAgentMCPServer
+from src.agents.mcp.memory.memory_storage import MemoryStorage
+from src.agents.mcp.memory.memory_server import MemoryMCPServer
 
 
 class TestMemoryStorage:
@@ -139,13 +140,13 @@ class TestMemoryStorage:
         assert storage2.memories[0]["content"] == "Persistent memory"
 
 
-class TestMemAgentMCPServer:
-    """Test MemAgentMCPServer class"""
+class TestMemoryMCPServer:
+    """Test MemoryMCPServer class"""
     
     @pytest.fixture
     def server(self):
         """Create MCP server instance"""
-        return MemAgentMCPServer(user_id=123)
+        return MemoryMCPServer(user_id=123)
     
     @pytest.mark.asyncio
     async def test_list_tools(self, server):

@@ -66,7 +66,7 @@ For servers using standard input/output, the configuration format is:
   "mcpServers": {
     "mem-agent": {
       "command": "python",
-      "args": ["-m", "src.agents.mcp.mem_agent_server"],
+      "args": ["-m", "src.agents.mcp.memory.memory_server"],
       "cwd": "/path/to/project",
       "env": {},
       "timeout": 10000,
@@ -117,7 +117,7 @@ Example generated file:
       "description": "Agent's personal note-taking and search system",
       "_transport": "http",
       "_command": "python",
-      "_args": ["-m", "src.agents.mcp.mem_agent_server_http", "--host", "127.0.0.1", "--port", "8765"],
+      "_args": ["-m", "src.agents.mcp.memory.memory_server_http", "--host", "127.0.0.1", "--port", "8765"],
       "_cwd": "/workspace",
       "_stdio_variant": {
         "command": "python",
@@ -171,9 +171,9 @@ setup_qwen_mcp_config(
 ### With Python MCP Client
 
 ```python
-from src.agents.mcp.memory_agent_tool import MemoryAgentMCPTool
+from src.agents.mcp.memory.memory_tool import MemoryMCPTool
 
-tool = MemoryAgentMCPTool()
+tool = MemoryMCPTool()
 config = tool.mcp_server_config
 
 # Config is automatically loaded from mem-agent.json

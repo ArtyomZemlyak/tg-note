@@ -1,5 +1,5 @@
 """
-Memory Agent MCP Tool - Agent's Personal Note-Taking System
+Memory MCP Tool - Agent's Personal Note-Taking System
 
 This tool provides a personal note-taking and search system specifically for the main agent.
 The agent can use it to:
@@ -10,8 +10,8 @@ The agent can use it to:
 This is designed for autonomous agents (like qwen code cli) where the agent makes many
 LLM calls within one session and needs to maintain context across these calls.
 
-The memory agent uses embeddings (e.g., BAAI/bge-m3) from HuggingFace
-and the MCP server configuration is loaded from data/mcp_servers/mem-agent.json
+The memory system uses embeddings (e.g., BAAI/bge-m3) from HuggingFace
+and the MCP server configuration is loaded from data/mcp_servers/memory.json
 which is created by running scripts/install_mem_agent.py.
 
 References:
@@ -26,13 +26,13 @@ from typing import Any, Dict
 
 from loguru import logger
 
-from .base_mcp_tool import BaseMCPTool
-from .client import MCPServerConfig
+from ..base_mcp_tool import BaseMCPTool
+from ..client import MCPServerConfig
 
 
-class MemoryAgentMCPTool(BaseMCPTool):
+class MemoryMCPTool(BaseMCPTool):
     """
-    Memory Agent MCP Tool - Agent's Personal Note-Taking System
+    Memory MCP Tool - Agent's Personal Note-Taking System
     
     This tool provides a personal note-taking and search system for the agent.
     The agent can use it to record important information and later search through notes to recall details.
@@ -48,7 +48,7 @@ class MemoryAgentMCPTool(BaseMCPTool):
     
     @property
     def name(self) -> str:
-        return "mcp_memory_agent"
+        return "mcp_memory"
     
     @property
     def description(self) -> str:
@@ -85,69 +85,75 @@ class MemoryAgentMCPTool(BaseMCPTool):
     @property
     def mcp_server_config(self) -> MCPServerConfig:
         """
-        Load MCP server configuration from data/mcp_servers/mem-agent.json
+        Load MCP server configuration from data/mcp_servers/memory.json
         
         The configuration is created by MCPServerManager and contains settings
-        for the mem-agent HTTP server (SSE transport).
+        for the memory HTTP server (SSE transport).
         
         Note: The KB_PATH environment variable is set dynamically at runtime
         in the execute() method, as it's user-specific.
         """
-        config_file = Path("data/mcp_servers/mem-agent.json")
+        config_file = Path("data/mcp_servers/memory.json")
         
         if not config_file.exists():
-            logger.warning(
-                f"[MemoryAgentMCPTool] Config file not found: {config_file}. "
-                "Using default HTTP server configuration."
-            )
-            # Return default HTTP server config
-            return MCPServerConfig(
-                command="python",
-                args=["-m", "src.agents.mcp.mem_agent_server_http", "--host", "127.0.0.1", "--port", "8765"],
-                env={},
-                transport="sse",
-                url="http://127.0.0.1:8765/sse"
-            )
+            # Try legacy mem-agent.json for backward compatibility
+            legacy_config_file = Path("data/mcp_servers/mem-agent.json")
+            if legacy_config_file.exists():
+                config_file = legacy_config_file
+                logger.info(f"[MemoryMCPTool] Using legacy config file: {config_file}")
+            else:
+                logger.warning(
+                    f"[MemoryMCPTool] Config file not found: {config_file}. "
+                    "Using default HTTP server configuration."
+                )
+                # Return default HTTP server config
+                return MCPServerConfig(
+                    command="python",
+                    args=["-m", "src.agents.mcp.memory.memory_server_http", "--host", "127.0.0.1", "--port", "8765"],
+                    env={},
+                    transport="sse",
+                    url="http://127.0.0.1:8765/sse"
+                )
         
         try:
             with open(config_file, "r", encoding="utf-8") as f:
                 config_data = json.load(f)
             
-            # Standard MCP format: {"mcpServers": {"mem-agent": {...}}}
+            # Standard MCP format: {"mcpServers": {"memory": {...}}} or {"mcpServers": {"mem-agent": {...}}}
             mcp_servers = config_data.get("mcpServers", {})
-            mem_agent_config = mcp_servers.get("mem-agent", {})
+            memory_config = mcp_servers.get("memory") or mcp_servers.get("mem-agent")
             
-            if not mem_agent_config:
-                logger.warning(f"[MemoryAgentMCPTool] No mem-agent config found in {config_file}")
-                raise ValueError("mem-agent not found in mcpServers")
+            if not memory_config:
+                logger.warning(f"[MemoryMCPTool] No memory config found in {config_file}")
+                raise ValueError("memory not found in mcpServers")
             
             # Check if this is HTTP/SSE transport (has "url" field)
-            if "url" in mem_agent_config:
+            if "url" in memory_config:
                 # HTTP/SSE transport
                 return MCPServerConfig(
-                    command=mem_agent_config.get("_command", "python"),
-                    args=mem_agent_config.get("_args", ["-m", "src.agents.mcp.mem_agent_server_http", "--host", "127.0.0.1", "--port", "8765"]),
+                    command=memory_config.get("_command", "python"),
+                    args=memory_config.get("_args", ["-m", "src.agents.mcp.memory.memory_server_http", "--host", "127.0.0.1", "--port", "8765"]),
                     env={},
-                    cwd=Path(mem_agent_config.get("_cwd", Path.cwd())) if mem_agent_config.get("_cwd") else None,
+                    cwd=Path(memory_config.get("_cwd", Path.cwd())) if memory_config.get("_cwd") else None,
                     transport="sse",
-                    url=mem_agent_config["url"]
+                    url=memory_config["url"]
                 )
             else:
                 # stdio transport (has "command" and "args" fields)
                 return MCPServerConfig(
-                    command=mem_agent_config.get("command", "python"),
-                    args=mem_agent_config.get("args", ["-m", "src.agents.mcp.mem_agent_server_http"]),
-                    env=mem_agent_config.get("env", {}),
-                    cwd=Path(mem_agent_config["cwd"]) if mem_agent_config.get("cwd") else None,
+                    command=memory_config.get("command", "python"),
+                    args=memory_config.get("args", ["-m", "src.agents.mcp.memory.memory_server_http"]),
+                    env=memory_config.get("env", {}),
+                    cwd=Path(memory_config["cwd"]) if memory_config.get("cwd") else None,
                     transport="stdio",
                     url=None
                 )
         except Exception as e:
-            logger.error(f"[MemoryAgentMCPTool] Failed to load config from {config_file}: {e}")
+            logger.error(f"[MemoryMCPTool] Failed to load config from {config_file}: {e}")
             # Return default HTTP config
             return MCPServerConfig(
                 command="python",
-                args=["-m", "src.agents.mcp.mem_agent_server_http", "--host", "127.0.0.1", "--port", "8765"],
+                args=["-m", "src.agents.mcp.memory.memory_server_http", "--host", "127.0.0.1", "--port", "8765"],
                 env={},
                 transport="sse",
                 url="http://127.0.0.1:8765/sse"
@@ -158,7 +164,7 @@ class MemoryAgentMCPTool(BaseMCPTool):
         """
         The tool name in the MCP server
         
-        Note: This depends on how the mem-agent-mcp server exposes its tools.
+        Note: This depends on how the memory-mcp server exposes its tools.
         Common names might be: 'memory', 'store_memory', 'search_memory', etc.
         
         We'll use a generic approach and map our actions to the server's tools.
@@ -167,7 +173,7 @@ class MemoryAgentMCPTool(BaseMCPTool):
     
     async def execute(self, params: Dict[str, Any], context: 'ToolContext') -> Dict[str, Any]:
         """
-        Execute memory agent action
+        Execute memory action
         
         Args:
             params: Action parameters (action, content, context)
@@ -194,14 +200,14 @@ class MemoryAgentMCPTool(BaseMCPTool):
             # Temporarily update the client's config
             if self.client:
                 self.client.config.env = updated_env
-                logger.debug(f"[MemoryAgentMCPTool] Set KB_PATH={kb_path} for memory agent")
+                logger.debug(f"[MemoryMCPTool] Set KB_PATH={kb_path} for memory")
         
         action = params.get("action", "")
         content = params.get("content", "")
         memory_context = params.get("context", "")
         
         # Map our action to MCP tool parameters
-        # The actual parameter names depend on the mem-agent-mcp implementation
+        # The actual parameter names depend on the memory-mcp implementation
         mcp_params = {
             "action": action,
             "text": content,
@@ -254,7 +260,7 @@ class MemoryStoreTool(BaseMCPTool):
     
     @property
     def mcp_server_config(self) -> MCPServerConfig:
-        return MemoryAgentMCPTool().mcp_server_config
+        return MemoryMCPTool().mcp_server_config
     
     @property
     def mcp_tool_name(self) -> str:
@@ -292,7 +298,7 @@ class MemorySearchTool(BaseMCPTool):
     
     @property
     def mcp_server_config(self) -> MCPServerConfig:
-        return MemoryAgentMCPTool().mcp_server_config
+        return MemoryMCPTool().mcp_server_config
     
     @property
     def mcp_tool_name(self) -> str:
@@ -301,7 +307,7 @@ class MemorySearchTool(BaseMCPTool):
 
 # Export all memory tools
 ALL_TOOLS = [
-    MemoryAgentMCPTool(),
+    MemoryMCPTool(),
     MemoryStoreTool(),
     MemorySearchTool(),
 ]

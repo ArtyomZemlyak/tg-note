@@ -135,10 +135,10 @@ async def example_standalone_mcp_server():
     print("Example 3: Testing Standalone MCP Server")
     print("=" * 80)
     
-    from src.agents.mcp.mem_agent_server import MemAgentMCPServer
+    from src.agents.mcp.memory.memory_server import MemoryMCPServer
     
     # Create server instance
-    server = MemAgentMCPServer(user_id=789)
+    server = MemoryMCPServer(user_id=789)
     
     # Test listing tools
     tools = await server.handle_list_tools()
@@ -237,7 +237,7 @@ async def main():
     print("Examples completed!")
     print("=" * 80)
     print("\n📚 Next steps:")
-    print("1. Start HTTP server: python3 -m src.agents.mcp.mem_agent_server_http")
+    print("1. Start HTTP server: python3 -m src.agents.mcp.memory.memory_server_http")
     print("2. Check ~/.qwen/settings.json to see generated configuration")
     print("3. Run: qwen (CLI will connect to configured MCP servers)")
     print("4. Test MCP tools in qwen CLI")
@@ -247,7 +247,7 @@ async def main():
     print("- STDIO mode (legacy): use_http=False")
     print("\n📖 Documentation:")
     print("- Setup guide: docs_site/agents/mem-agent-setup.md")
-    print("- HTTP server: src/agents/mcp/mem_agent_server_http.py")
+    print("- HTTP server: src/agents/mcp/memory/memory_server_http.py")
     print("- Test script: scripts/test_mem_agent_connection.sh")
 
 

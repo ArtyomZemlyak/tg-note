@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-HTTP/SSE MCP Server for mem-agent
+HTTP/SSE MCP Server for Memory Storage
 
 This server provides memory storage/retrieval via HTTP using Server-Sent Events (SSE).
-Alternative to stdio-based mem_agent_server.py for better compatibility with some clients.
+Alternative to stdio-based memory_server.py for better compatibility with some clients.
 
 Usage:
-    python -m src.agents.mcp.mem_agent_server_http [--port PORT] [--host HOST] [--user-id USER_ID]
+    python -m src.agents.mcp.memory.memory_server_http [--port PORT] [--host HOST] [--user-id USER_ID]
 
 Default:
     Host: 127.0.0.1
@@ -28,7 +28,7 @@ except ImportError:
     sys.exit(1)
 
 # Import shared memory storage
-from src.mem_agent.storage import MemoryStorage
+from src.agents.mcp.memory.memory_storage import MemoryStorage
 
 # Configure logger
 logger.remove()
@@ -40,7 +40,7 @@ logger.add(
 
 
 # Initialize FastMCP server
-mcp = FastMCP("mem-agent", version="1.0.0")
+mcp = FastMCP("memory", version="1.0.0")
 
 # Global storage (will be initialized in main)
 storage: Optional[MemoryStorage] = None
@@ -58,7 +58,7 @@ def init_storage(user_id: Optional[int] = None) -> MemoryStorage:
     """
     # Setup storage directory
     # Priority:
-    # 1. KB_PATH env var (set by memory_agent_tool.py for user-specific KB)
+    # 1. KB_PATH env var (set by memory_tool.py for user-specific KB)
     # 2. Legacy user_id-based path (for backward compatibility)
     # 3. Shared memory (fallback)
     kb_path = os.getenv('KB_PATH')
@@ -168,7 +168,7 @@ def main():
     global storage
     
     parser = argparse.ArgumentParser(
-        description="Mem-agent HTTP MCP Server - Memory storage via HTTP/SSE"
+        description="Memory HTTP MCP Server - Memory storage via HTTP/SSE"
     )
     parser.add_argument(
         "--host",
@@ -206,7 +206,7 @@ def main():
     # Initialize storage
     storage = init_storage(user_id=args.user_id)
     
-    logger.info(f"Starting mem-agent HTTP MCP server")
+    logger.info(f"Starting memory HTTP MCP server")
     logger.info(f"Host: {args.host}")
     logger.info(f"Port: {args.port}")
     logger.info(f"User ID: {args.user_id or 'shared'}")

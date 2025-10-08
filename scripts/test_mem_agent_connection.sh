@@ -18,7 +18,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Check if we're in the right directory
-if [ ! -f "src/agents/mcp/mem_agent_server_http.py" ]; then
+if [ ! -f "src/agents/mcp/memory/memory_server_http.py" ]; then
     echo -e "${RED}❌ Ошибка: Запустите скрипт из корня проекта (/workspace)${NC}"
     echo -e "${RED}❌ Error: Run script from project root (/workspace)${NC}"
     exit 1
@@ -28,9 +28,9 @@ echo -e "${BLUE}=== 1. Проверка HTTP сервера / Checking HTTP serv
 echo ""
 
 # Check if HTTP server file exists
-if [ -f "src/agents/mcp/mem_agent_server_http.py" ]; then
+if [ -f "src/agents/mcp/memory/memory_server_http.py" ]; then
     echo -e "${GREEN}✅ HTTP сервер найден / HTTP server found${NC}"
-    echo "   📄 src/agents/mcp/mem_agent_server_http.py"
+    echo "   📄 src/agents/mcp/memory/memory_server_http.py"
 else
     echo -e "${RED}❌ HTTP сервер не найден / HTTP server not found${NC}"
     exit 1
@@ -117,7 +117,7 @@ echo ""
 
 # Check Python dependencies
 echo -e "${YELLOW}Проверка зависимостей / Checking dependencies...${NC}"
-if python3 -c "from src.mem_agent.storage import MemoryStorage" 2>/dev/null; then
+if python3 -c "from src.agents.mcp.memory.memory_storage import MemoryStorage" 2>/dev/null; then
     echo -e "${GREEN}✅ MemoryStorage модуль найден / MemoryStorage module found${NC}"
 else
     echo -e "${RED}❌ MemoryStorage модуль не найден / MemoryStorage module not found${NC}"
@@ -152,13 +152,13 @@ else
     echo -e "${YELLOW}⚠️  HTTP сервер не запущен / HTTP server is not running${NC}"
     echo ""
     echo "   Для запуска сервера / To start the server:"
-    echo "   ${GREEN}python3 -m src.agents.mcp.mem_agent_server_http${NC}"
+    echo "   ${GREEN}python3 -m src.agents.mcp.memory.memory_server_http${NC}"
     echo ""
     echo "   Или с параметрами / Or with parameters:"
-    echo "   ${GREEN}python3 -m src.agents.mcp.mem_agent_server_http --port 8765 --host 127.0.0.1${NC}"
+    echo "   ${GREEN}python3 -m src.agents.mcp.memory.memory_server_http --port 8765 --host 127.0.0.1${NC}"
     echo ""
     echo "   В фоновом режиме / In background:"
-    echo "   ${GREEN}nohup python3 -m src.agents.mcp.mem_agent_server_http > mem_agent.log 2>&1 &${NC}"
+    echo "   ${GREEN}nohup python3 -m src.agents.mcp.memory.memory_server_http > memory.log 2>&1 &${NC}"
     echo ""
 fi
 
@@ -184,7 +184,7 @@ echo ""
 echo "📚 Документация / Documentation:"
 echo "   • MCP Server Setup: docs_site/agents/mem-agent-setup.md"
 echo "   • MCP Tools: docs_site/agents/mcp-tools.md"
-echo "   • HTTP Server: src/agents/mcp/mem_agent_server_http.py"
+echo "   • HTTP Server: src/agents/mcp/memory/memory_server_http.py"
 echo "   • Config Generator: src/agents/mcp/qwen_config_generator.py"
 echo ""
 
@@ -197,7 +197,7 @@ echo ""
 echo "📝 Следующие шаги / Next steps:"
 if ! curl -s --connect-timeout 2 http://127.0.0.1:8765/health >/dev/null 2>&1; then
     echo "   1. Запустите HTTP сервер / Start HTTP server:"
-    echo "      ${GREEN}python3 -m src.agents.mcp.mem_agent_server_http${NC}"
+    echo "      ${GREEN}python3 -m src.agents.mcp.memory.memory_server_http${NC}"
 fi
 if [ $STDIO_CONFIGS -gt 0 ]; then
     echo "   2. Обновите конфигурации на HTTP / Update configs to HTTP:"
