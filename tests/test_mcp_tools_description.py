@@ -114,11 +114,11 @@ class TestAutonomousAgentMCPIntegration:
         config = {"enable_mcp": True, "user_id": 12345}
         agent = AutonomousAgent(config=config, enable_mcp=True)
 
-        # Mock the MCP description function
-        with patch("src.agents.autonomous_agent.get_mcp_tools_description") as mock_get:
+        # Mock the MCP description function - patch where it's imported FROM
+        with patch("src.agents.mcp.get_mcp_tools_description") as mock_get:
             mock_get.return_value = "# Test MCP Tools"
 
-            with patch("src.agents.autonomous_agent.format_mcp_tools_for_prompt") as mock_format:
+            with patch("src.agents.mcp.format_mcp_tools_for_prompt") as mock_format:
                 mock_format.return_value = "## MCP Tools Available\n\n# Test MCP Tools"
 
                 description = await agent.get_mcp_tools_description()
@@ -136,10 +136,10 @@ class TestAutonomousAgentMCPIntegration:
         config = {"enable_mcp": True}
         agent = AutonomousAgent(config=config, enable_mcp=True)
 
-        with patch("src.agents.autonomous_agent.get_mcp_tools_description") as mock_get:
+        with patch("src.agents.mcp.get_mcp_tools_description") as mock_get:
             mock_get.return_value = "# Test MCP Tools"
 
-            with patch("src.agents.autonomous_agent.format_mcp_tools_for_prompt") as mock_format:
+            with patch("src.agents.mcp.format_mcp_tools_for_prompt") as mock_format:
                 mock_format.return_value = "Formatted tools"
 
                 # First call
@@ -178,12 +178,12 @@ class TestQwenCodeCLIAgentMCPIntegration:
         with patch.object(QwenCodeCLIAgent, "_check_cli_available"):
             agent = QwenCodeCLIAgent(config=config)
 
-            # Mock the MCP description function
-            with patch("src.agents.qwen_code_cli_agent.get_mcp_tools_description") as mock_get:
+            # Mock the MCP description function - patch where it's imported FROM
+            with patch("src.agents.mcp.get_mcp_tools_description") as mock_get:
                 mock_get.return_value = "# Test MCP Tools"
 
                 with patch(
-                    "src.agents.qwen_code_cli_agent.format_mcp_tools_for_prompt"
+                    "src.agents.mcp.format_mcp_tools_for_prompt"
                 ) as mock_format:
                     mock_format.return_value = "\n---\n\n# Test MCP Tools"
 

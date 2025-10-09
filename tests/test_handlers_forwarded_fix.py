@@ -177,8 +177,13 @@ class TestHandlersForwardedMessageFix:
         # Call handler
         await handlers.handle_forwarded_message(test_message)
 
-        # Verify that message processor was called
-        handlers.message_processor.process_message.assert_awaited_once_with(test_message)
+        # Verify that message processor was called with a DTO
+        handlers.message_processor.process_message.assert_awaited_once()
+        # Verify the DTO was created from the message
+        call_args = handlers.message_processor.process_message.call_args
+        dto = call_args[0][0]
+        assert dto.message_id == test_message.message_id
+        assert dto.user_id == test_message.from_user.id
 
     @pytest.mark.asyncio
     async def test_photo_message_ignored_during_settings_input(

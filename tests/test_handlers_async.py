@@ -51,7 +51,9 @@ class TestHandlersAsync:
 
     @pytest.fixture
     def mock_user_settings(self):
-        return Mock()
+        m = Mock()
+        m.get_user_kb = Mock(return_value=None)
+        return m
 
     @pytest.fixture
     def mock_settings_manager(self):
@@ -165,8 +167,14 @@ class TestHandlersAsync:
         """Test that messages are delegated to message processor"""
         # Act
         await handlers.handle_message(test_message)
-        # Assert processor was called
-        handlers.message_processor.process_message.assert_awaited_once_with(test_message)
+        # Assert processor was called with a DTO
+        handlers.message_processor.process_message.assert_awaited_once()
+        # Verify the DTO was created from the message
+        call_args = handlers.message_processor.process_message.call_args
+        dto = call_args[0][0]
+        assert dto.message_id == test_message.message_id
+        assert dto.user_id == test_message.from_user.id
+        assert dto.text == test_message.text
 
     @pytest.mark.asyncio
     async def test_handle_video_message_calls_processor(self, handlers, test_message):
@@ -179,8 +187,14 @@ class TestHandlersAsync:
         # Act
         await handlers.handle_message(test_message)
 
-        # Assert processor was called
-        handlers.message_processor.process_message.assert_awaited_once_with(test_message)
+        # Assert processor was called with a DTO
+        handlers.message_processor.process_message.assert_awaited_once()
+        # Verify the DTO was created from the message
+        call_args = handlers.message_processor.process_message.call_args
+        dto = call_args[0][0]
+        assert dto.content_type == "video"
+        assert dto.caption == "This is a video caption"
+        assert dto.video is not None
 
     @pytest.mark.asyncio
     async def test_handle_timeout_async(self, handlers, mock_bot):
@@ -243,8 +257,11 @@ class TestHandlersAsync:
         mock_bot.reply_to.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_handle_ask_mode_no_kb(self, handlers, test_message, mock_bot):
+    async def test_handle_ask_mode_no_kb(self, handlers, test_message, mock_bot, mock_user_settings):
         """Test that /ask command requires KB to be configured"""
+        # Ensure mock returns None to simulate no KB
+        mock_user_settings.get_user_kb.return_value = None
+        
         await handlers.handle_ask_mode(test_message)
 
         # Should show error when no KB configured
@@ -254,8 +271,11 @@ class TestHandlersAsync:
         assert "База знаний не настроена" in call_args[0][1]
 
     @pytest.mark.asyncio
-    async def test_handle_agent_mode_no_kb(self, handlers, test_message, mock_bot):
+    async def test_handle_agent_mode_no_kb(self, handlers, test_message, mock_bot, mock_user_settings):
         """Test that /agent command requires KB to be configured"""
+        # Ensure mock returns None to simulate no KB
+        mock_user_settings.get_user_kb.return_value = None
+        
         await handlers.handle_agent_mode(test_message)
 
         # Should show error when no KB configured

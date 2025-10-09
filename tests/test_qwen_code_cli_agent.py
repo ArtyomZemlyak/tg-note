@@ -365,6 +365,11 @@ class TestQwenCodeCLIAgentWithDifferentConfigurations:
             mock_run.return_value = MagicMock(returncode=0, stdout="qwen 1.0", stderr="")
             yield mock_run
 
+    @pytest.fixture
+    def agent(self, mock_cli_check):
+        """Create test agent for this test class"""
+        return QwenCodeCLIAgent(config={})
+
     def test_minimal_configuration(self, mock_cli_check):
         """Test agent with minimal configuration"""
         agent = QwenCodeCLIAgent(enable_web_search=False, enable_git=False, enable_github=False)
