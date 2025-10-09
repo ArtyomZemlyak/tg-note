@@ -1028,32 +1028,7 @@ class AutonomousAgent(BaseAgent):
     # ====================================================================
     # All tools are now self-contained in their respective modules
     # with their own metadata, schemas, and implementation.
-    # Tools are executed via ToolManager.
-    
-    # Wrapper methods for backward compatibility with tests
-    async def _tool_web_search(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Web search tool (backward compatibility wrapper)"""
-        return await self.tool_manager.execute("web_search", params)
-    
-    async def _tool_git_command(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Git command tool (backward compatibility wrapper)"""
-        return await self.tool_manager.execute("git_command", params)
-    
-    async def _tool_github_api(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """GitHub API tool (backward compatibility wrapper)"""
-        return await self.tool_manager.execute("github_api", params)
-    
-    async def _tool_shell_command(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Shell command tool (backward compatibility wrapper)"""
-        return await self.tool_manager.execute("shell_command", params)
-    
-    async def _tool_plan_todo(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Plan TODO tool (backward compatibility wrapper)"""
-        return await self.tool_manager.execute("plan_todo", params)
-    
-    async def _tool_analyze_content(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Analyze content tool (backward compatibility wrapper)"""
-        return await self.tool_manager.execute("analyze_content", params)
+    # Tools are executed via ToolManager. No wrapper methods needed.
 
     async def _create_todo_plan(self, content: Dict) -> TodoPlan:
         """Create a TODO plan (backward compatibility)"""

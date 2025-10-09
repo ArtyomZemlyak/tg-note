@@ -754,41 +754,6 @@ class QwenCodeCLIAgent(BaseAgent):
                     })
         
         return tasks
-    
-    # Backward compatibility methods for tests
-    def _extract_title(self, text: str, max_length: int = MAX_TITLE_LENGTH) -> str:
-        """Extract title from text (backward compatibility)"""
-        return BaseAgent.generate_title(text, max_length=max_length)
-    
-    def _detect_category(self, text: str) -> str:
-        """Detect category from text (backward compatibility)"""
-        return BaseAgent.detect_category(text)
-    
-    def _extract_tags(self, text: str, max_tags: int = MAX_TAG_COUNT) -> List[str]:
-        """Extract tags from text (backward compatibility)"""
-        return BaseAgent.extract_keywords(text, top_n=max_tags)
-    
-    def _generate_summary(self, text: str, max_length: int = MAX_SUMMARY_LENGTH) -> str:
-        """Generate summary from text (backward compatibility)"""
-        return BaseAgent.generate_summary(text, max_length=max_length)
-    
-    def _parse_qwen_result(self, result_text: str) -> Dict[str, Any]:
-        """Parse qwen CLI result (backward compatibility)"""
-        # Parse using the standard BaseAgent parser
-        agent_result = self.parse_agent_response(result_text)
-        
-        # Extract KB structure
-        kb_structure = self.extract_kb_structure_from_response(result_text, default_category="general")
-        
-        # Build result dict compatible with old format
-        return {
-            "title": self._extract_title_from_markdown(agent_result.markdown),
-            "category": kb_structure.category,
-            "subcategory": kb_structure.subcategory,
-            "tags": kb_structure.tags,
-            "todo_plan": agent_result.metadata.get("todo_plan", []),
-            "markdown": agent_result.markdown,
-        }
 
     def validate_input(self, content: Dict) -> bool:
         """Validate input content"""
