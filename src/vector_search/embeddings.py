@@ -70,7 +70,7 @@ class SentenceTransformerEmbedder(BaseEmbedder):
         """
         super().__init__(model_name)
         self._model = None
-        self._dimension = None
+        self._dimension: Optional[int] = None
     
     def _load_model(self):
         """Lazy load the model"""
@@ -92,6 +92,7 @@ class SentenceTransformerEmbedder(BaseEmbedder):
     async def embed_texts(self, texts: List[str]) -> List[List[float]]:
         """Embed multiple texts"""
         self._load_model()
+        assert self._model is not None, "Model should be loaded"
         
         logger.debug(f"Embedding {len(texts)} texts with sentence-transformers")
         embeddings = self._model.encode(
@@ -99,7 +100,8 @@ class SentenceTransformerEmbedder(BaseEmbedder):
             show_progress_bar=len(texts) > 10,
             convert_to_numpy=True
         )
-        return embeddings.tolist()
+        result: List[List[float]] = embeddings.tolist()
+        return result
     
     async def embed_query(self, query: str) -> List[float]:
         """Embed a single query"""
@@ -110,6 +112,7 @@ class SentenceTransformerEmbedder(BaseEmbedder):
         """Get embedding dimension"""
         if self._dimension is None:
             self._load_model()
+        assert self._dimension is not None, "Dimension should be set after loading model"
         return self._dimension
 
 
@@ -211,7 +214,7 @@ class InfinityEmbedder(BaseEmbedder):
         super().__init__(model_name)
         self.api_url = api_url.rstrip("/")
         self.api_key = api_key
-        self._dimension = None
+        self._dimension: Optional[int] = None
     
     async def _make_request(self, texts: List[str]) -> List[List[float]]:
         """Make request to Infinity API"""

@@ -75,7 +75,7 @@ class FileCreateTool(BaseTool):
         
         # Validate path
         is_valid, full_path, error = _validate_safe_path(context.kb_root_path, relative_path)
-        if not is_valid:
+        if not is_valid or full_path is None:
             logger.error(f"[file_create] Path validation failed: {error}")
             return {"success": False, "error": error}
         
@@ -135,7 +135,7 @@ class FileEditTool(BaseTool):
         
         # Validate path
         is_valid, full_path, error = _validate_safe_path(context.kb_root_path, relative_path)
-        if not is_valid:
+        if not is_valid or full_path is None:
             logger.error(f"[file_edit] Path validation failed: {error}")
             return {"success": False, "error": error}
         
@@ -197,7 +197,7 @@ class FileDeleteTool(BaseTool):
         
         # Validate path
         is_valid, full_path, error = _validate_safe_path(context.kb_root_path, relative_path)
-        if not is_valid:
+        if not is_valid or full_path is None:
             logger.error(f"[file_delete] Path validation failed: {error}")
             return {"success": False, "error": error}
         
@@ -258,13 +258,13 @@ class FileMoveTool(BaseTool):
         
         # Validate source path
         is_valid, full_source, error = _validate_safe_path(context.kb_root_path, source_path)
-        if not is_valid:
+        if not is_valid or full_source is None:
             logger.error(f"[file_move] Invalid source: {error}")
             return {"success": False, "error": f"Invalid source: {error}"}
         
         # Validate destination path
         is_valid, full_dest, error = _validate_safe_path(context.kb_root_path, dest_path)
-        if not is_valid:
+        if not is_valid or full_dest is None:
             logger.error(f"[file_move] Invalid destination: {error}")
             return {"success": False, "error": f"Invalid destination: {error}"}
         

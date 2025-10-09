@@ -163,8 +163,8 @@ class UserSettingsStorage:
             try:
                 if self.storage_file.exists():
                     with open(self.storage_file, 'r', encoding='utf-8') as f:
-                        data = json.load(f)
-                        return data.get(str(user_id), {})
+                        all_data: Dict[str, Any] = json.load(f)
+                        return all_data.get(str(user_id), {})
             except Exception as e:
                 logger.error(f"Error loading user settings: {e}")
         

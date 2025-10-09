@@ -116,7 +116,8 @@ class UserSettings:
             try:
                 if self.settings_file.exists():
                     with open(self.settings_file, 'r', encoding='utf-8') as f:
-                        return json.load(f)
+                        data: Dict[Any, Any] = json.load(f)
+                        return data
             except json.JSONDecodeError:
                 logger.warning("Invalid JSON in settings file, returning empty dict")
             except Exception as e:

@@ -22,12 +22,10 @@ import asyncio
 from pathlib import Path
 
 from src.agents.qwen_code_cli_agent import QwenCodeCLIAgent
-from src.agents.mcp.qwen_config_generator import setup_qwen_mcp_config
 
 
 async def example_basic_usage():
-    """Basic usage - automatic MCP setup"""
-    
+    """Basic usage - automatic MCP setup."""
     print("=" * 80)
     print("Example 1: Basic Usage with Automatic MCP Setup")
     print("=" * 80)
@@ -95,8 +93,7 @@ async def example_basic_usage():
 
 
 async def example_manual_config():
-    """Manual MCP configuration without agent"""
-    
+    """Manual MCP configuration without agent."""
     print("\n" + "=" * 80)
     print("Example 2: Manual MCP Configuration (HTTP Mode)")
     print("=" * 80)
@@ -199,10 +196,9 @@ async def example_with_ask_mode():
         
         1. Search memory for deadline-related information
         2. List all found deadlines
-        3. Provide a clear answer
+        3. Provide a clear answer.
         """
     }
-    
     print("\nAsking question with memory access...")
     
     try:

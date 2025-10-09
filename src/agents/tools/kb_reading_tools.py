@@ -90,7 +90,7 @@ class KBReadFileTool(BaseTool):
         for relative_path in paths:
             # Validate path
             is_valid, full_path, error = _validate_safe_path(context.kb_root_path, relative_path)
-            if not is_valid:
+            if not is_valid or full_path is None:
                 logger.warning(f"[kb_read_file] Invalid path: {relative_path} - {error}")
                 errors.append({"path": relative_path, "error": error})
                 continue
@@ -164,7 +164,7 @@ class KBListDirectoryTool(BaseTool):
             context.kb_root_path, 
             relative_path if relative_path else "."
         )
-        if not is_valid:
+        if not is_valid or full_path is None:
             logger.error(f"[kb_list_directory] Invalid path: {error}")
             return {"success": False, "error": error}
         
