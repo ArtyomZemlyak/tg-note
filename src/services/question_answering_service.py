@@ -18,12 +18,15 @@ from config.agent_prompts import KB_QUERY_PROMPT_TEMPLATE, ASK_MODE_AGENT_INSTRU
 
 class QuestionAnsweringService(IQuestionAnsweringService):
     """
-    Service for answering questions based on knowledge base
+    Service for answering questions based on knowledge base (ask mode).
     
     Responsibilities:
     - Parse question from message
-    - Query knowledge base using agent
-    - Return answer to user
+    - Search knowledge base using agent with KB reading tools
+    - Format and return answer to user
+    - Maintain conversation context for follow-up questions
+    
+    This service is activated when user is in 'ask' mode (/ask command).
     """
     
     def __init__(
@@ -107,6 +110,7 @@ class QuestionAnsweringService(IQuestionAnsweringService):
                 message_id=processing_msg_id
             )
             
+            self.logger.info(f"[ASK_SERVICE] Querying KB for user {user_id}, question: {question_text[:50]}...")
             answer = await self._query_kb(kb_path, question_text, user_id)
             
             # Save assistant response to context
@@ -185,15 +189,18 @@ class QuestionAnsweringService(IQuestionAnsweringService):
         user_id: int
     ) -> str:
         """
-        Query knowledge base with a question
+        Query knowledge base with a question.
+        
+        Uses agent with KB reading tools (grep, read, ls, etc.) to find
+        relevant information and formulate an answer.
         
         Args:
             kb_path: Path to knowledge base
-            question: Question text
+            question: Question text from user
             user_id: User ID
         
         Returns:
-            Answer text
+            Answer text formatted for user
         """
         # Get user agent
         user_agent = self.user_context_manager.get_or_create_agent(user_id)
@@ -245,6 +252,7 @@ class QuestionAnsweringService(IQuestionAnsweringService):
         
         try:
             # Process query with agent
+            self.logger.debug(f"[ASK_SERVICE] Processing query with agent for user {user_id}")
             response = await user_agent.process(query_content)
             
             # Extract answer from response (priority: answer field, then markdown, then text)

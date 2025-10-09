@@ -21,14 +21,16 @@ from src.bot.settings_manager import SettingsManager
 
 class NoteCreationService(INoteCreationService):
     """
-    Service for creating notes in the knowledge base
+    Service for creating notes in the knowledge base (note mode).
     
     Responsibilities:
-    - Parse message content
-    - Process content with agent
-    - Save to knowledge base
-    - Handle git operations
-    - Track processed messages
+    - Parse message content (text, media, forwarded messages)
+    - Process content with agent (extract key information)
+    - Save structured notes to knowledge base
+    - Handle git operations (commit, push)
+    - Track processed messages to avoid duplicates
+    
+    This service is activated when user is in 'note' mode (/note command).
     """
     
     def __init__(
@@ -112,6 +114,7 @@ class NoteCreationService(INoteCreationService):
                 message_id=processing_msg_id
             )
             
+            self.logger.debug(f"[NOTE_SERVICE] Getting agent for user {user_id}")
             user_agent = self.user_context_manager.get_or_create_agent(user_id)
             
             # Set working directory to user's KB for qwen-code-cli agent
@@ -132,6 +135,7 @@ class NoteCreationService(INoteCreationService):
                 self.logger.debug(f"Set agent working directory to: {agent_working_dir}")
             
             try:
+                self.logger.info(f"[NOTE_SERVICE] Processing content with agent for user {user_id}")
                 processed_content = await user_agent.process(content)
             except Exception as agent_error:
                 self.logger.error(f"Agent processing failed: {agent_error}", exc_info=True)
@@ -182,7 +186,12 @@ class NoteCreationService(INoteCreationService):
         chat_id: int
     ) -> None:
         """
-        Save content to knowledge base
+        Save content to knowledge base.
+        
+        Handles:
+        - Extracting metadata from processed content
+        - Updating index for created files
+        - Git operations (add, commit, push)
         
         Args:
             kb_manager: Knowledge base manager
