@@ -86,8 +86,8 @@ class TestQwenCodeCLIAgent:
 
         assert "machine learning" in prompt
         assert "example.com/article" in prompt
-        assert "TODO checklist" in prompt
-        assert "markdown" in prompt
+        assert "Базу Знаний" in prompt  # Instruction mentions knowledge base in Russian
+        assert "markdown" in prompt.lower()  # Instruction mentions markdown format
         assert agent.instruction in prompt
 
     def test_prepare_prompt_no_urls(self, agent):

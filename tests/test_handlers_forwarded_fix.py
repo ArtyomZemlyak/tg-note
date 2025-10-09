@@ -113,6 +113,7 @@ class TestHandlersForwardedMessageFix:
         message.text = "test"
         message.caption = None
         message.content_type = "text"
+        message.date = 1234567890  # Add message date for MessageMapper
         # Not forwarded by default
         message.forward_from = None
         message.forward_from_chat = None

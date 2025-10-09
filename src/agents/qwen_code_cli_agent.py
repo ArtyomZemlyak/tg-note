@@ -273,7 +273,10 @@ class QwenCodeCLIAgent(BaseAgent):
             logger.debug("[QwenCodeCLIAgent] STEP 5: Extracting title from markdown")
             title = self._extract_title_from_markdown(agent_result.markdown)
 
-            # Step 6: Build final metadata
+            # Step 6: Extract TODO plan from markdown
+            todo_plan = self._extract_todo_plan(result_text)
+            
+            # Step 7: Build final metadata
             metadata = {
                 "processed_at": datetime.now().isoformat(),
                 "agent": "QwenCodeCLIAgent",
@@ -288,6 +291,7 @@ class QwenCodeCLIAgent(BaseAgent):
                 "files_created": agent_result.files_created,
                 "files_edited": agent_result.files_edited,
                 "folders_created": agent_result.folders_created,
+                "todo_plan": todo_plan,  # Add extracted TODO plan
                 **agent_result.metadata,  # Добавляем метаданные из ответа агента
             }
 
@@ -698,6 +702,93 @@ class QwenCodeCLIAgent(BaseAgent):
                 return line
 
         return "Untitled Note"
+    
+    def _extract_todo_plan(self, markdown: str) -> List[Dict[str, Any]]:
+        """
+        Extract TODO plan from markdown
+        
+        Looks for ## TODO Plan section and extracts tasks in format:
+        - [x] Completed task
+        - [ ] Pending task
+        
+        Args:
+            markdown: Markdown content
+            
+        Returns:
+            List of task dictionaries with 'task' and 'status' keys
+        """
+        tasks = []
+        lines = markdown.split("\n")
+        in_todo_section = False
+        
+        for line in lines:
+            line_stripped = line.strip()
+            
+            # Check if we're entering TODO Plan section
+            if line_stripped.startswith("## TODO Plan"):
+                in_todo_section = True
+                continue
+            
+            # Check if we're leaving TODO Plan section (new section starts)
+            if in_todo_section and line_stripped.startswith("#"):
+                break
+            
+            # Extract task if in TODO section
+            if in_todo_section and line_stripped.startswith("-"):
+                # Extract status and task text
+                if "[x]" in line_stripped or "[X]" in line_stripped:
+                    status = "completed"
+                    task_text = line_stripped.replace("- [x]", "").replace("- [X]", "").strip()
+                elif "[ ]" in line_stripped:
+                    status = "pending"
+                    task_text = line_stripped.replace("- [ ]", "").strip()
+                else:
+                    # Plain list item without checkbox
+                    status = "unknown"
+                    task_text = line_stripped[1:].strip()
+                
+                if task_text:
+                    tasks.append({
+                        "task": task_text,
+                        "status": status
+                    })
+        
+        return tasks
+    
+    # Backward compatibility methods for tests
+    def _extract_title(self, text: str, max_length: int = MAX_TITLE_LENGTH) -> str:
+        """Extract title from text (backward compatibility)"""
+        return BaseAgent.generate_title(text, max_length=max_length)
+    
+    def _detect_category(self, text: str) -> str:
+        """Detect category from text (backward compatibility)"""
+        return BaseAgent.detect_category(text)
+    
+    def _extract_tags(self, text: str, max_tags: int = MAX_TAG_COUNT) -> List[str]:
+        """Extract tags from text (backward compatibility)"""
+        return BaseAgent.extract_keywords(text, top_n=max_tags)
+    
+    def _generate_summary(self, text: str, max_length: int = MAX_SUMMARY_LENGTH) -> str:
+        """Generate summary from text (backward compatibility)"""
+        return BaseAgent.generate_summary(text, max_length=max_length)
+    
+    def _parse_qwen_result(self, result_text: str) -> Dict[str, Any]:
+        """Parse qwen CLI result (backward compatibility)"""
+        # Parse using the standard BaseAgent parser
+        agent_result = self.parse_agent_response(result_text)
+        
+        # Extract KB structure
+        kb_structure = self.extract_kb_structure_from_response(result_text, default_category="general")
+        
+        # Build result dict compatible with old format
+        return {
+            "title": self._extract_title_from_markdown(agent_result.markdown),
+            "category": kb_structure.category,
+            "subcategory": kb_structure.subcategory,
+            "tags": kb_structure.tags,
+            "todo_plan": agent_result.metadata.get("todo_plan", []),
+            "markdown": agent_result.markdown,
+        }
 
     def validate_input(self, content: Dict) -> bool:
         """Validate input content"""
