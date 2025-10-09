@@ -6,8 +6,11 @@ Groups consecutive messages into single content blocks
 import asyncio
 from loguru import logger
 from datetime import datetime, timedelta
-from typing import List, Dict, Optional, Callable
+from typing import List, Dict, Optional, Callable, TYPE_CHECKING
 from uuid import uuid4
+
+if TYPE_CHECKING:
+    from src.core.background_task_manager import BackgroundTaskManager
 
 
 class MessageGroup:
@@ -38,8 +41,15 @@ class MessageGroup:
 class MessageAggregator:
     """Aggregates messages into groups"""
     
-    def __init__(self, timeout: int = 30):
+    def __init__(
+        self,
+        timeout: int = 30,
+        user_id: Optional[int] = None,
+        task_manager: Optional["BackgroundTaskManager"] = None
+    ):
         self.timeout = timeout
+        self.user_id = user_id
+        self.task_manager = task_manager
         self.active_groups: Dict[int, MessageGroup] = {}
         self.logger = logger
         self._background_task: Optional[asyncio.Task] = None
@@ -47,6 +57,7 @@ class MessageAggregator:
         self._timeout_callback: Optional[Callable] = None
         self._lock = asyncio.Lock()
         self._callback_tasks: set = set()  # Track callback tasks to prevent premature GC
+        self._task_id: Optional[str] = None
     
     async def add_message(self, chat_id: int, message: Dict) -> Optional[MessageGroup]:
         """
@@ -113,21 +124,45 @@ class MessageAggregator:
             return
         
         self._running = True
-        try:
-            loop = asyncio.get_running_loop()
-            self._background_task = loop.create_task(self._check_timeouts())
-            self.logger.info("MessageAggregator background task started")
-        except RuntimeError:
-            # No event loop running, will be started later
-            self.logger.warning("No event loop running, background task not started")
+        
+        # Использовать BackgroundTaskManager если доступен
+        if self.task_manager and self.task_manager.is_running():
+            self._task_id = f"aggregator_user_{self.user_id}" if self.user_id else f"aggregator_{id(self)}"
+            self.task_manager.register_task(
+                task_id=self._task_id,
+                coroutine=self._check_timeouts,
+                description=f"MessageAggregator for user {self.user_id}",
+                user_id=self.user_id
+            )
+            self.logger.info(f"MessageAggregator registered with BackgroundTaskManager: {self._task_id}")
+        else:
+            # Fallback: запустить задачу напрямую
+            try:
+                loop = asyncio.get_running_loop()
+                self._background_task = loop.create_task(self._check_timeouts())
+                self.logger.info("MessageAggregator background task started (standalone)")
+            except RuntimeError:
+                # No event loop running, will be started later
+                self.logger.warning("No event loop running, background task not started")
     
-    def stop_background_task(self) -> None:
+    async def stop_background_task(self) -> None:
         """Stop the background task"""
         self._running = False
-        if self._background_task is not None:
+        
+        # Отменить регистрацию в BackgroundTaskManager если использовался
+        if self.task_manager and self._task_id:
+            await self.task_manager.unregister_task(self._task_id)
+            self._task_id = None
+            self.logger.info("MessageAggregator unregistered from BackgroundTaskManager")
+        elif self._background_task is not None:
+            # Fallback: остановить задачу напрямую
             self._background_task.cancel()
+            try:
+                await self._background_task
+            except asyncio.CancelledError:
+                pass
             self._background_task = None
-            self.logger.info("MessageAggregator background task stopped")
+            self.logger.info("MessageAggregator background task stopped (standalone)")
         
         # Cancel any pending callback tasks
         for task in self._callback_tasks:

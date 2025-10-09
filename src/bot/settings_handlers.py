@@ -209,7 +209,7 @@ class SettingsHandlers:
         if success:
             # Invalidate user cache in handlers
             if self.handlers:
-                self.handlers.invalidate_user_cache(message.from_user.id)
+                await self.handlers.invalidate_user_cache(message.from_user.id)
             
             await self.bot.reply_to(message, f"✅ {msg}")
         else:
@@ -507,7 +507,7 @@ class SettingsHandlers:
         if success:
             # Invalidate user cache in handlers
             if self.handlers:
-                self.handlers.invalidate_user_cache(user_id)
+                await self.handlers.invalidate_user_cache(user_id)
             
             await self.bot.answer_callback_query(call.id, f"✅ {msg}", show_alert=True)
             # Refresh the display
@@ -526,7 +526,7 @@ class SettingsHandlers:
         if success:
             # Invalidate user cache in handlers
             if self.handlers:
-                self.handlers.invalidate_user_cache(user_id)
+                await self.handlers.invalidate_user_cache(user_id)
             
             await self.bot.answer_callback_query(call.id, f"✅ {msg}", show_alert=True)
             # Refresh the display
@@ -667,7 +667,7 @@ class SettingsHandlers:
         if success:
             # Invalidate user cache in handlers
             if self.handlers:
-                self.handlers.invalidate_user_cache(user_id)
+                await self.handlers.invalidate_user_cache(user_id)
             
             await self.bot.reply_to(message, f"✅ {msg}")
         else:

@@ -68,7 +68,7 @@ async def safe_send_message(bot, chat_id: int, text: str, parse_mode: str = 'Mar
     Safely send a message, falling back to no parse mode if formatting fails
     
     Args:
-        bot: AsyncTeleBot instance
+        bot: BotPort or AsyncTeleBot instance (BotPort includes retry/throttling)
         chat_id: Chat ID to send message to
         text: Message text
         parse_mode: Parse mode to try first
@@ -76,6 +76,8 @@ async def safe_send_message(bot, chat_id: int, text: str, parse_mode: str = 'Mar
     
     Returns:
         Message object if successful
+    
+    Note: If using BotPort, retry and rate limiting are handled automatically.
     """
     try:
         return await bot.send_message(chat_id, text, parse_mode=parse_mode, **kwargs)
@@ -94,7 +96,7 @@ async def safe_edit_message_text(bot, text: str, chat_id: int, message_id: int, 
     Safely edit a message, falling back to no parse mode if formatting fails
     
     Args:
-        bot: AsyncTeleBot instance
+        bot: BotPort or AsyncTeleBot instance (BotPort includes retry/throttling)
         text: New message text
         chat_id: Chat ID
         message_id: Message ID to edit
@@ -103,6 +105,8 @@ async def safe_edit_message_text(bot, text: str, chat_id: int, message_id: int, 
     
     Returns:
         Message object if successful
+    
+    Note: If using BotPort, retry and rate limiting are handled automatically.
     """
     try:
         return await bot.edit_message_text(text, chat_id, message_id, parse_mode=parse_mode, **kwargs)
