@@ -29,8 +29,14 @@ try:
     # Engine settings
     SANDBOX_TIMEOUT = app_settings.MEM_AGENT_TIMEOUT
 
-    # Model settings
-    OPENROUTER_API_KEY = app_settings.OPENAI_API_KEY  # Use OpenAI key for OpenRouter
+    # Model/API settings
+    # Generic OpenAI-compatible endpoint used by mem-agent.
+    # If provided, mem-agent will use these directly and will NOT autostart a local server.
+    MEM_AGENT_OPENAI_API_KEY: Optional[str] = app_settings.OPENAI_API_KEY
+    MEM_AGENT_BASE_URL: Optional[str] = app_settings.OPENAI_BASE_URL
+
+    # Backward-compatible aliases for legacy OpenRouter-based default
+    OPENROUTER_API_KEY = app_settings.OPENAI_API_KEY  # kept for backward compatibility
 
 except ImportError:
     # Fallback to environment variables and defaults
@@ -47,14 +53,27 @@ except ImportError:
 
     SANDBOX_TIMEOUT = int(os.getenv("MEM_AGENT_TIMEOUT", "20"))
 
+    # Generic OpenAI-compatible endpoint used by mem-agent
+    MEM_AGENT_OPENAI_API_KEY = os.getenv("MEM_AGENT_OPENAI_API_KEY") or os.getenv(
+        "OPENAI_API_KEY"
+    )
+    MEM_AGENT_BASE_URL = os.getenv("MEM_AGENT_BASE_URL") or os.getenv("OPENAI_BASE_URL")
+
+    # Backward-compatible aliases for legacy OpenRouter-based default
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
 
-# OpenRouter settings (can be customized)
+# OpenAI-compatible endpoint settings
+# If MEM_AGENT_BASE_URL is not provided, code may autostart a local server (vLLM/MLX)
 OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 OPENROUTER_STRONG_MODEL = os.getenv("MEM_AGENT_MODEL", "driaforall/mem-agent")
 
 # Memory path - will be set dynamically by the agent based on KB path
 MEMORY_PATH = "memory"
+
+# Local server defaults (for auto-start mode)
+# vLLM (Linux default)
+MLX_HOST = os.getenv("MEM_AGENT_MLX_HOST", "127.0.0.1")
+MLX_PORT = int(os.getenv("MEM_AGENT_MLX_PORT", "8767"))
 
 # Path settings
 SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent / "system_prompt.txt"

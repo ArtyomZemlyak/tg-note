@@ -5,6 +5,8 @@ from pydantic import BaseModel
 
 from src.agents.mcp.memory.mem_agent_impl.schemas import ChatMessage, Role
 from src.agents.mcp.memory.mem_agent_impl.settings import (
+    MEM_AGENT_BASE_URL,
+    MEM_AGENT_OPENAI_API_KEY,
     OPENROUTER_API_KEY,
     OPENROUTER_BASE_URL,
     OPENROUTER_STRONG_MODEL,
@@ -12,11 +14,15 @@ from src.agents.mcp.memory.mem_agent_impl.settings import (
 
 
 def create_openai_client() -> OpenAI:
-    """Create a new OpenAI client instance."""
-    return OpenAI(
-        api_key=OPENROUTER_API_KEY,
-        base_url=OPENROUTER_BASE_URL,
-    )
+    """Create a new OpenAI-compatible client instance.
+
+    Priority:
+    1) Explicit mem-agent endpoint (MEM_AGENT_BASE_URL, MEM_AGENT_OPENAI_API_KEY)
+    2) Legacy OpenRouter endpoint
+    """
+    base_url = MEM_AGENT_BASE_URL or OPENROUTER_BASE_URL
+    api_key = MEM_AGENT_OPENAI_API_KEY or OPENROUTER_API_KEY
+    return OpenAI(api_key=api_key, base_url=base_url)
 
 
 def create_vllm_client(host: str = "0.0.0.0", port: int = 8000) -> OpenAI:

@@ -14,6 +14,8 @@ from src.agents.mcp.memory.mem_agent_impl.schemas import AgentResponse, ChatMess
 from src.agents.mcp.memory.mem_agent_impl.settings import (
     MAX_TOOL_TURNS,
     MEMORY_PATH,
+    MEM_AGENT_BASE_URL,
+    MEM_AGENT_OPENAI_API_KEY,
     OPENROUTER_STRONG_MODEL,
     SAVE_CONVERSATION_PATH,
     VLLM_HOST,
@@ -58,6 +60,10 @@ class Agent:
         if use_vllm:
             self._client = create_vllm_client(host=VLLM_HOST, port=VLLM_PORT)
         else:
+            # If no explicit API endpoint/key are provided, try to autostart a local server
+            # based on platform: vLLM on Linux, MLX on macOS.
+            if not MEM_AGENT_BASE_URL and not MEM_AGENT_OPENAI_API_KEY:
+                self._ensure_local_server()
             self._client = create_openai_client()
 
         # Set memory_path: use provided path or fall back to default MEMORY_PATH
@@ -73,6 +79,102 @@ class Agent:
 
         # Ensure memory_path is absolute for consistency
         self.memory_path = os.path.abspath(self.memory_path)
+
+    def _ensure_local_server(self) -> None:
+        """Ensure a local OpenAI-compatible server is running and export MEM_AGENT_BASE_URL.
+
+        - Linux: start vLLM if not reachable at configured host/port
+        - macOS: start MLX if not reachable at configured host/port
+        """
+        import platform
+        import subprocess
+        import time
+        from urllib.request import urlopen
+        from urllib.error import URLError
+
+        system = platform.system().lower()
+
+        # Prefer vLLM on Linux, MLX on macOS
+        if system == "linux":
+            host, port = VLLM_HOST, VLLM_PORT
+            base_url = f"http://{host}:{port}/v1"
+            # Quick reachability check
+            try:
+                urlopen(f"{base_url}/models", timeout=0.5)
+                os.environ.setdefault("MEM_AGENT_BASE_URL", base_url)
+                return
+            except URLError:
+                pass
+
+            # Try to start vLLM server in background
+            try:
+                subprocess.Popen(
+                    [
+                        sys.executable,
+                        "-m",
+                        "vllm.entrypoints.openai.api_server",
+                        "--host",
+                        host,
+                        "--port",
+                        str(port),
+                        "--model",
+                        OPENROUTER_STRONG_MODEL,
+                    ],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                # Give it a brief moment to come up
+                for _ in range(10):
+                    time.sleep(0.5)
+                    try:
+                        urlopen(f"{base_url}/models", timeout=0.5)
+                        os.environ.setdefault("MEM_AGENT_BASE_URL", base_url)
+                        return
+                    except URLError:
+                        continue
+            except Exception:
+                # Fall back silently; create_openai_client will use defaults
+                pass
+
+        elif system == "darwin":
+            # MLX-backed OpenAI-compatible server is not standard; attempt to run mlx-lm serve
+            host, port = os.getenv("MEM_AGENT_MLX_HOST", "127.0.0.1"), int(
+                os.getenv("MEM_AGENT_MLX_PORT", "8767")
+            )
+            base_url = f"http://{host}:{port}/v1"
+            try:
+                urlopen(f"{base_url}/models", timeout=0.5)
+                os.environ.setdefault("MEM_AGENT_BASE_URL", base_url)
+                return
+            except URLError:
+                pass
+
+            try:
+                subprocess.Popen(
+                    [
+                        "mlx_lm",
+                        "serve",
+                        OPENROUTER_STRONG_MODEL,
+                        "--host",
+                        host,
+                        "--port",
+                        str(port),
+                        "--api",
+                        "openai",
+                    ],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                for _ in range(10):
+                    time.sleep(0.5)
+                    try:
+                        urlopen(f"{base_url}/models", timeout=0.5)
+                        os.environ.setdefault("MEM_AGENT_BASE_URL", base_url)
+                        return
+                    except URLError:
+                        continue
+            except Exception:
+                pass
 
     def _add_message(self, message: Union[ChatMessage, dict]):
         """Add a message to the conversation history."""
