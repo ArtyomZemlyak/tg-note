@@ -15,19 +15,21 @@ Enhanced docstrings to better explain the three main bot modes:
 - **Agent mode** (`/agent`): Full autonomous agent with complete KB access
 
 **Changes**:
+
 - Added detailed docstrings for mode handlers explaining their purpose
 - Improved service class docstrings to clarify responsibilities
 - Added comprehensive documentation for key methods
 
 **Example**:
+
 ```python
 async def handle_note_mode(self, message: Message) -> None:
     """
     Handle /note command - activate note creation mode.
-    
+
     In this mode, user messages are analyzed and saved to the knowledge base.
     The bot extracts key information and structures it as markdown notes.
-    
+
     Args:
         message: Telegram message containing the /note command
     """
@@ -40,10 +42,12 @@ async def handle_note_mode(self, message: Message) -> None:
 Standardized logging format across handlers and services for better traceability:
 
 **Format**:
+
 - Handlers: `[HANDLER] <action> from user <user_id>`
 - Services: `[<SERVICE_NAME>] <action> for user <user_id>`
 
 **Examples**:
+
 ```python
 # Handlers
 self.logger.info(f"[HANDLER] Note mode command from user {message.from_user.id}")
@@ -55,6 +59,7 @@ self.logger.info(f"[AGENT_SERVICE] Executing task for user {user_id}: {task_text
 ```
 
 **Benefits**:
+
 - Easy to grep/filter logs by component (`grep "\[HANDLER\]"`, `grep "\[NOTE_SERVICE\]"`)
 - Clear separation between routing (handlers) and business logic (services)
 - Consistent log message structure
@@ -64,12 +69,14 @@ self.logger.info(f"[AGENT_SERVICE] Executing task for user {user_id}: {task_text
 **Status**: Already well-separated, verified and documented
 
 **Handlers** (`src/bot/handlers.py`):
+
 - Route commands to appropriate handlers
 - Convert Telegram messages to DTOs
 - Delegate to services for business logic
 - Simple configuration operations (direct use of `repo_manager`, `user_settings`)
 
 **Services** (`src/services/*.py`):
+
 - `NoteCreationService`: Process and save notes to KB
 - `QuestionAnsweringService`: Search KB and answer questions
 - `AgentTaskService`: Execute autonomous agent tasks
@@ -80,11 +87,13 @@ self.logger.info(f"[AGENT_SERVICE] Executing task for user {user_id}: {task_text
 **Location**: `pyproject.toml`
 
 **Changes**:
+
 - Narrowed version ranges for critical libraries
 - Added upper bounds to prevent breaking changes
 - Added `pre-commit` to dev dependencies
 
 **Key changes**:
+
 ```toml
 # Before
 "openai>=1.0.0"
@@ -102,6 +111,7 @@ self.logger.info(f"[AGENT_SERVICE] Executing task for user {user_id}: {task_text
 ```
 
 **Dev dependencies**:
+
 ```toml
 "pytest>=7.4.3,<8.0.0"
 "black>=23.12.1,<25.0.0"
@@ -117,6 +127,7 @@ self.logger.info(f"[AGENT_SERVICE] Executing task for user {user_id}: {task_text
 Comprehensive pre-commit hooks for code quality:
 
 **Hooks included**:
+
 1. **File checks**: trailing whitespace, EOF, YAML/JSON/TOML validation, large files
 2. **Black**: Python code formatting (100 char line length)
 3. **flake8**: Python linting with docstring and bugbear extensions
@@ -127,6 +138,7 @@ Comprehensive pre-commit hooks for code quality:
 8. **YAML formatter**: Consistent YAML formatting
 
 **Usage**:
+
 ```bash
 # Install
 pip install pre-commit
@@ -139,6 +151,7 @@ pre-commit run --all-files
 ```
 
 **Configuration additions to pyproject.toml**:
+
 ```toml
 [tool.isort]
 profile = "black"
@@ -158,6 +171,7 @@ skips = ["B101", "B601"]
 Comprehensive CI pipeline with 4 jobs:
 
 #### Job 1: Lint and Format Check
+
 - Black format checking
 - isort import order checking  
 - flake8 linting
@@ -165,25 +179,30 @@ Comprehensive CI pipeline with 4 jobs:
 - bandit security scanning
 
 #### Job 2: Test
+
 - Matrix strategy: Python 3.11 and 3.12
 - Run pytest with coverage
 - Upload coverage to Codecov (for Python 3.11)
 
 #### Job 3: Build
+
 - Build package with `python -m build`
 - Upload artifacts
 - Runs only if lint and test pass
 
 #### Job 4: Pre-commit
+
 - Run all pre-commit hooks
 - Validate against full hook suite
 
 **Triggers**:
+
 - Push to `main` or `develop` branches
 - Pull requests to `main` or `develop`
 - Manual workflow dispatch
 
 **Caching**:
+
 - pip dependencies cached
 - pre-commit hooks cached
 - Speeds up CI runs
@@ -193,6 +212,7 @@ Comprehensive CI pipeline with 4 jobs:
 **New file**: `.markdownlint.json`
 
 Markdown linting configuration:
+
 ```json
 {
   "MD013": {
@@ -211,18 +231,21 @@ Markdown linting configuration:
 ## Benefits
 
 ### Developer Experience
+
 - **Pre-commit hooks**: Catch issues before commit
 - **Consistent formatting**: Black + isort ensure uniform code style
 - **Type safety**: mypy helps catch type errors
 - **Security**: bandit scans for common security issues
 
 ### Code Quality  
+
 - **Better documentation**: Clear docstrings explain mode behaviors
 - **Consistent logging**: Easy to trace execution flow
 - **Separation of concerns**: Clear handler/service boundaries
 - **Version stability**: Controlled dependency updates
 
 ### CI/CD
+
 - **Automated checks**: Every PR validated automatically
 - **Multi-version testing**: Tests run on Python 3.11 and 3.12
 - **Build validation**: Ensures package builds correctly
@@ -287,16 +310,19 @@ pytest tests/test_handlers_async.py
 ### For existing developers
 
 1. **Install new dependencies**:
+
    ```bash
    pip install -e ".[dev]"
    ```
 
 2. **Install pre-commit**:
+
    ```bash
    pre-commit install
    ```
 
 3. **Format existing code** (optional, but recommended):
+
    ```bash
    black src config
    isort src config

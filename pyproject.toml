@@ -164,4 +164,3 @@ sections = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
 [tool.bandit]
 exclude_dirs = ["tests", "examples", "scripts"]
 skips = ["B101", "B601"]
-

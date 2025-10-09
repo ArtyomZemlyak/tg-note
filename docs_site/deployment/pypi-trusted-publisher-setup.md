@@ -25,13 +25,13 @@ Choose one of these options:
 
 #### Option A: For an Existing Package
 
-1. Go to your package page: https://pypi.org/manage/project/tg-note/settings/
+1. Go to your package page: <https://pypi.org/manage/project/tg-note/settings/>
 2. Scroll to "Publishing" section
 3. Click "Add a new publisher"
 
 #### Option B: For a New Package (Pending Publisher)
 
-1. Go to: https://pypi.org/manage/account/publishing/
+1. Go to: <https://pypi.org/manage/account/publishing/>
 2. Click "Add a pending publisher"
 3. This allows you to configure the trusted publisher before the first release
 
@@ -59,7 +59,7 @@ environment: pypi
 
 ### Step 5: Create GitHub Environment
 
-1. Go to your GitHub repository: https://github.com/ArtyomZemlyak/tg-note
+1. Go to your GitHub repository: <https://github.com/ArtyomZemlyak/tg-note>
 2. Navigate to Settings → Environments
 3. Click "New environment"
 4. Name it `pypi`
@@ -78,6 +78,7 @@ git push origin v0.0.2
 ```
 
 Or create a release through the GitHub UI:
+
 1. Go to Releases
 2. Click "Draft a new release"
 3. Create a new tag (e.g., `v0.0.2`)

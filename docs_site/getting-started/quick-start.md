@@ -137,7 +137,7 @@ Open your bot in Telegram and:
 /setkb https://github.com/username/kb-repo  # Use GitHub repository
 ```
 
-### Start Sending Messages!
+### Start Sending Messages
 
 Just forward any message or write text - the bot will automatically process and save it to your knowledge base.
 
@@ -189,12 +189,15 @@ AGENT_TYPE: "qwen_code_cli"
 The bot has three working modes:
 
 ### 📝 Note Mode (Default)
+
 Analyzes and saves your messages to the knowledge base.
 
 ### 🤔 Ask Mode
+
 Answers questions about your knowledge base content.
 
 ### 🤖 Agent Mode
+
 Full autonomous access - can answer questions, add/edit content, and restructure the KB.
 
 Switch between modes with `/note`, `/ask`, or `/agent` commands.
@@ -207,7 +210,7 @@ Now that you have tg-note running, explore these topics:
 
 <div class="grid cards" markdown>
 
--   :material-cog:{ .lg .middle } **Configuration**
+- :material-cog:{ .lg .middle } **Configuration**
 
     ---
 
@@ -215,7 +218,7 @@ Now that you have tg-note running, explore these topics:
 
     [:octicons-arrow-right-24: Configuration Guide](configuration.md)
 
--   :material-book-open-variant:{ .lg .middle } **User Guide**
+- :material-book-open-variant:{ .lg .middle } **User Guide**
 
     ---
 
@@ -223,7 +226,7 @@ Now that you have tg-note running, explore these topics:
 
     [:octicons-arrow-right-24: User Guide](../user-guide/bot-commands.md)
 
--   :material-robot:{ .lg .middle } **Agent System**
+- :material-robot:{ .lg .middle } **Agent System**
 
     ---
 
@@ -231,7 +234,7 @@ Now that you have tg-note running, explore these topics:
 
     [:octicons-arrow-right-24: Agent Overview](../agents/overview.md)
 
--   :material-folder-settings:{ .lg .middle } **Knowledge Base**
+- :material-folder-settings:{ .lg .middle } **Knowledge Base**
 
     ---
 

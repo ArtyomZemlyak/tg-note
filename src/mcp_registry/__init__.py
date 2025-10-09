@@ -11,8 +11,8 @@ Architecture:
 - Support for both built-in and user-provided MCP servers
 """
 
-from .registry import MCPServerRegistry, MCPServerSpec
 from .manager import MCPServersManager
+from .registry import MCPServerRegistry, MCPServerSpec
 
 __all__ = [
     "MCPServerRegistry",

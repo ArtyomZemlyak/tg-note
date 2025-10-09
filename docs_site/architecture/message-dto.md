@@ -11,6 +11,7 @@ The messaging layer has been decoupled from the Telegram SDK using the Data Tran
 The `IncomingMessageDTO` is a platform-independent representation of an incoming message. It contains all the necessary data from a message without depending on Telegram-specific types.
 
 **Key fields:**
+
 - `message_id`: Unique message identifier
 - `chat_id`: Chat where message was sent
 - `user_id`: User who sent the message
@@ -20,6 +21,7 @@ The `IncomingMessageDTO` is a platform-independent representation of an incoming
 - Optional fields for forwarded messages and media attachments
 
 **Benefits:**
+
 - Platform-independent: Services don't depend on Telegram SDK
 - Testable: Easy to create mock messages for testing
 - Serializable: Can be easily converted to/from JSON for storage or queuing
@@ -29,6 +31,7 @@ The `IncomingMessageDTO` is a platform-independent representation of an incoming
 The `MessageMapper` class handles conversion between Telegram messages and DTOs. It isolates the Telegram SDK dependency to the bot layer.
 
 **Key methods:**
+
 - `from_telegram_message(message: Message) -> IncomingMessageDTO`: Converts Telegram message to DTO
 - `to_dict(dto: IncomingMessageDTO) -> Dict`: Converts DTO to dictionary (for legacy code)
 
@@ -37,6 +40,7 @@ The `MessageMapper` class handles conversion between Telegram messages and DTOs.
 Service interfaces have been updated to use DTOs instead of Telegram types:
 
 **Before:**
+
 ```python
 from telebot.types import Message
 
@@ -45,6 +49,7 @@ async def process_message(self, message: Message) -> None:
 ```
 
 **After:**
+
 ```python
 from src.bot.dto import IncomingMessageDTO
 
@@ -90,7 +95,7 @@ Handlers now convert incoming Telegram messages to DTOs before passing them to s
 async def handle_message(self, message: Message) -> None:
     # Convert Telegram message to DTO
     message_dto = MessageMapper.from_telegram_message(message)
-    
+
     # Pass DTO to service
     await self.message_processor.process_message(message_dto)
 ```
@@ -100,6 +105,7 @@ async def handle_message(self, message: Message) -> None:
 Services now work with DTOs and only need message IDs and chat IDs for bot operations:
 
 **Before:**
+
 ```python
 async def create_note(
     self,
@@ -116,6 +122,7 @@ async def create_note(
 ```
 
 **After:**
+
 ```python
 async def create_note(
     self,
@@ -135,12 +142,15 @@ async def create_note(
 ## Benefits
 
 ### 1. Platform Independence
+
 Services are no longer tied to Telegram. Switching to a different messaging platform (Discord, Slack, etc.) only requires:
+
 - Implementing a new adapter for that platform
 - Creating a mapper from that platform's message type to `IncomingMessageDTO`
 - No changes to service layer
 
 ### 2. Testability
+
 Creating test messages is now trivial:
 
 ```python
@@ -161,13 +171,17 @@ message_dto = IncomingMessageDTO(
 ```
 
 ### 3. Clear Boundaries
+
 The architecture now has clear boundaries:
+
 - **Bot Layer** (`src/bot/`): Handles Telegram-specific logic, imports `telebot`
 - **Service Layer** (`src/services/`): Platform-independent business logic, NO `telebot` imports
 - **Domain Layer**: Pure business logic
 
 ### 4. Easier Evolution
+
 Changes to the Telegram SDK or bot framework don't ripple through the entire codebase. The impact is isolated to:
+
 - `TelegramBotAdapter`
 - `MessageMapper`
 - `BotHandlers`
@@ -179,14 +193,16 @@ Changes to the Telegram SDK or bot framework don't ripple through the entire cod
 When creating new services that process messages:
 
 1. **Accept DTOs in interface:**
+
    ```python
    from src.bot.dto import IncomingMessageDTO
-   
+
    async def process(self, message: IncomingMessageDTO) -> None:
        pass
    ```
 
 2. **Use message data from DTO:**
+
    ```python
    user_id = message.user_id
    text = message.text
@@ -194,6 +210,7 @@ When creating new services that process messages:
    ```
 
 3. **Pass IDs for bot operations:**
+
    ```python
    async def my_service_method(
        self,

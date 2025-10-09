@@ -11,10 +11,12 @@ The project uses GitHub Actions to automatically publish releases to PyPI using 
 **Workflow file**: `.github/workflows/publish-to-pypi.yml`
 
 **Triggers**:
+
 - When a new release is published on GitHub
 - Manual workflow dispatch
 
 **What it does**:
+
 1. Checks out the repository
 2. Sets up Python 3.11
 3. Installs Poetry and project dependencies
@@ -45,12 +47,14 @@ To trigger a new PyPI release:
    - Publish the release
 
 2. **Via Git CLI**:
+
    ```bash
    git tag v0.1.0
    git push origin v0.1.0
    ```
 
 3. **Via GitHub CLI**:
+
    ```bash
    gh release create v0.1.0 --title "Release v0.1.0" --notes "Release notes here"
    ```

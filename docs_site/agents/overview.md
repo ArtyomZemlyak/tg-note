@@ -91,12 +91,14 @@ AGENT_MODEL: "gpt-3.5-turbo"  # or any compatible model
 ### Configuration
 
 **Environment Variables:**
+
 ```env
 OPENAI_API_KEY=sk-...
 OPENAI_BASE_URL=https://api.openai.com/v1  # Optional
 ```
 
 **YAML Settings:**
+
 ```yaml
 AGENT_TYPE: "autonomous"
 AGENT_MODEL: "gpt-3.5-turbo"
@@ -157,7 +159,7 @@ graph LR
     D --> E[Extract Info]
     E --> F[Generate Markdown]
     F --> G[Save to KB]
-    
+
     style B fill:#fff3e0
     style F fill:#e8f5e9
 ```
@@ -205,7 +207,7 @@ graph TD
     C -->|No| E{Have OpenAI-compatible API?}
     E -->|Yes| F[Autonomous Agent]
     E -->|No| G
-    
+
     style D fill:#c8e6c9
     style F fill:#b3e5fc
     style G fill:#ffccbc
@@ -214,6 +216,7 @@ graph TD
 ### Recommendations
 
 #### For Production
+
 → **Qwen Code CLI**
 
 - Best quality results
@@ -222,6 +225,7 @@ graph TD
 - Free tier available
 
 #### For Testing
+
 → **Stub Agent**
 
 - Quick setup
@@ -266,12 +270,14 @@ Users can override via Telegram:
 ### Content Analysis
 
 All agents can:
+
 - Extract text content
 - Identify topics
 - Generate titles
 - Create metadata
 
 Advanced agents (Qwen) add:
+
 - Deep semantic understanding
 - Context enrichment
 - Smart categorization

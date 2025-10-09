@@ -26,7 +26,7 @@
             │             │  │   service   │  │             │
             │telebot deps │  │telebot deps │  │telebot deps │ ❌
             └─────────────┘  └─────────────┘  └─────────────┘
-                                                    
+
             Problem: All layers coupled to Telegram SDK
 ```
 
@@ -239,7 +239,7 @@ Example:
       content_type="text",
       timestamp=0
   )
-  
+
   # Test your service!
   result = await service.process(message, 999, 1)
   assert result == expected

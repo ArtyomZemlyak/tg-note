@@ -13,11 +13,13 @@ The bot has three working modes that you can switch between:
 Switches the bot to knowledge base creation mode.
 
 **Usage:**
+
 ```
 /note
 ```
 
 **Response:**
+
 ```
 📝 Режим создания базы знаний активирован!
 
@@ -28,6 +30,7 @@ Switches the bot to knowledge base creation mode.
 ```
 
 **What it does:**
+
 - Bot analyzes incoming messages
 - Creates structured notes in knowledge base
 - Automatically categorizes content
@@ -40,14 +43,17 @@ Switches the bot to knowledge base creation mode.
 Switches the bot to question mode for querying your knowledge base.
 
 **Usage:**
+
 ```
 /ask
 ```
 
 **Requirements:**
+
 - Knowledge base must be set up via `/setkb`
 
 **Response:**
+
 ```
 🤔 Режим вопросов по базе знаний активирован!
 
@@ -59,12 +65,14 @@ Switches the bot to question mode for querying your knowledge base.
 ```
 
 **What it does:**
+
 - Accepts questions about knowledge base content
 - Agent searches for relevant information using KB reading tools
 - Provides answers based on found content
 - Shows sources of information
 
 **Example interaction:**
+
 ```
 User: /ask
 Bot: 🤔 Режим вопросов по базе знаний активирован!
@@ -72,9 +80,9 @@ Bot: 🤔 Режим вопросов по базе знаний активир�
 User: Что такое GPT-4?
 Bot: 🔍 Ищу информацию в базе знаний...
      💡 Ответ:
-     
+
      GPT-4 - это большая языковая модель от OpenAI...
-     
+
      Источники:
      - ai/models/gpt4.md
      - ai/multimodal/vision.md
@@ -87,14 +95,17 @@ Bot: 🔍 Ищу информацию в базе знаний...
 Switches the bot to agent mode with full autonomous capabilities.
 
 **Usage:**
+
 ```
 /agent
 ```
 
 **Requirements:**
+
 - Knowledge base must be set up via `/setkb`
 
 **Response:**
+
 ```
 🤖 Режим агента активирован!
 
@@ -111,6 +122,7 @@ Switches the bot to agent mode with full autonomous capabilities.
 ```
 
 **What it does:**
+
 - Accepts any tasks related to knowledge base
 - Can answer questions (like /ask mode)
 - Can add/edit/delete/restructure content
@@ -120,6 +132,7 @@ Switches the bot to agent mode with full autonomous capabilities.
 **Example interactions:**
 
 **Answering questions:**
+
 ```
 User: Что такое GPT-4?
 Bot: 💡 Ответ:
@@ -127,6 +140,7 @@ Bot: 💡 Ответ:
 ```
 
 **Adding information:**
+
 ```
 User: Добавь информацию о новой модели Gemini 2.0
 Bot: 📋 Выполнено: Добавлена информация о Gemini 2.0
@@ -136,6 +150,7 @@ Bot: 📋 Выполнено: Добавлена информация о Gemini 
 ```
 
 **Restructuring:**
+
 ```
 User: Переименуй папку "ml" в "machine-learning"
 Bot: 📋 Выполнено: Папка переименована, ссылки обновлены
@@ -154,11 +169,13 @@ Bot: 📋 Выполнено: Папка переименована, ссылк�
 Initialize interaction with the bot.
 
 **Usage:**
+
 ```
 /start
 ```
 
 **Response:**
+
 - Welcome message
 - Bot introduction
 - Quick start instructions
@@ -171,11 +188,13 @@ Initialize interaction with the bot.
 Display help information and available commands.
 
 **Usage:**
+
 ```
 /help
 ```
 
 **Response:**
+
 - List of all commands
 - Brief descriptions
 - Links to documentation
@@ -190,6 +209,7 @@ Display help information and available commands.
 Setup or change your knowledge base location.
 
 **Usage:**
+
 ```
 /setkb <name|url>
 ```
@@ -208,6 +228,7 @@ Setup or change your knowledge base location.
 ```
 
 **What it does:**
+
 - Creates or connects to a knowledge base
 - Initializes Git if needed
 - Sets up directory structure
@@ -219,11 +240,13 @@ Setup or change your knowledge base location.
 Show current knowledge base information.
 
 **Usage:**
+
 ```
 /kb
 ```
 
 **Response:**
+
 - KB path
 - Git status
 - Number of files
@@ -236,11 +259,13 @@ Show current knowledge base information.
 Display processing statistics and current working mode.
 
 **Usage:**
+
 ```
 /status
 ```
 
 **Response:**
+
 - Messages processed
 - Notes created
 - Success/failure rate
@@ -250,6 +275,7 @@ Display processing statistics and current working mode.
 - Git integration status
 
 **Example:**
+
 ```
 📊 Статистика обработки
 
@@ -273,17 +299,20 @@ Git интеграция: Включена
 Open interactive settings menu.
 
 **Usage:**
+
 ```
 /settings
 ```
 
 **Features:**
+
 - Browse settings by category
 - Interactive inline keyboard
 - Quick toggles for boolean values
 - Detailed setting information
 
 **Categories:**
+
 - 📚 Knowledge Base
 - 🤖 Agent Configuration
 - ⚙️ Processing
@@ -298,6 +327,7 @@ Open interactive settings menu.
 View all settings or filtered by category.
 
 **Usage:**
+
 ```
 /viewsettings [category]
 ```
@@ -315,6 +345,7 @@ View all settings or filtered by category.
 ```
 
 **Response:**
+
 - Setting name
 - Current value
 - Default value
@@ -327,6 +358,7 @@ View all settings or filtered by category.
 Reset a setting to its default value.
 
 **Usage:**
+
 ```
 /resetsetting <name>
 ```
@@ -346,11 +378,13 @@ Reset a setting to its default value.
 Quick access to Knowledge Base settings.
 
 **Usage:**
+
 ```
 /kbsettings
 ```
 
 **Shows:**
+
 - KB_PATH
 - KB_GIT_ENABLED
 - KB_GIT_AUTO_PUSH
@@ -364,11 +398,13 @@ Quick access to Knowledge Base settings.
 Quick access to Agent settings.
 
 **Usage:**
+
 ```
 /agentsettings
 ```
 
 **Shows:**
+
 - AGENT_TYPE
 - AGENT_MODEL
 - AGENT_TIMEOUT
@@ -385,11 +421,13 @@ Quick access to Agent settings.
 Simply send any text message to save it.
 
 **Example:**
+
 ```
 This is an interesting article about AI...
 ```
 
 **Processing:**
+
 1. Message received
 2. Analyzed by agent
 3. Categorized automatically
@@ -403,11 +441,13 @@ This is an interesting article about AI...
 Forward messages from any chat or channel.
 
 **How:**
+
 1. Find message to save
 2. Tap Forward
 3. Select your tg-note bot
 
 **Supports:**
+
 - Channel posts
 - Group messages
 - Media with captions
@@ -420,6 +460,7 @@ Forward messages from any chat or channel.
 Send consecutive messages - they'll be grouped automatically.
 
 **Example:**
+
 ```
 First message about a topic...
 (Send)
@@ -429,6 +470,7 @@ Third message with conclusion...
 ```
 
 **Processing:**
+
 - Bot waits 30 seconds (configurable)
 - Groups related messages
 - Creates single note
@@ -440,11 +482,13 @@ Third message with conclusion...
 Send article links for processing.
 
 **Example:**
+
 ```
 https://arxiv.org/abs/12345
 ```
 
 **With Qwen Code CLI:**
+
 - Fetches article content
 - Analyzes and summarizes
 - Extracts key information

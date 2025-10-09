@@ -20,7 +20,7 @@ from .registry import ToolManager, build_default_tool_manager
 # Export base classes and registry
 __all__ = [
     "BaseTool",
-    "ToolContext", 
+    "ToolContext",
     "ToolSpec",
     "ToolManager",
     "build_default_tool_manager",

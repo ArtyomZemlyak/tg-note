@@ -1,19 +1,23 @@
 import os
+import subprocess
 import tempfile
 import uuid
-import subprocess
 from pathlib import Path
 from typing import Union
 
 from src.agents.mcp.memory.mem_agent_impl.settings import MEMORY_PATH
-from src.agents.mcp.memory.mem_agent_impl.utils import check_size_limits, create_memory_if_not_exists
+from src.agents.mcp.memory.mem_agent_impl.utils import (
+    check_size_limits,
+    create_memory_if_not_exists,
+)
+
 
 def get_size(file_or_dir_path: str) -> int:
     """
     Get the size of a file or directory.
 
     Args:
-        file_or_dir_path: The path to the file or directory. 
+        file_or_dir_path: The path to the file or directory.
                           If empty string, returns total memory directory size.
 
     Returns:
@@ -32,7 +36,7 @@ def get_size(file_or_dir_path: str) -> int:
                 except OSError:
                     pass
         return total_size
-    
+
     # Otherwise check the specific path
     if os.path.isfile(file_or_dir_path):
         return os.path.getsize(file_or_dir_path)
@@ -49,11 +53,12 @@ def get_size(file_or_dir_path: str) -> int:
     else:
         raise FileNotFoundError(f"Path not found: {file_or_dir_path}")
 
+
 def create_file(file_path: str, content: str = "") -> bool:
     """
     Create a new file in the memory with the given content (if any).
-    First create a temporary file with the given content, check if 
-    the size limits are respected, if so, move the temporary file to 
+    First create a temporary file with the given content, check if
+    the size limits are respected, if so, move the temporary file to
     the final destination.
 
     Args:
@@ -69,15 +74,15 @@ def create_file(file_path: str, content: str = "") -> bool:
         parent_dir = os.path.dirname(file_path)
         if parent_dir and not os.path.exists(parent_dir):
             os.makedirs(parent_dir, exist_ok=True)
-        
+
         # Create a unique temporary file name in the same directory as the target file
         # This ensures the temp file is within the sandbox's allowed path
         target_dir = os.path.dirname(os.path.abspath(file_path)) or "."
         temp_file_path = os.path.join(target_dir, f"temp_{uuid.uuid4().hex[:8]}.txt")
-        
+
         with open(temp_file_path, "w") as f:
             f.write(content)
-        
+
         if check_size_limits(temp_file_path):
             # Move the content to the final destination
             with open(file_path, "w") as f:
@@ -95,7 +100,8 @@ def create_file(file_path: str, content: str = "") -> bool:
             except Exception as e:
                 raise Exception(f"Error removing temp file {temp_file_path}: {e}")
         raise Exception(f"Error creating file {file_path}: {e}")
-    
+
+
 def create_dir(dir_path: str) -> bool:
     """
     Create a new directory in the memory.
@@ -156,14 +162,22 @@ def update_file(file_path: str, old_content: str, new_content: str) -> Union[boo
         if old_content not in current_content:
             # Provide helpful context about what wasn't found
             preview_length = 50
-            preview = old_content[:preview_length] + "..." if len(old_content) > preview_length else old_content
-            return f"Error: Could not find the specified content in the file. Looking for: '{preview}'"
+            preview = (
+                old_content[:preview_length] + "..."
+                if len(old_content) > preview_length
+                else old_content
+            )
+            return (
+                f"Error: Could not find the specified content in the file. Looking for: '{preview}'"
+            )
 
         # Count occurrences to warn about multiple matches
         occurrences = current_content.count(old_content)
         if occurrences > 1:
             # Still proceed but warn the user
-            print(f"Warning: Found {occurrences} occurrences of the content. Replacing only the first one.")
+            print(
+                f"Warning: Found {occurrences} occurrences of the content. Replacing only the first one."
+            )
 
         # Perform the replacement (only first occurrence)
         updated_content = current_content.replace(old_content, new_content, 1)
@@ -183,6 +197,7 @@ def update_file(file_path: str, old_content: str, new_content: str) -> Union[boo
     except Exception as e:
         return f"Error: Unexpected error - {str(e)}"
 
+
 def read_file(file_path: str) -> str:
     """
     Read a file in the memory.
@@ -197,21 +212,22 @@ def read_file(file_path: str) -> str:
         # Ensure the file path is properly resolved
         if not os.path.exists(file_path):
             return f"Error: File {file_path} does not exist"
-        
+
         if not os.path.isfile(file_path):
             return f"Error: {file_path} is not a file"
-            
+
         with open(file_path, "r") as f:
             return f.read()
     except PermissionError:
         return f"Error: Permission denied accessing {file_path}"
     except Exception as e:
         return f"Error: {e}"
-    
+
+
 def list_files() -> str:
     """
     Display all files and directories in the current working directory as a tree structure.
-    
+
     Example output:
     ```
     ./
@@ -227,24 +243,26 @@ def list_files() -> str:
     try:
         # Always use current working directory
         dir_path = os.getcwd()
-        
+
         def build_tree(start_path, prefix="", is_last=True):
             """Recursively build tree structure"""
             entries = []
             try:
                 items = sorted(os.listdir(start_path))
                 # Filter out hidden files and __pycache__
-                items = [item for item in items if not item.startswith('.') and item != '__pycache__']
+                items = [
+                    item for item in items if not item.startswith(".") and item != "__pycache__"
+                ]
             except PermissionError:
                 return f"{prefix}[Permission Denied]\n"
-            
+
             if not items:
                 return ""
-            
+
             for i, item in enumerate(items):
                 item_path = os.path.join(start_path, item)
                 is_last_item = i == len(items) - 1
-                
+
                 # Choose the right prefix characters
                 if is_last_item:
                     current_prefix = prefix + "└── "
@@ -252,12 +270,15 @@ def list_files() -> str:
                 else:
                     current_prefix = prefix + "├── "
                     extension = prefix + "│   "
-                
+
                 if os.path.isdir(item_path):
                     # Check if directory is empty
                     try:
-                        dir_contents = [f for f in os.listdir(item_path) 
-                                      if not f.startswith('.') and f != '__pycache__']
+                        dir_contents = [
+                            f
+                            for f in os.listdir(item_path)
+                            if not f.startswith(".") and f != "__pycache__"
+                        ]
                         if not dir_contents:
                             entries.append(f"{current_prefix}{item}/ (empty)\n")
                         else:
@@ -268,16 +289,17 @@ def list_files() -> str:
                         entries.append(f"{current_prefix}{item}/ [Permission Denied]\n")
                 else:
                     entries.append(f"{current_prefix}{item}\n")
-            
+
             return "".join(entries)
-        
+
         # Start with the root directory
         tree = f"./\n{build_tree(dir_path)}"
         return tree.rstrip()  # Remove trailing newline
-        
+
     except Exception as e:
         return f"Error: {e}"
-    
+
+
 def delete_file(file_path: str) -> bool:
     """
     Delete a file in the memory.
@@ -293,7 +315,8 @@ def delete_file(file_path: str) -> bool:
         return True
     except Exception:
         return False
-    
+
+
 def go_to_link(link_string: str) -> str:
     """
     Go to a link in the memory and return the content of the note Y. A link in a note X to a note Y, with the
@@ -310,18 +333,18 @@ def go_to_link(link_string: str) -> str:
         # Handle Obsidian-style links: [[path/to/note]] -> path/to/note.md
         if link_string.startswith("[[") and link_string.endswith("]]"):
             file_path = link_string[2:-2]  # Remove [[ and ]]
-            if not file_path.endswith('.md'):
-                file_path += '.md'
+            if not file_path.endswith(".md"):
+                file_path += ".md"
         else:
             file_path = link_string
-            
+
         # Ensure the file path is properly resolved
         if not os.path.exists(file_path):
             return f"Error: File {file_path} not found"
-        
+
         if not os.path.isfile(file_path):
             return f"Error: {file_path} is not a file"
-            
+
         with open(file_path, "r") as f:
             return f.read()
     except PermissionError:
@@ -329,13 +352,14 @@ def go_to_link(link_string: str) -> str:
     except Exception as e:
         return f"Error: {e}"
 
+
 def check_if_file_exists(file_path: str) -> bool:
     """
     Check if a file exists in the given filepath.
-    
+
     Args:
         file_path: The path to the file.
-        
+
     Returns:
         True if the file exists and is a file, False otherwise.
     """
@@ -344,13 +368,14 @@ def check_if_file_exists(file_path: str) -> bool:
     except (OSError, TypeError, ValueError):
         return False
 
+
 def check_if_dir_exists(dir_path: str) -> bool:
     """
     Check if a directory exists in the given filepath.
-    
+
     Args:
         dir_path: The path to the directory.
-        
+
     Returns:
         True if the directory exists and is a directory, False otherwise.
     """

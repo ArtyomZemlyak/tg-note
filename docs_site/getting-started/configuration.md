@@ -80,30 +80,35 @@ GITHUB_TOKEN=ghp_...
 ### Knowledge Base Settings
 
 #### KB_PATH
+
 - **Type:** Path
 - **Default:** `./knowledge_base`
 - **Description:** Path to your knowledge base directory
 - **Example:** `/path/to/my-kb`
 
 #### KB_GIT_ENABLED
+
 - **Type:** Boolean
 - **Default:** `true`
 - **Description:** Enable Git operations
 - **Example:** `true` or `false`
 
 #### KB_GIT_AUTO_PUSH
+
 - **Type:** Boolean
 - **Default:** `true`
 - **Description:** Automatically push changes to remote
 - **Example:** `true` or `false`
 
 #### KB_GIT_REMOTE
+
 - **Type:** String
 - **Default:** `origin`
 - **Description:** Git remote name
 - **Example:** `origin`
 
 #### KB_GIT_BRANCH
+
 - **Type:** String
 - **Default:** `main`
 - **Description:** Git branch to use
@@ -114,6 +119,7 @@ GITHUB_TOKEN=ghp_...
 ### Agent Settings
 
 #### AGENT_TYPE
+
 - **Type:** String
 - **Default:** `stub`
 - **Options:** `stub`, `autonomous`, `qwen_code_cli`
@@ -121,48 +127,56 @@ GITHUB_TOKEN=ghp_...
 - **Recommendation:** Use `qwen_code_cli` for production, or `autonomous` for OpenAI-compatible APIs
 
 #### AGENT_MODEL
+
 - **Type:** String
 - **Default:** `qwen-max`
 - **Description:** AI model to use
 - **Examples:** `qwen-max`, `qwen-turbo`, `gpt-4`
 
 #### AGENT_QWEN_CLI_PATH
+
 - **Type:** String
 - **Default:** `qwen`
 - **Description:** Path to qwen CLI executable
 - **Examples:** `qwen`, `/usr/local/bin/qwen`, `./bin/qwen`
 
 #### AGENT_INSTRUCTION
+
 - **Type:** String (Optional)
 - **Default:** `None`
 - **Description:** Custom instruction for the agent
 - **Example:** `"Always be concise and use bullet points"`
 
 #### AGENT_TIMEOUT
+
 - **Type:** Integer (seconds)
 - **Default:** `300`
 - **Description:** Maximum time for agent processing
 - **Example:** `600` (10 minutes)
 
 #### AGENT_ENABLE_WEB_SEARCH
+
 - **Type:** Boolean
 - **Default:** `true`
 - **Description:** Allow web search capability
 - **Example:** `true` or `false`
 
 #### AGENT_ENABLE_GIT
+
 - **Type:** Boolean
 - **Default:** `true`
 - **Description:** Allow Git operations
 - **Example:** `true` or `false`
 
 #### AGENT_ENABLE_GITHUB
+
 - **Type:** Boolean
 - **Default:** `true`
 - **Description:** Allow GitHub API access
 - **Example:** `true` or `false`
 
 #### AGENT_ENABLE_SHELL
+
 - **Type:** Boolean
 - **Default:** `false`
 - **Description:** Allow shell command execution
@@ -170,12 +184,14 @@ GITHUB_TOKEN=ghp_...
 - **Example:** `false`
 
 #### AGENT_ENABLE_FILE_MANAGEMENT
+
 - **Type:** Boolean
 - **Default:** `true`
 - **Description:** Enable file operations (create, edit, delete, move files)
 - **Example:** `true` or `false`
 
 #### AGENT_ENABLE_FOLDER_MANAGEMENT
+
 - **Type:** Boolean
 - **Default:** `true`
 - **Description:** Enable folder operations (create, delete, move folders)
@@ -186,12 +202,14 @@ GITHUB_TOKEN=ghp_...
 ### Processing Settings
 
 #### MESSAGE_GROUP_TIMEOUT
+
 - **Type:** Integer (seconds)
 - **Default:** `30`
 - **Description:** Wait time before processing grouped messages
 - **Example:** `60` (1 minute)
 
 #### PROCESSED_LOG_PATH
+
 - **Type:** Path
 - **Default:** `./data/processed.json`
 - **Description:** Path to processing tracker database
@@ -202,6 +220,7 @@ GITHUB_TOKEN=ghp_...
 ### Logging Settings
 
 #### LOG_LEVEL
+
 - **Type:** String
 - **Default:** `INFO`
 - **Options:** `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`
@@ -209,6 +228,7 @@ GITHUB_TOKEN=ghp_...
 - **Example:** `DEBUG` for development
 
 #### LOG_FILE
+
 - **Type:** Path
 - **Default:** `./logs/bot.log`
 - **Description:** Path to log file
@@ -219,6 +239,7 @@ GITHUB_TOKEN=ghp_...
 ### Security Settings
 
 #### TELEGRAM_BOT_TOKEN
+
 - **Type:** String (Secret)
 - **Required:** Yes
 - **Source:** `.env` or environment variable only
@@ -226,12 +247,14 @@ GITHUB_TOKEN=ghp_...
 - **Example:** `1234567890:ABCdefGHIjklMNOpqrsTUVwxyz`
 
 #### ALLOWED_USER_IDS
+
 - **Type:** String (comma-separated)
 - **Default:** `""` (all users allowed)
 - **Description:** Whitelist of allowed Telegram user IDs
 - **Example:** `12345678,87654321`
 
 #### OPENAI_API_KEY
+
 - **Type:** String (Secret)
 - **Required:** No
 - **Source:** `.env` or environment variable only
@@ -239,6 +262,7 @@ GITHUB_TOKEN=ghp_...
 - **Example:** `sk-...`
 
 #### OPENAI_BASE_URL
+
 - **Type:** String (Secret)
 - **Required:** No
 - **Source:** `.env` or environment variable only
@@ -246,6 +270,7 @@ GITHUB_TOKEN=ghp_...
 - **Example:** `https://api.openai.com/v1`
 
 #### QWEN_API_KEY
+
 - **Type:** String (Secret)
 - **Required:** No
 - **Source:** `.env` or environment variable only
@@ -253,6 +278,7 @@ GITHUB_TOKEN=ghp_...
 - **Example:** `your_qwen_key`
 
 #### ANTHROPIC_API_KEY
+
 - **Type:** String (Secret)
 - **Required:** No
 - **Source:** `.env` or environment variable only
@@ -260,6 +286,7 @@ GITHUB_TOKEN=ghp_...
 - **Example:** `sk-ant-...`
 
 #### GITHUB_TOKEN
+
 - **Type:** String (Secret)
 - **Required:** No
 - **Source:** `.env` or environment variable only

@@ -3,10 +3,8 @@ Configuration module
 Exports settings and config helpers
 """
 
-from .settings import settings
-
 # Import config modules for easier access
-from . import agent_prompts
-from . import kb_structure
+from . import agent_prompts, kb_structure
+from .settings import settings
 
 __all__ = ["settings", "agent_prompts", "kb_structure"]

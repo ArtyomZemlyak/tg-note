@@ -193,12 +193,14 @@ Users can override their KB path via `/setkb` command:
 ## Migration from Old Structure
 
 Old approach (hardcoded paths):
+
 ```python
 MCP_SERVERS_DIR = Path("./data/mcp_servers")  # Global
 MEM_AGENT_MEMORY_PATH = Path("./data/memory")  # Global
 ```
 
 New approach (postfixes):
+
 ```python
 MCP_SERVERS_POSTFIX = ".mcp_servers"  # Per-user: kb_path/.mcp_servers
 MEM_AGENT_MEMORY_POSTFIX = "memory"   # Per-user: kb_path/memory

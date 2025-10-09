@@ -3,80 +3,78 @@ Embedding Models
 Supports multiple embedding backends: sentence-transformers, OpenAI API, Infinity API
 """
 
-from abc import ABC, abstractmethod
-from typing import List, Optional
 import hashlib
 import json
+from abc import ABC, abstractmethod
+from typing import List, Optional
 
 from loguru import logger
 
 
 class BaseEmbedder(ABC):
     """Base class for embedding models"""
-    
+
     def __init__(self, model_name: str):
         self.model_name = model_name
-    
+
     @abstractmethod
     async def embed_texts(self, texts: List[str]) -> List[List[float]]:
         """
         Embed a list of texts
-        
+
         Args:
             texts: List of text strings to embed
-            
+
         Returns:
             List of embedding vectors
         """
         pass
-    
+
     @abstractmethod
     async def embed_query(self, query: str) -> List[float]:
         """
         Embed a single query
-        
+
         Args:
             query: Query text to embed
-            
+
         Returns:
             Embedding vector
         """
         pass
-    
+
     @abstractmethod
     def get_dimension(self) -> int:
         """Get the dimension of embeddings"""
         pass
-    
+
     def get_model_hash(self) -> str:
         """Get a hash identifying the model configuration"""
-        config = {
-            "model_type": self.__class__.__name__,
-            "model_name": self.model_name
-        }
+        config = {"model_type": self.__class__.__name__, "model_name": self.model_name}
         config_str = json.dumps(config, sort_keys=True)
         return hashlib.md5(config_str.encode()).hexdigest()
 
 
 class SentenceTransformerEmbedder(BaseEmbedder):
     """Local sentence-transformers embeddings"""
-    
+
     def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
         """
         Initialize sentence-transformers model
-        
+
         Args:
             model_name: HuggingFace model name (default: all-MiniLM-L6-v2)
         """
         super().__init__(model_name)
         self._model = None
         self._dimension: Optional[int] = None
-    
+
     def _load_model(self):
         """Lazy load the model"""
         if self._model is None:
             try:
                 from sentence_transformers import SentenceTransformer
+
                 logger.info(f"Loading sentence-transformer model: {self.model_name}")
                 self._model = SentenceTransformer(self.model_name)
                 # Get dimension from first embedding
@@ -88,26 +86,24 @@ class SentenceTransformerEmbedder(BaseEmbedder):
                     "sentence-transformers not installed. "
                     "Install with: pip install sentence-transformers"
                 )
-    
+
     async def embed_texts(self, texts: List[str]) -> List[List[float]]:
         """Embed multiple texts"""
         self._load_model()
         assert self._model is not None, "Model should be loaded"
-        
+
         logger.debug(f"Embedding {len(texts)} texts with sentence-transformers")
         embeddings = self._model.encode(
-            texts,
-            show_progress_bar=len(texts) > 10,
-            convert_to_numpy=True
+            texts, show_progress_bar=len(texts) > 10, convert_to_numpy=True
         )
         result: List[List[float]] = embeddings.tolist()
         return result
-    
+
     async def embed_query(self, query: str) -> List[float]:
         """Embed a single query"""
         embeddings = await self.embed_texts([query])
         return embeddings[0]
-    
+
     def get_dimension(self) -> int:
         """Get embedding dimension"""
         if self._dimension is None:
@@ -118,23 +114,23 @@ class SentenceTransformerEmbedder(BaseEmbedder):
 
 class OpenAIEmbedder(BaseEmbedder):
     """OpenAI API embeddings"""
-    
+
     # Dimension mapping for known models
     DIMENSIONS = {
         "text-embedding-ada-002": 1536,
         "text-embedding-3-small": 1536,
         "text-embedding-3-large": 3072,
     }
-    
+
     def __init__(
         self,
         model_name: str = "text-embedding-ada-002",
         api_key: Optional[str] = None,
-        base_url: Optional[str] = None
+        base_url: Optional[str] = None,
     ):
         """
         Initialize OpenAI embeddings
-        
+
         Args:
             model_name: OpenAI model name
             api_key: OpenAI API key (or set OPENAI_API_KEY env var)
@@ -145,50 +141,42 @@ class OpenAIEmbedder(BaseEmbedder):
         self.base_url = base_url
         self._client = None
         self._dimension = self.DIMENSIONS.get(model_name, 1536)
-    
+
     def _get_client(self):
         """Lazy load OpenAI client"""
         if self._client is None:
             try:
                 from openai import AsyncOpenAI
+
                 logger.info(f"Initializing OpenAI client for model: {self.model_name}")
-                self._client = AsyncOpenAI(
-                    api_key=self.api_key,
-                    base_url=self.base_url
-                )
+                self._client = AsyncOpenAI(api_key=self.api_key, base_url=self.base_url)
             except ImportError:
-                raise ImportError(
-                    "openai not installed. "
-                    "Install with: pip install openai"
-                )
+                raise ImportError("openai not installed. " "Install with: pip install openai")
         return self._client
-    
+
     async def embed_texts(self, texts: List[str]) -> List[List[float]]:
         """Embed multiple texts"""
         client = self._get_client()
-        
+
         logger.debug(f"Embedding {len(texts)} texts with OpenAI")
-        
+
         # OpenAI has a limit on batch size, process in chunks
         batch_size = 100
         all_embeddings = []
-        
+
         for i in range(0, len(texts), batch_size):
-            batch = texts[i:i + batch_size]
-            response = await client.embeddings.create(
-                model=self.model_name,
-                input=batch
-            )
+            batch = texts[i : i + batch_size]
+            response = await client.embeddings.create(model=self.model_name, input=batch)
             embeddings = [item.embedding for item in response.data]
             all_embeddings.extend(embeddings)
-        
+
         return all_embeddings
-    
+
     async def embed_query(self, query: str) -> List[float]:
         """Embed a single query"""
         embeddings = await self.embed_texts([query])
         return embeddings[0]
-    
+
     def get_dimension(self) -> int:
         """Get embedding dimension"""
         return self._dimension
@@ -196,16 +184,13 @@ class OpenAIEmbedder(BaseEmbedder):
 
 class InfinityEmbedder(BaseEmbedder):
     """Infinity API embeddings (https://github.com/michaelfeil/infinity)"""
-    
+
     def __init__(
-        self,
-        model_name: str,
-        api_url: str = "http://localhost:7997",
-        api_key: Optional[str] = None
+        self, model_name: str, api_url: str = "http://localhost:7997", api_key: Optional[str] = None
     ):
         """
         Initialize Infinity API embeddings
-        
+
         Args:
             model_name: Model name configured in Infinity
             api_url: Infinity API URL
@@ -215,21 +200,18 @@ class InfinityEmbedder(BaseEmbedder):
         self.api_url = api_url.rstrip("/")
         self.api_key = api_key
         self._dimension: Optional[int] = None
-    
+
     async def _make_request(self, texts: List[str]) -> List[List[float]]:
         """Make request to Infinity API"""
         import aiohttp
-        
+
         url = f"{self.api_url}/embeddings"
         headers = {"Content-Type": "application/json"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
-        
-        payload = {
-            "model": self.model_name,
-            "input": texts
-        }
-        
+
+        payload = {"model": self.model_name, "input": texts}
+
         async with aiohttp.ClientSession() as session:
             async with session.post(url, json=payload, headers=headers) as response:
                 if response.status != 200:
@@ -237,30 +219,28 @@ class InfinityEmbedder(BaseEmbedder):
                     raise RuntimeError(
                         f"Infinity API error (status {response.status}): {error_text}"
                     )
-                
+
                 data = await response.json()
                 embeddings = [item["embedding"] for item in data["data"]]
-                
+
                 # Set dimension from first embedding
                 if self._dimension is None and embeddings:
                     self._dimension = len(embeddings[0])
-                
+
                 return embeddings
-    
+
     async def embed_texts(self, texts: List[str]) -> List[List[float]]:
         """Embed multiple texts"""
         logger.debug(f"Embedding {len(texts)} texts with Infinity API")
         return await self._make_request(texts)
-    
+
     async def embed_query(self, query: str) -> List[float]:
         """Embed a single query"""
         embeddings = await self.embed_texts([query])
         return embeddings[0]
-    
+
     def get_dimension(self) -> int:
         """Get embedding dimension"""
         if self._dimension is None:
-            raise RuntimeError(
-                "Dimension unknown. Call embed_texts() or embed_query() first."
-            )
+            raise RuntimeError("Dimension unknown. Call embed_texts() or embed_query() first.")
         return self._dimension

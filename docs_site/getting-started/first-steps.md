@@ -16,6 +16,7 @@ Your first steps with tg-note after installation.
 4. BotFather will give you a **token** - save it securely!
 
 Example token format:
+
 ```
 1234567890:ABCdefGHIjklMNOpqrsTUVwxyz12345678
 ```
@@ -199,7 +200,7 @@ Try these commands:
 
 <div class="grid cards" markdown>
 
--   :material-book-multiple:{ .lg .middle } **Learn All Commands**
+- :material-book-multiple:{ .lg .middle } **Learn All Commands**
 
     ---
 
@@ -207,7 +208,7 @@ Try these commands:
 
     [:octicons-arrow-right-24: Bot Commands](../user-guide/bot-commands.md)
 
--   :material-robot:{ .lg .middle } **Upgrade Your Agent**
+- :material-robot:{ .lg .middle } **Upgrade Your Agent**
 
     ---
 
@@ -215,7 +216,7 @@ Try these commands:
 
     [:octicons-arrow-right-24: Agent Setup](../agents/qwen-code-cli.md)
 
--   :material-cog:{ .lg .middle } **Customize Settings**
+- :material-cog:{ .lg .middle } **Customize Settings**
 
     ---
 
@@ -223,7 +224,7 @@ Try these commands:
 
     [:octicons-arrow-right-24: Settings Guide](../user-guide/settings-management.md)
 
--   :material-folder-open:{ .lg .middle } **Organize Your KB**
+- :material-folder-open:{ .lg .middle } **Organize Your KB**
 
     ---
 

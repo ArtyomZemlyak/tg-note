@@ -63,6 +63,7 @@ Shows all registered MCP servers with their current status (enabled/disabled). Y
 **Command:** `/mcpstatus`
 
 Shows a quick summary:
+
 - Total number of servers
 - Number of enabled servers
 - Number of disabled servers
@@ -72,6 +73,7 @@ Shows a quick summary:
 **Command:** `/enablemcp <server_name>`
 
 Example:
+
 ```
 /enablemcp my-mcp-server
 ```
@@ -83,6 +85,7 @@ This activates the specified MCP server, making it available for use.
 **Command:** `/disablemcp <server_name>`
 
 Example:
+
 ```
 /disablemcp my-mcp-server
 ```
@@ -94,6 +97,7 @@ This deactivates the specified MCP server without deleting its configuration.
 **Command:** `/removemcp <server_name>`
 
 Example:
+
 ```
 /removemcp my-mcp-server
 ```
@@ -105,6 +109,7 @@ Example:
 MCP server configurations are stored as JSON files in the `data/mcp_servers/` directory. Each server has its own `.json` file named after the server name.
 
 Example file structure:
+
 ```
 data/
 └── mcp_servers/
@@ -174,17 +179,20 @@ data/
 ## Troubleshooting
 
 ### Server not appearing in the list
+
 - Check that the JSON configuration is valid
 - Verify the server name is unique
 - Check the logs for any error messages
 
 ### Server fails to start
+
 - Verify the command and arguments are correct
 - Check that all required environment variables are set
 - Ensure the working directory (if specified) exists
 - Check that the executable is in your PATH
 
 ### Cannot delete a server
+
 - Verify you're using the correct server name
 - Check file permissions in the `data/mcp_servers/` directory
 

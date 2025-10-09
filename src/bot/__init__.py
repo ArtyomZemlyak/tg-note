@@ -10,4 +10,4 @@ Clean Architecture:
 from src.bot.bot_port import BotPort
 from src.bot.telegram_adapter import TelegramBotAdapter
 
-__all__ = ['BotPort', 'TelegramBotAdapter']
+__all__ = ["BotPort", "TelegramBotAdapter"]

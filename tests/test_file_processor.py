@@ -2,8 +2,10 @@
 Tests for FileProcessor
 """
 
-import pytest
 from pathlib import Path
+
+import pytest
+
 from src.processor.file_processor import FileProcessor
 
 
@@ -24,13 +26,13 @@ def test_get_supported_formats(file_processor):
     """Test getting supported formats"""
     formats = file_processor.get_supported_formats()
     assert isinstance(formats, list)
-    
+
     # If docling is available, should have formats
     if file_processor.is_available():
         assert len(formats) > 0
-        assert 'pdf' in formats
-        assert 'docx' in formats
-        assert 'txt' in formats
+        assert "pdf" in formats
+        assert "docx" in formats
+        assert "txt" in formats
 
 
 def test_detect_file_format(file_processor):
@@ -43,18 +45,20 @@ def test_detect_file_format(file_processor):
         (Path("test.jpg"), "jpg"),
         (Path("document.PDF"), "pdf"),  # Case insensitive
     ]
-    
+
     for file_path, expected_format in test_cases:
         if file_processor.is_available():
             result = file_processor.detect_file_format(file_path)
-            assert result == expected_format, f"Expected {expected_format} for {file_path}, got {result}"
+            assert (
+                result == expected_format
+            ), f"Expected {expected_format} for {file_path}, got {result}"
 
 
 def test_detect_unsupported_format(file_processor):
     """Test detection of unsupported formats"""
     unsupported_file = Path("test.xyz")
     result = file_processor.detect_file_format(unsupported_file)
-    
+
     # Should return None for unsupported formats
     if not file_processor.is_available():
         assert result is None
@@ -68,7 +72,7 @@ async def test_process_nonexistent_file(file_processor):
     """Test processing a file that doesn't exist"""
     nonexistent_file = Path("/tmp/nonexistent_file_12345.pdf")
     result = await file_processor.process_file(nonexistent_file)
-    
+
     # Should return None for nonexistent files
     assert result is None
 

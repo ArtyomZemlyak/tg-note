@@ -3,11 +3,11 @@ name: Deploy Documentation
 on:
   push:
     branches:
-      - main
+    - main
     paths:
-      - 'docs_site/**'
-      - 'mkdocs.yml'
-      - '.github/workflows/docs.yml'
+    - docs_site/**
+    - mkdocs.yml
+    - .github/workflows/docs.yml
   workflow_dispatch:
 
 permissions:
@@ -23,28 +23,28 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
 
-      - name: Install dependencies
-        run: |
-          pip install --upgrade pip
-          pip install -r requirements-docs.txt
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip
+        pip install -r requirements-docs.txt
 
-      - name: Build documentation
-        run: mkdocs build --clean --strict --site-dir site
+    - name: Build documentation
+      run: mkdocs build --clean --strict --site-dir site
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
+    - name: Upload Pages artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: site
 
   deploy:
     runs-on: ubuntu-latest
@@ -53,6 +53,6 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4

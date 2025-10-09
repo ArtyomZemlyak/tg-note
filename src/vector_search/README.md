@@ -5,6 +5,7 @@ Flexible vector search capabilities for the knowledge base with support for mult
 ## Features
 
 ### Embedding Models
+
 - **sentence-transformers**: Local embeddings (recommended)
   - No API calls required
   - Runs on CPU or GPU
@@ -17,6 +18,7 @@ Flexible vector search capabilities for the knowledge base with support for mult
   - Flexible deployment
 
 ### Vector Stores
+
 - **FAISS**: Fast local vector search (recommended)
   - Optimized similarity search
   - No external services
@@ -27,6 +29,7 @@ Flexible vector search capabilities for the knowledge base with support for mult
   - Advanced filtering
 
 ### Document Chunking
+
 - **Fixed size**: Simple fixed-size chunks
 - **Fixed size with overlap**: Chunks with overlap for better context
 - **Semantic**: Respects markdown structure (headers, paragraphs)
@@ -34,12 +37,14 @@ Flexible vector search capabilities for the knowledge base with support for mult
 ## Installation
 
 ### Basic Installation
+
 ```bash
 # Install optional dependencies
 pip install -e '.[vector-search]'
 ```
 
 ### Individual Components
+
 ```bash
 # For local embeddings
 pip install sentence-transformers
@@ -178,6 +183,7 @@ await manager.index_knowledge_base()
 When vector search is enabled, two new tools are available:
 
 ### kb_vector_search
+
 Performs semantic vector search in the knowledge base.
 
 ```python
@@ -188,6 +194,7 @@ result = await agent._tool_kb_vector_search({
 ```
 
 ### kb_reindex_vector
+
 Reindexes the knowledge base for vector search.
 
 ```python
@@ -215,6 +222,7 @@ result = await agent._tool_kb_reindex_vector({
 ### GPU Acceleration
 
 For faster embeddings with sentence-transformers:
+
 ```bash
 # Install PyTorch with CUDA support
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
@@ -223,6 +231,7 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 ```
 
 For faster search with FAISS:
+
 ```bash
 pip install faiss-gpu
 ```
@@ -230,25 +239,33 @@ pip install faiss-gpu
 ## Troubleshooting
 
 ### Missing Dependencies
+
 ```
 ImportError: No module named 'sentence_transformers'
 ```
+
 **Solution**: Install dependencies: `pip install -e '.[vector-search]'`
 
 ### Qdrant Connection Error
+
 ```
 Failed to connect to Qdrant: Connection refused
 ```
+
 **Solution**: Start Qdrant server:
+
 ```bash
 docker run -p 6333:6333 qdrant/qdrant
 ```
 
 ### Out of Memory
+
 **Solution**: Reduce chunk size or batch size in indexing
 
 ### Slow Indexing
-**Solution**: 
+
+**Solution**:
+
 - Use GPU acceleration
 - Use smaller embedding model
 - Increase chunk size
@@ -256,6 +273,7 @@ docker run -p 6333:6333 qdrant/qdrant
 ## Examples
 
 See `examples/vector_search_example.py` for comprehensive examples including:
+
 - Different embedding models
 - Different vector stores
 - Chunking strategies comparison

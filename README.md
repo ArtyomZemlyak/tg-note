@@ -44,6 +44,7 @@
 **tg-note** is a Telegram bot that acts as your personal knowledge curator. It receives messages, reposts, and articles through Telegram, analyzes them using AI agent systems, and automatically saves the important information to your GitHub-based knowledge base in structured Markdown format.
 
 Perfect for:
+
 - 📚 Building a personal knowledge base from Telegram channels
 - 🔬 Organizing research papers and scientific articles
 - 📰 Archiving news and insights from multiple sources
@@ -182,6 +183,7 @@ python main.py
 ```
 
 You should see:
+
 ```
 INFO - Starting tg-note bot...
 INFO - Configuration validated successfully
@@ -220,19 +222,25 @@ Press `Ctrl+C` in the terminal
 The bot has **three working modes** that you can switch between:
 
 #### 📝 Note Mode (Default) - `/note`
+
 Analyzes and saves your messages to the knowledge base.
+
 - Automatic categorization
 - Structured markdown generation
 - Git integration
 
 #### 🤔 Ask Mode - `/ask`
+
 Answers questions about your knowledge base content.
+
 - Searches through your KB
 - Provides answers with sources
 - Russian language support
 
 #### 🤖 Agent Mode - `/agent`
+
 Full autonomous access to your knowledge base.
+
 - Can answer questions (like Ask mode)
 - Can add/edit/delete content
 - Can restructure and organize KB
@@ -282,6 +290,7 @@ Each user can customize bot behavior via Telegram commands:
 ```
 
 **How Settings Work:**
+
 1. Use `/settings` to open the interactive menu
 2. Choose a category (Knowledge Base, Agent, Processing, etc.)
 3. Click on any setting to view its details
@@ -290,6 +299,7 @@ Each user can customize bot behavior via Telegram commands:
 6. Settings include descriptions, types, and allowed values
 
 **Features:**
+
 - ✅ **Interactive UI**: Inline keyboards with category navigation
 - ✅ **Type Safety**: Automatic validation and type conversion
 - ✅ **Per-User Overrides**: Each user can customize their settings
@@ -297,6 +307,7 @@ Each user can customize bot behavior via Telegram commands:
 - ✅ **Secure**: Credentials cannot be changed via Telegram
 
 **Available Settings Categories:**
+
 - 📚 Knowledge Base (Git, paths, auto-push)
 - 🤖 Agent (model, timeout, tools enabled)
 - ⚙️ Processing (message grouping, deduplication)
@@ -307,6 +318,7 @@ See [Settings Management guide](https://artyomzemlyak.github.io/tg-note/user-gui
 ### Working with Content
 
 **Supported Content Types:**
+
 - ✅ Text messages
 - ✅ Forwarded messages from channels
 - ✅ Photos with captions
@@ -356,9 +368,10 @@ The system supports three types of agents for content processing:
 | **AI Quality** | High | High | Basic |
 
 > **💡 MCP Support Note**: Both **AutonomousAgent** and **QwenCodeCLIAgent** support MCP, but with different approaches:
+>
 > - **AutonomousAgent**: Uses Python MCP client (`DynamicMCPTool`) - MCP servers managed from Python code
 > - **QwenCodeCLIAgent**: Uses Qwen's native MCP client - MCP servers configured in `.qwen/settings.json` as standalone processes
-> 
+>
 > [Learn more about MCP integration →](docs/QWEN_CLI_MCP_CORRECT_APPROACH.md)
 
 ---
@@ -368,6 +381,7 @@ The system supports three types of agents for content processing:
 Python-based autonomous agent with OpenAI-compatible API support and **full MCP support**.
 
 **Features:**
+
 - ✅ **MCP Tools Support** - Full access to Model Context Protocol tools
 - ✅ OpenAI-compatible API integration
 - ✅ Autonomous planning and decision-making
@@ -376,11 +390,13 @@ Python-based autonomous agent with OpenAI-compatible API support and **full MCP 
 - ✅ Works with various LLM providers
 
 **Setup:**
+
 ```bash
 pip install openai  # included in requirements
 ```
 
 **Configuration:**
+
 ```yaml
 AGENT_TYPE: "autonomous"
 AGENT_MODEL: "gpt-3.5-turbo"  # or any compatible model
@@ -390,6 +406,7 @@ AGENT_ENABLE_FILE_MANAGEMENT: true
 ```
 
 **Environment Variables:**
+
 ```env
 OPENAI_API_KEY=sk-...
 OPENAI_BASE_URL=https://api.openai.com/v1  # Optional, for custom endpoints
@@ -404,6 +421,7 @@ OPENAI_BASE_URL=https://api.openai.com/v1  # Optional, for custom endpoints
 Uses [Qwen Code CLI](https://github.com/QwenLM/qwen-code) for advanced AI processing.
 
 **Features:**
+
 - ✅ Full integration with Qwen3-Coder models
 - ✅ Automatic TODO planning
 - ✅ Built-in tools: web search, git, github, shell
@@ -412,12 +430,14 @@ Uses [Qwen Code CLI](https://github.com/QwenLM/qwen-code) for advanced AI proces
 - ✅ **MCP support** via qwen native mechanism (requires `.qwen/settings.json`)
 
 **Setup:**
+
 ```bash
 npm install -g @qwen-code/qwen-code@latest
 qwen  # authenticate
 ```
 
 **Configuration:**
+
 ```yaml
 AGENT_TYPE: "qwen_code_cli"
 AGENT_QWEN_CLI_PATH: "qwen"
@@ -428,6 +448,7 @@ AGENT_ENABLE_MCP: true  # Optional - requires .qwen/settings.json configuration
 **MCP Configuration** (optional, for custom tools via MCP):
 
 Create `.qwen/settings.json` in your KB directory:
+
 ```json
 {
   "mcpServers": {
@@ -452,12 +473,14 @@ Create `.qwen/settings.json` in your KB directory:
 Simple stub agent for testing and MVP.
 
 **Features:**
+
 - ⚡ Fast and lightweight
 - 🔧 No external dependencies
 - 📋 Basic categorization
 - 🧪 Perfect for testing
 
 **Configuration:**
+
 ```yaml
 AGENT_TYPE: "stub"
 ```
@@ -469,18 +492,21 @@ AGENT_TYPE: "stub"
 ### Choosing the Right Agent
 
 **Use AutonomousAgent when:**
+
 - ✅ You need **MCP tools** (memory, custom integrations)
 - ✅ You have an OpenAI-compatible API key
 - ✅ You want Python-native integration
 - ✅ You need custom tool development
 
 **Use QwenCodeCLIAgent when:**
+
 - ✅ You want **free tier** (2000 requests/day)
 - ✅ You need **vision model** support
 - ✅ You prefer official Qwen integration
 - ✅ You can create standalone MCP servers (if using MCP)
 
 **Use StubAgent when:**
+
 - ✅ Testing without API keys
 - ✅ MVP development
 - ✅ Quick prototyping

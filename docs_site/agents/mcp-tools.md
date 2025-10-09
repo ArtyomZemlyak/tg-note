@@ -16,16 +16,19 @@ Personal note-taking and search system for the agent using embeddings (e.g., [bg
 
 **Purpose:**
 This tool is specifically designed for the main agent to:
+
 - **Record notes**: Write down important information, findings, or context during task execution
 - **Search notes**: Find and recall previously recorded information
 - **Maintain working memory**: Keep context across multiple LLM calls within a single session
 
 **Use Cases:**
+
 - During complex multi-step tasks, the agent records findings and retrieves them later
 - Autonomous agents (like qwen code cli) making many LLM calls in one session
 - Maintaining context when the agent needs to remember what it discovered earlier
 
 **Tools:**
+
 - `mcp_memory_agent` - Unified note management (store, search, list)
 - `memory_store` - Record a note
 - `memory_search` - Search through recorded notes
@@ -211,11 +214,11 @@ class MyCustomMCPTool(BaseMCPTool):
     @property
     def name(self) -> str:
         return "my_custom_tool"
-    
+
     @property
     def description(self) -> str:
         return "Description of what the tool does"
-    
+
     @property
     def parameters_schema(self) -> Dict[str, Any]:
         return {
@@ -225,7 +228,7 @@ class MyCustomMCPTool(BaseMCPTool):
             },
             "required": ["param1"]
         }
-    
+
     @property
     def mcp_server_config(self) -> MCPServerConfig:
         return MCPServerConfig(
@@ -233,7 +236,7 @@ class MyCustomMCPTool(BaseMCPTool):
             args=["@your/mcp-server"],
             env=os.environ.copy()
         )
-    
+
     @property
     def mcp_tool_name(self) -> str:
         return "tool_name_in_server"
@@ -260,6 +263,7 @@ Error: Failed to connect to MCP server
 ```
 
 **Solution**: Install the MCP server:
+
 ```bash
 npm install -g @firstbatch/mem-agent-mcp
 ```
@@ -271,6 +275,7 @@ Error: API key not found
 ```
 
 **Solution**: Set the appropriate API key:
+
 ```bash
 export OPENAI_API_KEY=your_key_here
 ```
@@ -282,6 +287,7 @@ Error: Server process exited immediately
 ```
 
 **Solutions:**
+
 1. Check that Node.js is installed: `node --version`
 2. Check server installation: `npm list -g @firstbatch/mem-agent-mcp`
 3. Try running the server manually: `npx @firstbatch/mem-agent-mcp`

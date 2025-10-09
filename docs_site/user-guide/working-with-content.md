@@ -24,6 +24,7 @@ This is an interesting article about AI...
 ```
 
 The bot will:
+
 1. Receive your message
 2. Analyze the content
 3. Categorize it
@@ -41,6 +42,7 @@ Forward messages from any chat or channel:
 3. Select your tg-note bot
 
 Works with:
+
 - Channel posts
 - Group messages  
 - Media with captions
@@ -73,6 +75,7 @@ https://arxiv.org/abs/12345
 ```
 
 With Qwen Code CLI, the bot will:
+
 - Fetch the article
 - Analyze content
 - Extract key info

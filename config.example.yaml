@@ -128,7 +128,7 @@ LOG_FILE: ./logs/bot.log
 #
 # Example for multiple users:
 # ALLOWED_USER_IDS: "123456789,987654321"
-ALLOWED_USER_IDS: ""
+ALLOWED_USER_IDS: ''
 
 
 # ───────────────────────────────────────────────────────────────────────────────
@@ -152,7 +152,7 @@ ALLOWED_USER_IDS: ""
 #                   Requires installed qwen CLI tool
 #                   Most stable option with full tool support
 #                   Supports code, files, web search operations
-AGENT_TYPE: "qwen_code_cli"
+AGENT_TYPE: qwen_code_cli
 
 # AGENT_MODEL: AI model to use (for qwen_code type)
 #
@@ -167,7 +167,7 @@ AGENT_TYPE: "qwen_code_cli"
 #
 # NOTE: This setting is only used if AGENT_TYPE="qwen_code"
 # For qwen_code_cli the model is set in CLI tool configuration
-AGENT_MODEL: "qwen-max"
+AGENT_MODEL: qwen-max
 
 # AGENT_QWEN_CLI_PATH: Path to qwen CLI executable
 #
@@ -182,7 +182,7 @@ AGENT_MODEL: "qwen-max"
 # 2. After installation check: qwen --version
 #
 # NOTE: Only used if AGENT_TYPE="qwen_code_cli"
-AGENT_QWEN_CLI_PATH: "qwen"
+AGENT_QWEN_CLI_PATH: qwen
 
 # AGENT_TIMEOUT: Maximum time for agent operation execution (in seconds)
 #
@@ -351,14 +351,14 @@ AGENT_ENABLE_MCP_MEMORY: false
 #           * Requires model download and ML dependencies (transformers, sentence-transformers)
 #
 # Default: "json"
-MEM_AGENT_STORAGE_TYPE: "json"
+MEM_AGENT_STORAGE_TYPE: json
 
 # MEM_AGENT_MODEL: HuggingFace model ID for memory agent
 #
 # Default: BAAI/bge-m3
 # This is an embedding model for vector-based semantic search
 # Only used when MEM_AGENT_STORAGE_TYPE is set to "vector"
-MEM_AGENT_MODEL: "BAAI/bge-m3"
+MEM_AGENT_MODEL: BAAI/bge-m3
 
 # MEM_AGENT_MODEL_PRECISION: Model quantization precision
 #
@@ -366,7 +366,7 @@ MEM_AGENT_MODEL: "BAAI/bge-m3"
 # - "4bit": Smallest, fastest, lowest quality (RECOMMENDED for most users)
 # - "8bit": Balanced size and quality
 # - "fp16": Full precision, highest quality, requires more resources
-MEM_AGENT_MODEL_PRECISION: "4bit"
+MEM_AGENT_MODEL_PRECISION: 4bit
 
 # MEM_AGENT_BACKEND: Backend for running the model
 #
@@ -377,10 +377,10 @@ MEM_AGENT_MODEL_PRECISION: "4bit"
 # - "vllm": Use vLLM backend (fast, for Linux/Windows)
 # - "mlx": Use MLX backend (optimized for Apple Silicon)
 # - "transformers": Use HuggingFace transformers (fallback, slower)
-MEM_AGENT_BACKEND: "auto"
+MEM_AGENT_BACKEND: auto
 
 # MEM_AGENT_VLLM_HOST: vLLM server host (only used if backend is vllm)
-MEM_AGENT_VLLM_HOST: "127.0.0.1"
+MEM_AGENT_VLLM_HOST: 127.0.0.1
 
 # MEM_AGENT_VLLM_PORT: vLLM server port (only used if backend is vllm)
 MEM_AGENT_VLLM_PORT: 8001
@@ -390,7 +390,7 @@ MEM_AGENT_VLLM_PORT: 8001
 # Default: "memory"
 # Full path will be: {kb_path}/memory/
 # Each user gets their own isolated memory directory
-MEM_AGENT_MEMORY_POSTFIX: "memory"
+MEM_AGENT_MEMORY_POSTFIX: memory
 
 # MEM_AGENT_MAX_TOOL_TURNS: Maximum number of tool execution turns
 #
@@ -468,7 +468,7 @@ VECTOR_SEARCH_ENABLED: false
 #   * Open-source alternative to OpenAI
 #   * Requires running Infinity server
 #   * Best for: Custom deployments, API-based workflows
-VECTOR_EMBEDDING_PROVIDER: "sentence_transformers"
+VECTOR_EMBEDDING_PROVIDER: sentence_transformers
 
 # VECTOR_EMBEDDING_MODEL: Specific model name for embeddings
 #
@@ -484,12 +484,12 @@ VECTOR_EMBEDDING_PROVIDER: "sentence_transformers"
 #
 # For Infinity:
 # - Model configured in Infinity server
-VECTOR_EMBEDDING_MODEL: "all-MiniLM-L6-v2"
+VECTOR_EMBEDDING_MODEL: all-MiniLM-L6-v2
 
 # VECTOR_INFINITY_API_URL: URL for Infinity API server
 # Only used when VECTOR_EMBEDDING_PROVIDER="infinity"
 # Default: http://localhost:7997
-VECTOR_INFINITY_API_URL: "http://localhost:7997"
+VECTOR_INFINITY_API_URL: http://localhost:7997
 
 # ─── Vector Store Settings ─────────────────────────────────────────────────────
 # Vector stores manage and search through embedding vectors
@@ -510,17 +510,17 @@ VECTOR_INFINITY_API_URL: "http://localhost:7997"
 #   * Production-ready, scalable
 #   * Requires running Qdrant server
 #   * Best for: Production deployments, distributed systems
-VECTOR_STORE_PROVIDER: "faiss"
+VECTOR_STORE_PROVIDER: faiss
 
 # VECTOR_QDRANT_URL: Qdrant server URL
 # Only used when VECTOR_STORE_PROVIDER="qdrant"
 # Default: http://localhost:6333
-VECTOR_QDRANT_URL: "http://localhost:6333"
+VECTOR_QDRANT_URL: http://localhost:6333
 
 # VECTOR_QDRANT_COLLECTION: Qdrant collection name
 # Only used when VECTOR_STORE_PROVIDER="qdrant"
 # Each knowledge base can have separate collection
-VECTOR_QDRANT_COLLECTION: "knowledge_base"
+VECTOR_QDRANT_COLLECTION: knowledge_base
 
 # ─── Document Chunking Settings ────────────────────────────────────────────────
 # Documents are split into chunks before indexing for better search results
@@ -544,7 +544,7 @@ VECTOR_QDRANT_COLLECTION: "knowledge_base"
 #   * Respects markdown headers and sections
 #   * Variable chunk sizes
 #   * Best for: Well-structured markdown documents
-VECTOR_CHUNKING_STRATEGY: "fixed_size_overlap"
+VECTOR_CHUNKING_STRATEGY: fixed_size_overlap
 
 # VECTOR_CHUNK_SIZE: Size of each chunk in characters
 #

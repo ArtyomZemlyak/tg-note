@@ -3,11 +3,10 @@ Knowledge Base Structure Configuration
 Centralized configuration for KB directory structure and document naming
 """
 
-from datetime import datetime
 import re
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Knowledge Base Directory Structure
@@ -108,10 +107,10 @@ FILENAME_TEMPLATE = "{date}-{slug}.md"
 MAX_SLUG_LENGTH = 50
 
 # Characters to remove from slug
-SLUG_REMOVE_CHARS = r'[^\w\s-]'
+SLUG_REMOVE_CHARS = r"[^\w\s-]"
 
 # Characters to replace with hyphen in slug
-SLUG_REPLACE_CHARS = r'[-\s]+'
+SLUG_REPLACE_CHARS = r"[-\s]+"
 
 # Default filename if title cannot be generated
 DEFAULT_FILENAME = "untitled"
@@ -251,80 +250,79 @@ Thumbs.db
 # Helper Functions
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def generate_filename(title: str, date: Optional[datetime] = None) -> str:
     """
     Generate filename from title and date
-    
+
     Args:
         title: Document title
         date: Optional date (defaults to now)
-    
+
     Returns:
         Filename string
     """
     if date is None:
         date = datetime.now()
-    
+
     date_str = date.strftime(FILENAME_DATE_FORMAT)
     slug = slugify(title)
-    
+
     return FILENAME_TEMPLATE.format(date=date_str, slug=slug)
 
 
 def slugify(text: str) -> str:
     """
     Convert text to URL-friendly slug
-    
+
     Args:
         text: Text to slugify
-    
+
     Returns:
         Slugified text
     """
     # Convert to lowercase
     text = text.lower()
-    
+
     # Remove special characters
-    text = re.sub(SLUG_REMOVE_CHARS, '', text)
-    
+    text = re.sub(SLUG_REMOVE_CHARS, "", text)
+
     # Replace spaces and hyphens with single hyphen
-    text = re.sub(SLUG_REPLACE_CHARS, '-', text)
-    
+    text = re.sub(SLUG_REPLACE_CHARS, "-", text)
+
     # Remove leading/trailing hyphens
-    text = text.strip('-')
-    
+    text = text.strip("-")
+
     # Limit length
     if len(text) > MAX_SLUG_LENGTH:
-        text = text[:MAX_SLUG_LENGTH].rstrip('-')
-    
+        text = text[:MAX_SLUG_LENGTH].rstrip("-")
+
     return text or DEFAULT_FILENAME
 
 
 def get_relative_path(
-    category: str,
-    subcategory: Optional[str] = None,
-    custom_path: Optional[str] = None
+    category: str, subcategory: Optional[str] = None, custom_path: Optional[str] = None
 ) -> str:
     """
     Get relative path for document based on structure
-    
+
     Args:
         category: Main category
         subcategory: Optional subcategory
         custom_path: Optional custom path
-    
+
     Returns:
         Relative path string
     """
     if custom_path:
         return custom_path
-    
+
     category = category if category else DEFAULT_CATEGORIES[0]
-    
+
     parts = [TOPICS_PATH_PREFIX, category]
     if subcategory:
         parts.append(subcategory)
-    
+
     return "/".join(parts)
 
 
@@ -333,47 +331,50 @@ def create_frontmatter(
     category: str,
     subcategory: Optional[str] = None,
     tags: Optional[List[str]] = None,
-    extra_fields: Optional[dict] = None
+    extra_fields: Optional[dict] = None,
 ) -> str:
     """
     Create YAML frontmatter for document
-    
+
     Args:
         title: Document title
         category: Category
         subcategory: Optional subcategory
         tags: Optional list of tags
         extra_fields: Optional extra fields
-    
+
     Returns:
         Frontmatter string
     """
     created_at = datetime.now().isoformat()
-    
+
     # Build optional lines
     subcategory_line = f"subcategory: {subcategory}" if subcategory else ""
-    
+
     tags_line = ""
     if tags:
         tags_str = ", ".join(tags)
         tags_line = f"tags: [{tags_str}]"
-    
+
     extra_lines = []
     if extra_fields:
         for key, value in extra_fields.items():
             if key not in REQUIRED_FRONTMATTER_FIELDS:
                 extra_lines.append(f"{key}: {value}")
-    
+
     extra_fields_str = "\n".join(extra_lines)
-    
-    return FRONTMATTER_TEMPLATE.format(
-        title=title,
-        category=category,
-        subcategory_line=subcategory_line,
-        tags_line=tags_line,
-        created_at=created_at,
-        extra_fields=extra_fields_str
-    ).strip() + "\n"
+
+    return (
+        FRONTMATTER_TEMPLATE.format(
+            title=title,
+            category=category,
+            subcategory_line=subcategory_line,
+            tags_line=tags_line,
+            created_at=created_at,
+            extra_fields=extra_fields_str,
+        ).strip()
+        + "\n"
+    )
 
 
 def get_valid_categories() -> List[str]:
