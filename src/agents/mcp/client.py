@@ -179,7 +179,7 @@ class MCPClient:
         except Exception as e:
             logger.error(
                 f"[MCPClient] Failed to connect to MCP server '{self.config.command}': {e}",
-                exc_info=True
+                exc_info=True,
             )
             await self.disconnect()
             return False

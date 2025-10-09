@@ -6,12 +6,12 @@ from pydantic import BaseModel
 from src.agents.mcp.memory.mem_agent_impl.schemas import ChatMessage, Role
 from src.agents.mcp.memory.mem_agent_impl.settings import (
     MEM_AGENT_BASE_URL,
+    MEM_AGENT_HOST,
     MEM_AGENT_OPENAI_API_KEY,
+    MEM_AGENT_PORT,
     OPENROUTER_API_KEY,
     OPENROUTER_BASE_URL,
     OPENROUTER_STRONG_MODEL,
-    MEM_AGENT_HOST,
-    MEM_AGENT_PORT,
 )
 
 

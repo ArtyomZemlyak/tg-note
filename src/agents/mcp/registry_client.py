@@ -121,8 +121,7 @@ class MCPRegistryClient:
                 return None
         except Exception as e:
             logger.error(
-                f"[MCPRegistryClient] Error connecting to server {spec.name}: {e}",
-                exc_info=True
+                f"[MCPRegistryClient] Error connecting to server {spec.name}: {e}", exc_info=True
             )
             return None
 

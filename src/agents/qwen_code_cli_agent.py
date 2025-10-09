@@ -275,7 +275,7 @@ class QwenCodeCLIAgent(BaseAgent):
 
             # Step 6: Extract TODO plan from markdown
             todo_plan = self._extract_todo_plan(result_text)
-            
+
             # Step 7: Build final metadata
             metadata = {
                 "processed_at": datetime.now().isoformat(),
@@ -702,37 +702,37 @@ class QwenCodeCLIAgent(BaseAgent):
                 return line
 
         return "Untitled Note"
-    
+
     def _extract_todo_plan(self, markdown: str) -> List[Dict[str, Any]]:
         """
         Extract TODO plan from markdown
-        
+
         Looks for ## TODO Plan section and extracts tasks in format:
         - [x] Completed task
         - [ ] Pending task
-        
+
         Args:
             markdown: Markdown content
-            
+
         Returns:
             List of task dictionaries with 'task' and 'status' keys
         """
         tasks = []
         lines = markdown.split("\n")
         in_todo_section = False
-        
+
         for line in lines:
             line_stripped = line.strip()
-            
+
             # Check if we're entering TODO Plan section
             if line_stripped.startswith("## TODO Plan"):
                 in_todo_section = True
                 continue
-            
+
             # Check if we're leaving TODO Plan section (new section starts)
             if in_todo_section and line_stripped.startswith("#"):
                 break
-            
+
             # Extract task if in TODO section
             if in_todo_section and line_stripped.startswith("-"):
                 # Extract status and task text
@@ -746,13 +746,10 @@ class QwenCodeCLIAgent(BaseAgent):
                     # Plain list item without checkbox
                     status = "unknown"
                     task_text = line_stripped[1:].strip()
-                
+
                 if task_text:
-                    tasks.append({
-                        "task": task_text,
-                        "status": status
-                    })
-        
+                    tasks.append({"task": task_text, "status": status})
+
         return tasks
 
     def validate_input(self, content: Dict) -> bool:

@@ -13,13 +13,13 @@ from src.agents.mcp.memory.mem_agent_impl.model import (
 from src.agents.mcp.memory.mem_agent_impl.schemas import AgentResponse, ChatMessage, Role
 from src.agents.mcp.memory.mem_agent_impl.settings import (
     MAX_TOOL_TURNS,
-    MEMORY_PATH,
     MEM_AGENT_BASE_URL,
+    MEM_AGENT_HOST,
     MEM_AGENT_OPENAI_API_KEY,
+    MEM_AGENT_PORT,
+    MEMORY_PATH,
     OPENROUTER_STRONG_MODEL,
     SAVE_CONVERSATION_PATH,
-    MEM_AGENT_HOST,
-    MEM_AGENT_PORT,
 )
 from src.agents.mcp.memory.mem_agent_impl.utils import (
     create_memory_if_not_exists,
@@ -89,8 +89,8 @@ class Agent:
         import platform
         import subprocess
         import time
-        from urllib.request import urlopen
         from urllib.error import URLError
+        from urllib.request import urlopen
 
         system = platform.system().lower()
 
