@@ -1,13 +1,13 @@
+import base64
 import builtins
 import importlib
 import logging
 import os
+import pickle
+import subprocess
 import sys
 import traceback
 import types
-import pickle
-import subprocess
-import base64
 
 from src.agents.mcp.memory.mem_agent_impl.settings import SANDBOX_TIMEOUT
 
@@ -36,23 +36,17 @@ def _run_user_code(
                 os.chdir(allowed)  # Change working dir to the allowed_path
             except Exception as e:
                 # If we cannot chdir, log but continue (the open wrapper will still enforce path)
-                logger.warning(
-                    "Could not change working directory to %s: %s", allowed, e
-                )
+                logger.warning("Could not change working directory to %s: %s", allowed, e)
             # Wrap builtins.open to restrict file access
             orig_open = builtins.open
 
             def secure_open(file, *args, **kwargs):
                 """Open that restricts file access to allowed_path."""
                 # If file is a file object or path-like, get its string path
-                path = (
-                    file if isinstance(file, str) else getattr(file, "name", str(file))
-                )
+                path = file if isinstance(file, str) else getattr(file, "name", str(file))
                 full_path = os.path.abspath(path if path is not None else "")
                 if not full_path.startswith(allowed):
-                    raise PermissionError(
-                        f"Access to '{full_path}' is denied by sandbox."
-                    )
+                    raise PermissionError(f"Access to '{full_path}' is denied by sandbox.")
                 return orig_open(file, *args, **kwargs)
 
             builtins.open = secure_open
@@ -64,9 +58,7 @@ def _run_user_code(
             def secure_remove(path, *args, **kwargs):
                 full_path = os.path.abspath(path)
                 if not full_path.startswith(allowed):
-                    raise PermissionError(
-                        f"Removal of '{full_path}' is denied by sandbox."
-                    )
+                    raise PermissionError(f"Removal of '{full_path}' is denied by sandbox.")
                 return orig_remove(path, *args, **kwargs)
 
             os.remove = secure_remove
@@ -97,9 +89,7 @@ def _run_user_code(
                     # If module is imported in sandbox, remove the attribute
                     if mod_obj and hasattr(mod_obj, attr_name):
                         try:
-                            setattr(
-                                mod_obj, attr_name, None
-                            )  # simple way: nullify the attribute
+                            setattr(mod_obj, attr_name, None)  # simple way: nullify the attribute
                         except Exception:
                             pass  # if we cannot set it, ignore (might be read-only)
                 else:
@@ -121,9 +111,7 @@ def _run_user_code(
                     return orig_import(name, globals, locals, fromlist, level)
                 except ImportError as e:
                     pkg = name.split(".")[0]
-                    logger.info(
-                        "Sandbox: attempting to install missing package '%s'", pkg
-                    )
+                    logger.info("Sandbox: attempting to install missing package '%s'", pkg)
                     try:
                         subprocess.run(
                             [sys.executable, "-m", "pip", "install", pkg],
@@ -133,9 +121,7 @@ def _run_user_code(
                         )
                     except Exception as inst_err:
                         # If installation fails, re-raise the original ImportError
-                        logger.error(
-                            "Sandbox: failed to install package %s: %s", pkg, inst_err
-                        )
+                        logger.error("Sandbox: failed to install package %s: %s", pkg, inst_err)
                         raise e
                     # Retry the import after installation
                     return orig_import(name, globals, locals, fromlist, level)
@@ -166,9 +152,7 @@ def _run_user_code(
             if code_val != 0:
                 error_msg = f"Sandboxed code called sys.exit({code_val})"
                 if log:
-                    logger.warning(
-                        "Sandbox: code exited with non-zero status %s", code_val
-                    )
+                    logger.warning("Sandbox: code exited with non-zero status %s", code_val)
             # For sys.exit(0), we treat it as normal termination (no error)
 
         # Clean up any blacklisted or internal entries in locals
@@ -191,9 +175,7 @@ def _run_user_code(
     except Exception as e:
         # Catch any unhandled exceptions in the worker process
         if log:
-            logger.error(
-                "Unhandled exception in sandbox worker: %s", traceback.format_exc()
-            )
+            logger.error("Unhandled exception in sandbox worker: %s", traceback.format_exc())
         return None, f"Sandbox worker error: {str(e)}"
 
 
@@ -231,9 +213,7 @@ def execute_sandboxed_code(
     # Step 1: If package installs are allowed, handle requirements and prepare environment
     if requirements_path:
         if os.path.isfile(requirements_path):
-            logger.info(
-                "Installing packages from requirements file: %s", requirements_path
-            )
+            logger.info("Installing packages from requirements file: %s", requirements_path)
             try:
                 subprocess.run(
                     [sys.executable, "-m", "pip", "install", "-r", requirements_path],
@@ -242,9 +222,7 @@ def execute_sandboxed_code(
                     stderr=subprocess.DEVNULL,
                 )
             except Exception as e:
-                logger.error(
-                    "Failed to install requirements from %s: %s", requirements_path, e
-                )
+                logger.error("Failed to install requirements from %s: %s", requirements_path, e)
                 # If requirements fail to install, we can choose to abort or continue. Here, abort execution.
                 return None, f"Failed to install requirements: {e}"
         else:
@@ -292,9 +270,7 @@ def execute_sandboxed_code(
             env=env,
         )
     except subprocess.TimeoutExpired:
-        logger.error(
-            "Sandboxed code exceeded time limit of %d seconds; terminating.", timeout
-        )
+        logger.error("Sandboxed code exceeded time limit of %d seconds; terminating.", timeout)
         return None, f"TimeoutError: Code execution exceeded {timeout} seconds."
 
     if result.returncode != 0:

@@ -253,24 +253,30 @@ def quicksort(arr):
 ```
 
 ### 2. Bug finding
+
 Модель может найти ошибки в коде и предложить исправления.
 
 ### 3. Объяснение кода
+
 Модель объясняет что делает код пошагово.
 
 ## Ограничения
+
 - Не всегда оптимальные решения
 - Могут быть subtle bugs
 - Требуют проверки человеком
 
 ## Связанные темы
+
 - [[ai/models/claude-3-5-sonnet.md]] - Сильная coding модель
 - [[ai/capabilities/reasoning.md]] - Reasoning для coding
 - [[tech/tools/github-copilot.md]] - Coding assistant
 
 ## Источники
-- https://paperswithcode.com/task/code-generation
-- https://huggingface.co/spaces/bigcode/bigcode-models-leaderboard
+
+- <https://paperswithcode.com/task/code-generation>
+- <https://huggingface.co/spaces/bigcode/bigcode-models-leaderboard>
+
 ```
 
 #### `ai/capabilities/reasoning.md`
@@ -334,16 +340,19 @@ def quicksort(arr):
 
 ### Математическая задача
 ```
+
 Задача: У Джона 5 яблок. Он дал 2 яблока Мэри.
 Мэри дала половину своих яблок Бобу. Сколько яблок у Боба?
 
 Reasoning:
+
 1. У Джона было 5 яблок
 2. Он дал 2 Мэри → у Мэри 2 яблока
 3. Мэри дала половину Бобу → 2/2 = 1
 4. У Боба 1 яблоко
 
 Ответ: 1 яблоко
+
 ```
 
 ### Логическая задача
@@ -481,6 +490,7 @@ Telegram бот →  Пользователю:
 ---
 
 Эти примеры показывают как qwen-code CLI агент **автоматически**:
+
 - Анализирует информацию
 - Разбивает по темам
 - Создаёт структуру

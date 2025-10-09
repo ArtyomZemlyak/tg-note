@@ -10,26 +10,28 @@
 ## 1. BackgroundTaskManager - Централизованное управление фоновыми задачами
 
 ### Что было
+
 - Старт агрегаторов в `UserContextManager.get_or_create_aggregator()`
 - Стоп через различные пути: `invalidate_cache()`, `cleanup()`, прямые вызовы
 - Отсутствие единой точки контроля и мониторинга
 - Сложность отслеживания активных задач
 
 ### Что стало
+
 ```python
 # src/core/background_task_manager.py
 class BackgroundTaskManager:
     """Централизованный менеджер жизненного цикла фоновых задач"""
-    
+
     def start(self) -> None:
         """Запустить менеджер"""
-        
+
     async def stop(self) -> None:
         """Остановить все задачи"""
-        
+
     def register_task(self, task_id: str, coroutine: Callable, ...):
         """Зарегистрировать и запустить задачу"""
-        
+
     async def unregister_task(self, task_id: str):
         """Отменить регистрацию и остановить задачу"""
 ```
@@ -37,6 +39,7 @@ class BackgroundTaskManager:
 ### Интеграция
 
 **MessageAggregator**:
+
 ```python
 def __init__(
     self,
@@ -59,6 +62,7 @@ def start_background_task(self) -> None:
 ```
 
 **UserContextManager**:
+
 ```python
 def __init__(
     self,
@@ -68,7 +72,7 @@ def __init__(
     timeout_callback=None
 ):
     self.background_task_manager = background_task_manager
-    
+
 def get_or_create_aggregator(self, user_id: int) -> MessageAggregator:
     aggregator = MessageAggregator(
         timeout=timeout,
@@ -79,6 +83,7 @@ def get_or_create_aggregator(self, user_id: int) -> MessageAggregator:
 ```
 
 **TelegramBot**:
+
 ```python
 async def start(self) -> None:
     # Start background task manager
@@ -93,6 +98,7 @@ async def stop(self) -> None:
 ```
 
 ### Преимущества
+
 - ✅ Единая точка управления всеми фоновыми задачами
 - ✅ Централизованное логирование старта/стопа
 - ✅ Graceful shutdown с отменой всех задач
@@ -102,6 +108,7 @@ async def stop(self) -> None:
 ## 2. BotPort с Retry и Throttling
 
 ### Что было
+
 - Прямые вызовы Telegram API без защиты от rate limiting
 - Отсутствие автоматических retry при временных ошибках
 - Риск получения 429 Too Many Requests
@@ -110,12 +117,13 @@ async def stop(self) -> None:
 ### Что стало
 
 **BotPort с встроенной защитой**:
+
 ```python
 class RateLimiter:
     """Token bucket algorithm для throttling"""
     def __init__(self, rate: float = 30.0, per: float = 1.0):
         # 30 запросов в секунду по умолчанию
-        
+
 class BotPort(ABC):
     def __init__(
         self,
@@ -125,7 +133,7 @@ class BotPort(ABC):
         rate_limit_period: float = 1.0
     ):
         self.rate_limiter = RateLimiter(rate=rate_limit, per=rate_limit_period)
-    
+
     async def _with_retry_and_throttle(
         self,
         operation: Callable,
@@ -149,7 +157,7 @@ class BotPort(ABC):
                     delay = self.retry_delay * (2 ** attempt)  # Exponential backoff
                     await asyncio.sleep(delay)
         raise last_exception
-    
+
     async def send_message(self, chat_id: int, text: str, **kwargs) -> Any:
         return await self._with_retry_and_throttle(
             self._send_message_impl,
@@ -159,6 +167,7 @@ class BotPort(ABC):
 ```
 
 **TelegramBotAdapter - реализация**:
+
 ```python
 class TelegramBotAdapter(BotPort):
     def __init__(
@@ -171,12 +180,13 @@ class TelegramBotAdapter(BotPort):
     ):
         super().__init__(max_retries, retry_delay, rate_limit, rate_limit_period)
         self._bot = bot
-    
+
     async def _send_message_impl(self, chat_id: int, text: str, **kwargs):
         return await self._bot.send_message(chat_id, text, **kwargs)
 ```
 
 ### Конфигурация в service_container.py
+
 ```python
 container.register(
     "bot_adapter",
@@ -192,7 +202,9 @@ container.register(
 ```
 
 ### Покрытие сервисов
+
 Все основные сервисы используют `BotPort`:
+
 - ✅ `NoteCreationService`
 - ✅ `QuestionAnsweringService`
 - ✅ `AgentTaskService`
@@ -200,11 +212,13 @@ container.register(
 - ✅ `BotHandlers`
 
 **Примечание**: `SettingsHandlers` и `MCPHandlers` используют `AsyncTeleBot` напрямую для UI-команд, что приемлемо так как:
+
 - Это редкие UI-взаимодействия (не high-frequency)
 - Retry менее критичны для простых команд
 - Минимальный риск rate limiting
 
 ### Преимущества
+
 - ✅ **Защита от rate limiting**: Token bucket algorithm
 - ✅ **Автоматические retry**: Exponential backoff при ошибках
 - ✅ **Централизованное логирование**: Все попытки и ошибки логируются
@@ -215,6 +229,7 @@ container.register(
 ## Изменения в интерфейсах
 
 ### IUserContextManager
+
 ```python
 # Методы стали async
 async def invalidate_cache(self, user_id: int) -> None
@@ -222,6 +237,7 @@ async def cleanup(self) -> None
 ```
 
 ### MessageAggregator
+
 ```python
 # stop_background_task стал async
 async def stop_background_task(self) -> None
@@ -230,9 +246,11 @@ async def stop_background_task(self) -> None
 ## Файлы изменены
 
 ### Новые файлы
+
 - `src/core/background_task_manager.py` - Менеджер фоновых задач
 
 ### Измененные файлы
+
 1. **Core/Infrastructure**:
    - `src/bot/bot_port.py` - Добавлены RateLimiter, retry logic
    - `src/bot/telegram_adapter.py` - Реализация с retry/throttling
@@ -252,6 +270,7 @@ async def stop_background_task(self) -> None
 ## Тестирование
 
 Рекомендуется проверить:
+
 1. **Lifecycle агрегаторов**:
    - Создание пользовательских агрегаторов
    - Timeout обработка
@@ -277,6 +296,7 @@ async def stop_background_task(self) -> None
 ## Метрики и мониторинг
 
 ### BackgroundTaskManager
+
 ```python
 # Получить список активных задач
 tasks = background_task_manager.list_tasks()
@@ -291,6 +311,7 @@ tasks = background_task_manager.list_tasks()
 ```
 
 ### BotPort Logging
+
 ```
 INFO: send_message(chat_id=123) succeeded on attempt 2
 WARNING: send_message(chat_id=456) failed on attempt 1/3: Connection timeout

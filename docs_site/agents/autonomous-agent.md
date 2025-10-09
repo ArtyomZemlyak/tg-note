@@ -114,7 +114,7 @@ AGENT_ENABLE_FOLDER_MANAGEMENT: true
 AGENT_INSTRUCTION: |
   You are a knowledge base curator.
   Analyze content, categorize it, and create well-structured Markdown files.
-  
+
 # Maximum planning iterations
 AGENT_MAX_ITERATIONS: 10
 
@@ -216,7 +216,7 @@ graph LR
     I -->|No| C
     I -->|Yes| J[Generate KB Entry]
     J --> K[Commit to Git]
-    
+
     style B fill:#fff3e0
     style J fill:#e8f5e9
 ```
@@ -341,18 +341,21 @@ params:
 ### Model Selection
 
 **GPT-3.5-turbo**
+
 - ✅ Fast response time
 - ✅ Cost-effective
 - ✅ Good for simple content
 - ❌ Less sophisticated analysis
 
 **GPT-4**
+
 - ✅ Best quality
 - ✅ Complex reasoning
 - ✅ Better categorization
 - ❌ Slower and more expensive
 
 **Qwen-max**
+
 - ✅ Free tier available
 - ✅ Good quality
 - ✅ Chinese language support
@@ -361,6 +364,7 @@ params:
 ### Tool Configuration
 
 **Enable for Production:**
+
 ```yaml
 AGENT_ENABLE_WEB_SEARCH: true
 AGENT_ENABLE_GIT: true
@@ -369,6 +373,7 @@ AGENT_ENABLE_FOLDER_MANAGEMENT: true
 ```
 
 **Disable for Security:**
+
 ```yaml
 AGENT_ENABLE_SHELL: false  # Keep disabled unless needed
 AGENT_ENABLE_GITHUB: false  # If not using GitHub API
@@ -381,13 +386,13 @@ Tailor agent behavior with custom instructions:
 ```yaml
 AGENT_INSTRUCTION: |
   You are a scientific paper curator.
-  
+
   For each paper:
   1. Extract: title, authors, abstract, key findings
   2. Categorize by research field
   3. Add relevant tags
   4. Create bibliography entry
-  
+
   Use clear, academic language.
 ```
 
@@ -400,6 +405,7 @@ AGENT_INSTRUCTION: |
 **Problem:** Agent fails to start or process messages
 
 **Solutions:**
+
 1. Check API key: `echo $OPENAI_API_KEY`
 2. Verify base URL if using custom endpoint
 3. Test API connection: `curl $OPENAI_BASE_URL/models`
@@ -410,6 +416,7 @@ AGENT_INSTRUCTION: |
 **Problem:** Agent takes too long to process
 
 **Solutions:**
+
 1. Use faster model (GPT-3.5 instead of GPT-4)
 2. Disable web search if not needed
 3. Reduce `AGENT_MAX_ITERATIONS`
@@ -420,6 +427,7 @@ AGENT_INSTRUCTION: |
 **Problem:** Agent produces low-quality KB entries
 
 **Solutions:**
+
 1. Upgrade to GPT-4 or better model
 2. Enable web search for more context
 3. Customize `AGENT_INSTRUCTION` for your use case
@@ -430,6 +438,7 @@ AGENT_INSTRUCTION: |
 **Problem:** OpenAI API errors (rate limits, etc.)
 
 **Solutions:**
+
 1. Check API quota and billing
 2. Implement retry logic (already built-in)
 3. Consider using different endpoint
@@ -451,12 +460,14 @@ AGENT_INSTRUCTION: |
 | **Vision** | Depends on model | ✅ Yes |
 
 **Choose Autonomous when:**
+
 - Python-only environment
 - Need custom LLM provider
 - Already have OpenAI API
 - Want maximum flexibility
 
 **Choose Qwen CLI when:**
+
 - Want free tier (2000/day)
 - Node.js is available
 - Vision support is required

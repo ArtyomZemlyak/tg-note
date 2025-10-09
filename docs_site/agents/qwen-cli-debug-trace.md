@@ -51,6 +51,7 @@ result = await agent.process(content)
 ### 3. Проверить логи
 
 Логи будут сохранены в:
+
 - `logs/qwen_debug.log` - основной лог (все уровни)
 - `logs/qwen_debug_debug.log` - только DEBUG сообщения
 
@@ -64,7 +65,7 @@ result = await agent.process(content)
 [DEBUG] [QwenCodeCLIAgent._check_cli_available] Running command: qwen --version
 [DEBUG] [QwenCodeCLIAgent._check_cli_available] Return code: 0
 [DEBUG] [QwenCodeCLIAgent._check_cli_available] STDOUT: qwen version 1.0.0
-[DEBUG] [QwenCodeCLIAgent._check_cli_available] STDERR: 
+[DEBUG] [QwenCodeCLIAgent._check_cli_available] STDERR:
 ```
 
 ### Выполнение CLI команды
@@ -136,51 +137,63 @@ You are an autonomous content processing agent...
 ## Уровни логирования
 
 ### DEBUG
+
 **Когда использовать:** Разработка, отладка, поиск проблем
 
 **Что логируется:**
+
 - Все детали выполнения CLI
 - Полные тексты промптов и результатов
 - Внутренние переменные
 - Шаги обработки
 
 **Пример:**
+
 ```python
 setup_logging(log_level="DEBUG", enable_debug_trace=True)
 ```
 
 ### INFO
+
 **Когда использовать:** Production, нормальная работа
 
 **Что логируется:**
+
 - Основные события (начало/конец обработки)
 - Важная информация (заголовки, категории)
 - Успешные операции
 
 **Пример:**
+
 ```python
 setup_logging(log_level="INFO")
 ```
 
 ### WARNING
+
 **Когда использовать:** Production с минимальным логированием
 
 **Что логируется:**
+
 - Предупреждения (пустые результаты, fallback)
 - Потенциальные проблемы
 
 **Пример:**
+
 ```python
 setup_logging(log_level="WARNING")
 ```
 
 ### ERROR
+
 **Когда использовать:** Минимальное логирование
 
 **Что логируется:**
+
 - Только критические ошибки
 
 **Пример:**
+
 ```python
 setup_logging(log_level="ERROR")
 ```
@@ -202,9 +215,9 @@ async def debug_cli_issue():
         log_file=Path("logs/debug.log"),
         enable_debug_trace=True
     )
-    
+
     agent = QwenCodeCLIAgent(timeout=60)
-    
+
     try:
         result = await agent.process({
             "text": "Test content",
@@ -233,10 +246,10 @@ async def production_monitoring():
         log_file=Path("logs/production.log"),
         enable_debug_trace=False
     )
-    
+
     agent = QwenCodeCLIAgent()
     result = await agent.process(content)
-    
+
     # В логах будет только важная информация:
     # - Начало/конец обработки
     # - Заголовок и категория
@@ -261,13 +274,13 @@ async def performance_analysis():
         log_file=Path("logs/performance.log"),
         enable_debug_trace=True
     )
-    
+
     agent = QwenCodeCLIAgent()
-    
+
     start = time.time()
     result = await agent.process(content)
     end = time.time()
-    
+
     print(f"Total time: {end - start:.2f}s")
     # В логах будет детальное время выполнения каждого шага
 
@@ -340,6 +353,7 @@ OPENAI_API_KEY=sk-12345...
 ### Защищенные переменные
 
 Автоматически маскируются переменные, содержащие:
+
 - `KEY`
 - `TOKEN`
 - `SECRET`
@@ -376,6 +390,7 @@ OPENAI_API_KEY=sk-12345...
 ### Проблема: Логи не создаются
 
 **Решение:**
+
 ```python
 # Проверьте, что директория существует
 from pathlib import Path
@@ -389,6 +404,7 @@ setup_logging(log_level="DEBUG", log_file=log_dir / "debug.log")
 ### Проблема: Слишком много логов
 
 **Решение:**
+
 ```python
 # Уменьшите уровень логирования
 setup_logging(log_level="INFO")  # Вместо DEBUG
@@ -400,6 +416,7 @@ setup_logging(log_level="DEBUG", enable_debug_trace=False)
 ### Проблема: Не вижу детальный трейс CLI
 
 **Решение:**
+
 ```python
 # Убедитесь, что DEBUG включен
 setup_logging(
@@ -411,6 +428,7 @@ setup_logging(
 ### Проблема: Логи занимают много места
 
 **Решение:**
+
 ```python
 # Настройте ротацию и хранение
 from loguru import logger

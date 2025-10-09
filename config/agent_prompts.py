@@ -177,7 +177,7 @@ QWEN_CODE_CLI_AGENT_INSTRUCTION = """Ты автономный агент для
 
 ```metadata
 category: основная_категория
-subcategory: подкатегория  
+subcategory: подкатегория
 tags: тег1, тег2, тег3
 ```
 
@@ -237,7 +237,7 @@ URLS_SECTION_TEMPLATE = """
 
 ASK_MODE_AGENT_INSTRUCTION = """Ты агент для работы с Базой Знаний. Твоя задача - найти информацию в базе знаний и ответить на вопрос пользователя."""
 
-AGENT_MODE_INSTRUCTION = """Ты автономный агент для работы с Базой Знаний. 
+AGENT_MODE_INSTRUCTION = """Ты автономный агент для работы с Базой Знаний.
 Твой основной язык - РУССКИЙ!
 
 Ты можешь выполнять ЛЮБЫЕ задачи с базой знаний:
@@ -400,34 +400,102 @@ KB_QUERY_PROMPT_TEMPLATE = """Ты агент для работы с Базой 
 
 CATEGORY_KEYWORDS = {
     "ai": [
-        "ai", "artificial intelligence", "machine learning", "neural network",
-        "deep learning", "llm", "gpt", "transformer", "model", "training",
-        "inference", "nlp", "natural language", "computer vision", "reinforcement learning"
+        "ai",
+        "artificial intelligence",
+        "machine learning",
+        "neural network",
+        "deep learning",
+        "llm",
+        "gpt",
+        "transformer",
+        "model",
+        "training",
+        "inference",
+        "nlp",
+        "natural language",
+        "computer vision",
+        "reinforcement learning",
     ],
     "biology": [
-        "biology", "gene", "dna", "protein", "cell", "organism",
-        "evolution", "genetics", "molecular", "enzyme", "chromosome",
-        "rna", "mutation", "species", "ecology"
+        "biology",
+        "gene",
+        "dna",
+        "protein",
+        "cell",
+        "organism",
+        "evolution",
+        "genetics",
+        "molecular",
+        "enzyme",
+        "chromosome",
+        "rna",
+        "mutation",
+        "species",
+        "ecology",
     ],
     "physics": [
-        "physics", "quantum", "particle", "relativity", "energy",
-        "force", "matter", "mechanics", "thermodynamics", "electromagnetic",
-        "atom", "photon", "wave", "field"
+        "physics",
+        "quantum",
+        "particle",
+        "relativity",
+        "energy",
+        "force",
+        "matter",
+        "mechanics",
+        "thermodynamics",
+        "electromagnetic",
+        "atom",
+        "photon",
+        "wave",
+        "field",
     ],
     "tech": [
-        "programming", "code", "software", "development", "python",
-        "javascript", "api", "database", "algorithm", "framework",
-        "library", "backend", "frontend", "devops", "cloud"
+        "programming",
+        "code",
+        "software",
+        "development",
+        "python",
+        "javascript",
+        "api",
+        "database",
+        "algorithm",
+        "framework",
+        "library",
+        "backend",
+        "frontend",
+        "devops",
+        "cloud",
     ],
     "business": [
-        "business", "market", "economy", "finance", "investment",
-        "strategy", "management", "startup", "revenue", "profit",
-        "customer", "sales", "marketing", "entrepreneur"
+        "business",
+        "market",
+        "economy",
+        "finance",
+        "investment",
+        "strategy",
+        "management",
+        "startup",
+        "revenue",
+        "profit",
+        "customer",
+        "sales",
+        "marketing",
+        "entrepreneur",
     ],
     "science": [
-        "science", "research", "experiment", "study", "analysis",
-        "hypothesis", "theory", "method", "data", "observation",
-        "measurement", "discovery", "phenomenon"
+        "science",
+        "research",
+        "experiment",
+        "study",
+        "analysis",
+        "hypothesis",
+        "theory",
+        "method",
+        "data",
+        "observation",
+        "measurement",
+        "discovery",
+        "phenomenon",
     ],
 }
 
@@ -440,31 +508,110 @@ DEFAULT_CATEGORY = "general"
 
 STOP_WORDS = {
     # Articles
-    "the", "a", "an",
-    
+    "the",
+    "a",
+    "an",
     # Conjunctions
-    "and", "or", "but", "nor", "so", "yet",
-    
+    "and",
+    "or",
+    "but",
+    "nor",
+    "so",
+    "yet",
     # Prepositions
-    "in", "on", "at", "to", "for", "of", "with", "by", "from", "as",
-    "into", "about", "against", "between", "through", "during", "before",
-    "after", "above", "below", "under", "over",
-    
+    "in",
+    "on",
+    "at",
+    "to",
+    "for",
+    "of",
+    "with",
+    "by",
+    "from",
+    "as",
+    "into",
+    "about",
+    "against",
+    "between",
+    "through",
+    "during",
+    "before",
+    "after",
+    "above",
+    "below",
+    "under",
+    "over",
     # Pronouns
-    "i", "you", "he", "she", "it", "we", "they", "them", "their",
-    "this", "that", "these", "those", "who", "what", "which", "where",
-    "when", "why", "how",
-    
+    "i",
+    "you",
+    "he",
+    "she",
+    "it",
+    "we",
+    "they",
+    "them",
+    "their",
+    "this",
+    "that",
+    "these",
+    "those",
+    "who",
+    "what",
+    "which",
+    "where",
+    "when",
+    "why",
+    "how",
     # Verbs
-    "is", "am", "are", "was", "were", "be", "been", "being",
-    "have", "has", "had", "having",
-    "do", "does", "did", "doing",
-    "will", "would", "should", "could", "can", "may", "might", "must", "shall",
-    
+    "is",
+    "am",
+    "are",
+    "was",
+    "were",
+    "be",
+    "been",
+    "being",
+    "have",
+    "has",
+    "had",
+    "having",
+    "do",
+    "does",
+    "did",
+    "doing",
+    "will",
+    "would",
+    "should",
+    "could",
+    "can",
+    "may",
+    "might",
+    "must",
+    "shall",
     # Other common words
-    "not", "no", "yes", "all", "any", "some", "many", "much",
-    "more", "most", "less", "least", "few", "several", "each", "every",
-    "both", "either", "neither", "other", "another", "such", "own",
+    "not",
+    "no",
+    "yes",
+    "all",
+    "any",
+    "some",
+    "many",
+    "much",
+    "more",
+    "most",
+    "less",
+    "least",
+    "few",
+    "several",
+    "each",
+    "every",
+    "both",
+    "either",
+    "neither",
+    "other",
+    "another",
+    "such",
+    "own",
 }
 
 
@@ -475,7 +622,7 @@ STOP_WORDS = {
 # Default sections in generated markdown
 DEFAULT_MARKDOWN_SECTIONS = [
     "Metadata",
-    "Summary", 
+    "Summary",
     "Content",
     "Links",
     "Additional Context",

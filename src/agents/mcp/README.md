@@ -39,6 +39,7 @@ The MCP client handles communication with MCP servers:
 - **Prompt Support**: Lists and gets prompts (NEW!)
 
 **Supported MCP Features:**
+
 - ✅ Tools (tools/list, tools/call)
 - ✅ Resources (resources/list, resources/read)
 - ✅ Prompts (prompts/list, prompts/get)
@@ -47,6 +48,7 @@ The MCP client handles communication with MCP servers:
 - ✅ Stdio transport (legacy)
 
 **Usage:**
+
 ```python
 from src.agents.mcp import MCPClient, MCPServerConfig
 
@@ -82,6 +84,7 @@ Base class for creating MCP-backed agent tools:
 - **Error Handling**: Graceful handling of connection and execution errors
 
 **Usage:**
+
 ```python
 from src.agents.mcp import BaseMCPTool, MCPServerConfig
 
@@ -89,19 +92,19 @@ class MyMCPTool(BaseMCPTool):
     @property
     def name(self) -> str:
         return "my_tool"
-    
+
     @property
     def description(self) -> str:
         return "Tool description"
-    
+
     @property
     def parameters_schema(self) -> Dict[str, Any]:
         return {"type": "object", "properties": {...}}
-    
+
     @property
     def mcp_server_config(self) -> MCPServerConfig:
         return MCPServerConfig(command="...", args=[...])
-    
+
     @property
     def mcp_tool_name(self) -> str:
         return "tool_name_in_server"
@@ -122,11 +125,13 @@ Uses embeddings (e.g., [bge-m3](https://huggingface.co/BAAI/bge-m3)) via [mem-ag
 ### Memory Agent
 
 **Installation:**
+
 ```bash
 npm install -g @firstbatch/mem-agent-mcp
 ```
 
 **Configuration:**
+
 ```python
 # In config.yaml or environment variables
 AGENT_ENABLE_MCP: true
@@ -136,6 +141,7 @@ MCP_MEMORY_MODEL: "gpt-4"
 ```
 
 **Available Tools:**
+
 - `mcp_memory_agent` - Unified memory management
 - `memory_store` - Store a memory
 - `memory_search` - Search memories
@@ -165,11 +171,11 @@ class MyCustomTool(BaseMCPTool):
     @property
     def name(self) -> str:
         return "my_custom_tool"
-    
+
     @property
     def description(self) -> str:
         return "Description for the LLM to understand when to use this tool"
-    
+
     @property
     def parameters_schema(self) -> Dict[str, Any]:
         return {
@@ -182,7 +188,7 @@ class MyCustomTool(BaseMCPTool):
             },
             "required": ["query"]
         }
-    
+
     @property
     def mcp_server_config(self) -> MCPServerConfig:
         return MCPServerConfig(
@@ -190,7 +196,7 @@ class MyCustomTool(BaseMCPTool):
             args=["@your-org/your-mcp-server"],
             env=os.environ.copy()
         )
-    
+
     @property
     def mcp_tool_name(self) -> str:
         # The name of the tool as exposed by the MCP server
@@ -261,6 +267,7 @@ result = await agent.tool_manager.execute(
 ### JSON-RPC Format
 
 **Request:**
+
 ```json
 {
     "jsonrpc": "2.0",
@@ -274,6 +281,7 @@ result = await agent.tool_manager.execute(
 ```
 
 **Response:**
+
 ```json
 {
     "jsonrpc": "2.0",
@@ -304,12 +312,12 @@ from src.agents.mcp import MyCustomTool
 async def test_my_custom_tool():
     tool = MyCustomTool()
     tool.enable()
-    
+
     result = await tool.execute(
         {"query": "test"},
         context=mock_context
     )
-    
+
     assert result["success"] == True
 ```
 
@@ -324,12 +332,12 @@ async def test_agent_with_mcp():
         enable_mcp=True,
         enable_my_custom_tool=True
     )
-    
+
     result = await agent.tool_manager.execute(
         "my_custom_tool",
         {"query": "test"}
     )
-    
+
     assert result["success"] == True
 ```
 
@@ -340,6 +348,7 @@ async def test_agent_with_mcp():
 **Problem**: `Server process exited immediately`
 
 **Solutions:**
+
 1. Check Node.js is installed: `node --version`
 2. Check server is installed: `npm list -g @your/server`
 3. Try running manually: `npx @your/server`
@@ -350,6 +359,7 @@ async def test_agent_with_mcp():
 **Problem**: `Failed to connect to MCP server`
 
 **Solutions:**
+
 1. Increase connection timeout in `client.py`
 2. Check server logs for startup errors
 3. Verify firewall/network settings
@@ -360,6 +370,7 @@ async def test_agent_with_mcp():
 **Problem**: `Tool 'name' not found in MCP server`
 
 **Solutions:**
+
 1. Check `mcp_tool_name` matches server's tool name
 2. List available tools: `client.get_tools()`
 3. Verify server version compatibility

@@ -9,6 +9,7 @@ Successfully decoupled incoming messages from the Telegram SDK by implementing a
 ### 1. New Files Created
 
 #### `/workspace/src/bot/dto.py`
+
 - **IncomingMessageDTO**: Platform-independent data class for incoming messages
   - Contains all essential message fields (message_id, chat_id, user_id, text, etc.)
   - Includes `is_forwarded()` method for checking forwarded messages
@@ -18,16 +19,19 @@ Successfully decoupled incoming messages from the Telegram SDK by implementing a
   - Contains chat_id, text, parse_mode, reply_to_message_id
 
 #### `/workspace/src/bot/message_mapper.py`
+
 - **MessageMapper**: Converts between Telegram messages and DTOs
   - `from_telegram_message()`: Converts Telegram Message to IncomingMessageDTO
   - `to_dict()`: Converts IncomingMessageDTO to dictionary format (for legacy code)
 
 #### `/workspace/tests/test_message_dto.py`
+
 - Comprehensive test suite for DTO and mapper
 - Tests for basic DTO creation, forwarded messages, media attachments
 - Integration tests for round-trip conversion
 
 #### `/workspace/docs_site/architecture/message-dto.md`
+
 - Complete documentation of the DTO architecture
 - Includes architecture diagrams, data flow, migration guide
 - Best practices and future enhancements
@@ -35,14 +39,16 @@ Successfully decoupled incoming messages from the Telegram SDK by implementing a
 ### 2. Files Modified
 
 #### `/workspace/src/services/interfaces.py`
+
 **Before:**
+
 ```python
 from telebot.types import Message
 
 class IMessageProcessor(ABC):
     async def process_message(self, message: Message) -> None:
         pass
-    
+
     async def process_message_group(self, group: MessageGroup, processing_msg: Message) -> None:
         pass
 
@@ -60,13 +66,14 @@ class IAgentTaskService(ABC):
 ```
 
 **After:**
+
 ```python
 from src.bot.dto import IncomingMessageDTO
 
 class IMessageProcessor(ABC):
     async def process_message(self, message: IncomingMessageDTO) -> None:
         pass
-    
+
     async def process_message_group(self, group: MessageGroup, processing_msg_id: int, chat_id: int) -> None:
         pass
 
@@ -84,13 +91,16 @@ class IAgentTaskService(ABC):
 ```
 
 **Key Changes:**
+
 - Removed `from telebot.types import Message`
 - Added `from src.bot.dto import IncomingMessageDTO`
 - Changed `message: Message` to `message: IncomingMessageDTO`
 - Changed `processing_msg: Message` to `processing_msg_id: int, chat_id: int`
 
 #### `/workspace/src/services/message_processor.py`
+
 **Changes:**
+
 - Removed `from telebot.types import Message`
 - Added `from src.bot.dto import IncomingMessageDTO`
 - Added `from src.bot.message_mapper import MessageMapper`
@@ -100,7 +110,9 @@ class IAgentTaskService(ABC):
 - Uses `MessageMapper.to_dict()` to convert DTO to dictionary for aggregator
 
 #### `/workspace/src/services/note_creation_service.py`
+
 **Changes:**
+
 - Removed `from telebot.types import Message`
 - Updated `create_note()` signature to use `processing_msg_id` and `chat_id`
 - Updated `_save_to_kb()` to use `processing_msg_id` and `chat_id`
@@ -109,14 +121,18 @@ class IAgentTaskService(ABC):
 - All bot operations now use explicit IDs instead of Message object
 
 #### `/workspace/src/services/question_answering_service.py`
+
 **Changes:**
+
 - Removed `from telebot.types import Message`
 - Updated `answer_question()` signature to use `processing_msg_id` and `chat_id`
 - Updated `_send_error_notification()` to use `processing_msg_id` and `chat_id`
 - All bot operations (edit_message_text, send_message) use explicit IDs
 
 #### `/workspace/src/services/agent_task_service.py`
+
 **Changes:**
+
 - Removed `from telebot.types import Message`
 - Updated `execute_task()` signature to use `processing_msg_id` and `chat_id`
 - Updated `_send_result()` to use `processing_msg_id` and `chat_id`
@@ -124,20 +140,26 @@ class IAgentTaskService(ABC):
 - All bot operations use explicit IDs
 
 #### `/workspace/src/bot/handlers.py`
+
 **Changes:**
+
 - Added `from src.bot.message_mapper import MessageMapper`
 - Updated `handle_message()` to convert Telegram Message to DTO before processing:
+
   ```python
   message_dto = MessageMapper.from_telegram_message(message)
   await self.message_processor.process_message(message_dto)
   ```
+
 - Updated `handle_forwarded_message()` to convert Telegram Message to DTO
 - Updated `_handle_timeout()` to pass message_id and chat_id separately
 
 ## Verification
 
 ### Syntax Check
+
 All modified Python files have been verified to compile without syntax errors:
+
 ```bash
 ✓ src/bot/dto.py
 ✓ src/bot/message_mapper.py
@@ -150,33 +172,40 @@ All modified Python files have been verified to compile without syntax errors:
 ```
 
 ### Import Verification
+
 Confirmed that no files in `/workspace/src/services` import from `telebot`:
+
 ```bash
 $ grep -r "from telebot" src/services/
 (no results)
 ```
 
 ### Linter Check
+
 No linter errors found in modified files.
 
 ## Architecture Benefits
 
 ### 1. Separation of Concerns
+
 - **Bot Layer** (`src/bot/`): Handles Telegram-specific logic
 - **Service Layer** (`src/services/`): Platform-independent business logic
 - **Clear boundary** between layers through DTOs
 
 ### 2. Testability
+
 - Easy to create mock messages without Telegram SDK
 - Services can be tested in isolation
 - No need for Telegram test fixtures
 
 ### 3. Platform Independence
+
 - Services can work with any messaging platform
 - Only need to implement platform-specific adapter and mapper
 - Business logic remains unchanged
 
 ### 4. Maintainability
+
 - Changes to Telegram SDK don't ripple through services
 - Clear, explicit interfaces
 - Easier to understand data flow
@@ -184,11 +213,13 @@ No linter errors found in modified files.
 ## Migration Path for Future Code
 
 ### When Creating New Services
+
 1. Accept `IncomingMessageDTO` instead of Telegram `Message`
 2. For bot operations, accept `message_id: int, chat_id: int` separately
 3. Never import from `telebot` in service layer
 
 ### When Modifying Existing Code
+
 1. Check if code is in `src/bot/` or `src/services/`
 2. If in services, replace `Message` with `IncomingMessageDTO`
 3. Replace `processing_msg: Message` with `processing_msg_id: int, chat_id: int`
@@ -220,12 +251,14 @@ The decoupling is complete and verified. All service interfaces and implementati
 ## Files Summary
 
 **New Files (4):**
+
 - `src/bot/dto.py`
 - `src/bot/message_mapper.py`
 - `tests/test_message_dto.py`
 - `docs_site/architecture/message-dto.md`
 
 **Modified Files (8):**
+
 - `src/services/interfaces.py`
 - `src/services/message_processor.py`
 - `src/services/note_creation_service.py`

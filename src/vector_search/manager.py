@@ -3,32 +3,32 @@ Vector Search Manager
 Manages indexing and searching of documents using configurable embedding models and vector stores
 """
 
-from pathlib import Path
-from typing import List, Dict, Any, Optional
-import json
 import hashlib
+import json
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
+from .chunking import DocumentChunk, DocumentChunker
 from .embeddings import BaseEmbedder
 from .vector_stores import BaseVectorStore
-from .chunking import DocumentChunker, DocumentChunk
 
 
 class VectorSearchManager:
     """Manages vector search operations"""
-    
+
     def __init__(
         self,
         embedder: BaseEmbedder,
         vector_store: BaseVectorStore,
         chunker: DocumentChunker,
         kb_root_path: Path,
-        index_path: Optional[Path] = None
+        index_path: Optional[Path] = None,
     ):
         """
         Initialize vector search manager
-        
+
         Args:
             embedder: Embedding model
             vector_store: Vector store
@@ -41,11 +41,11 @@ class VectorSearchManager:
         self.chunker = chunker
         self.kb_root_path = Path(kb_root_path)
         self.index_path = index_path or (self.kb_root_path / ".vector_index")
-        
+
         # Track indexed files
         self._indexed_files: Dict[str, str] = {}  # file_path -> content_hash
         self._config_hash: Optional[str] = None
-    
+
     def _get_config_hash(self) -> str:
         """Get hash of current configuration"""
         config = {
@@ -54,72 +54,68 @@ class VectorSearchManager:
             "chunking_strategy": self.chunker.strategy.value,
             "chunk_size": self.chunker.chunk_size,
             "chunk_overlap": self.chunker.chunk_overlap,
-            "respect_headers": self.chunker.respect_headers
+            "respect_headers": self.chunker.respect_headers,
         }
         config_str = json.dumps(config, sort_keys=True)
         return hashlib.md5(config_str.encode()).hexdigest()
-    
+
     def _get_file_hash(self, file_path: Path) -> str:
         """Get hash of file content"""
-        content = file_path.read_text(encoding='utf-8', errors='ignore')
+        content = file_path.read_text(encoding="utf-8", errors="ignore")
         return hashlib.md5(content.encode()).hexdigest()
-    
+
     async def _save_metadata(self) -> None:
         """Save indexing metadata"""
-        metadata = {
-            "config_hash": self._config_hash,
-            "indexed_files": self._indexed_files
-        }
-        
+        metadata = {"config_hash": self._config_hash, "indexed_files": self._indexed_files}
+
         metadata_path = self.index_path / "metadata.json"
         metadata_path.parent.mkdir(parents=True, exist_ok=True)
-        
-        with open(metadata_path, 'w') as f:
+
+        with open(metadata_path, "w") as f:
             json.dump(metadata, f, indent=2)
-        
+
         logger.debug(f"Saved metadata to {metadata_path}")
-    
+
     async def _load_metadata(self) -> bool:
         """
         Load indexing metadata
-        
+
         Returns:
             True if metadata loaded successfully and config matches
         """
         metadata_path = self.index_path / "metadata.json"
-        
+
         if not metadata_path.exists():
             logger.info("No existing index metadata found")
             return False
-        
+
         try:
-            with open(metadata_path, 'r') as f:
+            with open(metadata_path, "r") as f:
                 metadata = json.load(f)
-            
+
             saved_config_hash = metadata.get("config_hash")
             current_config_hash = self._get_config_hash()
-            
+
             if saved_config_hash != current_config_hash:
                 logger.warning(
-                    "Configuration changed since last indexing. "
-                    "Full re-indexing required."
+                    "Configuration changed since last indexing. " "Full re-indexing required."
                 )
                 return False
-            
+
             self._config_hash = saved_config_hash
             self._indexed_files = metadata.get("indexed_files", {})
-            
+
             logger.info(f"Loaded metadata for {len(self._indexed_files)} indexed files")
             return True
-            
+
         except Exception as e:
             logger.error(f"Error loading metadata: {e}")
             return False
-    
+
     async def initialize(self) -> None:
         """Initialize the vector search manager and load existing index"""
         self._config_hash = self._get_config_hash()
-        
+
         # Try to load existing index
         if await self._load_metadata():
             try:
@@ -134,92 +130,89 @@ class VectorSearchManager:
             logger.info("Initializing new vector index")
             await self.vector_store.clear()
             self._indexed_files = {}
-    
+
     async def index_knowledge_base(self, force: bool = False) -> Dict[str, Any]:
         """
         Index all files in the knowledge base
-        
+
         Args:
             force: Force re-indexing even if files haven't changed
-            
+
         Returns:
             Indexing statistics
         """
         logger.info(f"Starting knowledge base indexing (force={force})")
-        
-        stats = {
-            "files_processed": 0,
-            "files_skipped": 0,
-            "chunks_created": 0,
-            "errors": []
-        }
-        
+
+        stats = {"files_processed": 0, "files_skipped": 0, "chunks_created": 0, "errors": []}
+
         # Find all markdown files
         markdown_files = list(self.kb_root_path.rglob("*.md"))
         logger.info(f"Found {len(markdown_files)} markdown files")
-        
+
         # Check which files need indexing
         files_to_index = []
         for file_path in markdown_files:
             rel_path = str(file_path.relative_to(self.kb_root_path))
             current_hash = self._get_file_hash(file_path)
-            
-            if force or rel_path not in self._indexed_files or self._indexed_files[rel_path] != current_hash:
+
+            if (
+                force
+                or rel_path not in self._indexed_files
+                or self._indexed_files[rel_path] != current_hash
+            ):
                 files_to_index.append((file_path, rel_path, current_hash))
             else:
                 stats["files_skipped"] += 1
-        
+
         logger.info(f"Need to index {len(files_to_index)} files (skipped {stats['files_skipped']})")
-        
+
         if not files_to_index:
             logger.info("No files to index")
             return stats
-        
+
         # Process files
         all_chunks: List[DocumentChunk] = []
-        
+
         for file_path, rel_path, file_hash in files_to_index:
             try:
                 # Read file
-                content = file_path.read_text(encoding='utf-8', errors='ignore')
-                
+                content = file_path.read_text(encoding="utf-8", errors="ignore")
+
                 # Create metadata
                 metadata = {
                     "file_path": rel_path,
                     "file_name": file_path.name,
                     "file_size": len(content),
                 }
-                
+
                 # Chunk document
                 chunks = self.chunker.chunk_document(
-                    text=content,
-                    metadata=metadata,
-                    source_file=rel_path
+                    text=content, metadata=metadata, source_file=rel_path
                 )
-                
+
                 all_chunks.extend(chunks)
                 self._indexed_files[rel_path] = file_hash
                 stats["files_processed"] += 1
                 stats["chunks_created"] += len(chunks)
-                
+
                 logger.debug(f"Indexed {rel_path}: {len(chunks)} chunks")
-                
+
             except Exception as e:
                 error_msg = f"Error indexing {rel_path}: {e}"
                 logger.error(error_msg)
                 stats["errors"].append(error_msg)
-        
+
         # Embed and store chunks
         if all_chunks:
             try:
                 logger.info(f"Embedding {len(all_chunks)} chunks")
-                
+
                 # Extract texts
                 texts = [chunk.text for chunk in all_chunks]
-                
+
                 # Get embeddings
                 embeddings = await self.embedder.embed_texts(texts)
-                
+
                 # Prepare documents for storage
                 documents = []
                 for chunk in all_chunks:
@@ -227,74 +220,66 @@ class VectorSearchManager:
                     doc["text"] = chunk.text
                     doc["chunk_index"] = chunk.chunk_index
                     documents.append(doc)
-                
+
                 # Add to vector store
-                await self.vector_store.add_documents(
-                    embeddings=embeddings,
-                    documents=documents
-                )
-                
+                await self.vector_store.add_documents(embeddings=embeddings, documents=documents)
+
                 logger.info(f"Successfully added {len(all_chunks)} chunks to vector store")
-                
+
                 # Save index and metadata
                 await self.vector_store.save(self.index_path)
                 await self._save_metadata()
-                
+
             except Exception as e:
                 error_msg = f"Error embedding/storing chunks: {e}"
                 logger.error(error_msg)
                 stats["errors"].append(error_msg)
-        
+
         logger.info(
             f"Indexing complete: {stats['files_processed']} files, "
             f"{stats['chunks_created']} chunks, {len(stats['errors'])} errors"
         )
-        
+
         return stats
-    
+
     async def search(
-        self,
-        query: str,
-        top_k: int = 5,
-        filter_dict: Optional[Dict[str, Any]] = None
+        self, query: str, top_k: int = 5, filter_dict: Optional[Dict[str, Any]] = None
     ) -> List[Dict[str, Any]]:
         """
         Search for documents similar to the query
-        
+
         Args:
             query: Search query
             top_k: Number of results to return
             filter_dict: Optional metadata filters
-            
+
         Returns:
             List of matching documents with scores
         """
         logger.debug(f"Searching for: {query}")
-        
+
         # Embed query
         query_embedding = await self.embedder.embed_query(query)
-        
+
         # Search vector store
         results = await self.vector_store.search(
-            query_embedding=query_embedding,
-            top_k=top_k,
-            filter_dict=filter_dict
+            query_embedding=query_embedding, top_k=top_k, filter_dict=filter_dict
         )
-        
+
         logger.info(f"Found {len(results)} results for query")
         return results
-    
+
     async def clear_index(self) -> None:
         """Clear the vector index"""
         logger.info("Clearing vector index")
         await self.vector_store.clear()
         self._indexed_files = {}
         await self._save_metadata()
-    
+
     async def get_stats(self) -> Dict[str, Any]:
         """Get indexing statistics"""
         count = await self.vector_store.get_count()
-        
+
         return {
             "indexed_files": len(self._indexed_files),
             "total_chunks": count,

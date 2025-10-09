@@ -10,9 +10,11 @@ The registry auto-discovers tools from tool modules and provides:
 Each tool is self-contained in its own module with metadata and implementation.
 The registry simply collects and registers them.
 """
+
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Sequence
+
 from loguru import logger
 
 from .base_tool import BaseTool, ToolContext
@@ -21,85 +23,85 @@ from .base_tool import BaseTool, ToolContext
 class ToolManager:
     """
     Tool manager for autonomous agents.
-    
+
     Manages tool registration, discovery, and execution.
     Tools are auto-discovered from tool modules and registered with their metadata.
     """
-    
+
     def __init__(self, context: ToolContext):
         """
         Initialize tool manager with execution context
-        
+
         Args:
             context: Tool execution context with dependencies
         """
         self._context = context
         self._tools: Dict[str, BaseTool] = {}
-    
+
     def register(self, tool: BaseTool) -> None:
         """
         Register a single tool
-        
+
         Args:
             tool: Tool instance to register
         """
         self._tools[tool.name] = tool
         logger.debug(f"[ToolManager] Registered tool: {tool.name}")
-    
+
     def register_many(self, tools: Sequence[BaseTool]) -> None:
         """
         Register multiple tools at once
-        
+
         Args:
             tools: List of tool instances to register
         """
         for tool in tools:
             self.register(tool)
-    
+
     def has(self, name: str) -> bool:
         """
         Check if a tool is registered
-        
+
         Args:
             name: Tool name
-            
+
         Returns:
             True if tool is registered
         """
         return name in self._tools
-    
+
     def names(self) -> List[str]:
         """
         Get list of registered tool names
-        
+
         Returns:
             List of tool names
         """
         return list(self._tools.keys())
-    
+
     def build_llm_tools_schema(self) -> List[Dict[str, Any]]:
         """
         Build OpenAI-compatible function calling schemas for all registered tools
-        
+
         Returns:
             List of OpenAI function schemas
         """
         return [tool.to_openai_function() for tool in self._tools.values()]
-    
+
     async def execute(self, name: str, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         Execute a tool by name with given parameters
-        
+
         Args:
             name: Tool name
             params: Tool parameters
-            
+
         Returns:
             Dict with execution result
         """
         if name not in self._tools:
             return {"success": False, "error": f"Tool not found: {name}"}
-        
+
         return await self._tools[name].execute(params, self._context)
 
 
@@ -124,9 +126,9 @@ def build_default_tool_manager(
 ) -> ToolManager:
     """
     Create a ToolManager with the default toolset based on flags.
-    
+
     Auto-discovers tools from tool modules and registers them based on configuration.
-    
+
     Args:
         kb_root_path: Root path of knowledge base
         base_agent_class: BaseAgent class for utility methods
@@ -144,7 +146,7 @@ def build_default_tool_manager(
         get_current_plan: Callback to get current TODO plan
         set_current_plan: Callback to set current TODO plan
         user_id: Optional user ID for per-user resources (like MCP servers)
-        
+
     Returns:
         Configured ToolManager instance
     """
@@ -159,59 +161,69 @@ def build_default_tool_manager(
         set_current_plan=set_current_plan,
         user_id=user_id,
     )
-    
+
     manager = ToolManager(context=ctx)
-    
+
     # Auto-discover and register tools from modules
     # Each module exports ALL_TOOLS list with tool instances
-    
+
     # Planning tools (always enabled)
     from . import planning_tools
+
     manager.register_many(planning_tools.ALL_TOOLS)
-    
+
     # KB reading tools (always enabled)
     from . import kb_reading_tools
+
     manager.register_many(kb_reading_tools.ALL_TOOLS)
-    
+
     # File management tools
     if enable_file_management:
         from . import file_tools
+
         manager.register_many(file_tools.ALL_TOOLS)
-    
+
     # Folder management tools
     if enable_folder_management:
         from . import folder_tools
+
         manager.register_many(folder_tools.ALL_TOOLS)
-    
+
     # Web search tools
     if enable_web_search:
         from . import web_tools
+
         manager.register_many(web_tools.ALL_TOOLS)
-    
+
     # Git tools
     if enable_git:
         from . import git_tools
+
         manager.register_many(git_tools.ALL_TOOLS)
-    
+
     # GitHub tools
     if enable_github:
         from . import github_tools
+
         manager.register_many(github_tools.ALL_TOOLS)
-    
+
     # Shell tools (disabled by default for security)
     if enable_shell:
         from . import shell_tools
+
         manager.register_many(shell_tools.ALL_TOOLS)
-    
+
     # Vector search tools
     if enable_vector_search:
         from . import vector_search_tools
+
         manager.register_many(vector_search_tools.ALL_TOOLS)
-    
+
     # MCP Memory Agent Tools (when enabled) - Uses HTTP server
     if enable_mcp_memory:
         try:
             from ..mcp.memory import memory_tool
+
             # Enable MCP tools before registering
             for tool in memory_tool.ALL_TOOLS:
                 tool.enable()
@@ -221,14 +233,15 @@ def build_default_tool_manager(
             logger.warning(f"[ToolManager] Failed to import MCP memory tools: {e}")
         except Exception as e:
             logger.error(f"[ToolManager] Failed to initialize MCP memory tools: {e}")
-    
+
     # Additional MCP tools - Dynamic discovery and registration
     if enable_mcp:
         try:
             # Import async runtime for MCP discovery
             import asyncio
+
             from ..mcp import discover_and_create_mcp_tools
-            
+
             # Discover and create MCP tools based on user_id
             # This will find both shared and per-user MCP servers
             loop = None
@@ -237,22 +250,22 @@ def build_default_tool_manager(
             except RuntimeError:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-            
-            mcp_tools = loop.run_until_complete(
-                discover_and_create_mcp_tools(user_id=user_id)
-            )
-            
+
+            mcp_tools = loop.run_until_complete(discover_and_create_mcp_tools(user_id=user_id))
+
             if mcp_tools:
                 manager.register_many(mcp_tools)
-                logger.info(f"[ToolManager] Registered {len(mcp_tools)} additional MCP tools from discovered servers")
+                logger.info(
+                    f"[ToolManager] Registered {len(mcp_tools)} additional MCP tools from discovered servers"
+                )
             else:
                 logger.info("[ToolManager] No additional MCP tools found from discovered servers")
-                
+
         except ImportError as e:
             logger.warning(f"[ToolManager] Failed to import additional MCP tools: {e}")
         except Exception as e:
             logger.error(f"[ToolManager] Failed to initialize additional MCP tools: {e}")
-    
+
     logger.info(f"[ToolManager] Initialized with {len(manager.names())} tools")
-    
+
     return manager

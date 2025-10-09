@@ -1,29 +1,32 @@
-import sys
-from src.agents.mcp.memory.mem_agent_impl.engine import execute_sandboxed_code
-from src.agents.mcp.memory.mem_agent_impl.model import get_model_response, create_openai_client, create_vllm_client
-from src.agents.mcp.memory.mem_agent_impl.utils import (
-    load_system_prompt,
-    create_memory_if_not_exists,
-    extract_python_code,
-    format_results,
-    extract_reply,
-    extract_thoughts,
-)
-from src.agents.mcp.memory.mem_agent_impl.settings import (
-    MEMORY_PATH,
-    SAVE_CONVERSATION_PATH,
-    MAX_TOOL_TURNS,
-    VLLM_HOST,
-    VLLM_PORT,
-    OPENROUTER_STRONG_MODEL,
-)
-from src.agents.mcp.memory.mem_agent_impl.schemas import ChatMessage, Role, AgentResponse
-
-from typing import Optional, Union, Tuple
-
 import json
 import os
+import sys
 import uuid
+from typing import Optional, Tuple, Union
+
+from src.agents.mcp.memory.mem_agent_impl.engine import execute_sandboxed_code
+from src.agents.mcp.memory.mem_agent_impl.model import (
+    create_openai_client,
+    create_vllm_client,
+    get_model_response,
+)
+from src.agents.mcp.memory.mem_agent_impl.schemas import AgentResponse, ChatMessage, Role
+from src.agents.mcp.memory.mem_agent_impl.settings import (
+    MAX_TOOL_TURNS,
+    MEMORY_PATH,
+    OPENROUTER_STRONG_MODEL,
+    SAVE_CONVERSATION_PATH,
+    VLLM_HOST,
+    VLLM_PORT,
+)
+from src.agents.mcp.memory.mem_agent_impl.utils import (
+    create_memory_if_not_exists,
+    extract_python_code,
+    extract_reply,
+    extract_thoughts,
+    format_results,
+    load_system_prompt,
+)
 
 
 class Agent:
@@ -175,9 +178,7 @@ class Agent:
         if not save_folder:
             file_path = os.path.join(SAVE_CONVERSATION_PATH, f"convo_{unique_id}.json")
         else:
-            folder_path = (
-                save_folder  # os.path.join(SAVE_CONVERSATION_PATH, save_folder)
-            )
+            folder_path = save_folder  # os.path.join(SAVE_CONVERSATION_PATH, save_folder)
             if not os.path.exists(folder_path):
                 os.makedirs(folder_path)
             file_path = os.path.join(folder_path, f"convo_{unique_id}.json")

@@ -5,6 +5,7 @@ This document describes the standard MCP (Model Context Protocol) server configu
 ## Overview
 
 The configuration file `data/mcp_servers/mem-agent.json` follows the standard MCP configuration format that is compatible with:
+
 - ✓ Cursor MCP
 - ✓ Claude Desktop
 - ✓ Qwen CLI
@@ -183,6 +184,7 @@ config = tool.mcp_server_config
 ### With Cursor / Claude Desktop
 
 Copy the configuration (without internal `_` fields) to:
+
 - Cursor: `.mcp.json` in project root
 - Claude Desktop: `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
 
@@ -195,6 +197,7 @@ python3 test_mcp_config_format_simple.py
 ```
 
 This will:
+
 1. Create a sample configuration
 2. Validate the format
 3. Show compatibility information

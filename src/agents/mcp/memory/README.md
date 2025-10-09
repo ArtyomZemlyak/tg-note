@@ -3,9 +3,10 @@
 This module implements memory storage for autonomous agents using SOLID principles.
 
 > **Note on Terminology:**
+>
 > - **Memory Storage** (this module) - Provides storage backends (JSON, Vector) for the MCP Memory tool
 > - **MCP Memory Tool** - The agent's note-taking interface (implemented)
-> 
+>
 > The module provides the storage backend for MCP Memory tool.
 
 ## Architecture Overview
@@ -23,6 +24,7 @@ MemoryStorage (Legacy wrapper for backward compatibility)
 ## Storage Types
 
 ### 1. JsonMemoryStorage
+
 **File:** `memory_json_storage.py`
 
 - Simple JSON file storage
@@ -32,11 +34,13 @@ MemoryStorage (Legacy wrapper for backward compatibility)
 - Default storage type
 
 **Best for:**
+
 - Most use cases
 - Simple keyword search
 - Resource-constrained environments
 
 ### 2. VectorBasedMemoryStorage
+
 **File:** `memory_vector_storage.py`
 
 - AI-powered semantic search
@@ -45,16 +49,19 @@ MemoryStorage (Legacy wrapper for backward compatibility)
 - Fallback to JSON for persistence
 
 **Best for:**
+
 - Large memory collections
 - Complex semantic queries
 - When understanding context matters
 
 **Requires:**
+
 - `sentence-transformers`
 - `transformers`
 - `torch` or `numpy`
 
 ### 3. MemAgentStorage
+
 **File:** `memory_mem_agent_storage.py`
 
 - LLM-based intelligent memory management
@@ -64,12 +71,14 @@ MemoryStorage (Legacy wrapper for backward compatibility)
 - Intelligent information organization
 
 **Best for:**
+
 - Complex memory scenarios requiring reasoning
 - Natural language memory interactions
 - Intelligent information organization and linking
 - When you need the agent to "think" about memory operations
 
 **Requires:**
+
 - `fastmcp`
 - `transformers`
 - `openai` (for OpenRouter) or vLLM setup
@@ -77,6 +86,7 @@ MemoryStorage (Legacy wrapper for backward compatibility)
 
 **Architecture:**
 The mem-agent is a complete LLM-based agent system that:
+
 - Uses its own LLM to reason about memory operations
 - Executes sandboxed Python code to manipulate files
 - Maintains Obsidian-style markdown with wiki-links
@@ -201,17 +211,17 @@ from typing import Any, Dict, List, Optional
 
 class DatabaseMemoryStorage(BaseMemoryStorage):
     """Custom storage using database"""
-    
+
     def __init__(self, data_dir: Path, db_url: str):
         super().__init__(data_dir)
         self.db_url = db_url
         # ... initialize database connection
-    
-    def store(self, content: str, category: str = "general", 
+
+    def store(self, content: str, category: str = "general",
               metadata: Optional[Dict] = None, tags: Optional[List[str]] = None) -> Dict[str, Any]:
         # ... implement storage logic
         pass
-    
+
     # ... implement other abstract methods
 
 # Register the new storage type
@@ -289,11 +299,11 @@ from tempfile import TemporaryDirectory
 def test_json_storage():
     with TemporaryDirectory() as tmpdir:
         storage = MemoryStorageFactory.create("json", Path(tmpdir))
-        
+
         # Store
         result = storage.store("Test content", category="test")
         assert result["success"]
-        
+
         # Retrieve
         results = storage.retrieve(query="Test")
         assert results["count"] > 0
@@ -302,15 +312,15 @@ def test_json_storage():
 def test_vector_storage():
     with TemporaryDirectory() as tmpdir:
         storage = MemoryStorageFactory.create(
-            "vector", 
+            "vector",
             Path(tmpdir),
             model_name="all-MiniLM-L6-v2"  # Small model for testing
         )
-        
+
         # Store
         storage.store("The cat sat on the mat", category="test")
         storage.store("A feline rested on the carpet", category="test")
-        
+
         # Semantic search
         results = storage.retrieve(query="animal on rug", limit=2)
         assert results["count"] == 2
@@ -320,12 +330,14 @@ def test_vector_storage():
 ## Performance Considerations
 
 ### JSON Storage
+
 - **Memory**: ~10-50 KB per 1000 memories
 - **Search**: O(n) substring search
 - **Startup**: Instant
 - **Scalability**: Good up to ~10,000 memories
 
 ### Vector-Based Storage
+
 - **Memory**: ~200-500 MB (model) + ~100 KB per 1000 memories (embeddings)
 - **Search**: O(n) cosine similarity (can be optimized with FAISS)
 - **Startup**: 2-10 seconds (model loading)
@@ -380,6 +392,7 @@ The mem-agent is integrated following SOLID principles with minimal changes to t
 ### Usage Patterns
 
 #### Via Storage Interface (Recommended)
+
 ```python
 from src.agents.mcp.memory import MemoryStorageFactory
 from pathlib import Path
@@ -403,6 +416,7 @@ results = storage.retrieve(query="project information")
 ```
 
 #### Via Direct Chat Tools
+
 ```python
 from src.agents.mcp.memory.memory_mem_agent_tools import ChatWithMemoryTool
 
@@ -415,7 +429,9 @@ response = await tool.execute(
 ```
 
 #### Via MCP Server
+
 Set environment variable and use memory_server.py:
+
 ```bash
 export MEM_AGENT_STORAGE_TYPE=mem-agent
 export MEM_AGENT_MODEL=driaforall/mem-agent

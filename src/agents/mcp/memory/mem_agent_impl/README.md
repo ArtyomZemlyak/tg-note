@@ -33,6 +33,7 @@ memory/
 ```
 
 Each memory file uses markdown with:
+
 - YAML-style attributes (`- key: value`)
 - Wiki-links for relationships (`[[entities/name.md]]`)
 - Standard markdown formatting
@@ -173,6 +174,7 @@ The code in `<python>` blocks is executed in a sandboxed environment with access
 Available functions in sandboxed Python environment:
 
 ### File Operations
+
 - `create_file(file_path: str, content: str = "") -> bool`
 - `update_file(file_path: str, old_content: str, new_content: str) -> Union[bool, str]`
 - `read_file(file_path: str) -> str`
@@ -180,11 +182,13 @@ Available functions in sandboxed Python environment:
 - `check_if_file_exists(file_path: str) -> bool`
 
 ### Directory Operations
+
 - `create_dir(dir_path: str) -> bool`
 - `list_files() -> str`
 - `check_if_dir_exists(dir_path: str) -> bool`
 
 ### Utilities
+
 - `get_size(file_or_dir_path: str) -> int`
 - `go_to_link(link_string: str) -> str`
 

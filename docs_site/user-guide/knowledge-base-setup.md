@@ -80,6 +80,7 @@ KB_GIT_AUTO_PUSH: true
 ```
 
 Every note is automatically:
+
 - Added to Git
 - Committed with message
 - Pushed to remote (if enabled)

@@ -29,9 +29,9 @@ def main():
     print("╔══════════════════════════════════════════════════════════════╗")
     print("║         Phase 1: Структура проекта - Верификация            ║")
     print("╚══════════════════════════════════════════════════════════════╝\n")
-    
+
     all_ok = True
-    
+
     # Check directories
     print("📁 Проверка директорий:")
     dirs = [
@@ -44,13 +44,13 @@ def main():
         "src/tracker",
         "tests",
         "data",
-        "logs"
+        "logs",
     ]
-    
+
     for d in dirs:
         if not check_dir(d):
             all_ok = False
-    
+
     # Check core files
     print("\n📄 Проверка основных файлов:")
     files = [
@@ -61,24 +61,21 @@ def main():
         "pytest.ini",
         "README.md",
         "PHASE1_IMPLEMENTATION.md",
-        "QUICK_START.md"
+        "QUICK_START.md",
     ]
-    
+
     for f in files:
         if not check_file(f):
             all_ok = False
-    
+
     # Check config files
     print("\n⚙️  Проверка config/:")
-    config_files = [
-        "config/__init__.py",
-        "config/settings.py"
-    ]
-    
+    config_files = ["config/__init__.py", "config/settings.py"]
+
     for f in config_files:
         if not check_file(f):
             all_ok = False
-    
+
     # Check source modules
     print("\n🐍 Проверка src/ модулей:")
     src_files = [
@@ -96,50 +93,50 @@ def main():
         "src/knowledge_base/manager.py",
         "src/knowledge_base/git_ops.py",
         "src/tracker/__init__.py",
-        "src/tracker/processing_tracker.py"
+        "src/tracker/processing_tracker.py",
     ]
-    
+
     for f in src_files:
         if not check_file(f):
             all_ok = False
-    
+
     # Check tests
     print("\n🧪 Проверка tests/:")
     test_files = [
         "tests/__init__.py",
         "tests/test_tracker.py",
         "tests/test_content_parser.py",
-        "tests/test_stub_agent.py"
+        "tests/test_stub_agent.py",
     ]
-    
+
     for f in test_files:
         if not check_file(f):
             all_ok = False
-    
+
     # Statistics
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("\n📊 Статистика:")
-    
+
     py_files = list(Path(".").rglob("*.py"))
-    py_files = [f for f in py_files if not any(
-        p in str(f) for p in [".git", "venv", "__pycache__"]
-    )]
+    py_files = [
+        f for f in py_files if not any(p in str(f) for p in [".git", "venv", "__pycache__"])
+    ]
     print(f"  • Python файлов: {len(py_files)}")
-    
+
     total_lines = 0
     for f in py_files:
         try:
-            with open(f, 'r', encoding='utf-8') as file:
+            with open(f, "r", encoding="utf-8") as file:
                 total_lines += len(file.readlines())
         except:
             pass
-    
+
     print(f"  • Строк кода: {total_lines}")
     print(f"  • Директорий: {len(dirs)}")
     print(f"  • Тестов: {len(test_files)}")
-    
+
     # Summary
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     if all_ok:
         print("\n✅ Все проверки пройдены успешно!")
         print("✅ Phase 1: Базовая инфраструктура - ЗАВЕРШЕНА")

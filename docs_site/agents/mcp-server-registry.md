@@ -100,6 +100,7 @@ python scripts/install_mem_agent.py
 ```
 
 This automatically:
+
 1. Installs dependencies
 2. Downloads required models
 3. Creates the MCP server configuration
@@ -286,18 +287,21 @@ MEM_AGENT_MEMORY_POSTFIX: memory
 ### Server Won't Connect
 
 1. Check if server is enabled:
+
    ```python
    server = manager.get_server("server-name")
    print(f"Enabled: {server.enabled}")
    ```
 
 2. Verify command and args are correct:
+
    ```python
    print(f"Command: {server.command}")
    print(f"Args: {server.args}")
    ```
 
 3. Check server process logs:
+
    ```bash
    # Run server manually to see errors
    python -m src.mem_agent.server
@@ -306,16 +310,19 @@ MEM_AGENT_MEMORY_POSTFIX: memory
 ### Server Configuration Not Loading
 
 1. Verify JSON file location:
+
    ```bash
    ls -la data/mcp_servers/
    ```
 
 2. Check JSON syntax:
+
    ```bash
    python -m json.tool data/mcp_servers/server-name.json
    ```
 
 3. Re-discover servers:
+
    ```python
    manager = MCPServersManager()
    manager.initialize()  # Forces re-discovery

@@ -26,6 +26,7 @@ The mem-agent is a complete LLM-based agent system for managing Obsidian-style m
 ## File Structure
 
 ### Original mem-agent (preserved)
+
 ```
 src/agents/mcp/memory/mem_agent_impl/
 ├── agent.py              # Main agent with chat() method
@@ -40,6 +41,7 @@ src/agents/mcp/memory/mem_agent_impl/
 ```
 
 ### Integration layer (new)
+
 ```
 src/agents/mcp/memory/
 ├── memory_mem_agent_storage.py    # Adapter implementing BaseMemoryStorage
@@ -50,6 +52,7 @@ src/agents/mcp/memory/
 ## How It Works
 
 ### Storage Interface (Recommended)
+
 ```python
 # 1. Factory creates MemAgentStorage
 storage = MemoryStorageFactory.create(
@@ -70,6 +73,7 @@ storage = MemoryStorageFactory.create(
 ```
 
 ### Data Flow
+
 ```
 User Code
     ↓
@@ -95,6 +99,7 @@ Response returned
 ## Configuration
 
 ### Environment Variables
+
 ```bash
 # Enable mem-agent storage
 export MEM_AGENT_STORAGE_TYPE=mem-agent
@@ -111,6 +116,7 @@ export OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 ```
 
 ### Programmatic Configuration
+
 ```python
 storage = MemoryStorageFactory.create(
     storage_type="mem-agent",
@@ -124,33 +130,41 @@ storage = MemoryStorageFactory.create(
 ## Key Design Decisions
 
 ### 1. Adapter Pattern
+
 **Why:** The mem-agent has a `chat()` method that takes natural language, while `BaseMemoryStorage` has structured methods like `store()` and `retrieve()`.
 
 **Solution:** `MemAgentStorage` acts as an adapter:
+
 - Implements `BaseMemoryStorage` interface
 - Converts structured calls to natural language
 - Wraps the original `Agent`
 
 ### 2. Preserved Original Code
+
 **Why:** The mem-agent is a complex system with LLM, tools, and prompts working together.
 
-**Solution:** 
+**Solution:**
+
 - Moved to `mem_agent_impl/` directory
 - Updated only import paths
 - Original logic untouched
 
 ### 3. Factory Registration
+
 **Why:** Need to create mem-agent storage alongside json/vector.
 
 **Solution:**
+
 - Added "mem-agent" to `MemoryStorageFactory.STORAGE_TYPES`
 - Factory handles creation with appropriate parameters
 - Follows Open/Closed Principle
 
 ### 4. MCP Server Integration
+
 **Why:** Memory server needs to support all storage types.
 
 **Solution:**
+
 - `memory_server.py` uses factory to create storage
 - Reads `MEM_AGENT_STORAGE_TYPE` env var
 - Falls back to JSON if mem-agent fails
@@ -158,6 +172,7 @@ storage = MemoryStorageFactory.create(
 ## Testing
 
 ### Basic Test
+
 ```python
 from pathlib import Path
 from src.agents.mcp.memory import MemoryStorageFactory
@@ -180,6 +195,7 @@ assert results["success"]
 ```
 
 ### With vLLM
+
 ```bash
 # Start vLLM server
 python -m vllm.entrypoints.openai.api_server \
@@ -206,6 +222,7 @@ print(result)
 ## Migration Guide
 
 ### From JSON to mem-agent
+
 ```python
 # Old (JSON storage)
 storage = MemoryStorage(Path("data/memory"))
@@ -220,6 +237,7 @@ storage.store("Info", category="notes")  # Same interface!
 ```
 
 ### Using Both
+
 ```python
 # JSON for simple data
 json_storage = MemoryStorageFactory.create(
@@ -241,6 +259,7 @@ agent_storage.store("Complex information requiring organization")
 ## Troubleshooting
 
 ### Import Errors
+
 ```python
 # If you see: "mem-agent components not available"
 # Install dependencies:
@@ -248,6 +267,7 @@ pip install fastmcp transformers openai
 ```
 
 ### vLLM Issues
+
 ```bash
 # Check if vLLM server is running
 curl http://127.0.0.1:8000/v1/models
@@ -258,6 +278,7 @@ echo $VLLM_PORT
 ```
 
 ### Memory Path Issues
+
 ```python
 # Ensure memory path exists and is writable
 from pathlib import Path

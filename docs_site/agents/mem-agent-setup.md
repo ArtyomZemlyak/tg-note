@@ -3,9 +3,10 @@
 This guide covers the installation, configuration, and usage of the MCP Memory tool - a personal note-taking and search system for autonomous agents.
 
 > **Terminology Note:**
+>
 > - **MCP Memory** - The current note-taking tool for agents (what you're setting up here)
 > - **mem-agent** - A planned future LLM-based memory assistant (not yet implemented)
-> 
+>
 > The configuration still uses `MEM_AGENT_*` prefixes for historical reasons.
 
 ## Overview
@@ -23,12 +24,14 @@ This is particularly useful for autonomous agents (like qwen code cli) that make
 The system supports two storage backends:
 
 #### 1. JSON Storage (Default)
+
 - **Simple and Fast**: File-based JSON storage with substring search
 - **No Dependencies**: No ML models or additional libraries required
 - **Lightweight**: Minimal memory footprint
 - **Best for**: Most users, small to medium memory sizes, simple search needs
 
 #### 2. Model-Based Storage
+
 - **AI-Powered**: Semantic search using the `BAAI/bge-m3` model from HuggingFace
 - **Smart Search**: Understands meaning, not just keywords
 - **Best for**: Large memory sizes, complex queries, semantic understanding needed
@@ -47,6 +50,7 @@ python scripts/install_mem_agent.py
 ```
 
 This will:
+
 1. Install all required dependencies
 2. Download the mem-agent model from HuggingFace
 3. Setup the memory directory structure
@@ -90,12 +94,14 @@ MCP_SERVERS_POSTFIX=.mcp_servers
 #### Choosing Storage Type
 
 **Use JSON storage (default) if:**
+
 - You want fast, lightweight storage
 - Simple keyword search is sufficient
 - You don't want to download ML models
 - You have limited resources
 
 **Use Model-based storage if:**
+
 - You need semantic search (understands meaning)
 - You have large amounts of memories
 - You want AI-powered relevance ranking
@@ -105,9 +111,11 @@ To enable model-based storage:
 
 1. Set `MEM_AGENT_STORAGE_TYPE: vector` in config
 2. Install additional dependencies:
+
    ```bash
    pip install sentence-transformers transformers torch
    ```
+
 3. The model will be downloaded automatically on first use
 
 ### Verification
@@ -195,6 +203,7 @@ knowledge_bases/
 ```
 
 **Key Points:**
+
 - Memory path is constructed as: `{kb_path}/{MEM_AGENT_MEMORY_POSTFIX}`
 - MCP servers are stored at: `{kb_path}/{MCP_SERVERS_POSTFIX}`
 - Each user gets their own isolated memory and MCP configuration
@@ -404,12 +413,16 @@ MEM_AGENT_MAX_TOOL_TURNS: 10  # Faster but less thorough
 **Problem**: Model download fails or is very slow
 
 **Solutions**:
+
 1. Check internet connection
 2. Try using a HuggingFace mirror:
+
    ```bash
    export HF_ENDPOINT=https://hf-mirror.com
    ```
+
 3. Download manually:
+
    ```bash
    huggingface-cli download BAAI/bge-m3 --local-dir ./models/bge-m3
    ```
@@ -421,26 +434,29 @@ MEM_AGENT_MAX_TOOL_TURNS: 10  # Faster but less thorough
 **Solutions**:
 
 1. For vLLM errors:
+
    ```bash
    # Ensure CUDA is available
    python -c "import torch; print(torch.cuda.is_available())"
-   
+
    # Reinstall vLLM
    pip uninstall vllm
    pip install vllm --no-cache-dir
    ```
 
 2. For MLX errors:
+
    ```bash
    # Ensure on macOS with Apple Silicon
    uname -m  # Should show arm64
-   
+
    # Reinstall MLX
    pip uninstall mlx mlx-lm
    pip install mlx mlx-lm
    ```
 
 3. Fallback to transformers:
+
    ```yaml
    MEM_AGENT_BACKEND: transformers
    ```
@@ -452,6 +468,7 @@ MEM_AGENT_MAX_TOOL_TURNS: 10  # Faster but less thorough
 **Solutions**:
 
 1. Check permissions:
+
    ```bash
    # Replace {user_kb} with actual KB name
    ls -la knowledge_bases/{user_kb}/memory/
@@ -459,16 +476,18 @@ MEM_AGENT_MAX_TOOL_TURNS: 10  # Faster but less thorough
    ```
 
 2. Verify path in configuration:
+
    ```python
    from config.settings import settings
    from pathlib import Path
-   
+
    kb_path = Path("./knowledge_bases/user_kb")
    print(f"Memory postfix: {settings.MEM_AGENT_MEMORY_POSTFIX}")
    print(f"Full path: {settings.get_mem_agent_memory_path(kb_path)}")
    ```
 
 3. Create manually:
+
    ```bash
    # Replace {user_kb} with actual KB name
    mkdir -p knowledge_bases/{user_kb}/memory/entities
@@ -482,11 +501,13 @@ MEM_AGENT_MAX_TOOL_TURNS: 10  # Faster but less thorough
 **Solutions**:
 
 1. Verify server configuration follows standard MCP format:
+
    ```bash
    cat data/mcp_servers/mem-agent.json
    ```
-   
+
    Should contain:
+
    ```json
    {
      "mcpServers": {
@@ -499,21 +520,24 @@ MEM_AGENT_MAX_TOOL_TURNS: 10  # Faster but less thorough
      }
    }
    ```
-   
+
    See [MCP Configuration Format](mcp-config-format.md) for details.
 
 2. Verify HTTP server is running:
+
    ```bash
    # Server should auto-start with bot
    # Check logs for: "[MCPServerManager] ✓ Server 'mem-agent' started successfully"
    ```
 
 3. Test server manually:
+
    ```bash
    python -m src.agents.mcp.mem_agent_server_http --host 127.0.0.1 --port 8765
    ```
 
 4. Test SSE endpoint:
+
    ```bash
    curl http://127.0.0.1:8765/sse
    ```

@@ -251,7 +251,7 @@ Example link descriptions:
 
    # Bad - Result will be LOST, you'll get empty {}
    check_if_file_exists("user.md")
-   read_file("user.md") 
+   read_file("user.md")
    update_file("user.md", old, new)
    ```
    **WARNING**: Function calls without assignment return empty {} results!
@@ -285,7 +285,7 @@ exists = check_if_file_exists("user.md")
 content = read_file("user.md")
 result = update_file("user.md", old, new)
 </python>
-```  
+```
 
 ## Memory Maintenance
 

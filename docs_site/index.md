@@ -33,37 +33,37 @@ Perfect for:
 
 <div class="grid cards" markdown>
 
--   :robot:{ .lg .middle } **AI-Powered Analysis**
+- :robot:{ .lg .middle } **AI-Powered Analysis**
 
     ---
 
     Intelligent content categorization and structuring using advanced agent systems
 
--   :memo:{ .lg .middle } **Automatic Markdown**
+- :memo:{ .lg .middle } **Automatic Markdown**
 
     ---
 
     Converts any content into well-formatted Markdown files with proper structure
 
--   :file_folder:{ .lg .middle } **Smart Organization**
+- :file_folder:{ .lg .middle } **Smart Organization**
 
     ---
 
     Automatic categorization by topics (AI, biology, physics, tech, etc.)
 
--   :material-github:{ .lg .middle } **GitHub Integration**
+- :material-github:{ .lg .middle } **GitHub Integration**
 
     ---
 
     Direct commits to your knowledge base repository with version control
 
--   :busts_in_silhouette:{ .lg .middle } **Multi-User Support**
+- :busts_in_silhouette:{ .lg .middle } **Multi-User Support**
 
     ---
 
     Each user can have their own personal knowledge base
 
--   :gear:{ .lg .middle } **Flexible Configuration**
+- :gear:{ .lg .middle } **Flexible Configuration**
 
     ---
 
@@ -90,7 +90,7 @@ Get started with tg-note in just a few minutes:
     ```bash
     # Copy configuration files
     cp config.example.yaml config.yaml
-    
+
     # Add your Telegram bot token to .env
     echo "TELEGRAM_BOT_TOKEN=your_token_here" > .env
     ```
@@ -151,7 +151,7 @@ graph TD
     B --> C[Agent System]
     C --> D[Knowledge Base Manager]
     D --> E[Git Operations]
-    
+
     style A fill:#e1f5ff
     style C fill:#fff3e0
     style D fill:#f3e5f5
@@ -166,7 +166,7 @@ graph TD
 
 <div class="grid cards" markdown>
 
--   :rocket:{ .lg .middle } **Getting Started**
+- :rocket:{ .lg .middle } **Getting Started**
 
     ---
 
@@ -174,7 +174,7 @@ graph TD
 
     [:octicons-arrow-right-24: Start Here](getting-started/quick-start.md)
 
--   :book:{ .lg .middle } **User Guide**
+- :book:{ .lg .middle } **User Guide**
 
     ---
 
@@ -182,7 +182,7 @@ graph TD
 
     [:octicons-arrow-right-24: Read Guide](user-guide/bot-commands.md)
 
--   :material-brain:{ .lg .middle } **Agent System**
+- :material-brain:{ .lg .middle } **Agent System**
 
     ---
 
@@ -190,7 +190,7 @@ graph TD
 
     [:octicons-arrow-right-24: Explore Agents](agents/overview.md)
 
--   :material-floor-plan:{ .lg .middle } **Architecture**
+- :material-floor-plan:{ .lg .middle } **Architecture**
 
     ---
 
@@ -198,7 +198,7 @@ graph TD
 
     [:octicons-arrow-right-24: View Architecture](architecture/overview.md)
 
--   :hammer_and_wrench:{ .lg .middle } **Development**
+- :hammer_and_wrench:{ .lg .middle } **Development**
 
     ---
 
@@ -206,7 +206,7 @@ graph TD
 
     [:octicons-arrow-right-24: Start Contributing](development/contributing.md)
 
--   :material-cloud-upload:{ .lg .middle } **Deployment**
+- :material-cloud-upload:{ .lg .middle } **Deployment**
 
     ---
 

@@ -36,6 +36,7 @@ await service.process_message(message_dto)
 ### Writing a Service Method
 
 **❌ OLD WAY (Don't do this):**
+
 ```python
 from telebot.types import Message
 
@@ -52,6 +53,7 @@ async def my_service_method(
 ```
 
 **✅ NEW WAY (Do this):**
+
 ```python
 from src.bot.dto import IncomingMessageDTO
 
@@ -77,7 +79,7 @@ async def my_service_method(
 async def handle_message(self, message: Message) -> None:
     # Convert to DTO
     message_dto = MessageMapper.from_telegram_message(message)
-    
+
     # Pass to service
     await self.message_processor.process_message(message_dto)
 ```
@@ -126,6 +128,7 @@ await self.bot.reply_to(
 ## DTO Fields Reference
 
 ### Core Fields (Required)
+
 - `message_id: int` - Unique message identifier
 - `chat_id: int` - Chat identifier
 - `user_id: int` - User identifier
@@ -134,6 +137,7 @@ await self.bot.reply_to(
 - `timestamp: int` - Unix timestamp
 
 ### Optional Fields
+
 - `caption: str` - Media caption
 - `forward_from: Any` - Forwarded from user
 - `forward_from_chat: Any` - Forwarded from chat
@@ -142,6 +146,7 @@ await self.bot.reply_to(
 - `forward_date: int` - Forward timestamp
 
 ### Media Fields (Optional)
+
 - `photo: Any` - Photo data
 - `document: Any` - Document data
 - `video: Any` - Video data
@@ -152,6 +157,7 @@ await self.bot.reply_to(
 - `sticker: Any` - Sticker data
 
 ### Methods
+
 - `is_forwarded() -> bool` - Check if message is forwarded
 
 ## Testing Examples
@@ -169,10 +175,10 @@ def test_my_service():
         content_type="text",
         timestamp=0
     )
-    
+
     # Test your service
     result = await my_service.process(message, 999, 1)
-    
+
     # Assert results
     assert result == expected
 ```
@@ -191,7 +197,7 @@ def test_forwarded_message():
         forward_date=123,
         forward_sender_name="John"
     )
-    
+
     assert forwarded.is_forwarded() is True
 ```
 
@@ -221,21 +227,25 @@ When updating existing service:
 ## Common Mistakes
 
 ### ❌ Mistake 1: Importing telebot in services
+
 ```python
 from telebot.types import Message  # ❌ NO!
 ```
 
 ### ❌ Mistake 2: Passing Message object
+
 ```python
 await service.process(message, processing_msg)  # ❌ NO!
 ```
 
 ### ❌ Mistake 3: Not converting in handlers
+
 ```python
 await self.service.process_message(message)  # ❌ NO! (if message is Telegram Message)
 ```
 
 ### ✅ Correct Usage
+
 ```python
 # In services - use DTO
 from src.bot.dto import IncomingMessageDTO

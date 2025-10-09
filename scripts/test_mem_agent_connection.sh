@@ -49,7 +49,7 @@ STDIO_CONFIGS=0
 if [ -f "$HOME/.qwen/settings.json" ]; then
     echo -e "${GREEN}✅ Найдена конфигурация / Found config: ~/.qwen/settings.json${NC}"
     FOUND_CONFIGS=$((FOUND_CONFIGS + 1))
-    
+
     # Check if it contains HTTP format (url field)
     if grep -q '"url".*"http://127.0.0.1:8765/sse"' "$HOME/.qwen/settings.json"; then
         echo -e "${GREEN}   ✅ Формат: HTTP/SSE${NC}"
@@ -63,7 +63,7 @@ if [ -f "$HOME/.qwen/settings.json" ]; then
     else
         echo -e "${YELLOW}   ⚠️  Формат неизвестен / Unknown format${NC}"
     fi
-    
+
     # Show mem-agent config snippet
     echo "   Содержимое mem-agent / mem-agent content:"
     python3 -c "import json; data = json.load(open('$HOME/.qwen/settings.json')); print('  ', json.dumps(data.get('mcpServers', {}).get('mem-agent', {}), indent=4, ensure_ascii=False))" 2>/dev/null || echo "   Failed to parse JSON"
@@ -77,7 +77,7 @@ if [ -n "$KB_CONFIGS" ]; then
         if [ -f "$config_file" ]; then
             echo -e "${GREEN}✅ Найдена конфигурация / Found config: $config_file${NC}"
             FOUND_CONFIGS=$((FOUND_CONFIGS + 1))
-            
+
             # Check format
             if grep -q '"url".*"http://127.0.0.1:8765/sse"' "$config_file"; then
                 echo -e "${GREEN}   ✅ Формат: HTTP/SSE${NC}"
@@ -141,7 +141,7 @@ if curl -s --connect-timeout 2 http://127.0.0.1:8765/health >/dev/null 2>&1; the
     echo -e "${GREEN}✅ HTTP сервер запущен и отвечает / HTTP server is running and responding${NC}"
     echo "   📡 URL: http://127.0.0.1:8765"
     echo "   🔌 SSE endpoint: http://127.0.0.1:8765/sse"
-    
+
     # Try to get server info
     HEALTH_RESPONSE=$(curl -s http://127.0.0.1:8765/health 2>/dev/null)
     if [ -n "$HEALTH_RESPONSE" ]; then

@@ -14,7 +14,7 @@ try:
     from .agent import Agent
     from .engine import execute_sandboxed_code
     from .schemas import AgentResponse, ChatMessage, Role, StaticMemory
-    
+
     __all__ = [
         "Agent",
         "execute_sandboxed_code",
@@ -26,5 +26,6 @@ try:
 except ImportError as e:
     # If some modules can't be imported, just make the package importable
     import warnings
+
     warnings.warn(f"Some mem_agent modules could not be imported: {e}")
     __all__ = []
