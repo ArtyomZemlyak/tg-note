@@ -18,8 +18,8 @@ from src.agents.mcp.memory.mem_agent_impl.settings import (
     MEM_AGENT_OPENAI_API_KEY,
     OPENROUTER_STRONG_MODEL,
     SAVE_CONVERSATION_PATH,
-    VLLM_HOST,
-    VLLM_PORT,
+    MEM_AGENT_HOST,
+    MEM_AGENT_PORT,
 )
 from src.agents.mcp.memory.mem_agent_impl.utils import (
     create_memory_if_not_exists,
@@ -58,7 +58,7 @@ class Agent:
 
         # Each Agent instance gets its own clients to avoid bottlenecks
         if use_vllm:
-            self._client = create_vllm_client(host=VLLM_HOST, port=VLLM_PORT)
+            self._client = create_vllm_client(host=MEM_AGENT_HOST, port=MEM_AGENT_PORT)
         else:
             # If no explicit API endpoint/key are provided, try to autostart a local server
             # based on platform: vLLM on Linux, MLX on macOS.
@@ -96,7 +96,7 @@ class Agent:
 
         # Prefer vLLM on Linux, MLX on macOS
         if system == "linux":
-            host, port = VLLM_HOST, VLLM_PORT
+            host, port = MEM_AGENT_HOST, MEM_AGENT_PORT
             base_url = f"http://{host}:{port}/v1"
             # Quick reachability check
             try:
@@ -137,10 +137,8 @@ class Agent:
                 pass
 
         elif system == "darwin":
-            # MLX-backed OpenAI-compatible server is not standard; attempt to run mlx-lm serve
-            host, port = os.getenv("MEM_AGENT_MLX_HOST", "127.0.0.1"), int(
-                os.getenv("MEM_AGENT_MLX_PORT", "8767")
-            )
+            # MLX-backed OpenAI-compatible server; use unified host/port
+            host, port = MEM_AGENT_HOST, MEM_AGENT_PORT
             base_url = f"http://{host}:{port}/v1"
             try:
                 urlopen(f"{base_url}/models", timeout=0.5)

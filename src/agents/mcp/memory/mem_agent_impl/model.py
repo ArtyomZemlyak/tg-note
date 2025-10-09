@@ -10,6 +10,8 @@ from src.agents.mcp.memory.mem_agent_impl.settings import (
     OPENROUTER_API_KEY,
     OPENROUTER_BASE_URL,
     OPENROUTER_STRONG_MODEL,
+    MEM_AGENT_HOST,
+    MEM_AGENT_PORT,
 )
 
 
@@ -25,7 +27,7 @@ def create_openai_client() -> OpenAI:
     return OpenAI(api_key=api_key, base_url=base_url)
 
 
-def create_vllm_client(host: str = "0.0.0.0", port: int = 8000) -> OpenAI:
+def create_vllm_client(host: str = MEM_AGENT_HOST, port: int = MEM_AGENT_PORT) -> OpenAI:
     """Create a new vLLM client instance (OpenAI-compatible)."""
     return OpenAI(
         base_url=f"http://{host}:{port}/v1",
