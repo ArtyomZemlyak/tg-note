@@ -8,6 +8,7 @@ import subprocess
 import sys
 import traceback
 import types
+from typing import Optional
 
 from src.agents.mcp.memory.mem_agent_impl.settings import SANDBOX_TIMEOUT
 

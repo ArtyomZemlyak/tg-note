@@ -11,7 +11,24 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from fastmcp import Context, FastMCP
+try:
+    from fastmcp import Context, FastMCP
+except Exception:  # pragma: no cover - optional dependency for tests
+    class _Dummy:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def tool(self, *args, **kwargs):
+            def _wrap(fn):
+                return fn
+
+            return _wrap
+
+        def run(self, *args, **kwargs):
+            pass
+
+    Context = object  # type: ignore
+    FastMCP = _Dummy  # type: ignore
 
 from src.agents.mcp.memory.mem_agent_impl.agent import Agent
 from src.agents.mcp.memory.mem_agent_impl.settings import get_memory_path

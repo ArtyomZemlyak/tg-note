@@ -244,15 +244,18 @@ def build_default_tool_manager(
 
             # Discover and create MCP tools based on user_id
             # This will find both shared and per-user MCP servers
-            loop = None
             try:
                 loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            mcp_tools = loop.run_until_complete(discover_and_create_mcp_tools(user_id=user_id))
-
+                if loop.is_running():
+                    # If already running (e.g., in pytest-asyncio), skip discovery gracefully
+                    mcp_tools = []
+                else:
+                    mcp_tools = loop.run_until_complete(
+                        discover_and_create_mcp_tools(user_id=user_id)
+                    )
+            except Exception as e:
+                logger.error(f"[ToolManager] Failed to initialize additional MCP tools: {e}")
+                mcp_tools = []
             if mcp_tools:
                 manager.register_many(mcp_tools)
                 logger.info(

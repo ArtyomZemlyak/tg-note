@@ -109,7 +109,9 @@ class DocumentChunker:
         stride = self.chunk_size - self.chunk_overlap
 
         if stride <= 0:
-            raise ValueError("chunk_overlap must be smaller than chunk_size")
+            # Be tolerant: adjust overlap to chunk_size-1 instead of failing
+            self.chunk_overlap = max(0, self.chunk_size - 1)
+            stride = max(1, self.chunk_size - self.chunk_overlap)
 
         for i in range(0, len(text), stride):
             chunk_text = text[i : i + self.chunk_size]

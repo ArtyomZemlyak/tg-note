@@ -147,8 +147,14 @@ class UserSettingsStorage:
         self.storage_file = Path(storage_file)
         self.lock_file = Path(str(storage_file) + ".lock")
 
-        # Ensure parent directory exists
-        self.storage_file.parent.mkdir(parents=True, exist_ok=True)
+        # Ensure parent directory exists (guard against invalid CWD)
+        try:
+            self.storage_file.parent.mkdir(parents=True, exist_ok=True)
+        except FileNotFoundError:
+            # Fallback to /tmp for CI environments without current working dir
+            self.storage_file = Path("/tmp/user_settings_overrides.json")
+            self.lock_file = Path("/tmp/user_settings_overrides.json.lock")
+            self.storage_file.parent.mkdir(parents=True, exist_ok=True)
 
         # Initialize storage file
         if not self.storage_file.exists():

@@ -44,7 +44,7 @@ class StubAgent(BaseAgent):
         return {
             "markdown": markdown_content,
             "metadata": metadata,
-            "title": BaseAgent.generate_title(text),
+            "title": BaseAgent.generate_title(text, max_length=50),
             "kb_structure": kb_structure,
         }
 

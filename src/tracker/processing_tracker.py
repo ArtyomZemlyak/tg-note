@@ -67,7 +67,12 @@ class ProcessingTracker:
         return False
 
     def add_processed(
-        self, content_hash: str, message_ids: List[int], chat_id: int, status: str = "completed"
+        self,
+        content_hash: str,
+        message_ids: List[int],
+        chat_id: int,
+        status: str = "completed",
+        kb_file: Optional[str] = None,
     ) -> None:
         """
         Add processed message to tracker
@@ -87,6 +92,8 @@ class ProcessingTracker:
             "processed_at": datetime.now().isoformat(),
             "status": status,
         }
+        if kb_file:
+            entry["kb_file"] = kb_file
 
         data["processed_messages"].append(entry)
         self._write_data(data)

@@ -5,6 +5,7 @@ Autonomous Agent
 """
 
 import json
+import os
 import subprocess
 from abc import abstractmethod
 from dataclasses import dataclass, field
@@ -23,6 +24,23 @@ from .base_agent import AgentResult as BaseAgentResult
 from .base_agent import BaseAgent, KBStructure
 from .llm_connectors import BaseLLMConnector, LLMResponse
 from .tools import ToolManager, build_default_tool_manager
+
+# ------------------------------------------------------------------
+# MCP helper wrappers (to allow test patching of this module path)
+# ------------------------------------------------------------------
+from typing import Optional as _Optional
+
+
+async def get_mcp_tools_description(user_id: _Optional[int] = None) -> str:  # pragma: no cover
+    from .mcp import get_mcp_tools_description as _inner
+
+    return await _inner(user_id=user_id)
+
+
+def format_mcp_tools_for_prompt(tools_desc: str, include_in_system: bool = True) -> str:  # pragma: no cover
+    from .mcp import format_mcp_tools_for_prompt as _inner
+
+    return _inner(tools_desc, include_in_system=include_in_system)
 
 
 class ActionType(Enum):
@@ -291,8 +309,23 @@ class AutonomousAgent(BaseAgent):
         self.enable_mcp_memory = enable_mcp_memory
 
         # Knowledge base root path for safe file operations
-        self.kb_root_path = kb_root_path or Path("./knowledge_base")
-        self.kb_root_path = self.kb_root_path.resolve()
+        try:
+            default_root = Path("./knowledge_base")
+            if kb_root_path is None:
+                # Guard against invalid CWD
+                try:
+                    _ = os.getcwd()
+                    candidate = default_root
+                except FileNotFoundError:
+                    candidate = Path("/tmp/knowledge_base")
+            else:
+                candidate = kb_root_path if isinstance(kb_root_path, Path) else Path(kb_root_path)
+
+            # Resolve without strict to avoid failures on missing parents
+            self.kb_root_path = candidate if candidate.is_absolute() else candidate.resolve(strict=False)
+        except Exception:
+            # Last-resort fallback
+            self.kb_root_path = Path("/tmp/knowledge_base")
 
         # Ensure KB root path exists
         try:
@@ -369,6 +402,43 @@ class AutonomousAgent(BaseAgent):
 
         return "\n".join(lines)
 
+    # ------------------------------------------------------------------
+    # Backward-compat direct tool wrappers used by tests
+    # These delegate to ToolManager with the same tool names
+    # ------------------------------------------------------------------
+    async def _tool_plan_todo(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return await self.tool_manager.execute("plan_todo", params)
+
+    async def _tool_analyze_content(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return await self.tool_manager.execute("analyze_content", params)
+
+    async def _tool_kb_read_file(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return await self.tool_manager.execute("kb_read_file", params)
+
+    async def _tool_kb_list_directory(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return await self.tool_manager.execute("kb_list_directory", params)
+
+    async def _tool_kb_search_files(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return await self.tool_manager.execute("kb_search_files", params)
+
+    async def _tool_kb_search_content(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return await self.tool_manager.execute("kb_search_content", params)
+
+    async def _tool_web_search(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return await self.tool_manager.execute("web_search", params)
+
+    async def _tool_git_command(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return await self.tool_manager.execute("git_command", params)
+
+    async def _tool_github_api(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return await self.tool_manager.execute("github_api", params)
+
+    async def _tool_shell_command(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        # shell tool only registered when enable_shell=True; if not present, mirror disabled error
+        if not self.tool_manager.has("shell_command"):
+            return {"success": False, "error": "Shell command tool is disabled for security"}
+        return await self.tool_manager.execute("shell_command", params)
+
     async def get_mcp_tools_description(self) -> str:
         """
         Get description of available MCP tools
@@ -386,9 +456,7 @@ class AutonomousAgent(BaseAgent):
             return ""
 
         try:
-            from .mcp import format_mcp_tools_for_prompt, get_mcp_tools_description
-
-            # Get tools description
+            # Get tools description via module-level wrappers (for test patching)
             tools_desc = await get_mcp_tools_description(user_id=self.user_id)
 
             # Format for system prompt
