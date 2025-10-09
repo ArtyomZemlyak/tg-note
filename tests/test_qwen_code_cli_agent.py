@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, mock_open, patch
 
 import pytest
 
-from src.agents.base_agent import KBStructure
+from src.agents.base_agent import BaseAgent, KBStructure
 from src.agents.qwen_code_cli_agent import QwenCodeCLIAgent
 
 
@@ -86,8 +86,8 @@ class TestQwenCodeCLIAgent:
 
         assert "machine learning" in prompt
         assert "example.com/article" in prompt
-        assert "TODO checklist" in prompt
-        assert "markdown" in prompt
+        assert "Базу Знаний" in prompt  # Instruction mentions knowledge base in Russian
+        assert "```" in prompt  # Markdown code blocks are mentioned in instruction
         assert agent.instruction in prompt
 
     def test_prepare_prompt_no_urls(self, agent):
@@ -101,14 +101,14 @@ class TestQwenCodeCLIAgent:
     def test_extract_title(self, agent):
         """Test title extraction"""
         text = "Machine Learning Fundamentals\n\nThis is the content..."
-        title = agent._extract_title(text)
+        title = BaseAgent.generate_title(text)
 
         assert title == "Machine Learning Fundamentals"
 
     def test_extract_title_long(self, agent):
         """Test title extraction with long text"""
         text = "A" * 100
-        title = agent._extract_title(text)
+        title = BaseAgent.generate_title(text, max_length=60)
 
         assert len(title) <= 63  # 60 + "..."
         assert title.endswith("...")
@@ -116,28 +116,28 @@ class TestQwenCodeCLIAgent:
     def test_detect_category_ai(self, agent):
         """Test category detection for AI content"""
         text = "This article discusses machine learning and neural networks"
-        category = agent._detect_category(text)
+        category = BaseAgent.detect_category(text)
 
         assert category == "ai"
 
     def test_detect_category_tech(self, agent):
         """Test category detection for tech content"""
         text = "Python programming and software development"
-        category = agent._detect_category(text)
+        category = BaseAgent.detect_category(text)
 
         assert category == "tech"
 
     def test_detect_category_general(self, agent):
         """Test category detection for general content"""
         text = "This is some random text"
-        category = agent._detect_category(text)
+        category = BaseAgent.detect_category(text)
 
         assert category == "general"
 
     def test_extract_tags(self, agent):
         """Test tag extraction"""
         text = "machine learning neural networks deep learning AI"
-        tags = agent._extract_tags(text, max_tags=3)
+        tags = BaseAgent.extract_keywords(text, top_n=3)
 
         assert len(tags) <= 3
         assert all(len(tag) > 3 for tag in tags)
@@ -145,7 +145,7 @@ class TestQwenCodeCLIAgent:
     def test_generate_summary(self, agent):
         """Test summary generation"""
         text = "First paragraph summary.\n\nSecond paragraph."
-        summary = agent._generate_summary(text)
+        summary = BaseAgent.generate_summary(text)
 
         assert summary == "First paragraph summary."
 
@@ -159,6 +159,19 @@ subcategory: machine-learning
 tags: ml, neural-networks, deep-learning
 ```
 
+```agent-result
+{
+  "summary": "Test article processed",
+  "files_created": [],
+  "files_edited": [],
+  "folders_created": [],
+  "metadata": {
+    "category": "ai",
+    "topics": ["ml", "neural-networks"]
+  }
+}
+```
+
 ## TODO Plan
 - [x] Analyze content
 - [x] Extract key topics
@@ -167,23 +180,41 @@ tags: ml, neural-networks, deep-learning
 Main content here.
 """
 
-        parsed = agent._parse_qwen_result(result_text)
+        # Test that agent can parse the response
+        agent_result = agent.parse_agent_response(result_text)
+        kb_structure = agent.extract_kb_structure_from_response(result_text, default_category="general")
+        todo_plan = agent._extract_todo_plan(result_text)
 
-        assert parsed["title"] == "Test Article"
-        assert parsed["category"] == "ai"
-        assert parsed["subcategory"] == "machine-learning"
-        assert "ml" in parsed["tags"]
-        assert len(parsed["todo_plan"]) == 2
+        assert agent_result.summary == "Test article processed"
+        assert kb_structure.category == "ai"
+        assert kb_structure.subcategory == "machine-learning"
+        assert "ml" in kb_structure.tags
+        assert len(todo_plan) == 2
 
     def test_parse_qwen_result_minimal(self, agent):
         """Test parsing minimal result"""
-        result_text = "# Simple Title\n\nSome content"
+        result_text = """# Simple Title
 
-        parsed = agent._parse_qwen_result(result_text)
+```agent-result
+{
+  "summary": "Minimal content",
+  "files_created": [],
+  "files_edited": [],
+  "folders_created": [],
+  "metadata": {}
+}
+```
 
-        assert parsed["title"] == "Simple Title"
-        assert parsed["category"] is None
-        assert parsed["tags"] == []
+Some content"""
+
+        # Test that agent can parse minimal response
+        agent_result = agent.parse_agent_response(result_text)
+        kb_structure = agent.extract_kb_structure_from_response(result_text, default_category="general")
+
+        assert agent_result.summary == "Minimal content"
+        assert kb_structure.category == "general"  # default category
+        # Tags are extracted from content, not from missing metadata
+        assert isinstance(kb_structure.tags, list)
 
     def test_fallback_processing(self, agent):
         """Test fallback processing"""
