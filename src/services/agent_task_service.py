@@ -19,12 +19,17 @@ from config.agent_prompts import AGENT_MODE_INSTRUCTION
 
 class AgentTaskService(IAgentTaskService):
     """
-    Service for executing free-form agent tasks
+    Service for executing free-form agent tasks (agent mode).
     
     Responsibilities:
     - Parse task from message
     - Execute task with full agent autonomy
-    - Return results to user (answer, modifications, etc.)
+    - Handle any KB-related operations (read, write, restructure)
+    - Return results to user (answers, file modifications, etc.)
+    - Maintain conversation context for complex multi-turn tasks
+    
+    This service is activated when user is in 'agent' mode (/agent command).
+    Agent has full access to the knowledge base and can perform any task.
     """
     
     def __init__(
@@ -119,6 +124,7 @@ class AgentTaskService(IAgentTaskService):
             
             # Execute task with agent
             # Try to update status message (but don't fail if it times out)
+            self.logger.info(f"[AGENT_SERVICE] Executing task for user {user_id}: {task_text[:50]}...")
             await self._safe_edit_message(
                 "🤖 Выполняю задачу...",
                 chat_id=chat_id,
@@ -150,15 +156,22 @@ class AgentTaskService(IAgentTaskService):
         user_id: int
     ) -> dict:
         """
-        Execute task with agent
+        Execute task with agent.
+        
+        Agent has full access to KB and can:
+        - Answer questions
+        - Create/edit/delete files
+        - Restructure KB
+        - Search for additional information online
+        - Perform any autonomous task
         
         Args:
             kb_path: Path to knowledge base
-            content: Task content
+            content: Task content from user
             user_id: User ID
         
         Returns:
-            Agent execution result
+            Agent execution result with answer, file changes, metadata
         """
         # Get user agent
         user_agent = self.user_context_manager.get_or_create_agent(user_id)
@@ -205,6 +218,7 @@ class AgentTaskService(IAgentTaskService):
         
         try:
             # Process task with agent
+            self.logger.debug(f"[AGENT_SERVICE] Processing task with agent for user {user_id}")
             response = await user_agent.process(task_content)
             
             # Extract result from response

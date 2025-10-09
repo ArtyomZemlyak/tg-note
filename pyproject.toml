@@ -28,32 +28,33 @@ dependencies = [
     # Telegram Bot
     "pyTelegramBotAPI==4.14.0",
     # Git operations
-    "GitPython==3.1.40",
+    "GitPython>=3.1.40,<3.2.0",
     # File locking for concurrent access
-    "filelock==3.13.1",
+    "filelock>=3.13.1,<4.0.0",
     # Agent system
-    "qwen-agent==0.0.31",
+    "qwen-agent>=0.0.31,<0.1.0",
     # LLM APIs
-    "openai>=1.0.0",
+    "openai>=1.0.0,<2.0.0",
     # Utilities
-    "aiohttp==3.9.1",
+    "aiohttp>=3.9.1,<4.0.0",
     "requests>=2.32.2,<3.0.0",
     # Logging
-    "loguru==0.7.2",
+    "loguru>=0.7.2,<0.8.0",
     # Document processing
-    "docling>=2.0.0",
+    "docling>=2.0.0,<3.0.0",
     # HuggingFace for model management
-    "huggingface-hub>=0.23.0",
+    "huggingface-hub>=0.23.0,<1.0.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest==7.4.3",
-    "pytest-asyncio==0.21.1",
-    "pytest-cov==4.1.0",
-    "black==23.12.1",
-    "flake8==6.1.0",
-    "mypy==1.7.1",
+    "pytest>=7.4.3,<8.0.0",
+    "pytest-asyncio>=0.21.1,<0.24.0",
+    "pytest-cov>=4.1.0,<5.0.0",
+    "black>=23.12.1,<25.0.0",
+    "flake8>=6.1.0,<8.0.0",
+    "mypy>=1.7.1,<2.0.0",
+    "pre-commit>=3.5.0,<4.0.0",
 ]
 vector-search = [
     # Embedding models
@@ -152,3 +153,15 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
 ]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+skip_gitignore = true
+known_first_party = ["src", "config"]
+sections = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
+
+[tool.bandit]
+exclude_dirs = ["tests", "examples", "scripts"]
+skips = ["B101", "B601"]
+

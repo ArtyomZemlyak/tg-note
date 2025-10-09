@@ -132,7 +132,7 @@ class BotHandlers:
         """Handle timed-out message group"""
         try:
             self.logger.info(
-                f"Processing timed-out group for chat {chat_id} "
+                f"[HANDLER] Processing timed-out group for chat {chat_id} "
                 f"with {len(group.messages)} messages"
             )
             
@@ -156,8 +156,8 @@ class BotHandlers:
     # Command handlers
     
     async def handle_start(self, message: Message) -> None:
-        """Handle /start command"""
-        self.logger.info(f"Start command from user {message.from_user.id}")
+        """Handle /start command - welcome message"""
+        self.logger.info(f"[HANDLER] Start command from user {message.from_user.id}")
         
         welcome_text = (
             "🤖 Добро пожаловать в tg-note!\n\n"
@@ -183,8 +183,8 @@ class BotHandlers:
         await self.bot.reply_to(message, welcome_text)
     
     async def handle_help(self, message: Message) -> None:
-        """Handle /help command"""
-        self.logger.info(f"Help command from user {message.from_user.id}")
+        """Handle /help command - show help text"""
+        self.logger.info(f"[HANDLER] Help command from user {message.from_user.id}")
         
         help_text = (
             "📚 Справка по tg-note\n\n"
@@ -241,8 +241,8 @@ class BotHandlers:
         await self.bot.reply_to(message, help_text)
     
     async def handle_status(self, message: Message) -> None:
-        """Handle /status command"""
-        self.logger.info(f"Status command from user {message.from_user.id}")
+        """Handle /status command - show bot status and statistics"""
+        self.logger.info(f"[HANDLER] Status command from user {message.from_user.id}")
         
         try:
             stats = self.tracker.get_stats()
@@ -283,8 +283,8 @@ class BotHandlers:
         await self.bot.reply_to(message, status_text)
     
     async def handle_setkb(self, message: Message) -> None:
-        """Handle /setkb command"""
-        self.logger.info(f"Setkb command from user {message.from_user.id}")
+        """Handle /setkb command - configure knowledge base"""
+        self.logger.info(f"[HANDLER] Setkb command from user {message.from_user.id}")
         
         args = message.text.split(maxsplit=1)
         if len(args) < 2:
@@ -337,8 +337,8 @@ class BotHandlers:
                 await self.bot.reply_to(message, f"❌ {msg}")
     
     async def handle_kb_info(self, message: Message) -> None:
-        """Handle /kb command"""
-        self.logger.info(f"KB info command from user {message.from_user.id}")
+        """Handle /kb command - show knowledge base information"""
+        self.logger.info(f"[HANDLER] KB info command from user {message.from_user.id}")
         
         user_kb = self.user_settings.get_user_kb(message.from_user.id)
         
@@ -368,8 +368,16 @@ class BotHandlers:
         await self.bot.reply_to(message, info_text)
     
     async def handle_note_mode(self, message: Message) -> None:
-        """Handle /note command"""
-        self.logger.info(f"Note mode command from user {message.from_user.id}")
+        """
+        Handle /note command - activate note creation mode.
+        
+        In this mode, user messages are analyzed and saved to the knowledge base.
+        The bot extracts key information and structures it as markdown notes.
+        
+        Args:
+            message: Telegram message containing the /note command
+        """
+        self.logger.info(f"[HANDLER] Note mode command from user {message.from_user.id}")
         
         self.user_context_manager.set_user_mode(message.from_user.id, "note")
         
@@ -382,8 +390,16 @@ class BotHandlers:
         )
     
     async def handle_ask_mode(self, message: Message) -> None:
-        """Handle /ask command"""
-        self.logger.info(f"Ask mode command from user {message.from_user.id}")
+        """
+        Handle /ask command - activate question answering mode.
+        
+        In this mode, the agent searches the knowledge base to answer user questions.
+        Requires a configured knowledge base (/setkb).
+        
+        Args:
+            message: Telegram message containing the /ask command
+        """
+        self.logger.info(f"[HANDLER] Ask mode command from user {message.from_user.id}")
         
         user_kb = self.user_settings.get_user_kb(message.from_user.id)
         
@@ -406,8 +422,22 @@ class BotHandlers:
         )
     
     async def handle_agent_mode(self, message: Message) -> None:
-        """Handle /agent command"""
-        self.logger.info(f"Agent mode command from user {message.from_user.id}")
+        """
+        Handle /agent command - activate autonomous agent mode.
+        
+        In this mode, the agent has full access to the knowledge base and can:
+        - Answer questions
+        - Add new information
+        - Edit existing notes
+        - Restructure the knowledge base
+        - Perform any KB-related tasks autonomously
+        
+        Requires a configured knowledge base (/setkb).
+        
+        Args:
+            message: Telegram message containing the /agent command
+        """
+        self.logger.info(f"[HANDLER] Agent mode command from user {message.from_user.id}")
         
         user_kb = self.user_settings.get_user_kb(message.from_user.id)
         
@@ -435,8 +465,8 @@ class BotHandlers:
         )
     
     async def handle_reset_context(self, message: Message) -> None:
-        """Handle /resetcontext command"""
-        self.logger.info(f"Reset context command from user {message.from_user.id}")
+        """Handle /resetcontext command - clear conversation context"""
+        self.logger.info(f"[HANDLER] Reset context command from user {message.from_user.id}")
         
         # Clear conversation context for this user
         self.user_context_manager.clear_conversation_context(message.from_user.id)
@@ -461,7 +491,14 @@ class BotHandlers:
     # Message handlers
     
     async def handle_message(self, message: Message) -> None:
-        """Handle all regular messages (unified handler for all content types)"""
+        """
+        Handle all regular messages (unified handler for all content types).
+        
+        Routes messages to appropriate service based on current user mode.
+        
+        Args:
+            message: Telegram message to process
+        """
         # Skip if waiting for settings input
         if self.settings_handlers and message.from_user.id in self.settings_handlers.waiting_for_input:
             # Only accept text input in settings mode
@@ -482,7 +519,7 @@ class BotHandlers:
         
         # Log message info
         content_type = message.content_type
-        log_msg = f"{content_type.capitalize()} message from user {message.from_user.id}"
+        log_msg = f"[HANDLER] {content_type.capitalize()} message from user {message.from_user.id}"
         if content_type == 'text' and message.text:
             log_msg += f": {message.text[:50]}..."
         self.logger.info(log_msg)
@@ -494,7 +531,14 @@ class BotHandlers:
         await self.message_processor.process_message(message_dto)
     
     async def handle_forwarded_message(self, message: Message) -> None:
-        """Handle forwarded messages (all content types)"""
+        """
+        Handle forwarded messages (all content types).
+        
+        Routes forwarded messages to message processor.
+        
+        Args:
+            message: Forwarded Telegram message to process
+        """
         # Skip if waiting for settings input
         if self.settings_handlers and message.from_user.id in self.settings_handlers.waiting_for_input:
             await self.bot.reply_to(
@@ -506,7 +550,7 @@ class BotHandlers:
         
         # Log message info
         content_type = message.content_type
-        self.logger.info(f"Forwarded {content_type} message from user {message.from_user.id}")
+        self.logger.info(f"[HANDLER] Forwarded {content_type} message from user {message.from_user.id}")
         
         # Convert Telegram message to DTO
         message_dto = MessageMapper.from_telegram_message(message)
