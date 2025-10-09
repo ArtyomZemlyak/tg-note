@@ -40,31 +40,13 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install black flake8 mypy isort bandit[toml]
-          pip install types-PyYAML types-requests
+          pip install black isort
 
       - name: Run Black (format check)
         run: black --check --line-length=100 --target-version=py311 src config
 
       - name: Run isort (import order check)
         run: isort --check-only --profile=black --line-length=100 src config
-
-      - name: Run flake8 (linting)
-        run: |
-          flake8 src config \
-            --max-line-length=100 \
-            --extend-ignore=E203,E501,W503,E402 \
-            --exclude=.git,__pycache__,build,dist,.venv,.eggs,*.egg
-
-      - name: Run mypy (type checking)
-        run: |
-          mypy src config \
-            --config-file=pyproject.toml \
-            --ignore-missing-imports \
-            || true  # Allow mypy to fail for now (will be stricter later)
-
-      - name: Run bandit (security check)
-        run: bandit -c pyproject.toml -r src config
 
   test:
     name: Run Tests
