@@ -26,7 +26,7 @@ Successfully refactored the test suite to improve test execution and use mocks f
 ### 1. Fixed BotHandlers Tests
 - **Issue**: Missing `async_bot` parameter in BotHandlers initialization
 - **Fix**: Added `mock_async_bot` fixture and updated all test fixtures
-- **Files**: 
+- **Files**:
   - `tests/test_handlers_async.py`
   - `tests/test_handlers_forwarded_fix.py`
 
@@ -41,7 +41,7 @@ Successfully refactored the test suite to improve test execution and use mocks f
 - **Files**: `tests/test_kb_reading_tools.py`
 
 ### 4. Fixed Error Handling Tests
-- **Issue**: Tests calling removed method `_parse_qwen_result` 
+- **Issue**: Tests calling removed method `_parse_qwen_result`
 - **Fix**: Marked obsolete tests as skipped with clear reason
 - **Files**: `tests/test_error_handling.py`
 
