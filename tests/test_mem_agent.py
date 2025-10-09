@@ -153,7 +153,11 @@ def test_mcp_server_import():
         assert mcp is not None
         assert callable(get_agent)
     except ImportError as e:
-        pytest.fail(f"Failed to import MCP server: {e}")
+        # fastmcp is an optional dependency - skip test if not installed
+        if "fastmcp" in str(e):
+            pytest.skip(f"Skipping MCP server test - fastmcp not installed: {e}")
+        else:
+            pytest.fail(f"Failed to import MCP server: {e}")
 
 
 def test_agent_response_format():

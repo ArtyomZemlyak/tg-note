@@ -292,7 +292,15 @@ class AutonomousAgent(BaseAgent):
 
         # Knowledge base root path for safe file operations
         self.kb_root_path = kb_root_path or Path("./knowledge_base")
-        self.kb_root_path = self.kb_root_path.resolve()
+
+        # Resolve path safely - handle case where cwd doesn't exist
+        try:
+            self.kb_root_path = self.kb_root_path.resolve()
+        except (FileNotFoundError, OSError):
+            # If cwd doesn't exist, use absolute path directly
+            if not self.kb_root_path.is_absolute():
+                self.kb_root_path = Path.home() / self.kb_root_path
+            self.kb_root_path = self.kb_root_path.resolve(strict=False)
 
         # Ensure KB root path exists
         try:
