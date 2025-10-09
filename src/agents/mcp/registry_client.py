@@ -108,12 +108,22 @@ class MCPRegistryClient:
             return None
 
         # Connect
-        if await client.connect():
-            self.clients[spec.name] = client
-            logger.info(f"[MCPRegistryClient] ✓ Connected to server: {spec.name}")
-            return client
-        else:
-            logger.warning(f"[MCPRegistryClient] Failed to connect to server: {spec.name}")
+        try:
+            if await client.connect():
+                self.clients[spec.name] = client
+                logger.info(f"[MCPRegistryClient] ✓ Connected to server: {spec.name}")
+                return client
+            else:
+                logger.warning(
+                    f"[MCPRegistryClient] Failed to connect to server: {spec.name}. "
+                    f"Check if the server command '{spec.command}' is available and the server is running."
+                )
+                return None
+        except Exception as e:
+            logger.error(
+                f"[MCPRegistryClient] Error connecting to server {spec.name}: {e}",
+                exc_info=True
+            )
             return None
 
     async def connect_all_enabled(self) -> Dict[str, MCPClient]:

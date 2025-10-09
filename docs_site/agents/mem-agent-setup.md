@@ -238,6 +238,53 @@ knowledge_bases/
 - ceo: [[entities/john_smith.md]]
 ```
 
+## Available Tools
+
+The MCP Memory server provides three tools that the agent can use:
+
+### 1. `store_memory`
+Stores information in memory for later retrieval.
+
+**Parameters:**
+- `content` (string, required): Content to store in memory
+- `category` (string, optional): Category for organization (e.g., 'tasks', 'notes', 'ideas'). Default: "general"
+- `tags` (array of strings, optional): Tags for categorization
+- `metadata` (object, optional): Additional metadata
+
+**Example:**
+```json
+{
+  "content": "Found authentication vulnerability in login.py",
+  "category": "security",
+  "tags": ["vulnerability", "authentication"]
+}
+```
+
+### 2. `retrieve_memory`
+Retrieves information from memory.
+
+**Parameters:**
+- `query` (string, optional): Search query. Returns all memories if not specified
+- `category` (string, optional): Filter by category
+- `tags` (array of strings, optional): Filter by tags
+- `limit` (integer, optional): Maximum number of results. Default: 10
+
+**Example:**
+```json
+{
+  "query": "authentication",
+  "category": "security",
+  "limit": 5
+}
+```
+
+### 3. `list_categories`
+Lists all memory categories with counts.
+
+**Parameters:** None
+
+**Returns:** List of categories with memory counts
+
 ## Usage
 
 ### Through Agent

@@ -169,8 +169,18 @@ class MCPClient:
             self.is_connected = True
             return True
 
+        except FileNotFoundError as e:
+            logger.error(
+                f"[MCPClient] Failed to connect: Command not found '{self.config.command}'. "
+                f"Please ensure the command is installed and available in PATH. Error: {e}"
+            )
+            await self.disconnect()
+            return False
         except Exception as e:
-            logger.error(f"[MCPClient] Failed to connect: {e}", exc_info=True)
+            logger.error(
+                f"[MCPClient] Failed to connect to MCP server '{self.config.command}': {e}",
+                exc_info=True
+            )
             await self.disconnect()
             return False
 

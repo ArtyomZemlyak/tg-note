@@ -108,7 +108,7 @@ class MemoryMCPTool(BaseMCPTool):
                 )
                 # Return default HTTP server config
                 return MCPServerConfig(
-                    command="python",
+                    command="python3",
                     args=[
                         "-m",
                         "src.agents.mcp.memory.memory_server_http",
@@ -138,7 +138,7 @@ class MemoryMCPTool(BaseMCPTool):
             if "url" in memory_config:
                 # HTTP/SSE transport
                 return MCPServerConfig(
-                    command=memory_config.get("_command", "python"),
+                    command=memory_config.get("_command", "python3"),
                     args=memory_config.get(
                         "_args",
                         [
@@ -162,7 +162,7 @@ class MemoryMCPTool(BaseMCPTool):
             else:
                 # stdio transport (has "command" and "args" fields)
                 return MCPServerConfig(
-                    command=memory_config.get("command", "python"),
+                    command=memory_config.get("command", "python3"),
                     args=memory_config.get(
                         "args", ["-m", "src.agents.mcp.memory.memory_server_http"]
                     ),
@@ -175,7 +175,7 @@ class MemoryMCPTool(BaseMCPTool):
             logger.error(f"[MemoryMCPTool] Failed to load config from {config_file}: {e}")
             # Return default HTTP config
             return MCPServerConfig(
-                command="python",
+                command="python3",
                 args=[
                     "-m",
                     "src.agents.mcp.memory.memory_server_http",

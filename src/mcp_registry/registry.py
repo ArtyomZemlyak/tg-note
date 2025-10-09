@@ -78,7 +78,7 @@ class MCPServerRegistry:
     {
         "name": "server-name",
         "description": "Server description",
-        "command": "python",
+        "command": "python3",
         "args": ["-m", "package.server"],
         "env": {
             "VAR_NAME": "value"

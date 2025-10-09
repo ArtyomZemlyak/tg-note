@@ -303,7 +303,7 @@ class MCPServerManager:
                             "description": "Agent's personal note-taking and search system - allows the agent to record and search notes during task execution",
                             # Additional metadata for internal use
                             "_transport": "http",
-                            "_command": "python",
+                            "_command": "python3",
                             "_args": [
                                 "-m",
                                 "src.agents.mcp.mem_agent_server_http",
@@ -319,7 +319,7 @@ class MCPServerManager:
 
                 # Also save stdio variant for reference
                 config["mcpServers"]["mem-agent"]["_stdio_variant"] = {
-                    "command": "python",
+                    "command": "python3",
                     "args": [
                         "-m",
                         "src.agents.mcp.mem_agent_server_http",
@@ -351,7 +351,7 @@ class MCPServerManager:
             # Use Python module path for HTTP server
             self.register_server(
                 name="mem-agent",
-                command="python",
+                command="python3",
                 args=[
                     "-m",
                     "src.agents.mcp.mem_agent_server_http",
