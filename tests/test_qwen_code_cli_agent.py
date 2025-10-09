@@ -182,7 +182,9 @@ Main content here.
 
         # Test that agent can parse the response
         agent_result = agent.parse_agent_response(result_text)
-        kb_structure = agent.extract_kb_structure_from_response(result_text, default_category="general")
+        kb_structure = agent.extract_kb_structure_from_response(
+            result_text, default_category="general"
+        )
         todo_plan = agent._extract_todo_plan(result_text)
 
         assert agent_result.summary == "Test article processed"
@@ -209,7 +211,9 @@ Some content"""
 
         # Test that agent can parse minimal response
         agent_result = agent.parse_agent_response(result_text)
-        kb_structure = agent.extract_kb_structure_from_response(result_text, default_category="general")
+        kb_structure = agent.extract_kb_structure_from_response(
+            result_text, default_category="general"
+        )
 
         assert agent_result.summary == "Minimal content"
         assert kb_structure.category == "general"  # default category

@@ -332,7 +332,7 @@ class TestAutonomousAgent:
         """Test web search tool (checks tool execution, not actual HTTP requests)"""
         # Test with non-URL query (returns placeholder)
         result = await agent.tool_manager.execute("web_search", {"query": "test query"})
-        
+
         assert result["success"]
         assert "query" in result
         assert result["query"] == "test query"
@@ -362,7 +362,7 @@ class TestAutonomousAgent:
         # Test that the tool exists and can be called
         # Without mocking HTTP, it will make a real API call and likely get 404
         result = await agent.tool_manager.execute("github_api", {"endpoint": "/repos/user/repo"})
-        
+
         # Tool should execute and return a result
         assert "success" in result
         # Should have either error message or data from API
