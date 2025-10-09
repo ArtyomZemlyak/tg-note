@@ -36,7 +36,8 @@ class ProcessingTracker:
         with lock:
             try:
                 with open(self.storage_path, 'r', encoding='utf-8') as f:
-                    return json.load(f)
+                    data: Dict[Any, Any] = json.load(f)
+                    return data
             except json.JSONDecodeError:
                 logger.error("Failed to decode JSON, returning empty data")
                 return {"processed_messages": [], "pending_groups": []}

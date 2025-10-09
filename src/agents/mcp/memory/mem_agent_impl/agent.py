@@ -19,7 +19,7 @@ from src.agents.mcp.memory.mem_agent_impl.settings import (
 )
 from src.agents.mcp.memory.mem_agent_impl.schemas import ChatMessage, Role, AgentResponse
 
-from typing import Union, Tuple
+from typing import Optional, Union, Tuple
 
 import json
 import os
@@ -30,9 +30,9 @@ class Agent:
     def __init__(
         self,
         max_tool_turns: int = MAX_TOOL_TURNS,
-        memory_path: str = None,
+        memory_path: Optional[str] = None,
         use_vllm: bool = False,
-        model: str = None,
+        model: Optional[str] = None,
         predetermined_memory_path: bool = False,
     ):
         # Load the system prompt and add it to the conversation history

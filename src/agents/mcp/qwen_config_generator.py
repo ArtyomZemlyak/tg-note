@@ -15,7 +15,7 @@ For STDIO mode, set use_http=False
 import json
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
@@ -44,7 +44,7 @@ class QwenMCPConfigGenerator:
         Returns:
             Configuration dict with mcpServers
         """
-        config = {
+        config: Dict[str, Any] = {
             "mcpServers": {}
         }
         
@@ -59,7 +59,8 @@ class QwenMCPConfigGenerator:
         
         # Add allowMCPServers list
         if config["mcpServers"]:
-            config["allowMCPServers"] = list(config["mcpServers"].keys())
+            servers: List[str] = list(config["mcpServers"].keys())
+            config["allowMCPServers"] = servers
         
         return config
     
@@ -89,20 +90,22 @@ class QwenMCPConfigGenerator:
         
         # Use python3 command with relative path to script (relative to cwd)
         # This allows the configuration to work on any system where the project is located
-        config = {
+        args_list: List[str] = [
+            str(server_script.relative_to(self.project_root).as_posix())
+        ]
+        
+        # Add user-id argument if specified
+        if self.user_id:
+            args_list.extend(["--user-id", str(self.user_id)])
+        
+        config: Dict[str, Any] = {
             "command": "python3",
-            "args": [
-                str(server_script.relative_to(self.project_root).as_posix())
-            ],
+            "args": args_list,
             "cwd": str(self.project_root),
             "timeout": 10000,  # 10 seconds
             "trust": True,  # Trust our own server
             "description": "Memory storage and retrieval agent"
         }
-        
-        # Add user-id argument if specified
-        if self.user_id:
-            config["args"].extend(["--user-id", str(self.user_id)])
         
         return config
     

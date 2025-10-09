@@ -201,11 +201,11 @@ def execute_sandboxed_code(
     code: str,
     timeout: int = SANDBOX_TIMEOUT,
     allow_installs: bool = False,
-    requirements_path: str = None,
-    allowed_path: str = None,
-    blacklist: list = None,
-    available_functions: dict = None,
-    import_module: str = None,
+    requirements_path: Optional[str] = None,
+    allowed_path: Optional[str] = None,
+    blacklist: Optional[list] = None,
+    available_functions: Optional[dict] = None,
+    import_module: Optional[str] = None,
     log: bool = False,
 ) -> tuple[dict, str]:
     """

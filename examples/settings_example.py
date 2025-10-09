@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Example: Using Settings Management System
+Example: Using Settings Management System.
 
 This example demonstrates how to:
 1. Add a new setting to the system
@@ -10,7 +10,6 @@ This example demonstrates how to:
 
 from pathlib import Path
 from pydantic import Field
-from pydantic_settings import BaseSettings
 
 from config.settings import Settings
 from src.bot.settings_manager import SettingsManager, SettingsInspector, UserSettingsStorage
@@ -21,7 +20,7 @@ from src.bot.settings_manager import SettingsManager, SettingsInspector, UserSet
 # ============================================================================
 
 class ExtendedSettings(Settings):
-    """Extended settings with new features"""
+    """Extended settings with new features."""
     
     # Add a new KB setting - automatically appears in /kbsettings
     KB_AUTO_CATEGORIZE: bool = Field(

@@ -12,7 +12,7 @@ The registry simply collects and registers them.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 from loguru import logger
 
 from .base_tool import BaseTool, ToolContext
@@ -46,7 +46,7 @@ class ToolManager:
         self._tools[tool.name] = tool
         logger.debug(f"[ToolManager] Registered tool: {tool.name}")
     
-    def register_many(self, tools: List[BaseTool]) -> None:
+    def register_many(self, tools: Sequence[BaseTool]) -> None:
         """
         Register multiple tools at once
         

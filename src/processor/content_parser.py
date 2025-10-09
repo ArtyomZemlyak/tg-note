@@ -37,7 +37,8 @@ class ContentParser:
         """
         text = message.get("text", "")
         caption = message.get("caption", "")
-        return text or caption
+        result: str = text or caption
+        return result
     
     @staticmethod
     def extract_urls(text: str) -> List[str]:

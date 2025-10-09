@@ -398,7 +398,7 @@ class QdrantVectorStore(BaseVectorStore):
         
         try:
             collection_info = client.get_collection(self.collection_name)
-            return collection_info.points_count
+            return int(collection_info.points_count)
         except Exception as e:
             logger.error(f"Error getting count from Qdrant: {e}")
             return 0
