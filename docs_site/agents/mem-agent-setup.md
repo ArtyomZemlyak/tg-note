@@ -1,27 +1,21 @@
 # Memory System Setup Guide
 
-This guide covers the installation, configuration, and usage of the MCP Memory tool - a personal note-taking and search system for autonomous agents.
-
-> **Terminology Note:**
->
-> - **MCP Memory** - The current note-taking tool for agents (what you're setting up here)
-> - **mem-agent** - A planned future LLM-based memory assistant (not yet implemented)
->
-> The configuration still uses `MEM_AGENT_*` prefixes for historical reasons.
+This guide covers the installation, configuration, and usage of the MCP Memory system - a flexible note-taking and search system for autonomous agents with multiple storage backends.
 
 ## Overview
 
-The MCP Memory tool is a local note-taking system specifically designed for the main agent. The agent uses it to:
+The MCP Memory system is a local note-taking and search system specifically designed for autonomous agents. The agent uses it to:
 
 - **Record notes**: Write down important information, findings, or context during task execution
 - **Search notes**: Find and recall previously recorded information to "remember" details
 - **Maintain context**: Keep working memory across multiple LLM calls within a single session
+- **Organize information**: Intelligently structure and link related information (advanced modes)
 
 This is particularly useful for autonomous agents (like qwen code cli) that make many LLM calls within one continuous session.
 
 ### Storage Types
 
-The system supports two storage backends:
+The system supports three storage backends:
 
 #### 1. JSON Storage (Default)
 
@@ -30,12 +24,20 @@ The system supports two storage backends:
 - **Lightweight**: Minimal memory footprint
 - **Best for**: Most users, small to medium memory sizes, simple search needs
 
-#### 2. Model-Based Storage
+#### 2. Vector Storage
 
-- **AI-Powered**: Semantic search using the `BAAI/bge-m3` model from HuggingFace
+- **AI-Powered**: Semantic search using embeddings from HuggingFace models (e.g., `BAAI/bge-m3`)
 - **Smart Search**: Understands meaning, not just keywords
 - **Best for**: Large memory sizes, complex queries, semantic understanding needed
 - **Requires**: Additional dependencies (transformers, sentence-transformers)
+
+#### 3. Mem-Agent Storage (Advanced)
+
+- **LLM-Based**: Uses an LLM (driaforall/mem-agent) to reason about memory operations
+- **Structured Memory**: Obsidian-style markdown files with wiki-links
+- **Intelligent Organization**: Automatically creates and links entities, maintains relationships
+- **Best for**: Complex scenarios requiring intelligent memory organization
+- **Requires**: LLM model, additional dependencies (fastmcp, transformers)
 
 The storage type is configured via `MEM_AGENT_STORAGE_TYPE` setting (default: `json`).
 
@@ -59,20 +61,20 @@ This will:
 
 ### Configuration
 
-Enable mem-agent in your `config.yaml`:
+Enable memory system in your `config.yaml`:
 
 ```yaml
 # Enable MCP support
 AGENT_ENABLE_MCP: true
 AGENT_ENABLE_MCP_MEMORY: true
 
-# Memory agent settings
-MEM_AGENT_STORAGE_TYPE: json  # Storage type: "json" (default) or "vector"
-MEM_AGENT_MODEL: BAAI/bge-m3  # Model for semantic search (if using "vector" storage)
+# Memory storage settings
+MEM_AGENT_STORAGE_TYPE: json  # Storage type: "json", "vector", or "mem-agent"
+MEM_AGENT_MODEL: BAAI/bge-m3  # Model for embeddings (vector) or LLM (mem-agent)
 MEM_AGENT_MODEL_PRECISION: 4bit
 MEM_AGENT_BACKEND: auto
 MEM_AGENT_MEMORY_POSTFIX: memory  # Postfix within KB (kb_path/memory)
-MEM_AGENT_MAX_TOOL_TURNS: 20
+MEM_AGENT_MAX_TOOL_TURNS: 20  # For mem-agent storage type only
 
 # MCP settings
 MCP_SERVERS_POSTFIX: .mcp_servers  # Per-user MCP servers (kb_path/.mcp_servers)
@@ -83,8 +85,8 @@ Or use environment variables in `.env`:
 ```bash
 AGENT_ENABLE_MCP=true
 AGENT_ENABLE_MCP_MEMORY=true
-MEM_AGENT_STORAGE_TYPE=json  # or "vector" for semantic search
-MEM_AGENT_MODEL=BAAI/bge-m3
+MEM_AGENT_STORAGE_TYPE=json  # "json", "vector", or "mem-agent"
+MEM_AGENT_MODEL=BAAI/bge-m3  # or driaforall/mem-agent for LLM-based
 MEM_AGENT_MODEL_PRECISION=4bit
 MEM_AGENT_BACKEND=auto
 MEM_AGENT_MEMORY_POSTFIX=memory
@@ -100,14 +102,21 @@ MCP_SERVERS_POSTFIX=.mcp_servers
 - You don't want to download ML models
 - You have limited resources
 
-**Use Model-based storage if:**
+**Use Vector storage if:**
 
 - You need semantic search (understands meaning)
 - You have large amounts of memories
 - You want AI-powered relevance ranking
 - You have resources for ML models
 
-To enable model-based storage:
+**Use Mem-Agent storage if:**
+
+- You need intelligent memory organization
+- You want structured Obsidian-style notes with wiki-links
+- You need the system to understand relationships between entities
+- You have resources for running an LLM
+
+To enable vector storage:
 
 1. Set `MEM_AGENT_STORAGE_TYPE: vector` in config
 2. Install additional dependencies:
@@ -117,6 +126,18 @@ To enable model-based storage:
    ```
 
 3. The model will be downloaded automatically on first use
+
+To enable mem-agent storage:
+
+1. Set `MEM_AGENT_STORAGE_TYPE: mem-agent` in config
+2. Set `MEM_AGENT_MODEL: driaforall/mem-agent` in config
+3. Install additional dependencies:
+
+   ```bash
+   pip install fastmcp transformers torch
+   ```
+
+4. The model will be downloaded automatically on first use
 
 ### Verification
 
@@ -378,31 +399,32 @@ huggingface-cli delete-cache
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `MEM_AGENT_STORAGE_TYPE` | `json` | Storage type: `json` (simple) or `vector` (AI-powered) |
-| `MEM_AGENT_MODEL` | `BAAI/bge-m3` | HuggingFace model ID (for `vector` storage type) |
+| `MEM_AGENT_STORAGE_TYPE` | `json` | Storage type: `json`, `vector`, or `mem-agent` |
+| `MEM_AGENT_MODEL` | `BAAI/bge-m3` | Model ID (embeddings for vector, LLM for mem-agent) |
 | `MEM_AGENT_MODEL_PRECISION` | `4bit` | Model precision (4bit, 8bit, fp16) |
 | `MEM_AGENT_BACKEND` | `auto` | Backend (auto, vllm, mlx, transformers) |
 | `MEM_AGENT_MEMORY_POSTFIX` | `memory` | Memory directory postfix within KB |
-| `MEM_AGENT_MAX_TOOL_TURNS` | `20` | Max tool execution iterations |
-| `MEM_AGENT_TIMEOUT` | `20` | Timeout for code execution (seconds) |
-| `MEM_AGENT_VLLM_HOST` | `127.0.0.1` | vLLM server host |
-| `MEM_AGENT_VLLM_PORT` | `8001` | vLLM server port |
-| `MEM_AGENT_FILE_SIZE_LIMIT` | `1048576` | Max file size (1MB) |
-| `MEM_AGENT_DIR_SIZE_LIMIT` | `10485760` | Max directory size (10MB) |
-| `MEM_AGENT_MEMORY_SIZE_LIMIT` | `104857600` | Max total memory (100MB) |
+| `MEM_AGENT_MAX_TOOL_TURNS` | `20` | Max tool execution iterations (mem-agent only) |
+| `MEM_AGENT_TIMEOUT` | `20` | Timeout for code execution (mem-agent only) |
+| `MEM_AGENT_VLLM_HOST` | `127.0.0.1` | vLLM server host (if using vllm backend) |
+| `MEM_AGENT_VLLM_PORT` | `8001` | vLLM server port (if using vllm backend) |
+| `MEM_AGENT_FILE_SIZE_LIMIT` | `1048576` | Max file size - 1MB (mem-agent only) |
+| `MEM_AGENT_DIR_SIZE_LIMIT` | `10485760` | Max directory size - 10MB (mem-agent only) |
+| `MEM_AGENT_MEMORY_SIZE_LIMIT` | `104857600` | Max total memory - 100MB (mem-agent only) |
 | `MCP_SERVERS_POSTFIX` | `.mcp_servers` | MCP servers directory postfix within KB |
 
 ### Storage Type Comparison
 
-| Feature | JSON Storage | Model-Based Storage |
-|---------|-------------|---------------------|
-| Search Type | Substring match | Semantic similarity |
-| Speed | Very fast | Moderate (first query slower) |
-| Memory Usage | Minimal | Higher (model in memory) |
-| Dependencies | None | transformers, sentence-transformers |
-| Model Download | Not required | Required (~400MB) |
-| Best Use Case | Simple searches | Complex semantic queries |
-| Example Query | "vulnerability" finds "vulnerability" | "security issue" finds "vulnerability" |
+| Feature | JSON Storage | Vector Storage | Mem-Agent Storage |
+|---------|-------------|----------------|-------------------|
+| Search Type | Substring match | Semantic similarity | LLM-powered understanding |
+| Speed | Very fast | Moderate | Slower (LLM inference) |
+| Memory Usage | Minimal | Higher (embedding model) | Highest (LLM model) |
+| Dependencies | None | transformers, sentence-transformers | fastmcp, transformers |
+| Model Download | Not required | Required (~400MB) | Required (~8GB) |
+| Organization | Simple key-value | Embeddings-based | Structured Obsidian-style |
+| Best Use Case | Simple searches | Semantic queries | Complex reasoning & organization |
+| Example Query | "vulnerability" → exact match | "security issue" → semantic match | Natural language queries with context |
 
 ### Backend Selection Logic
 

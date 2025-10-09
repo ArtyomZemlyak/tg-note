@@ -306,7 +306,7 @@ class MCPServerManager:
                             "_command": "python3",
                             "_args": [
                                 "-m",
-                                "src.agents.mcp.mem_agent_server_http",
+                                "src.agents.mcp.memory.memory_server_http",
                                 "--host",
                                 "127.0.0.1",
                                 "--port",
@@ -322,7 +322,7 @@ class MCPServerManager:
                     "command": "python3",
                     "args": [
                         "-m",
-                        "src.agents.mcp.mem_agent_server_http",
+                        "src.agents.mcp.memory.memory_server_http",
                         "--host",
                         "127.0.0.1",
                         "--port",
@@ -354,7 +354,7 @@ class MCPServerManager:
                 command="python3",
                 args=[
                     "-m",
-                    "src.agents.mcp.mem_agent_server_http",
+                    "src.agents.mcp.memory.memory_server_http",
                     "--host",
                     "127.0.0.1",
                     "--port",

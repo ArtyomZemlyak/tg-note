@@ -316,12 +316,12 @@ AGENT_ENABLE_MCP: false
 #
 # - false: Memory agent disabled (default)
 #
-# - true: Enable local memory management with mem-agent
-#         Uses HuggingFace model for intelligent memory storage
+# - true: Enable local memory management with memory storage
+#         Provides note-taking and search capabilities for the agent
 #         Requires:
 #         * AGENT_ENABLE_MCP=true
 #         * Running scripts/install_mem_agent.py first
-#         * Model: BAAI/bge-m3 from HuggingFace
+#         * Storage type configured via MEM_AGENT_STORAGE_TYPE
 #
 # Installation:
 #   python scripts/install_mem_agent.py
@@ -331,12 +331,23 @@ AGENT_ENABLE_MCP: false
 #   This ensures per-user isolation and privacy
 AGENT_ENABLE_MCP_MEMORY: false
 
+# MCP_SERVERS_POSTFIX: Directory name for MCP server configs within each user's KB
+#
+# Default: ".mcp_servers"
+# Full path will be: {kb_path}/.mcp_servers/
+# Each user gets their own isolated MCP server configurations
+#
+# Example:
+#   If kb_path is "./knowledge_bases/my-notes" and postfix is ".mcp_servers"
+#   Then MCP configs will be stored at: "./knowledge_bases/my-notes/.mcp_servers/"
+MCP_SERVERS_POSTFIX: .mcp_servers
+
 
 # ───────────────────────────────────────────────────────────────────────────────
-# Memory Agent Settings (Local LLM)
+# Memory Agent Settings
 # ───────────────────────────────────────────────────────────────────────────────
-# Configuration for the local mem-agent that provides intelligent memory management
-# using a locally-run LLM model. No API keys required.
+# Configuration for the memory storage system that provides note-taking and search
+# capabilities for autonomous agents. Supports multiple storage backends.
 
 # MEM_AGENT_STORAGE_TYPE: Type of memory storage to use
 #
@@ -345,38 +356,57 @@ AGENT_ENABLE_MCP_MEMORY: false
 #           * Fast and lightweight
 #           * No ML dependencies required
 #           * Works immediately without model download
+#           * Best for: keyword-based search, simple use cases
+#
 # - "vector": AI-powered semantic search using embeddings
-#           * Semantic similarity search
-#           * Better understanding of queries
+#           * Semantic similarity search (understands meaning, not just keywords)
+#           * Better understanding of complex queries
 #           * Requires model download and ML dependencies (transformers, sentence-transformers)
+#           * Best for: large memory collections, semantic understanding needed
+#
+# - "mem-agent": LLM-based intelligent memory with Obsidian-style markdown (ADVANCED)
+#           * Uses LLM to reason about memory operations
+#           * Maintains Obsidian-style markdown files with wiki-links
+#           * Structured memory (user.md, entities/*.md)
+#           * Requires LLM model (driaforall/mem-agent or compatible)
+#           * Best for: complex scenarios requiring intelligent organization
 #
 # Default: "json"
 MEM_AGENT_STORAGE_TYPE: json
 
-# MEM_AGENT_MODEL: HuggingFace model ID for memory agent
+# MEM_AGENT_MODEL: HuggingFace model ID for memory storage
+#
+# For "vector" storage type:
+#   - BAAI/bge-m3 (default): High-quality multilingual embedding model
+#   - sentence-transformers/all-MiniLM-L6-v2: Smaller, faster alternative
+#
+# For "mem-agent" storage type:
+#   - driaforall/mem-agent (default): LLM for intelligent memory management
 #
 # Default: BAAI/bge-m3
-# This is an embedding model for vector-based semantic search
-# Only used when MEM_AGENT_STORAGE_TYPE is set to "vector"
 MEM_AGENT_MODEL: BAAI/bge-m3
 
-# MEM_AGENT_MODEL_PRECISION: Model quantization precision
+# MEM_AGENT_MODEL_PRECISION: Model quantization precision (for "vector" and "mem-agent" types)
 #
 # Available options:
-# - "4bit": Smallest, fastest, lowest quality (RECOMMENDED for most users)
+# - "4bit": Smallest, fastest, good quality (RECOMMENDED for most users)
 # - "8bit": Balanced size and quality
 # - "fp16": Full precision, highest quality, requires more resources
+#
+# Default: 4bit
 MEM_AGENT_MODEL_PRECISION: 4bit
 
-# MEM_AGENT_BACKEND: Backend for running the model
+# MEM_AGENT_BACKEND: Backend for running the model (for "vector" and "mem-agent" types)
 #
 # Available options:
 # - "auto": Automatically detect best backend (RECOMMENDED)
 #           * macOS: Uses MLX if available, otherwise transformers
 #           * Linux/Windows: Uses vLLM if available, otherwise transformers
-# - "vllm": Use vLLM backend (fast, for Linux/Windows)
+# - "vllm": Use vLLM backend (fast, for Linux/Windows with GPU)
 # - "mlx": Use MLX backend (optimized for Apple Silicon)
-# - "transformers": Use HuggingFace transformers (fallback, slower)
+# - "transformers": Use HuggingFace transformers (fallback, CPU-friendly)
+#
+# Default: auto
 MEM_AGENT_BACKEND: auto
 
 # MEM_AGENT_VLLM_HOST: vLLM server host (only used if backend is vllm)
@@ -390,31 +420,44 @@ MEM_AGENT_VLLM_PORT: 8001
 # Default: "memory"
 # Full path will be: {kb_path}/memory/
 # Each user gets their own isolated memory directory
+#
+# Example:
+#   If kb_path is "./knowledge_bases/my-notes" and postfix is "memory"
+#   Then memory will be stored at: "./knowledge_bases/my-notes/memory/"
 MEM_AGENT_MEMORY_POSTFIX: memory
 
-# MEM_AGENT_MAX_TOOL_TURNS: Maximum number of tool execution turns
+# MEM_AGENT_MAX_TOOL_TURNS: Maximum number of tool execution turns (for "mem-agent" type)
 #
-# Prevents infinite loops in memory operations
+# Prevents infinite loops in LLM memory operations
+# Only applicable when MEM_AGENT_STORAGE_TYPE is "mem-agent"
+#
+# Default: 20
 MEM_AGENT_MAX_TOOL_TURNS: 20
 
-# MEM_AGENT_TIMEOUT: Timeout for sandboxed code execution (seconds)
+# MEM_AGENT_TIMEOUT: Timeout for sandboxed code execution in seconds (for "mem-agent" type)
 #
 # Safety limit for memory operations
+# Only applicable when MEM_AGENT_STORAGE_TYPE is "mem-agent"
+#
+# Default: 20
 MEM_AGENT_TIMEOUT: 20
 
-# MEM_AGENT_FILE_SIZE_LIMIT: Maximum file size in bytes
+# MEM_AGENT_FILE_SIZE_LIMIT: Maximum file size in bytes (for "mem-agent" type)
 #
-# Default: 1MB - prevents memory files from growing too large
+# Default: 1048576 (1MB) - prevents memory files from growing too large
+# Only applicable when MEM_AGENT_STORAGE_TYPE is "mem-agent"
 MEM_AGENT_FILE_SIZE_LIMIT: 1048576
 
-# MEM_AGENT_DIR_SIZE_LIMIT: Maximum directory size in bytes
+# MEM_AGENT_DIR_SIZE_LIMIT: Maximum directory size in bytes (for "mem-agent" type)
 #
-# Default: 10MB - limits total size of entities directory
+# Default: 10485760 (10MB) - limits total size of entities directory
+# Only applicable when MEM_AGENT_STORAGE_TYPE is "mem-agent"
 MEM_AGENT_DIR_SIZE_LIMIT: 10485760
 
-# MEM_AGENT_MEMORY_SIZE_LIMIT: Maximum total memory size in bytes
+# MEM_AGENT_MEMORY_SIZE_LIMIT: Maximum total memory size in bytes (for "mem-agent" type)
 #
-# Default: 100MB - limits total size of all memory data
+# Default: 104857600 (100MB) - limits total size of all memory data
+# Only applicable when MEM_AGENT_STORAGE_TYPE is "mem-agent"
 MEM_AGENT_MEMORY_SIZE_LIMIT: 104857600
 
 
