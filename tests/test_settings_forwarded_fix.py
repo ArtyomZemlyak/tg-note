@@ -33,8 +33,8 @@ class TestSettingsForwardedMessageFix:
         """Create settings handlers instance"""
         storage_file = str(Path(temp_storage_dir) / "user_settings_overrides.json")
         # Mock the SettingsManager initialization to avoid file I/O
-        with patch('src.bot.settings_handlers.SettingsManager') as mock_manager:
-            with patch('src.bot.settings_handlers.SettingsInspector') as mock_inspector:
+        with patch("src.bot.settings_handlers.SettingsManager") as mock_manager:
+            with patch("src.bot.settings_handlers.SettingsInspector") as mock_inspector:
                 mock_manager_instance = Mock()
                 mock_inspector_instance = Mock()
                 mock_manager.return_value = mock_manager_instance

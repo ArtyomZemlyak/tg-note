@@ -57,17 +57,23 @@ class TestQwenCodeCLIAgentErrorHandling:
         """Create test agent with mocked CLI"""
         return QwenCodeCLIAgent()
 
-    @pytest.mark.skip(reason="Method _parse_qwen_result was removed during refactoring. QwenCodeCLIAgent now uses direct CLI output")
+    @pytest.mark.skip(
+        reason="Method _parse_qwen_result was removed during refactoring. QwenCodeCLIAgent now uses direct CLI output"
+    )
     def test_parse_result_with_empty_metadata(self, agent):
         """Test parsing result with empty metadata values (OBSOLETE)"""
         pass
 
-    @pytest.mark.skip(reason="Method _parse_qwen_result was removed during refactoring. QwenCodeCLIAgent now uses direct CLI output")
+    @pytest.mark.skip(
+        reason="Method _parse_qwen_result was removed during refactoring. QwenCodeCLIAgent now uses direct CLI output"
+    )
     def test_parse_result_with_invalid_metadata(self, agent):
         """Test parsing result with malformed metadata (OBSOLETE)"""
         pass
 
-    @pytest.mark.skip(reason="Method _parse_qwen_result was removed during refactoring. QwenCodeCLIAgent now uses direct CLI output")
+    @pytest.mark.skip(
+        reason="Method _parse_qwen_result was removed during refactoring. QwenCodeCLIAgent now uses direct CLI output"
+    )
     def test_parse_result_no_title(self, agent):
         """Test parsing result without title (OBSOLETE)"""
         pass

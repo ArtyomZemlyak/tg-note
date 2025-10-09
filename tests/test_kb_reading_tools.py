@@ -44,6 +44,7 @@ def temp_kb():
 def tool_context(temp_kb):
     """Create a tool context for testing"""
     from src.agents.base_agent import BaseAgent
+
     return ToolContext(kb_root_path=temp_kb, base_agent_class=BaseAgent)
 
 
@@ -132,9 +133,7 @@ async def test_kb_search_content(tool_context):
     tool = KBSearchContentTool()
 
     # Test searching for content
-    result = await tool.execute(
-        {"query": "neural networks", "case_sensitive": False}, tool_context
-    )
+    result = await tool.execute({"query": "neural networks", "case_sensitive": False}, tool_context)
 
     assert result["success"] is True
     assert result["files_found"] >= 1
@@ -147,9 +146,7 @@ async def test_kb_search_content(tool_context):
     assert result["files_found"] >= 1
 
     # Test searching with file pattern
-    result = await tool.execute(
-        {"query": "machine learning", "file_pattern": "*.md"}, tool_context
-    )
+    result = await tool.execute({"query": "machine learning", "file_pattern": "*.md"}, tool_context)
 
     assert result["success"] is True
 
