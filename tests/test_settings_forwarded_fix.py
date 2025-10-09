@@ -3,16 +3,25 @@ Test for settings handler forwarded message exclusion
 Verifies that forwarded messages are not caught by settings input handler
 """
 
-from unittest.mock import Mock
+import tempfile
+from pathlib import Path
+from unittest.mock import Mock, patch
 
 import pytest
 from telebot.types import Chat, Message, User
 
 from src.bot.settings_handlers import SettingsHandlers
+from src.bot.settings_manager import UserSettingsStorage
 
 
 class TestSettingsForwardedMessageFix:
     """Test that settings handler correctly excludes forwarded messages"""
+
+    @pytest.fixture
+    def temp_storage_dir(self):
+        """Create temporary directory for storage"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield tmpdir
 
     @pytest.fixture
     def mock_bot(self):
@@ -20,9 +29,17 @@ class TestSettingsForwardedMessageFix:
         return Mock()
 
     @pytest.fixture
-    def settings_handlers(self, mock_bot):
+    def settings_handlers(self, mock_bot, temp_storage_dir):
         """Create settings handlers instance"""
-        return SettingsHandlers(mock_bot, handlers=None)
+        storage_file = str(Path(temp_storage_dir) / "user_settings_overrides.json")
+        # Mock the SettingsManager initialization to avoid file I/O
+        with patch("src.bot.settings_handlers.SettingsManager") as mock_manager:
+            with patch("src.bot.settings_handlers.SettingsInspector") as mock_inspector:
+                mock_manager_instance = Mock()
+                mock_inspector_instance = Mock()
+                mock_manager.return_value = mock_manager_instance
+                mock_inspector.return_value = mock_inspector_instance
+                return SettingsHandlers(mock_bot, handlers=None)
 
     @pytest.fixture
     def test_message(self):
