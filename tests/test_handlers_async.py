@@ -257,11 +257,13 @@ class TestHandlersAsync:
         mock_bot.reply_to.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_handle_ask_mode_no_kb(self, handlers, test_message, mock_bot, mock_user_settings):
+    async def test_handle_ask_mode_no_kb(
+        self, handlers, test_message, mock_bot, mock_user_settings
+    ):
         """Test that /ask command requires KB to be configured"""
         # Ensure mock returns None to simulate no KB
         mock_user_settings.get_user_kb.return_value = None
-        
+
         await handlers.handle_ask_mode(test_message)
 
         # Should show error when no KB configured
@@ -271,11 +273,13 @@ class TestHandlersAsync:
         assert "База знаний не настроена" in call_args[0][1]
 
     @pytest.mark.asyncio
-    async def test_handle_agent_mode_no_kb(self, handlers, test_message, mock_bot, mock_user_settings):
+    async def test_handle_agent_mode_no_kb(
+        self, handlers, test_message, mock_bot, mock_user_settings
+    ):
         """Test that /agent command requires KB to be configured"""
         # Ensure mock returns None to simulate no KB
         mock_user_settings.get_user_kb.return_value = None
-        
+
         await handlers.handle_agent_mode(test_message)
 
         # Should show error when no KB configured

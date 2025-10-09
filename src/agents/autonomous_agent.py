@@ -292,7 +292,7 @@ class AutonomousAgent(BaseAgent):
 
         # Knowledge base root path for safe file operations
         self.kb_root_path = kb_root_path or Path("./knowledge_base")
-        
+
         # Resolve path safely - handle case where cwd doesn't exist
         try:
             self.kb_root_path = self.kb_root_path.resolve()

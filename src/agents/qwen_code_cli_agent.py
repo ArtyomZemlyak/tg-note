@@ -72,7 +72,7 @@ class QwenCodeCLIAgent(BaseAgent):
 
         self.instruction = instruction or self.DEFAULT_INSTRUCTION
         self.qwen_cli_path = qwen_cli_path
-        
+
         # Get working directory - handle case where cwd doesn't exist
         if working_directory:
             self.working_directory = working_directory
@@ -82,7 +82,7 @@ class QwenCodeCLIAgent(BaseAgent):
             except (FileNotFoundError, OSError):
                 # Fallback to a default location if cwd doesn't exist
                 self.working_directory = str(Path.home())
-        
+
         self.timeout = timeout
 
         # Tool settings

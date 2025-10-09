@@ -182,9 +182,7 @@ class TestQwenCodeCLIAgentMCPIntegration:
             with patch("src.agents.mcp.get_mcp_tools_description") as mock_get:
                 mock_get.return_value = "# Test MCP Tools"
 
-                with patch(
-                    "src.agents.mcp.format_mcp_tools_for_prompt"
-                ) as mock_format:
+                with patch("src.agents.mcp.format_mcp_tools_for_prompt") as mock_format:
                     mock_format.return_value = "\n---\n\n# Test MCP Tools"
 
                     description = await agent.get_mcp_tools_description()
