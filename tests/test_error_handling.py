@@ -57,50 +57,20 @@ class TestQwenCodeCLIAgentErrorHandling:
         """Create test agent with mocked CLI"""
         return QwenCodeCLIAgent()
 
+    @pytest.mark.skip(reason="Method _parse_qwen_result was removed during refactoring. QwenCodeCLIAgent now uses direct CLI output")
     def test_parse_result_with_empty_metadata(self, agent):
-        """Test parsing result with empty metadata values"""
-        result_text = """# Test
-```metadata
-category:
-subcategory:
-tags:
-```
-Content here.
-"""
+        """Test parsing result with empty metadata values (OBSOLETE)"""
+        pass
 
-        parsed = agent._parse_qwen_result(result_text)
-
-        # Should have defaults
-        assert parsed["title"] == "Test"
-        assert parsed["category"] == "general"
-        assert parsed["tags"] == ["untagged"]
-
+    @pytest.mark.skip(reason="Method _parse_qwen_result was removed during refactoring. QwenCodeCLIAgent now uses direct CLI output")
     def test_parse_result_with_invalid_metadata(self, agent):
-        """Test parsing result with malformed metadata"""
-        result_text = """# Test
-```metadata
-category ai
-subcategory
-tags ml neural
-```
-Content here.
-"""
+        """Test parsing result with malformed metadata (OBSOLETE)"""
+        pass
 
-        parsed = agent._parse_qwen_result(result_text)
-
-        # Should handle gracefully with defaults
-        assert parsed["title"] == "Test"
-        assert parsed["category"] == "general"
-        assert parsed["tags"] == ["untagged"]
-
+    @pytest.mark.skip(reason="Method _parse_qwen_result was removed during refactoring. QwenCodeCLIAgent now uses direct CLI output")
     def test_parse_result_no_title(self, agent):
-        """Test parsing result without title"""
-        result_text = "Some content without a title heading"
-
-        parsed = agent._parse_qwen_result(result_text)
-
-        # Should have default title
-        assert parsed["title"] == "Untitled Note"
+        """Test parsing result without title (OBSOLETE)"""
+        pass
 
     def test_fallback_processing_empty_content(self, agent):
         """Test fallback processing with empty content"""

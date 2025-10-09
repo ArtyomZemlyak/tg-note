@@ -128,7 +128,7 @@ def test_empty_text():
 def test_very_long_paragraph():
     """Test handling of paragraph longer than chunk size"""
     chunker = DocumentChunker(
-        strategy=ChunkingStrategy.SEMANTIC, chunk_size=50, respect_headers=False
+        strategy=ChunkingStrategy.SEMANTIC, chunk_size=50, chunk_overlap=10, respect_headers=False
     )
 
     # Create a very long paragraph (no double newlines)

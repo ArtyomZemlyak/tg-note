@@ -18,11 +18,18 @@ class TestHandlersForwardedMessageFix:
 
     @pytest.fixture
     def mock_bot(self):
-        """Create mock async bot"""
+        """Create mock bot (BotPort interface)"""
         mock = Mock()
         mock.reply_to = AsyncMock()
         mock.send_message = AsyncMock()
         mock.edit_message_text = AsyncMock()
+        return mock
+
+    @pytest.fixture
+    def mock_async_bot(self):
+        """Create mock async bot (AsyncTeleBot)"""
+        mock = Mock()
+        mock.message_handler = Mock(return_value=lambda f: f)
         return mock
 
     @pytest.fixture
@@ -70,6 +77,7 @@ class TestHandlersForwardedMessageFix:
     def handlers(
         self,
         mock_bot,
+        mock_async_bot,
         mock_tracker,
         mock_repo_manager,
         mock_user_settings,
@@ -81,6 +89,7 @@ class TestHandlersForwardedMessageFix:
         """Create handlers instance with settings_handlers"""
         h = BotHandlers(
             bot=mock_bot,
+            async_bot=mock_async_bot,
             tracker=mock_tracker,
             repo_manager=mock_repo_manager,
             user_settings=mock_user_settings,
