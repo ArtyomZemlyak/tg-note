@@ -63,4 +63,4 @@ async def test_stub_agent_title_generation():
     }
     
     result = await agent.process(long_content)
-    assert len(result["title"]) <= 53  # 50 chars + "..."
+    assert len(result["title"]) <= 63  # 60 chars + "..." (MAX_TITLE_LENGTH=60)

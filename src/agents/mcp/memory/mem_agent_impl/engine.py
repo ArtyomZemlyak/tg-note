@@ -8,6 +8,7 @@ import types
 import pickle
 import subprocess
 import base64
+from typing import Optional
 
 from src.agents.mcp.memory.mem_agent_impl.settings import SANDBOX_TIMEOUT
 

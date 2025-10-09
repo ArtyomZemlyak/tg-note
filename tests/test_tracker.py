@@ -62,7 +62,6 @@ def test_add_processed(temp_storage):
         content_hash="hash1",
         message_ids=[1, 2, 3],
         chat_id=123,
-        kb_file="/path/to/file.md",
         status="completed"
     )
     

@@ -144,6 +144,7 @@ def test_very_long_paragraph():
     chunker = DocumentChunker(
         strategy=ChunkingStrategy.SEMANTIC,
         chunk_size=50,
+        chunk_overlap=10,  # Must be smaller than chunk_size
         respect_headers=False
     )
     

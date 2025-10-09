@@ -79,6 +79,7 @@ class TestHandlersAsync:
         """Create handlers instance"""
         return BotHandlers(
             bot=mock_bot,
+            async_bot=mock_bot,  # Use the same mock for async_bot
             tracker=mock_tracker,
             repo_manager=mock_repo_manager,
             user_settings=mock_user_settings,

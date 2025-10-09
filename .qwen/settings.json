@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "mem-agent": {
+      "url": "http://127.0.0.1:8765/sse",
+      "timeout": 10000,
+      "trust": true,
+      "description": "Memory storage and retrieval agent (HTTP/SSE)"
+    }
+  },
+  "allowMCPServers": [
+    "mem-agent"
+  ]
+}
