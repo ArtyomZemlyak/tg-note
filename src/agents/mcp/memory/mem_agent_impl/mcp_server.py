@@ -12,9 +12,13 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from fastmcp import Context, FastMCP
+from loguru import logger
 
 from src.agents.mcp.memory.mem_agent_impl.agent import Agent
 from src.agents.mcp.memory.mem_agent_impl.settings import get_memory_path
+
+# Configure logger (will be reconfigured in main with file logging)
+logger.remove()
 
 # Initialize FastMCP server
 mcp = FastMCP("mem-agent")
@@ -71,6 +75,7 @@ async def chat_with_memory(question: str, memory_path: Optional[str] = None) -> 
         "According to my memory, your favorite color is blue."
     """
     try:
+        logger.debug(f"chat_with_memory called: question_length={len(question)}")
         # Get or create agent instance
         agent = get_agent(memory_path=memory_path)
 
@@ -78,10 +83,12 @@ async def chat_with_memory(question: str, memory_path: Optional[str] = None) -> 
         loop = asyncio.get_running_loop()
         response = await loop.run_in_executor(None, agent.chat, question)
 
+        logger.info(f"chat_with_memory completed successfully")
         # Return the reply part of the response
         return response.reply or "I processed your request but have no specific reply."
 
     except Exception as e:
+        logger.error(f"Error in chat_with_memory: {e}", exc_info=True)
         return f"Error communicating with memory agent: {str(e)}"
 
 
@@ -105,6 +112,7 @@ async def query_memory(query: str, memory_path: Optional[str] = None) -> str:
         "You work at Acme Corp as a senior engineer..."
     """
     try:
+        logger.debug(f"query_memory called: query={query}")
         # Prefix the query to indicate we only want retrieval
         retrieval_query = f"Please search your memory and tell me: {query}. Do not add any new information to memory."
 
@@ -112,9 +120,11 @@ async def query_memory(query: str, memory_path: Optional[str] = None) -> str:
         loop = asyncio.get_running_loop()
         response = await loop.run_in_executor(None, agent.chat, retrieval_query)
 
+        logger.info(f"query_memory completed successfully")
         return response.reply or "No information found in memory."
 
     except Exception as e:
+        logger.error(f"Error in query_memory: {e}", exc_info=True)
         return f"Error querying memory: {str(e)}"
 
 
@@ -135,15 +145,18 @@ async def save_to_memory(information: str, memory_path: Optional[str] = None) ->
         "I've saved that information to memory."
     """
     try:
+        logger.debug(f"save_to_memory called: info_length={len(information)}")
         save_instruction = f"Please save the following information to memory: {information}"
 
         agent = get_agent(memory_path=memory_path)
         loop = asyncio.get_running_loop()
         response = await loop.run_in_executor(None, agent.chat, save_instruction)
 
+        logger.info(f"save_to_memory completed successfully")
         return response.reply or "Information saved to memory."
 
     except Exception as e:
+        logger.error(f"Error in save_to_memory: {e}", exc_info=True)
         return f"Error saving to memory: {str(e)}"
 
 
@@ -167,28 +180,68 @@ async def list_memory_structure(memory_path: Optional[str] = None) -> str:
             └── google.md
     """
     try:
+        logger.debug(f"list_memory_structure called")
         list_instruction = "Please show me the current structure of your memory using list_files()."
 
         agent = get_agent(memory_path=memory_path)
         loop = asyncio.get_running_loop()
         response = await loop.run_in_executor(None, agent.chat, list_instruction)
 
+        logger.info(f"list_memory_structure completed successfully")
         return response.reply or "Memory structure not available."
 
     except Exception as e:
+        logger.error(f"Error in list_memory_structure: {e}", exc_info=True)
         return f"Error listing memory structure: {str(e)}"
 
 
-def run_server(host: str = "127.0.0.1", port: int = 8766):
+def run_server(host: str = "127.0.0.1", port: int = 8766, log_file: Optional[str] = None, log_level: str = "INFO"):
     """
     Run the MCP server for mem-agent.
 
     Args:
         host: Host to bind to (default: 127.0.0.1)
         port: Port to bind to (default: 8766)
+        log_file: Log file path (default: logs/mcp_servers/mem_agent.log)
+        log_level: Logging level (default: INFO)
     """
-    print(f"Starting mem-agent MCP server on {host}:{port}")
-    mcp.run(transport="sse", host=host, port=port)
+    # Setup logging
+    if log_file is None:
+        log_file = "logs/mcp_servers/mem_agent.log"
+    
+    log_path = Path(log_file)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Configure logging with both file and console output
+    logger.remove()
+    
+    # File logging with rotation
+    logger.add(
+        log_file,
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
+        level=log_level,
+        rotation="10 MB",
+        retention="7 days",
+        compression="zip",
+        backtrace=True,
+        diagnose=True,
+    )
+    
+    # Console logging
+    logger.add(
+        sys.stderr,
+        format="<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | <level>{message}</level>",
+        level="INFO",
+    )
+    
+    logger.info(f"Starting mem-agent MCP server on {host}:{port}")
+    logger.info(f"Log file: {log_file}")
+    
+    try:
+        mcp.run(transport="sse", host=host, port=port)
+    except Exception as e:
+        logger.error(f"Fatal error in mem-agent server: {e}", exc_info=True)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
@@ -197,7 +250,18 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run mem-agent MCP server")
     parser.add_argument("--host", default="127.0.0.1", help="Host to bind to")
     parser.add_argument("--port", type=int, default=8766, help="Port to bind to")
+    parser.add_argument(
+        "--log-file",
+        default="logs/mcp_servers/mem_agent.log",
+        help="Log file path (default: logs/mcp_servers/mem_agent.log)",
+    )
+    parser.add_argument(
+        "--log-level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        default="INFO",
+        help="Logging level",
+    )
 
     args = parser.parse_args()
 
-    run_server(host=args.host, port=args.port)
+    run_server(host=args.host, port=args.port, log_file=args.log_file, log_level=args.log_level)

@@ -30,13 +30,8 @@ except ImportError:
 # Import shared memory storage
 from src.agents.mcp.memory.memory_storage import MemoryStorage
 
-# Configure logger
+# Configure logger (will be reconfigured in main with file logging)
 logger.remove()
-logger.add(
-    sys.stderr,
-    format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan> - <level>{message}</level>",
-    level="INFO",
-)
 
 
 # Initialize FastMCP server
@@ -96,12 +91,20 @@ def store_memory(
     Returns:
         Result with memory ID
     """
-    if storage is None:
-        return {"success": False, "error": "Storage not initialized"}
+    try:
+        if storage is None:
+            logger.error("Storage not initialized when calling store_memory")
+            return {"success": False, "error": "Storage not initialized"}
 
-    return storage.store(
-        content=content, category=category, tags=tags or [], metadata=metadata or {}
-    )
+        logger.debug(f"Storing memory: category={category}, content_length={len(content)}")
+        result = storage.store(
+            content=content, category=category, tags=tags or [], metadata=metadata or {}
+        )
+        logger.info(f"Memory stored successfully: {result.get('id', 'unknown')}")
+        return result
+    except Exception as e:
+        logger.error(f"Error storing memory: {e}", exc_info=True)
+        return {"success": False, "error": f"Failed to store memory: {str(e)}"}
 
 
 @mcp.tool()
@@ -120,10 +123,18 @@ def retrieve_memory(
     Returns:
         List of matching memories
     """
-    if storage is None:
-        return {"success": False, "error": "Storage not initialized"}
+    try:
+        if storage is None:
+            logger.error("Storage not initialized when calling retrieve_memory")
+            return {"success": False, "error": "Storage not initialized"}
 
-    return storage.retrieve(query=query, category=category, tags=tags, limit=limit)
+        logger.debug(f"Retrieving memory: query={query}, category={category}, limit={limit}")
+        result = storage.retrieve(query=query, category=category, tags=tags, limit=limit)
+        logger.info(f"Memory retrieved: {len(result.get('memories', []))} results")
+        return result
+    except Exception as e:
+        logger.error(f"Error retrieving memory: {e}", exc_info=True)
+        return {"success": False, "error": f"Failed to retrieve memory: {str(e)}"}
 
 
 @mcp.tool()
@@ -134,10 +145,18 @@ def list_categories() -> dict:
     Returns:
         List of categories with their memory counts
     """
-    if storage is None:
-        return {"success": False, "error": "Storage not initialized"}
+    try:
+        if storage is None:
+            logger.error("Storage not initialized when calling list_categories")
+            return {"success": False, "error": "Storage not initialized"}
 
-    return storage.list_categories()
+        logger.debug("Listing categories")
+        result = storage.list_categories()
+        logger.info(f"Categories listed: {len(result.get('categories', []))} categories")
+        return result
+    except Exception as e:
+        logger.error(f"Error listing categories: {e}", exc_info=True)
+        return {"success": False, "error": f"Failed to list categories: {str(e)}"}
 
 
 def main():
@@ -158,15 +177,38 @@ def main():
         default="INFO",
         help="Logging level",
     )
+    parser.add_argument(
+        "--log-file",
+        default="logs/mcp_servers/memory_mcp.log",
+        help="Log file path (default: logs/mcp_servers/memory_mcp.log)",
+    )
 
     args = parser.parse_args()
 
-    # Configure logging level
+    # Ensure log directory exists
+    log_file = Path(args.log_file)
+    log_file.parent.mkdir(parents=True, exist_ok=True)
+
+    # Configure logging with both file and console output
     logger.remove()
+    
+    # File logging with rotation (keep last 7 days, max 10MB per file)
+    logger.add(
+        args.log_file,
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
+        level=args.log_level,
+        rotation="10 MB",
+        retention="7 days",
+        compression="zip",
+        backtrace=True,
+        diagnose=True,
+    )
+    
+    # Console logging (less verbose, INFO and above)
     logger.add(
         sys.stderr,
-        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <level>{message}</level>",
-        level=args.log_level,
+        format="<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | <level>{message}</level>",
+        level="INFO",
     )
 
     # Initialize storage
