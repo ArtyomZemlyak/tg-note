@@ -33,10 +33,39 @@ from src.agents.mcp.memory.memory_storage import MemoryStorage
 
 # Configure logger for standalone mode
 logger.remove()
+
+# Console logging (stderr)
 logger.add(
     sys.stderr,
     format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan> - <level>{message}</level>",
     level="INFO",
+)
+
+# File logging for errors and debugging
+log_dir = Path("logs")
+log_dir.mkdir(parents=True, exist_ok=True)
+
+logger.add(
+    log_dir / "memory_mcp.log",
+    format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} | {message}",
+    level="DEBUG",
+    rotation="10 MB",
+    retention="7 days",
+    compression="zip",
+    backtrace=True,
+    diagnose=True,
+)
+
+# Separate error log for critical issues
+logger.add(
+    log_dir / "memory_mcp_errors.log",
+    format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} | {message}",
+    level="ERROR",
+    rotation="10 MB",
+    retention="30 days",
+    compression="zip",
+    backtrace=True,
+    diagnose=True,
 )
 
 
@@ -192,33 +221,47 @@ class MemoryMCPServer:
 
         try:
             if name == "store_memory":
+                logger.debug(f"Executing store_memory with args: {arguments}")
                 result = self.storage.store(
                     content=arguments.get("content", ""),
                     category=arguments.get("category", "general"),
                     tags=arguments.get("tags"),
                     metadata=arguments.get("metadata"),
                 )
+                logger.debug(f"Store result: {result}")
 
             elif name == "retrieve_memory":
+                logger.debug(f"Executing retrieve_memory with args: {arguments}")
                 result = self.storage.retrieve(
                     query=arguments.get("query"),
                     category=arguments.get("category"),
                     tags=arguments.get("tags"),
                     limit=arguments.get("limit", 10),
                 )
+                logger.debug(f"Retrieve result count: {result.get('count', 0)}")
 
             elif name == "list_categories":
+                logger.debug(f"Executing list_categories")
                 result = self.storage.list_categories()
+                logger.debug(f"Categories result: {result}")
 
             else:
+                logger.warning(f"Unknown tool requested: {name}")
                 result = {"success": False, "error": f"Unknown tool: {name}"}
 
             # Return as MCP content
             return [{"type": "text", "text": json.dumps(result, ensure_ascii=False, indent=2)}]
 
         except Exception as e:
-            logger.error(f"Tool execution error: {e}", exc_info=True)
-            return [{"type": "text", "text": json.dumps({"success": False, "error": str(e)})}]
+            logger.error(f"Tool execution error for {name}: {e}", exc_info=True)
+            logger.error(f"Arguments were: {arguments}")
+            error_result = {
+                "success": False,
+                "error": str(e),
+                "error_type": type(e).__name__,
+                "tool": name,
+            }
+            return [{"type": "text", "text": json.dumps(error_result)}]
 
     async def handle_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -239,6 +282,7 @@ class MemoryMCPServer:
         try:
             # Handle initialization
             if method == "initialize":
+                logger.info(f"Initializing MCP server (request_id={request_id})")
                 result = {
                     "protocolVersion": "2024-11-05",
                     "capabilities": {"tools": {}},
@@ -247,6 +291,7 @@ class MemoryMCPServer:
 
             # Handle tools/list
             elif method == "tools/list":
+                logger.debug(f"Listing tools (request_id={request_id})")
                 tools = await self.handle_list_tools()
                 result = {"tools": tools}
 
@@ -254,10 +299,12 @@ class MemoryMCPServer:
             elif method == "tools/call":
                 tool_name = params.get("name")
                 arguments = params.get("arguments", {})
+                logger.info(f"Calling tool '{tool_name}' (request_id={request_id})")
                 content = await self.handle_call_tool(tool_name, arguments)
                 result = {"content": content}
 
             else:
+                logger.warning(f"Unknown method '{method}' (request_id={request_id})")
                 return {
                     "jsonrpc": "2.0",
                     "id": request_id,
@@ -267,11 +314,16 @@ class MemoryMCPServer:
             return {"jsonrpc": "2.0", "id": request_id, "result": result}
 
         except Exception as e:
-            logger.error(f"Request handling error: {e}", exc_info=True)
+            logger.error(f"Request handling error for method '{method}': {e}", exc_info=True)
+            logger.error(f"Request params: {params}")
             return {
                 "jsonrpc": "2.0",
                 "id": request_id,
-                "error": {"code": -32603, "message": f"Internal error: {str(e)}"},
+                "error": {
+                    "code": -32603,
+                    "message": f"Internal error: {str(e)}",
+                    "data": {"error_type": type(e).__name__},
+                },
             }
 
     async def run(self):
