@@ -12,9 +12,37 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from fastmcp import Context, FastMCP
+from loguru import logger
 
 from src.agents.mcp.memory.mem_agent_impl.agent import Agent
 from src.agents.mcp.memory.mem_agent_impl.settings import get_memory_path
+
+# Configure logging for MCP server
+log_dir = Path("logs")
+log_dir.mkdir(parents=True, exist_ok=True)
+
+if not logger._core.handlers:
+    logger.add(
+        log_dir / "mem_agent_mcp_server.log",
+        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} | {message}",
+        level="DEBUG",
+        rotation="10 MB",
+        retention="7 days",
+        compression="zip",
+        backtrace=True,
+        diagnose=True,
+    )
+    
+    logger.add(
+        log_dir / "mem_agent_mcp_server_errors.log",
+        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} | {message}",
+        level="ERROR",
+        rotation="10 MB",
+        retention="30 days",
+        compression="zip",
+        backtrace=True,
+        diagnose=True,
+    )
 
 # Initialize FastMCP server
 mcp = FastMCP("mem-agent")
@@ -70,18 +98,24 @@ async def chat_with_memory(question: str, memory_path: Optional[str] = None) -> 
         >>> await chat_with_memory("What's my favorite color?")
         "According to my memory, your favorite color is blue."
     """
+    logger.info(f"chat_with_memory called with question: {question[:100]}...")
+    
     try:
         # Get or create agent instance
         agent = get_agent(memory_path=memory_path)
 
         # Run agent chat (this is synchronous, so we run it in executor)
         loop = asyncio.get_running_loop()
+        logger.debug(f"Running agent chat in executor for memory_path={memory_path}")
         response = await loop.run_in_executor(None, agent.chat, question)
 
         # Return the reply part of the response
-        return response.reply or "I processed your request but have no specific reply."
+        result = response.reply or "I processed your request but have no specific reply."
+        logger.info(f"chat_with_memory completed successfully")
+        return result
 
     except Exception as e:
+        logger.error(f"Error in chat_with_memory: {e}", exc_info=True)
         return f"Error communicating with memory agent: {str(e)}"
 
 
@@ -104,17 +138,23 @@ async def query_memory(query: str, memory_path: Optional[str] = None) -> str:
         >>> await query_memory("What do you know about my work?")
         "You work at Acme Corp as a senior engineer..."
     """
+    logger.info(f"query_memory called with query: {query[:100]}...")
+    
     try:
         # Prefix the query to indicate we only want retrieval
         retrieval_query = f"Please search your memory and tell me: {query}. Do not add any new information to memory."
 
         agent = get_agent(memory_path=memory_path)
         loop = asyncio.get_running_loop()
+        logger.debug(f"Running query in executor for memory_path={memory_path}")
         response = await loop.run_in_executor(None, agent.chat, retrieval_query)
 
-        return response.reply or "No information found in memory."
+        result = response.reply or "No information found in memory."
+        logger.info(f"query_memory completed successfully")
+        return result
 
     except Exception as e:
+        logger.error(f"Error in query_memory: {e}", exc_info=True)
         return f"Error querying memory: {str(e)}"
 
 
@@ -134,16 +174,22 @@ async def save_to_memory(information: str, memory_path: Optional[str] = None) ->
         >>> await save_to_memory("The user's name is Alice and she works at Google")
         "I've saved that information to memory."
     """
+    logger.info(f"save_to_memory called with information: {information[:100]}...")
+    
     try:
         save_instruction = f"Please save the following information to memory: {information}"
 
         agent = get_agent(memory_path=memory_path)
         loop = asyncio.get_running_loop()
+        logger.debug(f"Running save in executor for memory_path={memory_path}")
         response = await loop.run_in_executor(None, agent.chat, save_instruction)
 
-        return response.reply or "Information saved to memory."
+        result = response.reply or "Information saved to memory."
+        logger.info(f"save_to_memory completed successfully")
+        return result
 
     except Exception as e:
+        logger.error(f"Error in save_to_memory: {e}", exc_info=True)
         return f"Error saving to memory: {str(e)}"
 
 
@@ -166,16 +212,22 @@ async def list_memory_structure(memory_path: Optional[str] = None) -> str:
             ├── alice.md
             └── google.md
     """
+    logger.info(f"list_memory_structure called for memory_path={memory_path}")
+    
     try:
         list_instruction = "Please show me the current structure of your memory using list_files()."
 
         agent = get_agent(memory_path=memory_path)
         loop = asyncio.get_running_loop()
+        logger.debug(f"Running list_files in executor for memory_path={memory_path}")
         response = await loop.run_in_executor(None, agent.chat, list_instruction)
 
-        return response.reply or "Memory structure not available."
+        result = response.reply or "Memory structure not available."
+        logger.info(f"list_memory_structure completed successfully")
+        return result
 
     except Exception as e:
+        logger.error(f"Error in list_memory_structure: {e}", exc_info=True)
         return f"Error listing memory structure: {str(e)}"
 
 
@@ -187,8 +239,13 @@ def run_server(host: str = "127.0.0.1", port: int = 8766):
         host: Host to bind to (default: 127.0.0.1)
         port: Port to bind to (default: 8766)
     """
+    logger.info(f"Starting mem-agent MCP server on {host}:{port}")
     print(f"Starting mem-agent MCP server on {host}:{port}")
-    mcp.run(transport="sse", host=host, port=port)
+    try:
+        mcp.run(transport="sse", host=host, port=port)
+    except Exception as e:
+        logger.error(f"Error running MCP server: {e}", exc_info=True)
+        raise
 
 
 if __name__ == "__main__":

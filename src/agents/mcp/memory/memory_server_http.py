@@ -27,15 +27,45 @@ except ImportError:
     print("Error: fastmcp not installed. Install with: pip install fastmcp")
     sys.exit(1)
 
-# Import shared memory storage
+# Import shared memory storage and factory
+from src.agents.mcp.memory.memory_factory import MemoryStorageFactory
 from src.agents.mcp.memory.memory_storage import MemoryStorage
 
 # Configure logger
+log_dir = Path("logs")
+log_dir.mkdir(parents=True, exist_ok=True)
+
 logger.remove()
+
+# Console logging
 logger.add(
     sys.stderr,
     format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan> - <level>{message}</level>",
     level="INFO",
+)
+
+# File logging for errors and debugging
+logger.add(
+    log_dir / "memory_http.log",
+    format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} | {message}",
+    level="DEBUG",
+    rotation="10 MB",
+    retention="7 days",
+    compression="zip",
+    backtrace=True,
+    diagnose=True,
+)
+
+# Separate error log
+logger.add(
+    log_dir / "memory_http_errors.log",
+    format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} | {message}",
+    level="ERROR",
+    rotation="10 MB",
+    retention="30 days",
+    compression="zip",
+    backtrace=True,
+    diagnose=True,
 )
 
 
@@ -46,15 +76,15 @@ mcp = FastMCP("memory", version="1.0.0")
 storage: Optional[MemoryStorage] = None
 
 
-def init_storage(user_id: Optional[int] = None) -> MemoryStorage:
+def init_storage(user_id: Optional[int] = None):
     """
-    Initialize memory storage
+    Initialize memory storage using the factory pattern
 
     Args:
         user_id: Optional user ID for per-user storage
 
     Returns:
-        Initialized MemoryStorage
+        Initialized memory storage (type depends on MEM_AGENT_STORAGE_TYPE env var)
     """
     # Setup storage directory
     # Priority:
@@ -77,7 +107,36 @@ def init_storage(user_id: Optional[int] = None) -> MemoryStorage:
         data_dir = Path("data/memory/shared")
         logger.info(f"Using shared memory path: {data_dir}")
 
-    return MemoryStorage(data_dir)
+    # Get storage type from environment (default: json)
+    # Can be "json", "vector", or "mem-agent"
+    storage_type = os.getenv("MEM_AGENT_STORAGE_TYPE", "json")
+    logger.info(f"Initializing storage type: {storage_type}")
+
+    # Create storage using factory or legacy wrapper
+    if storage_type != "json":
+        # Use factory for non-default storage types
+        try:
+            model_name = os.getenv("MEM_AGENT_MODEL", None)
+            use_vllm = os.getenv("MEM_AGENT_USE_VLLM", "true").lower() == "true"
+
+            storage = MemoryStorageFactory.create(
+                storage_type=storage_type,
+                data_dir=data_dir,
+                model_name=model_name,
+                use_vllm=use_vllm,
+            )
+            logger.info(f"Created {storage_type} storage via factory")
+            return storage
+        except Exception as e:
+            logger.error(
+                f"Failed to create {storage_type} storage: {e}. Falling back to json.",
+                exc_info=True,
+            )
+            return MemoryStorage(data_dir)
+    else:
+        # Use legacy wrapper for JSON (default)
+        logger.info("Using default JSON storage")
+        return MemoryStorage(data_dir)
 
 
 @mcp.tool()
@@ -96,12 +155,21 @@ def store_memory(
     Returns:
         Result with memory ID
     """
+    logger.debug(f"store_memory called: content={content[:100]}..., category={category}")
+    
     if storage is None:
+        logger.error("Storage not initialized")
         return {"success": False, "error": "Storage not initialized"}
 
-    return storage.store(
-        content=content, category=category, tags=tags or [], metadata=metadata or {}
-    )
+    try:
+        result = storage.store(
+            content=content, category=category, tags=tags or [], metadata=metadata or {}
+        )
+        logger.debug(f"Store successful: {result}")
+        return result
+    except Exception as e:
+        logger.error(f"Error storing memory: {e}", exc_info=True)
+        return {"success": False, "error": str(e), "error_type": type(e).__name__}
 
 
 @mcp.tool()
@@ -120,10 +188,19 @@ def retrieve_memory(
     Returns:
         List of matching memories
     """
+    logger.debug(f"retrieve_memory called: query={query}, category={category}, limit={limit}")
+    
     if storage is None:
+        logger.error("Storage not initialized")
         return {"success": False, "error": "Storage not initialized"}
 
-    return storage.retrieve(query=query, category=category, tags=tags, limit=limit)
+    try:
+        result = storage.retrieve(query=query, category=category, tags=tags, limit=limit)
+        logger.debug(f"Retrieve successful: found {result.get('count', 0)} memories")
+        return result
+    except Exception as e:
+        logger.error(f"Error retrieving memory: {e}", exc_info=True)
+        return {"success": False, "error": str(e), "error_type": type(e).__name__}
 
 
 @mcp.tool()
@@ -134,10 +211,19 @@ def list_categories() -> dict:
     Returns:
         List of categories with their memory counts
     """
+    logger.debug("list_categories called")
+    
     if storage is None:
+        logger.error("Storage not initialized")
         return {"success": False, "error": "Storage not initialized"}
 
-    return storage.list_categories()
+    try:
+        result = storage.list_categories()
+        logger.debug(f"Categories retrieved: {result}")
+        return result
+    except Exception as e:
+        logger.error(f"Error listing categories: {e}", exc_info=True)
+        return {"success": False, "error": str(e), "error_type": type(e).__name__}
 
 
 def main():
@@ -170,16 +256,27 @@ def main():
     )
 
     # Initialize storage
-    storage = init_storage(user_id=args.user_id)
+    logger.info("Initializing memory storage...")
+    try:
+        storage = init_storage(user_id=args.user_id)
+        storage_type = type(storage).__name__
+        logger.info(f"Storage initialized successfully: {storage_type}")
+    except Exception as e:
+        logger.error(f"Failed to initialize storage: {e}", exc_info=True)
+        sys.exit(1)
 
     logger.info(f"Starting memory HTTP MCP server")
     logger.info(f"Host: {args.host}")
     logger.info(f"Port: {args.port}")
     logger.info(f"User ID: {args.user_id or 'shared'}")
+    logger.info(f"Storage type: {os.getenv('MEM_AGENT_STORAGE_TYPE', 'json')}")
 
     # Run server
     try:
+        logger.info(f"Server listening on http://{args.host}:{args.port}/sse")
         mcp.run(transport="sse", host=args.host, port=args.port)
+    except KeyboardInterrupt:
+        logger.info("Server stopped by user")
     except Exception as e:
         logger.error(f"Fatal error: {e}", exc_info=True)
         sys.exit(1)

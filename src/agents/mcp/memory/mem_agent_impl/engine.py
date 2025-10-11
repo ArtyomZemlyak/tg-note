@@ -8,11 +8,41 @@ import subprocess
 import sys
 import traceback
 import types
+from pathlib import Path
 from typing import Optional
+
+from loguru import logger as loguru_logger
 
 from src.agents.mcp.memory.mem_agent_impl.settings import SANDBOX_TIMEOUT
 
-# Configure a logger for the sandbox (in real use, configure handlers/level as needed)
+# Configure logging for sandboxed code execution
+log_dir = Path("logs")
+log_dir.mkdir(parents=True, exist_ok=True)
+
+if not loguru_logger._core.handlers:
+    loguru_logger.add(
+        log_dir / "mem_agent_sandbox.log",
+        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} | {message}",
+        level="DEBUG",
+        rotation="10 MB",
+        retention="7 days",
+        compression="zip",
+        backtrace=True,
+        diagnose=True,
+    )
+    
+    loguru_logger.add(
+        log_dir / "mem_agent_sandbox_errors.log",
+        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} | {message}",
+        level="ERROR",
+        rotation="10 MB",
+        retention="30 days",
+        compression="zip",
+        backtrace=True,
+        diagnose=True,
+    )
+
+# Keep the old logger for compatibility with existing code
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)  # or DEBUG for more verbosity
 
@@ -262,6 +292,8 @@ def execute_sandboxed_code(
     env = os.environ.copy()
     env["SANDBOX_PARAMS"] = base64.b64encode(pickle.dumps(params)).decode()
 
+    loguru_logger.debug(f"Starting sandboxed code execution with timeout={timeout}s")
+    
     try:
         result = subprocess.run(
             [sys.executable, "-m", "src.agents.mcp.memory.mem_agent_impl.engine"],
@@ -270,16 +302,28 @@ def execute_sandboxed_code(
             timeout=timeout,
             env=env,
         )
+        loguru_logger.debug(f"Sandbox subprocess completed with return code {result.returncode}")
     except subprocess.TimeoutExpired:
+        loguru_logger.error(f"Sandboxed code exceeded time limit of {timeout} seconds; terminating.")
         logger.error("Sandboxed code exceeded time limit of %d seconds; terminating.", timeout)
         return None, f"TimeoutError: Code execution exceeded {timeout} seconds."
+    except Exception as e:
+        loguru_logger.error(f"Subprocess execution error: {e}", exc_info=True)
+        return None, f"Subprocess execution error: {e}"
 
     if result.returncode != 0:
-        return None, result.stderr.decode().strip()
+        error_output = result.stderr.decode().strip()
+        loguru_logger.error(f"Sandbox execution failed with return code {result.returncode}: {error_output}")
+        return None, error_output
 
     try:
         local_vars, error_msg = pickle.loads(result.stdout)
+        if error_msg:
+            loguru_logger.warning(f"Sandbox execution completed with error: {error_msg}")
+        else:
+            loguru_logger.debug(f"Sandbox execution successful, returned {len(local_vars)} variables")
     except Exception as e:
+        loguru_logger.error(f"Failed to decode sandbox output: {e}", exc_info=True)
         return None, f"Failed to decode sandbox output: {e}"
 
     if error_msg is None:
