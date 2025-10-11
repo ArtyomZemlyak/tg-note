@@ -77,33 +77,21 @@ class MemoryMCPServer:
         Initialize MCP server
 
         Args:
-            user_id: Optional user ID for per-user storage
+            user_id: User ID for per-user storage (required)
         """
+        # User-specific storage directory
+        # Each user must have their own isolated memory
+        if not user_id:
+            raise ValueError("user_id is required for memory storage. Shared memory is not allowed.")
+        
         self.user_id = user_id
 
-        # Setup storage directory
-        # Priority:
-        # 1. KB_PATH env var (set by memory_tool.py for user-specific KB)
-        # 2. Legacy user_id-based path (for backward compatibility)
-        # 3. Shared memory (fallback)
-        kb_path = os.getenv("KB_PATH")
-        memory_postfix = os.getenv("MEM_AGENT_MEMORY_POSTFIX", "memory")
-
-        if kb_path:
-            # Use KB-based path: {kb_path}/{memory_postfix}
-            data_dir = Path(kb_path) / memory_postfix
-            logger.info(f"Using KB-based memory path: {data_dir}")
-        elif user_id:
-            # Legacy: user_id-based path (use isolated tmp dir during pytest)
-            if os.getenv("PYTEST_CURRENT_TEST"):
-                data_dir = Path(tempfile.mkdtemp(prefix=f"memsrv_user_{user_id}_"))
-            else:
-                data_dir = Path(f"data/memory/user_{user_id}")
-            logger.info(f"Using legacy user-based memory path: {data_dir}")
+        # Use isolated tmp dir during pytest, otherwise use data/memory/user_{user_id}
+        if os.getenv("PYTEST_CURRENT_TEST"):
+            data_dir = Path(tempfile.mkdtemp(prefix=f"memsrv_user_{user_id}_"))
         else:
-            # Fallback: shared memory
-            data_dir = Path("data/memory/shared")
-            logger.info(f"Using shared memory path: {data_dir}")
+            data_dir = Path(f"data/memory/user_{user_id}")
+        logger.info(f"Using user-specific memory path: {data_dir}")
 
         # Get storage type from environment (default: json)
         # Can be "json", "vector", or "mem-agent"

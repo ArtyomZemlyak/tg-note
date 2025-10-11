@@ -207,45 +207,46 @@ class MemoryMCPTool(BaseMCPTool):
 
         Args:
             params: Action parameters (action, content, context)
-            context: Tool execution context (contains kb_root_path)
+            context: Tool execution context (contains user_id)
 
         Returns:
             Dict with execution result
         """
-        # Add KB_PATH to environment variables for this execution
-        # This allows the MCP server to create the memory directory at runtime
-        # in the correct user-specific location: {kb_path}/memory/
-        if hasattr(context, "kb_root_path") and context.kb_root_path:
-            # Update the MCP client's environment with the current user's KB path
-            if not hasattr(self, "_original_env"):
-                # Store original env on first execution
-                config = self.mcp_server_config
-                self._original_env = config.env.copy() if config.env else {}
-
-            # Create new env with KB_PATH for this user
-            kb_path = str(context.kb_root_path)
-            updated_env = self._original_env.copy()
-            updated_env["KB_PATH"] = kb_path
-
-            # Temporarily update the client's config
-            if self.client:
-                self.client.config.env = updated_env
-                logger.debug(f"[MemoryMCPTool] Set KB_PATH={kb_path} for memory")
+        # Get user_id from context (required for per-user isolation)
+        user_id = getattr(context, "user_id", None)
+        if not user_id:
+            return {
+                "success": False,
+                "error": "user_id is required but not provided in context"
+            }
 
         action = params.get("action", "")
         content = params.get("content", "")
         memory_context = params.get("context", "")
 
-        # Map our action to MCP tool parameters
-        # The actual parameter names depend on the memory-mcp implementation
-        mcp_params = {
-            "action": action,
-            "text": content,
-            "metadata": {"context": memory_context} if memory_context else {},
-        }
-
-        # Call parent execute which handles MCP connection and tool calling
-        result = await super().execute(mcp_params, context)
+        # Map action to MCP tool calls with user_id
+        if action == "store":
+            mcp_params = {
+                "content": content,
+                "user_id": user_id,
+                "category": "general",
+                "metadata": {"context": memory_context} if memory_context else {},
+            }
+            result = await super().execute(mcp_params, context)
+        elif action == "search":
+            mcp_params = {
+                "user_id": user_id,
+                "query": content,
+                "limit": 10,
+            }
+            result = await super().execute(mcp_params, context)
+        elif action == "list":
+            mcp_params = {
+                "user_id": user_id,
+            }
+            result = await super().execute(mcp_params, context)
+        else:
+            return {"success": False, "error": f"Unknown action: {action}"}
 
         # Add helpful information to the result
         if result.get("success"):
