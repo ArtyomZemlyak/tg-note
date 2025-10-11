@@ -2,22 +2,22 @@
 
 ## Start Servers
 
-### Memory HTTP Server (JSON mode - default)
+### MCP Hub Server (HTTP/SSE)
 ```bash
-python -m src.agents.mcp.memory.memory_server_http
+python -m src.agents.mcp.mcp_hub_server
 ```
 
-### Memory HTTP Server (Mem-Agent mode)
+### MCP Hub (Mem-Agent mode)
 ```bash
 export MEM_AGENT_STORAGE_TYPE="mem-agent"
 export MEM_AGENT_MODEL="driaforall/mem-agent"
 export MEM_AGENT_BACKEND="vllm"  # or "auto", "mlx", "transformers"
-python -m src.agents.mcp.memory.memory_server_http
+python -m src.agents.mcp.mcp_hub_server
 ```
 
-### Memory HTTP Server (Debug mode)
+### MCP Hub (Debug mode)
 ```bash
-python -m src.agents.mcp.memory.memory_server_http --log-level DEBUG
+python -m src.agents.mcp.mcp_hub_server --log-level DEBUG
 ```
 
 ### Memory MCP Server (stdio mode)
@@ -29,11 +29,11 @@ python -m src.agents.mcp.memory.memory_server --log-level DEBUG
 
 ### Real-time Log Viewing
 ```bash
-# Memory HTTP server
-tail -f logs/memory_http.log
+# MCP Hub server
+tail -f logs/mcp_hub.log
 
-# Memory HTTP errors
-tail -f logs/memory_http_errors.log
+# MCP Hub errors
+tail -f logs/mcp_hub_errors.log
 
 # Mem-agent
 tail -f logs/mem_agent.log
@@ -73,7 +73,7 @@ grep -i "timeout" logs/*.log
 
 ### Check if server is running
 ```bash
-# HTTP server
+# MCP Hub SSE endpoint
 curl http://127.0.0.1:8765/sse
 
 # Check vLLM server
@@ -155,8 +155,8 @@ tail -f logs/memory_http.log
 
 ### Verify Logging Works
 ```bash
-# Start server
-python -m src.agents.mcp.memory.memory_server_http &
+# Start MCP Hub
+python -m src.agents.mcp.mcp_hub_server &
 
 # Wait a second
 sleep 2
@@ -165,8 +165,8 @@ sleep 2
 ls -lh logs/
 
 # Should see:
-# memory_http.log
-# memory_http_errors.log
+# mcp_hub.log
+# mcp_hub_errors.log
 ```
 
 ## Troubleshooting
@@ -180,7 +180,7 @@ mkdir -p logs
 chmod 755 logs
 
 # Try running with debug
-python -m src.agents.mcp.memory.memory_server_http --log-level DEBUG
+python -m src.agents.mcp.mcp_hub_server --log-level DEBUG
 ```
 
 ### Server not starting?
@@ -192,7 +192,7 @@ cat logs/memory_http_errors.log
 lsof -i :8765
 
 # Try different port
-python -m src.agents.mcp.memory.memory_server_http --port 8766
+python -m src.agents.mcp.mcp_hub_server --port 8766
 ```
 
 ### Mem-agent mode not working?
