@@ -1,0 +1,148 @@
+version: '3.8'
+
+services:
+  # vLLM Server for mem-agent
+  # Provides OpenAI-compatible API for LLM inference
+  vllm-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.vllm
+    container_name: tg-note-vllm
+    image: tg-note-vllm:latest
+    restart: unless-stopped
+    ports:
+      - "${VLLM_PORT:-8001}:8001"
+    environment:
+      - MODEL_NAME=${MEM_AGENT_MODEL:-driaforall/mem-agent}
+      - GPU_MEMORY_UTILIZATION=${GPU_MEMORY_UTILIZATION:-0.8}
+      - MAX_MODEL_LEN=${MAX_MODEL_LEN:-4096}
+      - TENSOR_PARALLEL_SIZE=${TENSOR_PARALLEL_SIZE:-1}
+    volumes:
+      - huggingface-cache:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    networks:
+      - tg-note-network
+
+  # MCP HTTP Server (Memory Gateway)
+  # Provides unified HTTP/SSE interface for memory operations
+  # Supports json, vector, and mem-agent storage backends
+  mcp-http-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp
+    container_name: tg-note-mcp
+    image: tg-note-mcp:latest
+    restart: unless-stopped
+    ports:
+      - "${MCP_PORT:-8765}:8765"
+    environment:
+      # Storage configuration
+      - MEM_AGENT_STORAGE_TYPE=${MEM_AGENT_STORAGE_TYPE:-json}
+      - MEM_AGENT_MODEL=${MEM_AGENT_MODEL:-driaforall/mem-agent}
+      - MEM_AGENT_BACKEND=${MEM_AGENT_BACKEND:-vllm}
+      
+      # vLLM connection settings
+      - MEM_AGENT_HOST=vllm-server
+      - MEM_AGENT_PORT=8001
+      - MEM_AGENT_BASE_URL=http://vllm-server:8001/v1
+      
+      # Agent settings
+      - MEM_AGENT_MAX_TOOL_TURNS=${MEM_AGENT_MAX_TOOL_TURNS:-20}
+      - MEM_AGENT_TIMEOUT=${MEM_AGENT_TIMEOUT:-20}
+      
+      # Memory limits
+      - MEM_AGENT_FILE_SIZE_LIMIT=${MEM_AGENT_FILE_SIZE_LIMIT:-1048576}
+      - MEM_AGENT_DIR_SIZE_LIMIT=${MEM_AGENT_DIR_SIZE_LIMIT:-10485760}
+      - MEM_AGENT_MEMORY_SIZE_LIMIT=${MEM_AGENT_MEMORY_SIZE_LIMIT:-104857600}
+    volumes:
+      # Persistent storage for memory data
+      - ./data/memory:/app/data/memory
+      # Logs
+      - ./logs:/app/logs
+      # Shared HuggingFace cache for embeddings
+      - huggingface-cache:/root/.cache/huggingface
+    depends_on:
+      vllm-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8765/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - tg-note-network
+
+  # Main Telegram Bot
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile.bot
+    container_name: tg-note-bot
+    image: tg-note-bot:latest
+    restart: unless-stopped
+    environment:
+      # Telegram credentials
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - ALLOWED_USER_IDS=${ALLOWED_USER_IDS:-}
+      
+      # LLM API keys
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - QWEN_API_KEY=${QWEN_API_KEY:-}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      
+      # Agent configuration
+      - AGENT_TYPE=${AGENT_TYPE:-stub}
+      - AGENT_MODEL=${AGENT_MODEL:-qwen-max}
+      - AGENT_TIMEOUT=${AGENT_TIMEOUT:-300}
+      - AGENT_ENABLE_MCP=${AGENT_ENABLE_MCP:-false}
+      - AGENT_ENABLE_MCP_MEMORY=${AGENT_ENABLE_MCP_MEMORY:-true}
+      
+      # MCP connection settings (points to mcp-http-server)
+      - MCP_MEMORY_URL=http://mcp-http-server:8765/sse
+      
+      # Knowledge base settings
+      - KB_PATH=/app/knowledge_base
+      - KB_GIT_ENABLED=${KB_GIT_ENABLED:-true}
+      - KB_GIT_AUTO_PUSH=${KB_GIT_AUTO_PUSH:-true}
+      
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_FILE=/app/logs/bot.log
+    volumes:
+      # Persistent storage for knowledge base
+      - ./knowledge_base:/app/knowledge_base
+      # Persistent storage for data (processed messages, settings)
+      - ./data:/app/data
+      # Logs
+      - ./logs:/app/logs
+      # Optional: custom config
+      - ./config.yaml:/app/config.yaml:ro
+    depends_on:
+      mcp-http-server:
+        condition: service_healthy
+    networks:
+      - tg-note-network
+
+networks:
+  tg-note-network:
+    driver: bridge
+
+volumes:
+  # Shared HuggingFace cache for models and embeddings
+  huggingface-cache:
+    driver: local

@@ -77,6 +77,13 @@ mcp = FastMCP("memory", version="1.0.0")
 _storages: Dict[int, MemoryStorage] = {}
 
 
+# Add health check endpoint for Docker
+@mcp.custom_route("/health", methods=["GET"])
+async def health_check():
+    """Health check endpoint for container orchestration"""
+    return {"status": "ok", "service": "mcp-memory-server", "version": "1.0.0"}
+
+
 def get_storage(user_id: int) -> MemoryStorage:
     """
     Get or create memory storage for a specific user
