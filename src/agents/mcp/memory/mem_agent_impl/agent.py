@@ -104,13 +104,16 @@ class Agent:
             self._client = create_vllm_client(host=MEM_AGENT_HOST, port=MEM_AGENT_PORT)
             logger.info("✅ vLLM client created")
         else:
-            # If no explicit API endpoint/key are provided, try to autostart a local server
-            # based on platform: vLLM on Linux, MLX on macOS.
-            if not MEM_AGENT_BASE_URL and not MEM_AGENT_OPENAI_API_KEY:
-                logger.info("⚠️  No explicit endpoint/key provided, ensuring local server...")
-                self._ensure_local_server()
+            # Server should already be started during MCP service initialization
+            # We no longer auto-start servers here to avoid delays on first agent creation
+            if MEM_AGENT_BASE_URL:
+                logger.info(f"  Using endpoint: {MEM_AGENT_BASE_URL}")
+            elif MEM_AGENT_OPENAI_API_KEY:
+                logger.info("  Using OpenRouter/OpenAI with API key")
             else:
-                logger.info(f"  Using endpoint: {MEM_AGENT_BASE_URL or 'OpenRouter'}")
+                logger.warning("⚠️  No endpoint or API key configured!")
+                logger.warning("  Expected server to be started during MCP service initialization")
+                logger.warning("  If server is not running, requests will fail")
             self._client = create_openai_client()
             logger.info("✅ OpenAI-compatible client created")
 
@@ -141,6 +144,9 @@ class Agent:
 
         - Linux: start vLLM if not reachable at configured host/port
         - macOS: start MLX if not reachable at configured host/port
+        
+        Note: This method is deprecated and should not be called during initialization.
+        Servers should be started during MCP service startup, not on first agent creation.
         """
         import platform
         import subprocess
@@ -233,6 +239,27 @@ class Agent:
                 return
             except URLError as e:
                 logger.debug(f"MLX server not reachable: {e}")
+
+            # Check if MLX is available and compatible
+            try:
+                import mlx.core as mx
+                logger.debug("✅ MLX import successful, library is compatible")
+            except ImportError as mlx_error:
+                logger.error("="*60)
+                logger.error("❌ MLX COMPATIBILITY ERROR")
+                logger.error(f"  Error: {mlx_error}")
+                logger.error("  ")
+                logger.error("  Possible causes:")
+                logger.error("  1. macOS version too old (MLX requires macOS 13.5+)")
+                logger.error("  2. MLX not installed correctly")
+                logger.error("  ")
+                logger.error("  Solutions:")
+                logger.error("  - Upgrade to macOS 13.5 or later, OR")
+                logger.error("  - Set MEM_AGENT_OPENAI_API_KEY to use OpenRouter/OpenAI, OR")
+                logger.error("  - Install compatible MLX version: pip install --upgrade mlx mlx-lm")
+                logger.error("="*60)
+                logger.warning("⚠️  Falling back to OpenRouter or configured OpenAI endpoint")
+                return
 
             # Use model from MEM_AGENT_MODEL setting
             logger.info(f"Starting MLX server at {host}:{port} with model {MEM_AGENT_MODEL}")

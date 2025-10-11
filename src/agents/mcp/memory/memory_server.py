@@ -83,6 +83,26 @@ class MemoryMCPServer:
         logger.info("🚀 INITIALIZING MCP MEMORY SERVER (STDIO)")
         logger.info("="*80)
         
+        # STEP 1: Start vLLM/MLX server if using mem-agent storage
+        storage_type = os.getenv("MEM_AGENT_STORAGE_TYPE", "json")
+        if storage_type == "mem-agent":
+            logger.info("🔧 Detected mem-agent storage type")
+            logger.info("🚀 Starting local LLM server (vLLM/MLX)...")
+            
+            try:
+                from src.agents.mcp.memory.mem_agent_impl.server_manager import ensure_server_started
+                
+                server_started = ensure_server_started(timeout=60)
+                if server_started:
+                    logger.info("✅ Local LLM server is ready")
+                else:
+                    logger.warning("⚠️ Local LLM server not started - will use configured endpoint")
+            except Exception as e:
+                logger.error(f"❌ Error starting server: {e}", exc_info=True)
+                logger.warning("⚠️ Continuing without local server - will use configured endpoint")
+        else:
+            logger.info(f"ℹ️ Storage type '{storage_type}' doesn't require local LLM server")
+        
         # User-specific storage directory
         # Each user must have their own isolated memory
         if not user_id:
