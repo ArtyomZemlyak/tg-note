@@ -234,9 +234,8 @@ class Agent:
             except URLError as e:
                 logger.debug(f"MLX server not reachable: {e}")
 
-            # Use MLX-formatted model for macOS
-            mlx_model = os.getenv("MEM_AGENT_MLX_MODEL", "jc2375/mem-agent-mlx-fp16")
-            logger.info(f"Starting MLX server at {host}:{port} with model {mlx_model}")
+            # Use model from MEM_AGENT_MODEL setting
+            logger.info(f"Starting MLX server at {host}:{port} with model {MEM_AGENT_MODEL}")
             
             # Create log file for MLX server
             mlx_log_file = log_dir / "mlx_server.log"
@@ -258,7 +257,7 @@ class Agent:
                         "-m",
                         "mlx_lm.server",
                         "--model",
-                        mlx_model,
+                        MEM_AGENT_MODEL,
                         "--host",
                         host,
                         "--port",
