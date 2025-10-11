@@ -301,6 +301,29 @@ def main():
         level=args.log_level,
     )
 
+    # Re-add file logging sinks so logs are written to files when run as __main__
+    logger.add(
+        log_dir / "memory_http.log",
+        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} | {message}",
+        level="DEBUG",
+        rotation="10 MB",
+        retention="7 days",
+        compression="zip",
+        backtrace=True,
+        diagnose=True,
+    )
+
+    logger.add(
+        log_dir / "memory_http_errors.log",
+        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} | {message}",
+        level="ERROR",
+        rotation="10 MB",
+        retention="30 days",
+        compression="zip",
+        backtrace=True,
+        diagnose=True,
+    )
+
     logger.info("="*80)
     logger.info("🚀 STARTING MCP MEMORY SERVER (HTTP/SSE)")
     logger.info("="*80)
