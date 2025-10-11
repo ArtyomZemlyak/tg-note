@@ -36,7 +36,7 @@ class MemoryStorageFactory:
 
     @classmethod
     def create(
-        cls, storage_type: str, data_dir: Path, model_name: Optional[str] = None, **kwargs
+        cls, storage_type: str, data_dir: Path, model_name: Optional[str] = None, backend: Optional[str] = None, **kwargs
     ) -> BaseMemoryStorage:
         """
         Create a memory storage instance
@@ -45,8 +45,9 @@ class MemoryStorageFactory:
             storage_type: Type of storage ("json", "vector", or "mem-agent")
             data_dir: Directory for storing memory data
             model_name: Model name for vector-based storage or mem-agent (optional)
+            backend: Backend for model execution ("auto", "vllm", "mlx", "transformers") (optional)
             **kwargs: Additional arguments for specific storage implementations
-                     For mem-agent: use_vllm (bool), max_tool_turns (int)
+                     For mem-agent: max_tool_turns (int)
 
         Returns:
             Memory storage instance
@@ -83,7 +84,16 @@ class MemoryStorageFactory:
 
             elif storage_type == "mem-agent":
                 # Mem-agent storage with LLM-based memory management
-                use_vllm = kwargs.get("use_vllm", True)
+                # Derive use_vllm from backend parameter
+                # backend can be: "auto", "vllm", "mlx", "transformers"
+                # use_vllm=True means use vLLM backend, False means use OpenRouter/auto-detection
+                if backend is None:
+                    backend = "auto"
+                
+                # Only set use_vllm=True if backend is explicitly "vllm"
+                # For "auto", "mlx", "transformers", use_vllm=False and let the agent auto-detect
+                use_vllm = (backend.lower() == "vllm")
+                
                 max_tool_turns = kwargs.get("max_tool_turns", 20)
                 storage = storage_class(
                     data_dir=data_dir,
@@ -93,7 +103,7 @@ class MemoryStorageFactory:
                 )
                 logger.info(
                     f"[MemoryStorageFactory] Created MemAgentStorage "
-                    f"with model '{model_name or 'default'}', vLLM={use_vllm} at {data_dir}"
+                    f"with model '{model_name or 'default'}', backend={backend}, use_vllm={use_vllm} at {data_dir}"
                 )
 
             else:
@@ -151,7 +161,7 @@ class MemoryStorageFactory:
 
 
 def create_memory_storage(
-    storage_type: str, data_dir: Path, model_name: Optional[str] = None, **kwargs
+    storage_type: str, data_dir: Path, model_name: Optional[str] = None, backend: Optional[str] = None, **kwargs
 ) -> BaseMemoryStorage:
     """
     Convenience function for creating memory storage
@@ -162,11 +172,12 @@ def create_memory_storage(
         storage_type: Type of storage ("json", "vector", or "mem-agent")
         data_dir: Directory for storing memory data
         model_name: Model name for vector-based storage or mem-agent (optional)
+        backend: Backend for model execution ("auto", "vllm", "mlx", "transformers") (optional)
         **kwargs: Additional arguments for specific storage implementations
 
     Returns:
         Memory storage instance
     """
     return MemoryStorageFactory.create(
-        storage_type=storage_type, data_dir=data_dir, model_name=model_name, **kwargs
+        storage_type=storage_type, data_dir=data_dir, model_name=model_name, backend=backend, **kwargs
     )

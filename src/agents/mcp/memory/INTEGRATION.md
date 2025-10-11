@@ -105,12 +105,14 @@ Response returned
 export MEM_AGENT_STORAGE_TYPE=mem-agent
 export MEM_AGENT_MODEL=driaforall/mem-agent
 
-# Backend configuration
-export MEM_AGENT_USE_VLLM=true
-export VLLM_HOST=127.0.0.1
-export VLLM_PORT=8000
+# Backend configuration (auto, vllm, mlx, or transformers)
+export MEM_AGENT_BACKEND=auto
 
-# Or use OpenRouter
+# vLLM configuration (when backend is vllm)
+export MEM_AGENT_VLLM_HOST=127.0.0.1
+export MEM_AGENT_VLLM_PORT=8001
+
+# Or use OpenRouter (when backend is auto/transformers without local server)
 export OPENROUTER_API_KEY=your-key
 export OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 ```

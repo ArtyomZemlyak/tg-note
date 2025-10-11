@@ -11,7 +11,7 @@ python -m src.agents.mcp.memory.memory_server_http
 ```bash
 export MEM_AGENT_STORAGE_TYPE="mem-agent"
 export MEM_AGENT_MODEL="driaforall/mem-agent"
-export MEM_AGENT_USE_VLLM="true"
+export MEM_AGENT_BACKEND="vllm"  # or "auto", "mlx", "transformers"
 python -m src.agents.mcp.memory.memory_server_http
 ```
 
@@ -101,7 +101,7 @@ watch -n 1 'tail -20 logs/memory_http.log'
 ```bash
 export MEM_AGENT_STORAGE_TYPE="mem-agent"
 export MEM_AGENT_MODEL="driaforall/mem-agent"
-export MEM_AGENT_USE_VLLM="true"
+export MEM_AGENT_BACKEND="vllm"  # or "auto", "mlx", "transformers"
 ```
 
 ### Set Vector Mode
