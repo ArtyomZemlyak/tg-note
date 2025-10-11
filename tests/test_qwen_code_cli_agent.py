@@ -264,7 +264,7 @@ Process this content.
 
         mock_process = AsyncMock()
         mock_process.communicate = AsyncMock(side_effect=asyncio.TimeoutError())
-        mock_process.kill = AsyncMock()
+        mock_process.kill = Mock()  # kill() is synchronous, not async
         mock_process.wait = AsyncMock()
 
         with patch("asyncio.create_subprocess_exec", return_value=mock_process):

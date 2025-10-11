@@ -231,7 +231,7 @@ class TestHandlersAsync:
     async def test_start_stop_background_tasks(self, handlers):
         """Start/stop background tasks should not raise"""
         handlers.start_background_tasks()
-        handlers.stop_background_tasks()
+        await handlers.stop_background_tasks()
 
     def test_is_forwarded_message(self, handlers, test_message):
         """Test forwarded message detection"""
