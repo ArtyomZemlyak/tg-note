@@ -1,0 +1,81 @@
+# Simplified Docker Compose for JSON storage mode (no GPU required)
+# This configuration runs only bot and MCP server with JSON storage
+# Perfect for testing or when you don't have GPU available
+
+version: '3.8'
+
+services:
+  # MCP Hub Server (Unified Gateway)
+  # Using JSON storage mode (no GPU required)
+  mcp-hub:
+    build:
+      context: .
+      dockerfile: Dockerfile.hub
+    container_name: tg-note-hub
+    image: tg-note-hub:latest
+    restart: unless-stopped
+    ports:
+      - "${MCP_PORT:-8765}:8765"
+    environment:
+      # Force JSON storage (no vLLM needed)
+      - MEM_AGENT_STORAGE_TYPE=json
+      
+      # Agent settings
+      - MEM_AGENT_MAX_TOOL_TURNS=20
+      - MEM_AGENT_TIMEOUT=20
+    volumes:
+      # Persistent storage for memory data
+      - ./data/memory:/app/data/memory
+      # MCP servers registry
+      - ./data/mcp_servers:/app/data/mcp_servers
+      # Logs
+      - ./logs:/app/logs
+      # Configuration (read-only)
+      - ./config.docker.yaml:/app/config.yaml:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8765/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - tg-note-network
+
+  # Main Telegram Bot
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile.bot
+    container_name: tg-note-bot
+    image: tg-note-bot:latest
+    restart: unless-stopped
+    environment:
+      # Credentials only (from .env)
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - ALLOWED_USER_IDS=${ALLOWED_USER_IDS:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - QWEN_API_KEY=${QWEN_API_KEY:-}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      
+      # MCP Hub connection (Docker internal)
+      - MCP_HUB_URL=http://mcp-hub:8765/sse
+    volumes:
+      # Persistent storage for knowledge base
+      - ./knowledge_base:/app/knowledge_base
+      # Persistent storage for data (processed messages, settings)
+      - ./data:/app/data
+      # Logs
+      - ./logs:/app/logs
+      # Configuration (read-only)
+      - ./config.docker.yaml:/app/config.yaml:ro
+    depends_on:
+      mcp-hub:
+        condition: service_healthy
+    networks:
+      - tg-note-network
+
+networks:
+  tg-note-network:
+    driver: bridge

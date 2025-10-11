@@ -42,45 +42,53 @@ class MCPToolSchema:
 class MCPServerConfig:
     """Configuration for an MCP server"""
 
-    command: str
-    args: List[str]
+    command: str = ""  # Empty for HTTP/SSE transport
+    args: List[str] = None  # Empty for HTTP/SSE transport
     env: Optional[Dict[str, str]] = None
     cwd: Optional[Path] = None
     transport: str = "stdio"  # "stdio" or "sse" (HTTP Server-Sent Events)
     url: Optional[str] = None  # URL for SSE transport (e.g., "http://127.0.0.1:8765/sse")
+    
+    def __post_init__(self):
+        if self.args is None:
+            self.args = []
+        # Validate config
+        if self.transport == "sse":
+            if not self.url:
+                raise ValueError("URL is required for SSE transport")
+        elif self.transport == "stdio":
+            if not self.command:
+                raise ValueError("Command is required for stdio transport")
 
 
 class MCPClient:
     """
-    Client for communicating with MCP servers via stdio.
+    Client for communicating with MCP servers via stdio or HTTP/SSE.
 
-    This client launches MCP server processes and communicates with them
-    using JSON-RPC 2.0 over stdio (stdin/stdout).
+    Supports two transport modes:
+    1. stdio: Launches MCP server as subprocess (JSON-RPC over stdin/stdout)
+    2. sse: Connects to HTTP/SSE endpoint (JSON-RPC over HTTP Server-Sent Events)
 
     Supported operations:
     - Tools: list_tools(), call_tool()
     - Resources: list_resources(), read_resource()
     - Prompts: list_prompts(), get_prompt()
 
-    Example:
+    Example (stdio):
         config = MCPServerConfig(
             command="npx",
-            args=["@example/mcp-server"]
+            args=["@example/mcp-server"],
+            transport="stdio"
         )
-        client = MCPClient(config)
-        await client.connect()
-
-        # List and call tools
-        tools = await client.list_tools()
-        result = await client.call_tool("tool_name", {"param": "value"})
-
-        # List and read resources
-        resources = await client.list_resources()
-        content = await client.read_resource("file:///path/to/file.txt")
-
-        # List and get prompts
-        prompts = await client.list_prompts()
-        prompt = await client.get_prompt("prompt_name", {"arg": "value"})
+        
+    Example (HTTP/SSE - for Docker deployments):
+        config = MCPServerConfig(
+            transport="sse",
+            url="http://mcp-hub:8765/sse"
+        )
+        
+    client = MCPClient(config)
+    await client.connect()
     """
 
     def __init__(self, config: MCPServerConfig):
@@ -88,101 +96,111 @@ class MCPClient:
         Initialize MCP client
 
         Args:
-            config: Server configuration (command, args, env)
+            config: Server configuration (command+args for stdio, or url for sse)
         """
         self.config = config
         self.process: Optional[subprocess.Popen] = None
+        self.session: Optional[aiohttp.ClientSession] = None  # For HTTP/SSE
         self.is_connected = False
         self.tools: List[MCPToolSchema] = []
         self._request_id = 0
 
     async def connect(self) -> bool:
         """
-        Connect to MCP server
+        Connect to MCP server (stdio or HTTP/SSE)
 
         Returns:
             True if connection successful
         """
         try:
-            logger.info(f"[MCPClient] Connecting to MCP server: {self.config.command}")
-
-            # Launch server process
-            self.process = subprocess.Popen(
-                [self.config.command] + self.config.args,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                env=self.config.env,
-                cwd=self.config.cwd,
-                text=True,
-                bufsize=1,
-            )
-
-            # Wait a bit for server to start
-            await asyncio.sleep(0.5)
-
-            # Check if process is still running
-            if self.process.poll() is not None:
-                stderr = self.process.stderr.read() if self.process.stderr else ""
-                raise RuntimeError(f"Server process exited immediately. Stderr: {stderr}")
-
-            # Send initialize request
-            init_response = await self._send_request(
-                "initialize",
-                {
-                    "protocolVersion": "2024-11-05",
-                    "capabilities": {
-                        # Client supports roots (workspace roots)
-                        "roots": {"listChanged": True},
-                        # Note: sampling not implemented yet, so removed from capabilities
-                    },
-                    "clientInfo": {"name": "tg-note-agent", "version": "0.1.0"},
-                },
-            )
-
-            if not init_response or "error" in init_response:
-                error = (
-                    init_response.get("error", "Unknown error") if init_response else "No response"
-                )
-                raise RuntimeError(f"Failed to initialize: {error}")
-
-            # Send initialized notification
-            await self._send_notification("notifications/initialized")
-
-            # List available tools
-            tools_response = await self._send_request("tools/list", {})
-
-            if tools_response and "result" in tools_response:
-                tools_list = tools_response["result"].get("tools", [])
-                self.tools = [
-                    MCPToolSchema(
-                        name=tool["name"],
-                        description=tool.get("description", ""),
-                        input_schema=tool.get("inputSchema", {}),
-                    )
-                    for tool in tools_list
-                ]
-                logger.info(
-                    f"[MCPClient] ✓ Connected. Available tools: {[t.name for t in self.tools]}"
-                )
-
-            self.is_connected = True
-            return True
-
-        except FileNotFoundError as e:
-            logger.error(
-                f"[MCPClient] Failed to connect: Command not found '{self.config.command}'. "
-                f"Please ensure the command is installed and available in PATH. Error: {e}"
-            )
-            await self.disconnect()
-            return False
+            if self.config.transport == "sse":
+                return await self._connect_sse()
+            else:
+                return await self._connect_stdio()
         except Exception as e:
-            logger.error(
-                f"[MCPClient] Failed to connect to MCP server '{self.config.command}': {e}",
-                exc_info=True,
-            )
+            logger.error(f"[MCPClient] Failed to connect: {e}", exc_info=True)
             await self.disconnect()
             return False
+            
+    async def _connect_stdio(self) -> bool:
+        """Connect via stdio transport"""
+        logger.info(f"[MCPClient] Connecting to MCP server (stdio): {self.config.command}")
+
+        # Launch server process
+        self.process = subprocess.Popen(
+            [self.config.command] + self.config.args,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=self.config.env,
+            cwd=self.config.cwd,
+            text=True,
+            bufsize=1,
+        )
+
+        # Wait a bit for server to start
+        await asyncio.sleep(0.5)
+
+        # Check if process is still running
+        if self.process.poll() is not None:
+            stderr = self.process.stderr.read() if self.process.stderr else ""
+            raise RuntimeError(f"Server process exited immediately. Stderr: {stderr}")
+
+        # Initialize connection
+        return await self._initialize()
+        
+    async def _connect_sse(self) -> bool:
+        """Connect via HTTP/SSE transport"""
+        logger.info(f"[MCPClient] Connecting to MCP server (SSE): {self.config.url}")
+        
+        # Create aiohttp session
+        self.session = aiohttp.ClientSession()
+        
+        # Initialize connection
+        return await self._initialize()
+        
+    async def _initialize(self) -> bool:
+        """Initialize MCP connection (common for both transports)"""
+        # Send initialize request
+        init_response = await self._send_request(
+            "initialize",
+            {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {
+                    "roots": {"listChanged": True},
+                },
+                "clientInfo": {"name": "tg-note-agent", "version": "0.1.0"},
+            },
+        )
+
+        if not init_response or "error" in init_response:
+            error = (
+                init_response.get("error", "Unknown error") if init_response else "No response"
+            )
+            raise RuntimeError(f"Failed to initialize: {error}")
+
+        # Send initialized notification
+        await self._send_notification("notifications/initialized")
+
+        # List available tools
+        tools_response = await self._send_request("tools/list", {})
+
+        if tools_response and "result" in tools_response:
+            tools_list = tools_response["result"].get("tools", [])
+            self.tools = [
+                MCPToolSchema(
+                    name=tool["name"],
+                    description=tool.get("description", ""),
+                    input_schema=tool.get("inputSchema", {}),
+                )
+                for tool in tools_list
+            ]
+            logger.info(
+                f"[MCPClient] ✓ Connected. Available tools: {[t.name for t in self.tools]}"
+            )
+
+        self.is_connected = True
+        return True
 
     async def disconnect(self) -> None:
         """Disconnect from MCP server"""
@@ -193,6 +211,10 @@ class MCPClient:
             except:
                 self.process.kill()
             self.process = None
+            
+        if self.session:
+            await self.session.close()
+            self.session = None
 
         self.is_connected = False
         logger.info("[MCPClient] Disconnected")
@@ -387,7 +409,7 @@ class MCPClient:
 
     async def _send_request(self, method: str, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
-        Send JSON-RPC request to server
+        Send JSON-RPC request to server (stdio or HTTP)
 
         Args:
             method: JSON-RPC method name
@@ -396,6 +418,13 @@ class MCPClient:
         Returns:
             Response dict or None if error
         """
+        if self.config.transport == "sse":
+            return await self._send_request_http(method, params)
+        else:
+            return await self._send_request_stdio(method, params)
+            
+    async def _send_request_stdio(self, method: str, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Send request via stdio transport"""
         if not self.process or not self.process.stdin or not self.process.stdout:
             return None
 
@@ -417,7 +446,32 @@ class MCPClient:
             return response
 
         except Exception as e:
-            logger.error(f"[MCPClient] Request failed: {e}", exc_info=True)
+            logger.error(f"[MCPClient] stdio request failed: {e}", exc_info=True)
+            return None
+            
+    async def _send_request_http(self, method: str, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Send request via HTTP/SSE transport"""
+        if not self.session:
+            return None
+
+        self._request_id += 1
+        request = {"jsonrpc": "2.0", "id": self._request_id, "method": method, "params": params}
+
+        try:
+            async with self.session.post(
+                self.config.url,
+                json=request,
+                timeout=aiohttp.ClientTimeout(total=30)
+            ) as response:
+                if response.status != 200:
+                    logger.error(f"[MCPClient] HTTP request failed with status {response.status}")
+                    return None
+                
+                result = await response.json()
+                return result
+
+        except Exception as e:
+            logger.error(f"[MCPClient] HTTP request failed: {e}", exc_info=True)
             return None
 
     async def _send_notification(
@@ -430,6 +484,15 @@ class MCPClient:
             method: Notification method name
             params: Optional parameters
         """
+        if self.config.transport == "sse":
+            await self._send_notification_http(method, params)
+        else:
+            await self._send_notification_stdio(method, params)
+            
+    async def _send_notification_stdio(
+        self, method: str, params: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """Send notification via stdio"""
         if not self.process or not self.process.stdin:
             return
 
@@ -440,7 +503,25 @@ class MCPClient:
             self.process.stdin.write(notification_json)
             self.process.stdin.flush()
         except Exception as e:
-            logger.error(f"[MCPClient] Notification failed: {e}", exc_info=True)
+            logger.error(f"[MCPClient] stdio notification failed: {e}", exc_info=True)
+            
+    async def _send_notification_http(
+        self, method: str, params: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """Send notification via HTTP (fire and forget)"""
+        if not self.session:
+            return
+
+        notification = {"jsonrpc": "2.0", "method": method, "params": params or {}}
+
+        try:
+            await self.session.post(
+                self.config.url,
+                json=notification,
+                timeout=aiohttp.ClientTimeout(total=5)
+            )
+        except Exception as e:
+            logger.error(f"[MCPClient] HTTP notification failed: {e}", exc_info=True)
 
     def __del__(self):
         """Cleanup on deletion"""

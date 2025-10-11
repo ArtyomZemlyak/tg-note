@@ -5,6 +5,7 @@ Connects MCP tools to the MCP servers registry.
 Automatically discovers and connects to enabled MCP servers.
 """
 
+import json
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -69,17 +70,41 @@ class MCPRegistryClient:
             MCP client or None if creation failed
         """
         try:
-            # Convert server spec to MCP client config
-            config = MCPServerConfig(
-                command=spec.command,
-                args=spec.args,
-                env=spec.env,
-                cwd=Path(spec.working_dir) if spec.working_dir else None,
-            )
+            # Check if this is HTTP/SSE transport (look for URL in spec)
+            # First check if config file has URL
+            config_url = None
+            if spec.config_file and spec.config_file.exists():
+                try:
+                    with open(spec.config_file, "r") as f:
+                        config_data = json.load(f)
+                        # Extract URL from mcpServers section
+                        servers = config_data.get("mcpServers", {})
+                        if spec.name in servers:
+                            config_url = servers[spec.name].get("url")
+                except:
+                    pass
+                    
+            # Create config based on transport type
+            if config_url:
+                # HTTP/SSE transport
+                config = MCPServerConfig(
+                    transport="sse",
+                    url=config_url,
+                )
+                logger.debug(f"[MCPRegistryClient] Created HTTP/SSE client for: {spec.name}")
+            else:
+                # stdio transport
+                config = MCPServerConfig(
+                    command=spec.command,
+                    args=spec.args,
+                    env=spec.env,
+                    cwd=Path(spec.working_dir) if spec.working_dir else None,
+                    transport="stdio",
+                )
+                logger.debug(f"[MCPRegistryClient] Created stdio client for: {spec.name}")
 
             # Create and return client
             client = MCPClient(config)
-            logger.debug(f"[MCPRegistryClient] Created client for server: {spec.name}")
             return client
 
         except Exception as e:

@@ -1,12 +1,20 @@
 #!/usr/bin/env python3
 """
-HTTP/SSE MCP Server for Memory Storage
+MCP Hub Server - Unified MCP Gateway
 
-This server provides memory storage/retrieval via HTTP using Server-Sent Events (SSE).
-Alternative to stdio-based memory_server.py for better compatibility with some clients.
+This server provides:
+1. MCP Server Registry - Register and discover MCP servers
+2. Built-in MCP Tools - Memory and other common tools
+3. HTTP/SSE API - For all MCP operations
+
+Architecture:
+- Single entry point for all MCP operations
+- Hosts built-in tools (memory, etc.)
+- Manages registry of external MCP servers
+- Per-user isolation for both tools and servers
 
 Usage:
-    python -m src.agents.mcp.memory.memory_server_http [--port PORT] [--host HOST]
+    python -m src.agents.mcp.mcp_hub_server [--port PORT] [--host HOST]
 
 Default:
     Host: 127.0.0.1
@@ -18,7 +26,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from loguru import logger
 
@@ -28,9 +36,12 @@ except ImportError:
     print("Error: fastmcp not installed. Install with: pip install fastmcp")
     sys.exit(1)
 
-# Import shared memory storage and factory
+# Import memory storage components
 from src.agents.mcp.memory.memory_factory import MemoryStorageFactory
 from src.agents.mcp.memory.memory_storage import MemoryStorage
+
+# Import registry components
+from src.mcp_registry.registry import MCPServerRegistry, MCPServerSpec
 
 # Configure logger
 log_dir = Path("logs")
@@ -47,7 +58,7 @@ logger.add(
 
 # File logging for errors and debugging
 logger.add(
-    log_dir / "memory_http.log",
+    log_dir / "mcp_hub.log",
     format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} | {message}",
     level="DEBUG",
     rotation="10 MB",
@@ -59,7 +70,7 @@ logger.add(
 
 # Separate error log
 logger.add(
-    log_dir / "memory_http_errors.log",
+    log_dir / "mcp_hub_errors.log",
     format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} | {message}",
     level="ERROR",
     rotation="10 MB",
@@ -71,10 +82,29 @@ logger.add(
 
 
 # Initialize FastMCP server
-mcp = FastMCP("memory", version="1.0.0")
+mcp = FastMCP("mcp-hub", version="1.0.0")
 
 # Per-user storage instances (user_id -> MemoryStorage)
 _storages: Dict[int, MemoryStorage] = {}
+
+# Global registry instance
+_registry: Optional[MCPServerRegistry] = None
+
+
+def get_registry() -> MCPServerRegistry:
+    """
+    Get or create global MCP server registry
+    
+    Returns:
+        MCPServerRegistry instance
+    """
+    global _registry
+    if _registry is None:
+        servers_dir = Path("data/mcp_servers")
+        _registry = MCPServerRegistry(servers_dir, user_id=None)
+        _registry.discover_servers()
+        logger.info(f"📋 Registry initialized: {len(_registry.get_all_servers())} servers discovered")
+    return _registry
 
 
 def get_storage(user_id: int) -> MemoryStorage:
@@ -153,6 +183,32 @@ def get_storage(user_id: int) -> MemoryStorage:
         logger.info("="*60)
         return storage
 
+
+# ============================================================================
+# Health Check Endpoint
+# ============================================================================
+
+@mcp.custom_route("/health", methods=["GET"])
+async def health_check():
+    """Health check endpoint for container orchestration"""
+    registry = get_registry()
+    return {
+        "status": "ok",
+        "service": "mcp-hub",
+        "version": "1.0.0",
+        "registry": {
+            "servers_total": len(registry.get_all_servers()),
+            "servers_enabled": len(registry.get_enabled_servers()),
+        },
+        "storage": {
+            "active_users": len(_storages),
+        }
+    }
+
+
+# ============================================================================
+# Memory Tools - Built-in MCP Tools
+# ============================================================================
 
 @mcp.tool()
 def store_memory(
@@ -277,10 +333,206 @@ def list_categories(user_id: int) -> dict:
         return {"success": False, "error": str(e), "error_type": type(e).__name__}
 
 
+# ============================================================================
+# Registry Tools - MCP Server Management
+# ============================================================================
+
+@mcp.tool()
+def list_mcp_servers(user_id: int = None) -> dict:
+    """
+    List all registered MCP servers
+    
+    Args:
+        user_id: Optional user ID for user-specific servers
+    
+    Returns:
+        List of registered servers with their status
+    """
+    logger.info("📋 LIST_MCP_SERVERS called")
+    logger.info(f"  User: {user_id or 'global'}")
+    
+    try:
+        registry = get_registry()
+        servers = registry.get_all_servers()
+        
+        result = {
+            "success": True,
+            "total": len(servers),
+            "servers": [
+                {
+                    "name": spec.name,
+                    "description": spec.description,
+                    "enabled": spec.enabled,
+                    "command": spec.command,
+                }
+                for spec in servers
+            ]
+        }
+        
+        logger.info(f"✅ Listed {len(servers)} servers")
+        return result
+        
+    except Exception as e:
+        logger.error(f"❌ Error listing servers: {e}", exc_info=True)
+        return {"success": False, "error": str(e)}
+
+
+@mcp.tool()
+def get_mcp_server(name: str) -> dict:
+    """
+    Get details of a specific MCP server
+    
+    Args:
+        name: Server name
+    
+    Returns:
+        Server details
+    """
+    logger.info(f"🔍 GET_MCP_SERVER called: {name}")
+    
+    try:
+        registry = get_registry()
+        spec = registry.get_server(name)
+        
+        if not spec:
+            return {"success": False, "error": f"Server '{name}' not found"}
+        
+        result = {
+            "success": True,
+            "server": {
+                "name": spec.name,
+                "description": spec.description,
+                "enabled": spec.enabled,
+                "command": spec.command,
+                "args": spec.args,
+                "env": spec.env or {},
+                "working_dir": spec.working_dir,
+            }
+        }
+        
+        logger.info(f"✅ Retrieved server: {name}")
+        return result
+        
+    except Exception as e:
+        logger.error(f"❌ Error getting server: {e}", exc_info=True)
+        return {"success": False, "error": str(e)}
+
+
+@mcp.tool()
+def register_mcp_server(
+    name: str,
+    description: str,
+    command: str,
+    args: list[str],
+    env: dict = None,
+    working_dir: str = None,
+    enabled: bool = True
+) -> dict:
+    """
+    Register a new MCP server
+    
+    Args:
+        name: Server name (unique identifier)
+        description: Human-readable description
+        command: Command to execute
+        args: Command-line arguments
+        env: Environment variables (optional)
+        working_dir: Working directory (optional)
+        enabled: Whether to enable the server
+    
+    Returns:
+        Success status
+    """
+    logger.info(f"➕ REGISTER_MCP_SERVER called: {name}")
+    
+    try:
+        registry = get_registry()
+        
+        spec = MCPServerSpec(
+            name=name,
+            description=description,
+            command=command,
+            args=args,
+            env=env,
+            working_dir=working_dir,
+            enabled=enabled,
+        )
+        
+        success = registry.add_server(spec)
+        
+        if success:
+            logger.info(f"✅ Registered server: {name}")
+            return {"success": True, "message": f"Server '{name}' registered successfully"}
+        else:
+            return {"success": False, "error": f"Server '{name}' already exists"}
+        
+    except Exception as e:
+        logger.error(f"❌ Error registering server: {e}", exc_info=True)
+        return {"success": False, "error": str(e)}
+
+
+@mcp.tool()
+def enable_mcp_server(name: str) -> dict:
+    """
+    Enable an MCP server
+    
+    Args:
+        name: Server name
+    
+    Returns:
+        Success status
+    """
+    logger.info(f"✅ ENABLE_MCP_SERVER called: {name}")
+    
+    try:
+        registry = get_registry()
+        success = registry.enable_server(name)
+        
+        if success:
+            return {"success": True, "message": f"Server '{name}' enabled"}
+        else:
+            return {"success": False, "error": f"Server '{name}' not found"}
+        
+    except Exception as e:
+        logger.error(f"❌ Error enabling server: {e}", exc_info=True)
+        return {"success": False, "error": str(e)}
+
+
+@mcp.tool()
+def disable_mcp_server(name: str) -> dict:
+    """
+    Disable an MCP server
+    
+    Args:
+        name: Server name
+    
+    Returns:
+        Success status
+    """
+    logger.info(f"❌ DISABLE_MCP_SERVER called: {name}")
+    
+    try:
+        registry = get_registry()
+        success = registry.disable_server(name)
+        
+        if success:
+            return {"success": True, "message": f"Server '{name}' disabled"}
+        else:
+            return {"success": False, "error": f"Server '{name}' not found"}
+        
+    except Exception as e:
+        logger.error(f"❌ Error disabling server: {e}", exc_info=True)
+        return {"success": False, "error": str(e)}
+
+
+# ============================================================================
+# Main Entry Point
+# ============================================================================
+
 def main():
     """Main entry point"""
     parser = argparse.ArgumentParser(
-        description="Memory HTTP MCP Server - Multi-user memory storage via HTTP/SSE"
+        description="MCP Hub Server - Unified MCP gateway with registry and built-in tools"
     )
     parser.add_argument("--host", default="127.0.0.1", help="Host to bind to (default: 127.0.0.1)")
     parser.add_argument("--port", type=int, default=8765, help="Port to bind to (default: 8765)")
@@ -293,27 +545,24 @@ def main():
 
     args = parser.parse_args()
 
-    # Configure logging level
-    # NOTE: Don't call logger.remove() here - file handlers are already configured at module level
-    # Just update the log level if needed
-    # logger.remove()
-    # logger.add(
-    #     sys.stderr,
-    #     format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <level>{message}</level>",
-    #     level=args.log_level,
-    # )
-
     logger.info("="*80)
-    logger.info("🚀 STARTING MCP MEMORY SERVER (HTTP/SSE)")
+    logger.info("🚀 STARTING MCP HUB SERVER")
     logger.info("="*80)
     logger.info("")
     logger.info("🔧 Server Configuration:")
     logger.info(f"  🏗️  Host: {args.host}")
     logger.info(f"  🔌 Port: {args.port}")
     logger.info(f"  👥 Mode: Multi-user (per-user storage)")
-    logger.info(f"  💾 Storage type: {os.getenv('MEM_AGENT_STORAGE_TYPE', 'json')}")
-    logger.info(f"  🎮 Backend: {os.getenv('MEM_AGENT_BACKEND', 'auto')}")
-    logger.info(f"  📦 Model: {os.getenv('MEM_AGENT_MODEL', 'default')}")
+    logger.info("")
+    logger.info("📦 Features:")
+    logger.info(f"  ✅ Memory Tools (json/vector/mem-agent)")
+    logger.info(f"  ✅ MCP Server Registry")
+    logger.info(f"  ✅ Per-user isolation")
+    logger.info("")
+    logger.info("💾 Storage Configuration:")
+    logger.info(f"  - Storage type: {os.getenv('MEM_AGENT_STORAGE_TYPE', 'json')}")
+    logger.info(f"  - Backend: {os.getenv('MEM_AGENT_BACKEND', 'auto')}")
+    logger.info(f"  - Model: {os.getenv('MEM_AGENT_MODEL', 'default')}")
     logger.info("")
     logger.info("📋 Environment Variables:")
     logger.info(f"  - MEM_AGENT_STORAGE_TYPE: {os.getenv('MEM_AGENT_STORAGE_TYPE', 'not set (default: json)')}")
@@ -321,17 +570,23 @@ def main():
     logger.info(f"  - MEM_AGENT_BACKEND: {os.getenv('MEM_AGENT_BACKEND', 'not set (default: auto)')}")
     logger.info(f"  - MEM_AGENT_MAX_TOOL_TURNS: {os.getenv('MEM_AGENT_MAX_TOOL_TURNS', 'not set (default: 20)')}")
     logger.info("")
-    logger.info("ℹ️  Note: Each user's storage is isolated at data/memory/user_{{user_id}}/")
+    logger.info("ℹ️  Notes:")
+    logger.info("  - User storage: data/memory/user_{user_id}/")
+    logger.info("  - Server configs: data/mcp_servers/*.json")
     logger.info("="*80)
+
+    # Initialize registry
+    get_registry()
 
     # Run server
     try:
-        logger.info(f"Server listening on http://{args.host}:{args.port}/sse")
+        logger.info(f"🌐 Server listening on http://{args.host}:{args.port}/sse")
+        logger.info(f"🏥 Health check: http://{args.host}:{args.port}/health")
         mcp.run(transport="sse", host=args.host, port=args.port)
     except KeyboardInterrupt:
-        logger.info("Server stopped by user")
+        logger.info("⏹️  Server stopped by user")
     except Exception as e:
-        logger.error(f"Fatal error: {e}", exc_info=True)
+        logger.error(f"❌ Fatal error: {e}", exc_info=True)
         sys.exit(1)
 
 

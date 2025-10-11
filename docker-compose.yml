@@ -1,0 +1,124 @@
+version: '3.8'
+
+services:
+  # vLLM Server for mem-agent (using official image)
+  # Provides OpenAI-compatible API for LLM inference
+  vllm-server:
+    image: vllm/vllm-openai:latest
+    container_name: tg-note-vllm
+    restart: unless-stopped
+    command: >
+      --model ${MEM_AGENT_MODEL:-driaforall/mem-agent}
+      --host 0.0.0.0
+      --port 8001
+      --gpu-memory-utilization ${GPU_MEMORY_UTILIZATION:-0.8}
+      --max-model-len ${MAX_MODEL_LEN:-4096}
+      --tensor-parallel-size ${TENSOR_PARALLEL_SIZE:-1}
+    ports:
+      - "${VLLM_PORT:-8001}:8001"
+    environment:
+      - HF_HOME=/root/.cache/huggingface
+    volumes:
+      - huggingface-cache:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    networks:
+      - tg-note-network
+    shm_size: '2gb'
+
+  # MCP Hub Server (Unified MCP Gateway)
+  # Provides:
+  # - Built-in MCP tools (memory)
+  # - MCP server registry
+  # - HTTP/SSE interface
+  mcp-hub:
+    build:
+      context: .
+      dockerfile: Dockerfile.hub
+    container_name: tg-note-hub
+    image: tg-note-hub:latest
+    restart: unless-stopped
+    ports:
+      - "${MCP_PORT:-8765}:8765"
+    environment:
+      # vLLM/SGLang/MLX connection (Docker internal)
+      - MEM_AGENT_HOST=vllm-server
+      - MEM_AGENT_PORT=8001
+      - MEM_AGENT_BASE_URL=http://vllm-server:8001/v1
+    volumes:
+      # Persistent storage for memory data
+      - ./data/memory:/app/data/memory
+      # MCP servers registry
+      - ./data/mcp_servers:/app/data/mcp_servers
+      # Logs
+      - ./logs:/app/logs
+      # Configuration (read-only)
+      - ./config.docker.yaml:/app/config.yaml:ro
+      # Shared HuggingFace cache for embeddings
+      - huggingface-cache:/root/.cache/huggingface
+    depends_on:
+      vllm-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8765/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - tg-note-network
+
+  # Main Telegram Bot
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile.bot
+    container_name: tg-note-bot
+    image: tg-note-bot:latest
+    restart: unless-stopped
+    environment:
+      # Credentials only (from .env)
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - ALLOWED_USER_IDS=${ALLOWED_USER_IDS:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - QWEN_API_KEY=${QWEN_API_KEY:-}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      
+      # MCP Hub connection (Docker internal)
+      - MCP_HUB_URL=http://mcp-hub:8765/sse
+    volumes:
+      # Persistent storage for knowledge base
+      - ./knowledge_base:/app/knowledge_base
+      # Persistent storage for data (processed messages, settings)
+      - ./data:/app/data
+      # Logs
+      - ./logs:/app/logs
+      # Configuration (read-only)
+      - ./config.docker.yaml:/app/config.yaml:ro
+    depends_on:
+      mcp-hub:
+        condition: service_healthy
+    networks:
+      - tg-note-network
+
+networks:
+  tg-note-network:
+    driver: bridge
+
+volumes:
+  # Shared HuggingFace cache for models and embeddings
+  huggingface-cache:
+    driver: local

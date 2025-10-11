@@ -1,0 +1,49 @@
+# Docker Compose for SGLang backend
+# Use this for faster inference with SGLang instead of vLLM
+# 
+# Usage:
+#   docker-compose -f docker-compose.yml -f docker-compose.sglang.yml up -d
+# Or:
+#   make up-sglang
+
+version: '3.8'
+
+services:
+  # Override vllm-server with SGLang
+  vllm-server:
+    image: lmsysorg/sglang:latest
+    container_name: tg-note-sglang
+    command: >
+      python -m sglang.launch_server
+      --model ${MEM_AGENT_MODEL:-driaforall/mem-agent}
+      --host 0.0.0.0
+      --port 8001
+      --mem-fraction-static ${GPU_MEMORY_UTILIZATION:-0.8}
+      --context-length ${MAX_MODEL_LEN:-4096}
+      --tp ${TENSOR_PARALLEL_SIZE:-1}
+    environment:
+      - HF_HOME=/root/.cache/huggingface
+      - SGLANG_ALLOW_OVERWRITE=1
+    volumes:
+      - huggingface-cache:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    networks:
+      - tg-note-network
+    shm_size: '4gb'  # SGLang may need more shared memory
+
+  # Update mcp-hub environment to use SGLang
+  mcp-hub:
+    environment:
+      - MEM_AGENT_BACKEND=sglang

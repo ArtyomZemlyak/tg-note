@@ -1,0 +1,74 @@
+# Docker Compose Override Example
+# Copy this file to docker-compose.override.yml and customize as needed
+# This file is automatically loaded by docker-compose and overrides settings from docker-compose.yml
+
+version: '3.8'
+
+services:
+  # Example 1: Run without GPU (JSON storage only)
+  # Uncomment to disable vLLM and use JSON storage
+  # bot:
+  #   environment:
+  #     - AGENT_ENABLE_MCP_MEMORY=true
+  #     - MEM_AGENT_STORAGE_TYPE=json
+
+  # Example 2: Custom ports
+  # mcp-http-server:
+  #   ports:
+  #     - "9000:8765"
+  # 
+  # vllm-server:
+  #   ports:
+  #     - "9001:8001"
+
+  # Example 3: Resource limits
+  # bot:
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: '2'
+  #         memory: 4G
+  #       reservations:
+  #         cpus: '1'
+  #         memory: 2G
+
+  # Example 4: Multiple GPU configuration
+  # vllm-server:
+  #   environment:
+  #     - TENSOR_PARALLEL_SIZE=2
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             device_ids: ['0', '1']
+  #             capabilities: [gpu]
+
+  # Example 5: Custom logging
+  # bot:
+  #   logging:
+  #     driver: "json-file"
+  #     options:
+  #       max-size: "100m"
+  #       max-file: "5"
+
+  # Example 6: Development mode with local code mount
+  # bot:
+  #   volumes:
+  #     - ./src:/app/src:ro
+  #     - ./config:/app/config:ro
+  #     - ./main.py:/app/main.py:ro
+  #   environment:
+  #     - LOG_LEVEL=DEBUG
+
+  # Example 7: External network
+  # networks:
+  #   tg-note-network:
+  #     external: true
+  #     name: my-external-network
+
+  # Example 8: Use external volume for model cache
+  # volumes:
+  #   huggingface-cache:
+  #     external: true
+  #     name: shared-hf-cache

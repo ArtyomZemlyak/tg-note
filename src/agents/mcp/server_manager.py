@@ -273,108 +273,140 @@ class MCPServerManager:
         Also creates necessary configuration files:
         - data/mcp_servers/memory.json (for Python MCP clients)
         - ~/.qwen/settings.json (for Qwen CLI)
+        
+        Note: In Docker deployments, mcp-hub is already running as a container.
+        We register it as HTTP/SSE connection instead of launching subprocess.
         """
         # Register memory HTTP server if MCP memory is enabled
         if self.settings.AGENT_ENABLE_MCP_MEMORY:
-            logger.info(
-                "[MCPServerManager] MCP memory agent is enabled, registering memory HTTP server"
-            )
-
-            # Create data/mcp_servers directory if it doesn't exist
-            mcp_servers_dir = Path("data/mcp_servers")
-            mcp_servers_dir.mkdir(parents=True, exist_ok=True)
-
-            # Create memory.json config file if it doesn't exist
-            memory_config_file = mcp_servers_dir / "memory.json"
-            if not memory_config_file.exists():
+            # Check if running in Docker (by presence of MCP_HUB_URL env var)
+            import os
+            mcp_hub_url = os.getenv("MCP_HUB_URL")
+            
+            if mcp_hub_url:
                 logger.info(
-                    f"[MCPServerManager] Creating MCP server config at {memory_config_file}"
+                    f"[MCPServerManager] Docker mode: Connecting to mcp-hub at {mcp_hub_url}"
                 )
-
-                # Standard MCP server configuration format
-                # This follows the format used by Cursor, Claude Desktop, and Qwen CLI
-                config = {
-                    "mcpServers": {
-                        "memory": {
-                            # HTTP/SSE transport (default)
-                            "url": "http://127.0.0.1:8765/sse",
-                            "timeout": 10000,
-                            "trust": True,
-                            "description": "Agent's personal note-taking and search system - allows the agent to record and search notes during task execution",
-                            # Additional metadata for internal use
-                            "_transport": "http",
-                            "_command": "python3",
-                            "_args": [
-                                "-m",
-                                "src.agents.mcp.memory.memory_server_http",
-                                "--host",
-                                "127.0.0.1",
-                                "--port",
-                                "8765",
-                            ],
-                            "_cwd": str(Path.cwd()),
-                        }
-                    }
-                }
-
-                # Also save stdio variant for reference
-                config["mcpServers"]["memory"]["_stdio_variant"] = {
-                    "command": "python3",
-                    "args": [
-                        "-m",
-                        "src.agents.mcp.memory.memory_server_http",
-                        "--host",
-                        "127.0.0.1",
-                        "--port",
-                        "8765",
-                    ],
-                    "cwd": str(Path.cwd()),
-                    "env": {},
-                    "timeout": 10000,
-                    "trust": True,
-                    "description": "Agent's personal note-taking and search system (stdio variant)",
-                }
-
-                try:
-                    with open(memory_config_file, "w", encoding="utf-8") as f:
-                        json.dump(config, f, indent=2, ensure_ascii=False)
-                    logger.info(
-                        f"[MCPServerManager] Created MCP server config: {memory_config_file}"
-                    )
-                except Exception as e:
-                    logger.error(f"[MCPServerManager] Failed to create MCP server config: {e}")
+                self._setup_mcp_hub_connection(mcp_hub_url)
             else:
-                logger.debug(
-                    f"[MCPServerManager] MCP server config already exists: {memory_config_file}"
+                logger.info(
+                    "[MCPServerManager] Standalone mode: Registering memory HTTP server subprocess"
                 )
-
-            # Prepare environment variables from settings
-            server_env = {
-                "MEM_AGENT_STORAGE_TYPE": self.settings.MEM_AGENT_STORAGE_TYPE,
-                "MEM_AGENT_MODEL": self.settings.MEM_AGENT_MODEL,
-                "MEM_AGENT_BACKEND": self.settings.MEM_AGENT_BACKEND,
-                "MEM_AGENT_MAX_TOOL_TURNS": str(self.settings.MEM_AGENT_MAX_TOOL_TURNS),
-            }
-
-            # Use Python module path for HTTP server
-            self.register_server(
-                name="memory",
-                command="python3",
-                args=[
-                    "-m",
-                    "src.agents.mcp.memory.memory_server_http",
-                    "--host",
-                    "127.0.0.1",
-                    "--port",
-                    "8765",
-                ],
-                env=server_env,
-                cwd=Path.cwd(),
-            )
+                self._setup_memory_subprocess()
 
         # Also create ~/.qwen/settings.json if MCP is enabled for Qwen CLI support
         if self.settings.AGENT_ENABLE_MCP or self.settings.AGENT_ENABLE_MCP_MEMORY:
             self._create_qwen_config()
+
+    def _setup_mcp_hub_connection(self, url: str) -> None:
+        """
+        Setup connection to mcp-hub (Docker mode)
+        
+        Args:
+            url: MCP Hub URL (e.g., http://mcp-hub:8765/sse)
+        """
+        # Create data/mcp_servers directory if it doesn't exist
+        mcp_servers_dir = Path("data/mcp_servers")
+        mcp_servers_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Create memory.json config for HTTP/SSE transport
+        memory_config_file = mcp_servers_dir / "memory.json"
+        
+        config = {
+            "mcpServers": {
+                "memory": {
+                    "url": url,
+                    "transport": "sse",
+                    "timeout": 10000,
+                    "trust": True,
+                    "description": "MCP Hub - Built-in memory tools and server registry",
+                }
+            }
+        }
+        
+        try:
+            with open(memory_config_file, "w", encoding="utf-8") as f:
+                json.dump(config, f, indent=2, ensure_ascii=False)
+            logger.info(
+                f"[MCPServerManager] Created MCP Hub config (HTTP/SSE): {memory_config_file}"
+            )
+        except Exception as e:
+            logger.error(f"[MCPServerManager] Failed to create MCP Hub config: {e}")
+            
+    def _setup_memory_subprocess(self) -> None:
+        """Setup memory server as subprocess (standalone mode)"""
+        # Create data/mcp_servers directory if it doesn't exist
+        mcp_servers_dir = Path("data/mcp_servers")
+        mcp_servers_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create memory.json config file if it doesn't exist
+        memory_config_file = mcp_servers_dir / "memory.json"
+        if not memory_config_file.exists():
+            logger.info(
+                f"[MCPServerManager] Creating MCP server config at {memory_config_file}"
+            )
+
+            # Standard MCP server configuration format
+            config = {
+                "mcpServers": {
+                    "memory": {
+                        # HTTP/SSE transport
+                        "url": "http://127.0.0.1:8765/sse",
+                        "timeout": 10000,
+                        "trust": True,
+                        "description": "Agent's personal note-taking and search system",
+                        # Additional metadata for internal use
+                        "_transport": "http",
+                        "_command": "python3",
+                        "_args": [
+                            "-m",
+                            "src.agents.mcp.mcp_hub_server",
+                            "--host",
+                            "127.0.0.1",
+                            "--port",
+                            "8765",
+                        ],
+                        "_cwd": str(Path.cwd()),
+                    }
+                }
+            }
+
+            try:
+                with open(memory_config_file, "w", encoding="utf-8") as f:
+                    json.dump(config, f, indent=2, ensure_ascii=False)
+                logger.info(
+                    f"[MCPServerManager] Created MCP server config: {memory_config_file}"
+                )
+            except Exception as e:
+                logger.error(f"[MCPServerManager] Failed to create MCP server config: {e}")
+        else:
+            logger.debug(
+                f"[MCPServerManager] MCP server config already exists: {memory_config_file}"
+            )
+
+        # Prepare environment variables from settings
+        server_env = {
+            "MEM_AGENT_STORAGE_TYPE": self.settings.MEM_AGENT_STORAGE_TYPE,
+            "MEM_AGENT_MODEL": self.settings.MEM_AGENT_MODEL,
+            "MEM_AGENT_BACKEND": self.settings.MEM_AGENT_BACKEND,
+            "MEM_AGENT_MAX_TOOL_TURNS": str(self.settings.MEM_AGENT_MAX_TOOL_TURNS),
+        }
+
+        # Register mcp-hub server subprocess
+        self.register_server(
+            name="memory",
+            command="python3",
+            args=[
+                "-m",
+                "src.agents.mcp.mcp_hub_server",
+                "--host",
+                "127.0.0.1",
+                "--port",
+                "8765",
+            ],
+            env=server_env,
+            cwd=Path.cwd(),
+        )
 
     def _create_qwen_config(self) -> None:
         """

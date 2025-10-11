@@ -40,7 +40,14 @@ venv.bak/
 
 # Environment variables and local config
 .env
+.env.local
+.env.*.local
 config.yaml
+
+# Docker
+docker-compose.override.yml
+.env.storage
+backups/
 
 # Data files
 data/processed.json

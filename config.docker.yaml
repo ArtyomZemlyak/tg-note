@@ -1,0 +1,75 @@
+# Docker Configuration
+# This config is mounted into containers as /app/config.yaml
+# Contains only non-sensitive settings (credentials are in .env)
+
+# ───────────────────────────────────────────────────────────────────────────────
+# Knowledge Base Settings
+# ───────────────────────────────────────────────────────────────────────────────
+KB_PATH: /app/knowledge_base
+KB_TOPICS_ONLY: true
+KB_GIT_ENABLED: true
+KB_GIT_AUTO_PUSH: true
+KB_GIT_REMOTE: origin
+KB_GIT_BRANCH: main
+
+# ───────────────────────────────────────────────────────────────────────────────
+# Processing Settings
+# ───────────────────────────────────────────────────────────────────────────────
+MESSAGE_GROUP_TIMEOUT: 30
+PROCESSED_LOG_PATH: /app/data/processed.json
+
+# ───────────────────────────────────────────────────────────────────────────────
+# Logging Settings
+# ───────────────────────────────────────────────────────────────────────────────
+LOG_LEVEL: INFO
+LOG_FILE: /app/logs/bot.log
+
+# ───────────────────────────────────────────────────────────────────────────────
+# Agent Configuration
+# ───────────────────────────────────────────────────────────────────────────────
+AGENT_TYPE: stub
+AGENT_MODEL: qwen-max
+AGENT_QWEN_CLI_PATH: qwen
+AGENT_TIMEOUT: 300
+
+# Agent Tools
+AGENT_ENABLE_WEB_SEARCH: true
+AGENT_ENABLE_GIT: true
+AGENT_ENABLE_GITHUB: true
+AGENT_ENABLE_SHELL: false
+AGENT_ENABLE_FILE_MANAGEMENT: true
+AGENT_ENABLE_FOLDER_MANAGEMENT: true
+
+# ───────────────────────────────────────────────────────────────────────────────
+# MCP Settings
+# ───────────────────────────────────────────────────────────────────────────────
+AGENT_ENABLE_MCP: false
+AGENT_ENABLE_MCP_MEMORY: true
+
+# ───────────────────────────────────────────────────────────────────────────────
+# Memory Agent Settings
+# ───────────────────────────────────────────────────────────────────────────────
+MEM_AGENT_STORAGE_TYPE: json
+MEM_AGENT_MODEL: driaforall/mem-agent
+MEM_AGENT_MODEL_PRECISION: 4bit
+MEM_AGENT_BACKEND: vllm
+MEM_AGENT_VLLM_HOST: vllm-server
+MEM_AGENT_VLLM_PORT: 8001
+MEM_AGENT_MAX_TOOL_TURNS: 20
+MEM_AGENT_TIMEOUT: 20
+MEM_AGENT_FILE_SIZE_LIMIT: 1048576
+MEM_AGENT_DIR_SIZE_LIMIT: 10485760
+MEM_AGENT_MEMORY_SIZE_LIMIT: 104857600
+
+# ───────────────────────────────────────────────────────────────────────────────
+# Vector Search Settings
+# ───────────────────────────────────────────────────────────────────────────────
+VECTOR_SEARCH_ENABLED: false
+VECTOR_EMBEDDING_PROVIDER: sentence_transformers
+VECTOR_EMBEDDING_MODEL: all-MiniLM-L6-v2
+VECTOR_STORE_PROVIDER: faiss
+VECTOR_CHUNKING_STRATEGY: fixed_size_overlap
+VECTOR_CHUNK_SIZE: 512
+VECTOR_CHUNK_OVERLAP: 50
+VECTOR_RESPECT_HEADERS: true
+VECTOR_SEARCH_TOP_K: 5

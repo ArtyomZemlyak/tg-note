@@ -111,7 +111,7 @@ class MemoryMCPTool(BaseMCPTool):
                     command="python3",
                     args=[
                         "-m",
-                        "src.agents.mcp.memory.memory_server_http",
+                        "src.agents.mcp.mcp_hub_server",
                         "--host",
                         "127.0.0.1",
                         "--port",
@@ -143,7 +143,7 @@ class MemoryMCPTool(BaseMCPTool):
                         "_args",
                         [
                             "-m",
-                            "src.agents.mcp.memory.memory_server_http",
+                            "src.agents.mcp.mcp_hub_server",
                             "--host",
                             "127.0.0.1",
                             "--port",
