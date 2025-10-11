@@ -120,6 +120,14 @@ def get_storage(user_id: int) -> MemoryStorage:
         try:
             model_name = os.getenv("MEM_AGENT_MODEL", None)
             backend = os.getenv("MEM_AGENT_BACKEND", "auto")
+            max_tool_turns_str = os.getenv("MEM_AGENT_MAX_TOOL_TURNS", "20")
+            try:
+                max_tool_turns = int(max_tool_turns_str)
+            except ValueError:
+                logger.warning(
+                    f"  ⚠️  Invalid MEM_AGENT_MAX_TOOL_TURNS='{max_tool_turns_str}', using default 20"
+                )
+                max_tool_turns = 20
             
             if model_name:
                 logger.info(f"  📦 Model: {model_name}")
@@ -132,6 +140,7 @@ def get_storage(user_id: int) -> MemoryStorage:
                 data_dir=data_dir,
                 model_name=model_name,
                 backend=backend,
+                max_tool_turns=max_tool_turns,
             )
             logger.info(f"✅ Successfully created {storage_type} storage for user {user_id}")
             _storages[user_id] = storage
@@ -304,7 +313,7 @@ def main():
     # )
 
     logger.info("="*80)
-    logger.info("🚀 STARTING MCP MEMORY SERVER (HTTP/SSE)")
+    logger.info("🚀 STARTING MEMORY MCP SERVER (HTTP/SSE)")
     logger.info("="*80)
     logger.info("")
     logger.info("🔧 Server Configuration:")

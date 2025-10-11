@@ -46,10 +46,13 @@ class QwenMCPConfigGenerator:
         """
         config: Dict[str, Any] = {"mcpServers": {}}
 
-        # Add mem-agent MCP server
+        # Add memory MCP server (primary) and mem-agent (legacy alias)
         mem_agent_config = self._generate_mem_agent_config()
         if mem_agent_config:
-            config["mcpServers"]["mem-agent"] = mem_agent_config
+            # Primary name
+            config["mcpServers"]["memory"] = dict(mem_agent_config)
+            # Legacy alias for backward compatibility
+            config["mcpServers"]["mem-agent"] = dict(mem_agent_config)
 
         # Add other MCP servers here in the future
         # config["mcpServers"]["filesystem"] = ...
@@ -58,6 +61,9 @@ class QwenMCPConfigGenerator:
         # Add allowMCPServers list
         if config["mcpServers"]:
             servers: List[str] = list(config["mcpServers"].keys())
+            # Ensure primary 'memory' is present and preferred ordering
+            if "memory" in servers:
+                servers = ["memory"] + [s for s in servers if s != "memory"]
             config["allowMCPServers"] = servers
 
         return config
