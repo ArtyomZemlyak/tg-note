@@ -117,15 +117,15 @@ def init_storage(user_id: Optional[int] = None):
         # Use factory for non-default storage types
         try:
             model_name = os.getenv("MEM_AGENT_MODEL", None)
-            use_vllm = os.getenv("MEM_AGENT_USE_VLLM", "true").lower() == "true"
+            backend = os.getenv("MEM_AGENT_BACKEND", "auto")
 
             storage = MemoryStorageFactory.create(
                 storage_type=storage_type,
                 data_dir=data_dir,
                 model_name=model_name,
-                use_vllm=use_vllm,
+                backend=backend,
             )
-            logger.info(f"Created {storage_type} storage via factory")
+            logger.info(f"Created {storage_type} storage via factory with backend={backend}")
             return storage
         except Exception as e:
             logger.error(
@@ -256,20 +256,27 @@ def main():
     )
 
     # Initialize storage
+    logger.info("="*60)
+    logger.info("Starting MCP Memory Server (HTTP/SSE)")
+    logger.info("="*60)
     logger.info("Initializing memory storage...")
     try:
         storage = init_storage(user_id=args.user_id)
-        storage_type = type(storage).__name__
-        logger.info(f"Storage initialized successfully: {storage_type}")
+        storage_type_name = type(storage).__name__
+        logger.info(f"Storage initialized successfully: {storage_type_name}")
     except Exception as e:
         logger.error(f"Failed to initialize storage: {e}", exc_info=True)
         sys.exit(1)
 
-    logger.info(f"Starting memory HTTP MCP server")
-    logger.info(f"Host: {args.host}")
-    logger.info(f"Port: {args.port}")
-    logger.info(f"User ID: {args.user_id or 'shared'}")
-    logger.info(f"Storage type: {os.getenv('MEM_AGENT_STORAGE_TYPE', 'json')}")
+    logger.info("")
+    logger.info("Server Configuration:")
+    logger.info(f"  Host: {args.host}")
+    logger.info(f"  Port: {args.port}")
+    logger.info(f"  User ID: {args.user_id or 'shared'}")
+    logger.info(f"  Storage type: {os.getenv('MEM_AGENT_STORAGE_TYPE', 'json')}")
+    logger.info(f"  Backend: {os.getenv('MEM_AGENT_BACKEND', 'auto')}")
+    logger.info(f"  Model: {os.getenv('MEM_AGENT_MODEL', 'default')}")
+    logger.info("="*60)
 
     # Run server
     try:

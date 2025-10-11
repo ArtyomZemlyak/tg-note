@@ -114,15 +114,15 @@ class MemoryMCPServer:
             # Use factory for non-default storage types
             try:
                 model_name = os.getenv("MEM_AGENT_MODEL", None)
-                use_vllm = os.getenv("MEM_AGENT_USE_VLLM", "true").lower() == "true"
+                backend = os.getenv("MEM_AGENT_BACKEND", "auto")
 
                 self.storage = MemoryStorageFactory.create(
                     storage_type=storage_type,
                     data_dir=data_dir,
                     model_name=model_name,
-                    use_vllm=use_vllm,
+                    backend=backend,
                 )
-                logger.info(f"Created {storage_type} storage via factory")
+                logger.info(f"Created {storage_type} storage via factory with backend={backend}")
             except Exception as e:
                 logger.warning(
                     f"Failed to create {storage_type} storage: {e}. Falling back to json."
@@ -133,8 +133,13 @@ class MemoryMCPServer:
             self.storage = MemoryStorage(data_dir)
 
         logger.info(
-            f"MCP Server initialized (user_id={user_id}, storage_type={storage_type}, data_dir={data_dir})"
+            f"MCP Memory Server initialized successfully"
         )
+        logger.info(f"  User ID: {user_id}")
+        logger.info(f"  Storage type: {storage_type}")
+        logger.info(f"  Data directory: {data_dir}")
+        logger.info(f"  Backend: {os.getenv('MEM_AGENT_BACKEND', 'auto')}")
+        logger.info(f"  Model: {os.getenv('MEM_AGENT_MODEL', 'default')}")
 
     async def handle_list_tools(self) -> List[Dict[str, Any]]:
         """
@@ -332,8 +337,14 @@ class MemoryMCPServer:
 
         Reads JSON-RPC requests from stdin, sends responses to stdout
         """
-        logger.info("MCP Server started (stdio transport)")
+        logger.info("="*60)
+        logger.info("MCP Memory Server started (stdio transport)")
+        logger.info("="*60)
         logger.info(f"Ready to accept requests for user_id={self.user_id}")
+        logger.info(f"Storage type: {os.getenv('MEM_AGENT_STORAGE_TYPE', 'json')}")
+        logger.info(f"Backend: {os.getenv('MEM_AGENT_BACKEND', 'auto')}")
+        logger.info(f"Model: {os.getenv('MEM_AGENT_MODEL', 'default')}")
+        logger.info("="*60)
 
         # Send initialization notification
         init_notification = {"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}}

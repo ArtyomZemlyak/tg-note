@@ -192,12 +192,12 @@ export MEM_AGENT_MODEL=BAAI/bge-m3
 # For mem-agent storage
 export MEM_AGENT_STORAGE_TYPE=mem-agent
 export MEM_AGENT_MODEL=driaforall/mem-agent
-export MEM_AGENT_USE_VLLM=true
+export MEM_AGENT_BACKEND=vllm  # Options: auto, vllm, mlx, transformers
 export MEM_AGENT_MAX_TOOL_TURNS=20
 
-# vLLM configuration (for mem-agent)
-export VLLM_HOST=127.0.0.1
-export VLLM_PORT=8000
+# vLLM configuration (when backend is vllm)
+export MEM_AGENT_VLLM_HOST=127.0.0.1
+export MEM_AGENT_VLLM_PORT=8001
 ```
 
 ## Extending with New Storage Types

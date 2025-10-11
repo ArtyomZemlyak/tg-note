@@ -81,7 +81,7 @@
    - Теперь использует `MEM_AGENT_STORAGE_TYPE` environment variable
    - Поддерживает все типы хранилища: "json", "vector", "mem-agent"
    - Автоматический fallback к JSON при ошибках
-   - Передаёт параметры `MEM_AGENT_MODEL` и `MEM_AGENT_USE_VLLM`
+   - Передаёт параметры `MEM_AGENT_MODEL` и `MEM_AGENT_BACKEND`
 
 3. **Добавлено логирование:**
    - `logs/memory_http.log` - общий лог
@@ -95,7 +95,7 @@
 ```bash
 export MEM_AGENT_STORAGE_TYPE="mem-agent"
 export MEM_AGENT_MODEL="driaforall/mem-agent"
-export MEM_AGENT_USE_VLLM="true"  # или "false" для OpenRouter
+export MEM_AGENT_BACKEND="vllm"  # или "auto", "mlx", "transformers"
 ```
 
 При запуске memory HTTP сервера он теперь:
