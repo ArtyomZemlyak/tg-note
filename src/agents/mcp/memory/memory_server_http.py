@@ -294,12 +294,14 @@ def main():
     args = parser.parse_args()
 
     # Configure logging level
-    logger.remove()
-    logger.add(
-        sys.stderr,
-        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <level>{message}</level>",
-        level=args.log_level,
-    )
+    # NOTE: Don't call logger.remove() here - file handlers are already configured at module level
+    # Just update the log level if needed
+    # logger.remove()
+    # logger.add(
+    #     sys.stderr,
+    #     format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <level>{message}</level>",
+    #     level=args.log_level,
+    # )
 
     logger.info("="*80)
     logger.info("🚀 STARTING MCP MEMORY SERVER (HTTP/SSE)")

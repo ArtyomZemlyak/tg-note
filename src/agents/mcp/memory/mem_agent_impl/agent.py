@@ -176,26 +176,31 @@ class Agent:
             vllm_error_file = log_dir / "vllm_server_errors.log"
             
             try:
-                with open(vllm_log_file, "a") as log_f, open(vllm_error_file, "a") as err_f:
-                    log_f.write(f"\n=== vLLM server startup at {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
-                    err_f.write(f"\n=== vLLM server startup at {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
-                    
-                    subprocess.Popen(
-                        [
-                            sys.executable,
-                            "-m",
-                            "vllm.entrypoints.openai.api_server",
-                            "--host",
-                            host,
-                            "--port",
-                            str(port),
-                            "--model",
-                            OPENROUTER_STRONG_MODEL,
-                        ],
-                        stdout=log_f,
-                        stderr=err_f,
-                    )
-                    logger.info("vLLM server process started, waiting for it to be ready...")
+                # Open log files (keep them open for the subprocess)
+                log_f = open(vllm_log_file, "a")
+                err_f = open(vllm_error_file, "a")
+                
+                log_f.write(f"\n=== vLLM server startup at {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
+                err_f.write(f"\n=== vLLM server startup at {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
+                log_f.flush()
+                err_f.flush()
+                
+                subprocess.Popen(
+                    [
+                        sys.executable,
+                        "-m",
+                        "vllm.entrypoints.openai.api_server",
+                        "--host",
+                        host,
+                        "--port",
+                        str(port),
+                        "--model",
+                        OPENROUTER_STRONG_MODEL,
+                    ],
+                    stdout=log_f,
+                    stderr=err_f,
+                )
+                logger.info("vLLM server process started, waiting for it to be ready...")
                 
                 # Give it a brief moment to come up
                 for i in range(10):
@@ -236,26 +241,31 @@ class Agent:
             mlx_error_file = log_dir / "mlx_server_errors.log"
             
             try:
-                with open(mlx_log_file, "a") as log_f, open(mlx_error_file, "a") as err_f:
-                    log_f.write(f"\n=== MLX server startup at {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
-                    err_f.write(f"\n=== MLX server startup at {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
-                    
-                    subprocess.Popen(
-                        [
-                            "mlx_lm",
-                            "serve",
-                            OPENROUTER_STRONG_MODEL,
-                            "--host",
-                            host,
-                            "--port",
-                            str(port),
-                            "--api",
-                            "openai",
-                        ],
-                        stdout=log_f,
-                        stderr=err_f,
-                    )
-                    logger.info("MLX server process started, waiting for it to be ready...")
+                # Open log files (keep them open for the subprocess)
+                log_f = open(mlx_log_file, "a")
+                err_f = open(mlx_error_file, "a")
+                
+                log_f.write(f"\n=== MLX server startup at {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
+                err_f.write(f"\n=== MLX server startup at {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
+                log_f.flush()
+                err_f.flush()
+                
+                subprocess.Popen(
+                    [
+                        "mlx_lm",
+                        "serve",
+                        OPENROUTER_STRONG_MODEL,
+                        "--host",
+                        host,
+                        "--port",
+                        str(port),
+                        "--api",
+                        "openai",
+                    ],
+                    stdout=log_f,
+                    stderr=err_f,
+                )
+                logger.info("MLX server process started, waiting for it to be ready...")
                 
                 for i in range(10):
                     time.sleep(0.5)
