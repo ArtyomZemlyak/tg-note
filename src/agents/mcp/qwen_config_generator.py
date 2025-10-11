@@ -46,10 +46,10 @@ class QwenMCPConfigGenerator:
         """
         config: Dict[str, Any] = {"mcpServers": {}}
 
-        # Add mem-agent MCP server
-        mem_agent_config = self._generate_mem_agent_config()
-        if mem_agent_config:
-            config["mcpServers"]["mem-agent"] = mem_agent_config
+        # Add memory MCP server
+        memory_config = self._generate_memory_config()
+        if memory_config:
+            config["mcpServers"]["memory"] = memory_config
 
         # Add other MCP servers here in the future
         # config["mcpServers"]["filesystem"] = ...
@@ -62,9 +62,9 @@ class QwenMCPConfigGenerator:
 
         return config
 
-    def _generate_mem_agent_config(self) -> Optional[Dict]:
+    def _generate_memory_config(self) -> Optional[Dict]:
         """
-        Generate configuration for mem-agent MCP server
+        Generate configuration for memory MCP server
 
         Returns:
             Server configuration or None if not available
@@ -83,7 +83,7 @@ class QwenMCPConfigGenerator:
         server_script = self.project_root / "src" / "agents" / "mcp" / "memory" / "memory_server.py"
 
         if not server_script.exists():
-            logger.warning(f"Mem-agent server script not found: {server_script}")
+            logger.warning(f"Memory server script not found: {server_script}")
             return None
 
         # Use python3 command with relative path to script (relative to cwd)

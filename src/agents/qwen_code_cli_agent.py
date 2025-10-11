@@ -139,7 +139,7 @@ class QwenCodeCLIAgent(BaseAgent):
 
             logger.info(f"[QwenCodeCLIAgent] MCP configuration saved to: {saved_paths}")
             logger.info(
-                "[QwenCodeCLIAgent] MCP servers configured: mem-agent (memory storage/retrieval) [HTTP/SSE mode]"
+                "[QwenCodeCLIAgent] MCP servers configured: memory (memory storage/retrieval) [HTTP/SSE mode]"
             )
 
         except Exception as e:

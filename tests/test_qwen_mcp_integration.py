@@ -239,7 +239,7 @@ class TestMemoryMCPServer:
         assert response["jsonrpc"] == "2.0"
         assert response["id"] == 1
         assert "result" in response
-        assert response["result"]["serverInfo"]["name"] == "mem-agent"
+        assert response["result"]["serverInfo"]["name"] == "memory"
 
     @pytest.mark.asyncio
     async def test_handle_tools_list_request(self, server):
@@ -293,13 +293,13 @@ class TestQwenMCPConfigGenerator:
         config = generator.generate_config()
 
         assert "mcpServers" in config
-        assert "mem-agent" in config["mcpServers"]
+        assert "memory" in config["mcpServers"]
         assert "allowMCPServers" in config
-        assert "mem-agent" in config["allowMCPServers"]
+        assert "memory" in config["allowMCPServers"]
 
-    def test_mem_agent_config(self, generator):
-        """Test mem-agent configuration (HTTP mode by default)"""
-        config = generator._generate_mem_agent_config()
+    def test_memory_config(self, generator):
+        """Test memory configuration (HTTP mode by default)"""
+        config = generator._generate_memory_config()
 
         assert config is not None
         assert "url" in config
@@ -310,19 +310,19 @@ class TestQwenMCPConfigGenerator:
         # HTTP mode doesn't use user-id in config (handled by server)
         assert "timeout" in config
 
-    def test_mem_agent_config_no_user_id(self):
-        """Test mem-agent config without user ID (HTTP mode)"""
+    def test_memory_config_no_user_id(self):
+        """Test memory config without user ID (HTTP mode)"""
         generator = QwenMCPConfigGenerator(user_id=None)
-        config = generator._generate_mem_agent_config()
+        config = generator._generate_memory_config()
 
         assert config is not None
         assert "url" in config
         assert config["url"] == "http://127.0.0.1:8765/sse"
 
-    def test_mem_agent_config_stdio_mode(self):
-        """Test mem-agent config in STDIO mode (backward compatibility)"""
+    def test_memory_config_stdio_mode(self):
+        """Test memory config in STDIO mode (backward compatibility)"""
         generator = QwenMCPConfigGenerator(user_id=123, use_http=False)
-        config = generator._generate_mem_agent_config()
+        config = generator._generate_memory_config()
 
         assert config is not None
         assert "command" in config
@@ -334,10 +334,10 @@ class TestQwenMCPConfigGenerator:
         assert "--user-id" in config["args"]
         assert "123" in config["args"]
 
-    def test_mem_agent_config_custom_port(self):
-        """Test mem-agent config with custom HTTP port"""
+    def test_memory_config_custom_port(self):
+        """Test memory config with custom HTTP port"""
         generator = QwenMCPConfigGenerator(user_id=None, use_http=True, http_port=9000)
-        config = generator._generate_mem_agent_config()
+        config = generator._generate_memory_config()
 
         assert config is not None
         assert "url" in config
@@ -358,7 +358,7 @@ class TestQwenMCPConfigGenerator:
                 config = json.load(f)
 
             assert "mcpServers" in config
-            assert "mem-agent" in config["mcpServers"]
+            assert "memory" in config["mcpServers"]
 
     def test_save_to_kb_dir(self, generator):
         """Test saving to KB directory"""
@@ -394,9 +394,9 @@ class TestQwenMCPConfigGenerator:
             with open(settings_file) as f:
                 config = json.load(f)
 
-            assert "mem-agent" in config["mcpServers"]
+            assert "memory" in config["mcpServers"]
             assert "other-server" in config["mcpServers"]
-            assert "mem-agent" in config["allowMCPServers"]
+            assert "memory" in config["allowMCPServers"]
             assert "other-server" in config["allowMCPServers"]
             assert config["otherSetting"] == "value"
 

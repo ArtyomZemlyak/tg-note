@@ -268,34 +268,34 @@ class MCPServerManager:
         Setup default MCP servers based on settings
 
         This registers servers that should be auto-started when enabled in settings:
-        - mem-agent HTTP server (if AGENT_ENABLE_MCP_MEMORY is True)
+        - memory HTTP server (if AGENT_ENABLE_MCP_MEMORY is True)
 
         Also creates necessary configuration files:
-        - data/mcp_servers/mem-agent.json (for Python MCP clients)
+        - data/mcp_servers/memory.json (for Python MCP clients)
         - ~/.qwen/settings.json (for Qwen CLI)
         """
-        # Register mem-agent HTTP server if MCP memory is enabled
+        # Register memory HTTP server if MCP memory is enabled
         if self.settings.AGENT_ENABLE_MCP_MEMORY:
             logger.info(
-                "[MCPServerManager] MCP memory agent is enabled, registering mem-agent HTTP server"
+                "[MCPServerManager] MCP memory agent is enabled, registering memory HTTP server"
             )
 
             # Create data/mcp_servers directory if it doesn't exist
             mcp_servers_dir = Path("data/mcp_servers")
             mcp_servers_dir.mkdir(parents=True, exist_ok=True)
 
-            # Create mem-agent.json config file if it doesn't exist
-            mem_agent_config_file = mcp_servers_dir / "mem-agent.json"
-            if not mem_agent_config_file.exists():
+            # Create memory.json config file if it doesn't exist
+            memory_config_file = mcp_servers_dir / "memory.json"
+            if not memory_config_file.exists():
                 logger.info(
-                    f"[MCPServerManager] Creating MCP server config at {mem_agent_config_file}"
+                    f"[MCPServerManager] Creating MCP server config at {memory_config_file}"
                 )
 
                 # Standard MCP server configuration format
                 # This follows the format used by Cursor, Claude Desktop, and Qwen CLI
                 config = {
                     "mcpServers": {
-                        "mem-agent": {
+                        "memory": {
                             # HTTP/SSE transport (default)
                             "url": "http://127.0.0.1:8765/sse",
                             "timeout": 10000,
@@ -318,7 +318,7 @@ class MCPServerManager:
                 }
 
                 # Also save stdio variant for reference
-                config["mcpServers"]["mem-agent"]["_stdio_variant"] = {
+                config["mcpServers"]["memory"]["_stdio_variant"] = {
                     "command": "python3",
                     "args": [
                         "-m",
@@ -336,21 +336,29 @@ class MCPServerManager:
                 }
 
                 try:
-                    with open(mem_agent_config_file, "w", encoding="utf-8") as f:
+                    with open(memory_config_file, "w", encoding="utf-8") as f:
                         json.dump(config, f, indent=2, ensure_ascii=False)
                     logger.info(
-                        f"[MCPServerManager] Created MCP server config: {mem_agent_config_file}"
+                        f"[MCPServerManager] Created MCP server config: {memory_config_file}"
                     )
                 except Exception as e:
                     logger.error(f"[MCPServerManager] Failed to create MCP server config: {e}")
             else:
                 logger.debug(
-                    f"[MCPServerManager] MCP server config already exists: {mem_agent_config_file}"
+                    f"[MCPServerManager] MCP server config already exists: {memory_config_file}"
                 )
+
+            # Prepare environment variables from settings
+            server_env = {
+                "MEM_AGENT_STORAGE_TYPE": self.settings.MEM_AGENT_STORAGE_TYPE,
+                "MEM_AGENT_MODEL": self.settings.MEM_AGENT_MODEL,
+                "MEM_AGENT_BACKEND": self.settings.MEM_AGENT_BACKEND,
+                "MEM_AGENT_MAX_TOOL_TURNS": str(self.settings.MEM_AGENT_MAX_TOOL_TURNS),
+            }
 
             # Use Python module path for HTTP server
             self.register_server(
-                name="mem-agent",
+                name="memory",
                 command="python3",
                 args=[
                     "-m",
@@ -360,7 +368,7 @@ class MCPServerManager:
                     "--port",
                     "8765",
                 ],
-                env={},
+                env=server_env,
                 cwd=Path.cwd(),
             )
 

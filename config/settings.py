@@ -111,7 +111,7 @@ class Settings(BaseSettings):
         default=False, description="Enable MCP (Model Context Protocol) tools"
     )
     AGENT_ENABLE_MCP_MEMORY: bool = Field(
-        default=False, description="Enable MCP memory agent tool (local mem-agent via HTTP)"
+        default=False, description="Enable MCP memory agent tool (local memory via HTTP)"
     )
 
     # Memory Agent Settings (can be in YAML)

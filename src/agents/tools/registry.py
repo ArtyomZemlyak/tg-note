@@ -140,7 +140,7 @@ def build_default_tool_manager(
         enable_folder_management: Enable folder management tools
         enable_vector_search: Enable vector search tools
         enable_mcp: Enable MCP (Model Context Protocol) support
-        enable_mcp_memory: Enable MCP memory agent tool (mem-agent HTTP server)
+        enable_mcp_memory: Enable MCP memory agent tool (memory HTTP server)
         github_token: Optional GitHub API token
         vector_search_manager: Optional vector search manager
         get_current_plan: Callback to get current TODO plan
