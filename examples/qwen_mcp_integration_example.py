@@ -220,7 +220,7 @@ async def main():
     print("Examples completed!")
     print("=" * 80)
     print("\n📚 Next steps:")
-    print("1. Start HTTP server: python3 -m src.agents.mcp.memory.memory_server_http")
+    print("1. Start MCP Hub: python3 -m src.agents.mcp.mcp_hub_server")
     print("2. Check ~/.qwen/settings.json to see generated configuration")
     print("3. Run: qwen (CLI will connect to configured MCP servers)")
     print("4. Test MCP tools in qwen CLI")
@@ -230,7 +230,7 @@ async def main():
     print("- STDIO mode (legacy): use_http=False")
     print("\n📖 Documentation:")
     print("- Setup guide: docs_site/agents/mem-agent-setup.md")
-    print("- HTTP server: src/agents/mcp/memory/memory_server_http.py")
+    print("- MCP Hub: src/agents/mcp/mcp_hub_server.py")
     print("- Test script: scripts/test_mem_agent_connection.sh")
 
 
