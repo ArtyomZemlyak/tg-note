@@ -70,9 +70,20 @@ def get_agent(
     key = memory_path or "default"
 
     if key not in _agent_instances:
+        logger.info("="*60)
+        logger.info(f"🤖 CREATING NEW MEM-AGENT INSTANCE")
+        logger.info(f"  Memory path: {memory_path or 'default'}")
+        logger.info(f"  Use vLLM: {use_vllm}")
+        logger.info(f"  Model: {model or 'default from settings'}")
+        logger.info("="*60)
+        
         _agent_instances[key] = Agent(
             memory_path=memory_path, use_vllm=use_vllm, model=model, predetermined_memory_path=False
         )
+        
+        logger.info(f"✅ Agent instance created successfully")
+    else:
+        logger.debug(f"♻️ Reusing existing agent instance for key: {key}")
 
     return _agent_instances[key]
 
@@ -98,7 +109,12 @@ async def chat_with_memory(question: str, memory_path: Optional[str] = None) -> 
         >>> await chat_with_memory("What's my favorite color?")
         "According to my memory, your favorite color is blue."
     """
-    logger.info(f"chat_with_memory called with question: {question[:100]}...")
+    logger.info("="*60)
+    logger.info("💬 CHAT_WITH_MEMORY called")
+    logger.info(f"  Question length: {len(question)} chars")
+    logger.info(f"  Question preview: {question[:200]}...")
+    logger.info(f"  Memory path: {memory_path or 'default'}")
+    logger.info("="*60)
     
     try:
         # Get or create agent instance
@@ -106,16 +122,20 @@ async def chat_with_memory(question: str, memory_path: Optional[str] = None) -> 
 
         # Run agent chat (this is synchronous, so we run it in executor)
         loop = asyncio.get_running_loop()
-        logger.debug(f"Running agent chat in executor for memory_path={memory_path}")
+        logger.info("🔄 Running agent chat in executor...")
         response = await loop.run_in_executor(None, agent.chat, question)
 
         # Return the reply part of the response
         result = response.reply or "I processed your request but have no specific reply."
-        logger.info(f"chat_with_memory completed successfully")
+        logger.info(f"✅ Chat completed successfully")
+        logger.info(f"  Response length: {len(result)} chars")
+        logger.debug(f"  Response preview: {result[:200]}...")
         return result
 
     except Exception as e:
-        logger.error(f"Error in chat_with_memory: {e}", exc_info=True)
+        logger.error("="*60)
+        logger.error(f"❌ Error in chat_with_memory: {e}")
+        logger.error("="*60, exc_info=True)
         return f"Error communicating with memory agent: {str(e)}"
 
 
@@ -138,7 +158,12 @@ async def query_memory(query: str, memory_path: Optional[str] = None) -> str:
         >>> await query_memory("What do you know about my work?")
         "You work at Acme Corp as a senior engineer..."
     """
-    logger.info(f"query_memory called with query: {query[:100]}...")
+    logger.info("="*60)
+    logger.info("🔍 QUERY_MEMORY called")
+    logger.info(f"  Query length: {len(query)} chars")
+    logger.info(f"  Query: {query[:200]}...")
+    logger.info(f"  Memory path: {memory_path or 'default'}")
+    logger.info("="*60)
     
     try:
         # Prefix the query to indicate we only want retrieval
@@ -146,15 +171,18 @@ async def query_memory(query: str, memory_path: Optional[str] = None) -> str:
 
         agent = get_agent(memory_path=memory_path)
         loop = asyncio.get_running_loop()
-        logger.debug(f"Running query in executor for memory_path={memory_path}")
+        logger.info("🔄 Running query in executor...")
         response = await loop.run_in_executor(None, agent.chat, retrieval_query)
 
         result = response.reply or "No information found in memory."
-        logger.info(f"query_memory completed successfully")
+        logger.info(f"✅ Query completed successfully")
+        logger.info(f"  Result length: {len(result)} chars")
         return result
 
     except Exception as e:
-        logger.error(f"Error in query_memory: {e}", exc_info=True)
+        logger.error("="*60)
+        logger.error(f"❌ Error in query_memory: {e}")
+        logger.error("="*60, exc_info=True)
         return f"Error querying memory: {str(e)}"
 
 
@@ -239,12 +267,24 @@ def run_server(host: str = "127.0.0.1", port: int = 8766):
         host: Host to bind to (default: 127.0.0.1)
         port: Port to bind to (default: 8766)
     """
-    logger.info(f"Starting mem-agent MCP server on {host}:{port}")
-    print(f"Starting mem-agent MCP server on {host}:{port}")
+    logger.info("="*80)
+    logger.info("🚀 STARTING MEM-AGENT MCP SERVER")
+    logger.info("="*80)
+    logger.info(f"  🏗️  Host: {host}")
+    logger.info(f"  🔌 Port: {port}")
+    logger.info(f"  👥 Mode: Multi-user (per-memory-path storage)")
+    logger.info("="*80)
+    
+    print(f"🚀 Starting mem-agent MCP server on {host}:{port}")
     try:
+        logger.info(f"▶️  Server listening on http://{host}:{port}/sse")
         mcp.run(transport="sse", host=host, port=port)
+    except KeyboardInterrupt:
+        logger.info("🛑 Server stopped by user")
     except Exception as e:
-        logger.error(f"Error running MCP server: {e}", exc_info=True)
+        logger.error("="*60)
+        logger.error(f"❌ Error running MCP server: {e}")
+        logger.error("="*60, exc_info=True)
         raise
 
 

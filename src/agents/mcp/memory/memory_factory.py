@@ -66,24 +66,34 @@ class MemoryStorageFactory:
 
         storage_class = cls.STORAGE_TYPES[storage_type]
 
+        logger.info("="*60)
+        logger.info(f"🏭 [MemoryStorageFactory] Creating storage")
+        logger.info(f"  Type: {storage_type}")
+        logger.info(f"  Data dir: {data_dir}")
+        logger.info(f"  Model: {model_name or 'not specified'}")
+        logger.info(f"  Backend: {backend or 'not specified'}")
+        logger.info("="*60)
+        
         try:
             # Create storage instance with appropriate parameters
             if storage_type == "json":
+                logger.info("🔧 Creating JSON storage...")
                 storage = storage_class(data_dir=data_dir)
-                logger.info(f"[MemoryStorageFactory] Created JsonMemoryStorage at {data_dir}")
+                logger.info(f"✅ JsonMemoryStorage created at {data_dir}")
 
             elif storage_type == "vector":
                 # Vector-based storage requires model_name
+                logger.info("🔧 Creating vector-based storage...")
                 if model_name is None:
+                    logger.error("❌ model_name is required for vector-based storage")
                     raise ValueError("model_name is required for vector-based storage")
+                logger.info(f"  Loading model: {model_name}")
                 storage = storage_class(data_dir=data_dir, model_name=model_name)
-                logger.info(
-                    f"[MemoryStorageFactory] Created VectorBasedMemoryStorage "
-                    f"with model '{model_name}' at {data_dir}"
-                )
+                logger.info(f"✅ VectorBasedMemoryStorage created with model '{model_name}' at {data_dir}")
 
             elif storage_type == "mem-agent":
                 # Mem-agent storage with LLM-based memory management
+                logger.info("🔧 Creating mem-agent storage...")
                 # Derive use_vllm from backend parameter
                 # backend can be: "auto", "vllm", "mlx", "transformers"
                 # use_vllm=True means use vLLM backend, False means use OpenRouter/auto-detection
@@ -95,34 +105,41 @@ class MemoryStorageFactory:
                 use_vllm = (backend.lower() == "vllm")
                 
                 max_tool_turns = kwargs.get("max_tool_turns", 20)
+                
+                logger.info(f"  Model: {model_name or 'default'}")
+                logger.info(f"  Backend: {backend}")
+                logger.info(f"  Use vLLM: {use_vllm}")
+                logger.info(f"  Max tool turns: {max_tool_turns}")
+                
                 storage = storage_class(
                     data_dir=data_dir,
                     model=model_name,  # Model name for mem-agent
                     use_vllm=use_vllm,
                     max_tool_turns=max_tool_turns,
                 )
-                logger.info(
-                    f"[MemoryStorageFactory] Created MemAgentStorage "
-                    f"with model '{model_name or 'default'}', backend={backend}, use_vllm={use_vllm} at {data_dir}"
-                )
+                logger.info(f"✅ MemAgentStorage created with model '{model_name or 'default'}', backend={backend} at {data_dir}")
 
             else:
                 # Fallback for future storage types
+                logger.info(f"🔧 Creating custom storage type: {storage_type}")
                 storage = storage_class(data_dir=data_dir, **kwargs)
-                logger.info(
-                    f"[MemoryStorageFactory] Created {storage_class.__name__} at {data_dir}"
-                )
+                logger.info(f"✅ {storage_class.__name__} created at {data_dir}")
 
+            logger.info("="*60)
             return storage
 
         except ImportError as e:
-            logger.error(
-                f"[MemoryStorageFactory] Failed to create {storage_type} storage: {e}. "
-                f"Missing dependencies?"
-            )
+            logger.error("="*60)
+            logger.error(f"❌ [MemoryStorageFactory] Failed to create {storage_type} storage")
+            logger.error(f"  Error: {e}")
+            logger.error("  Possible cause: Missing dependencies")
+            logger.error("="*60, exc_info=True)
             raise
         except Exception as e:
-            logger.error(f"[MemoryStorageFactory] Failed to create {storage_type} storage: {e}")
+            logger.error("="*60)
+            logger.error(f"❌ [MemoryStorageFactory] Failed to create {storage_type} storage")
+            logger.error(f"  Error: {e}")
+            logger.error("="*60, exc_info=True)
             raise
 
     @classmethod

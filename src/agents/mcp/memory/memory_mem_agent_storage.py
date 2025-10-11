@@ -40,6 +40,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from loguru import logger
+
 from .memory_base import BaseMemoryStorage
 
 # Import mem-agent components (lazy import to avoid circular dependencies)
@@ -48,14 +50,12 @@ try:
     from .mem_agent_impl.schemas import AgentResponse
 
     MEM_AGENT_AVAILABLE = True
+    logger.info("✅ mem-agent components available")
 except ImportError as e:
-    logging.warning(f"mem-agent components not available: {e}")
+    logger.warning(f"⚠️ mem-agent components not available: {e}")
     MEM_AGENT_AVAILABLE = False
     Agent = None
     AgentResponse = None
-
-
-logger = logging.getLogger(__name__)
 
 
 class MemAgentStorage(BaseMemoryStorage):
@@ -95,15 +95,25 @@ class MemAgentStorage(BaseMemoryStorage):
             **kwargs: Additional arguments (for compatibility)
         """
         if not MEM_AGENT_AVAILABLE:
+            logger.error("❌ mem-agent components not available")
             raise ImportError(
                 "mem-agent components are not available. "
                 "Please ensure mem_agent_impl is properly installed."
             )
 
+        logger.info("="*60)
+        logger.info("🗄️ INITIALIZING MemAgentStorage")
+        logger.info(f"  Data dir: {data_dir}")
+        logger.info(f"  Model: {model or 'default'}")
+        logger.info(f"  Use vLLM: {use_vllm}")
+        logger.info(f"  Max tool turns: {max_tool_turns}")
+        logger.info("="*60)
+        
         super().__init__(data_dir)
 
         # Initialize the mem-agent
         # The agent will use data_dir as its memory path
+        logger.info("🤖 Creating Agent instance...")
         self.agent = Agent(
             memory_path=str(data_dir),
             use_vllm=use_vllm,
@@ -112,8 +122,8 @@ class MemAgentStorage(BaseMemoryStorage):
             predetermined_memory_path=False,
         )
 
-        logger.info(f"MemAgentStorage initialized at {data_dir}")
-        logger.info(f"Using model: {model or 'default'}, vLLM: {use_vllm}")
+        logger.info("✅ MemAgentStorage initialized successfully")
+        logger.info("="*60)
 
     def _chat_with_agent(self, message: str) -> AgentResponse:
         """
@@ -155,8 +165,17 @@ class MemAgentStorage(BaseMemoryStorage):
         Returns:
             Result with success status
         """
+        logger.info("="*60)
+        logger.info("💾 MemAgentStorage.store() called")
+        logger.info(f"  Content length: {len(content)} chars")
+        logger.info(f"  Category: {category}")
+        logger.info(f"  Tags: {tags}")
+        logger.debug(f"  Content preview: {content[:200]}...")
+        logger.info("="*60)
+        
         try:
             # Build natural language instruction for the agent
+            logger.debug("📝 Building instruction for agent...")
             instruction = f"Please save the following information to memory: {content}"
 
             if category and category != "general":
@@ -169,9 +188,15 @@ class MemAgentStorage(BaseMemoryStorage):
                 metadata_str = json.dumps(metadata, ensure_ascii=False)
                 instruction += f"\nMetadata: {metadata_str}"
 
+            logger.debug(f"  Instruction length: {len(instruction)} chars")
+            
             # Chat with agent to store the information
+            logger.info("💬 Chatting with agent to store information...")
             response = self._chat_with_agent(instruction)
 
+            logger.info("✅ Store completed successfully")
+            logger.debug(f"  Agent reply: {response.reply[:100]}...")
+            
             return {
                 "success": True,
                 "message": "Information stored successfully via mem-agent",
@@ -181,7 +206,9 @@ class MemAgentStorage(BaseMemoryStorage):
             }
 
         except Exception as e:
-            logger.error(f"Error storing memory: {e}", exc_info=True)
+            logger.error("="*60)
+            logger.error(f"❌ Error storing memory: {e}")
+            logger.error("="*60, exc_info=True)
             return {"success": False, "error": str(e), "timestamp": datetime.now().isoformat()}
 
     def retrieve(
@@ -205,8 +232,17 @@ class MemAgentStorage(BaseMemoryStorage):
         Returns:
             Dict with retrieved memories
         """
+        logger.info("="*60)
+        logger.info("🔍 MemAgentStorage.retrieve() called")
+        logger.info(f"  Query: {query or 'all'}")
+        logger.info(f"  Category: {category or 'any'}")
+        logger.info(f"  Tags: {tags}")
+        logger.info(f"  Limit: {limit}")
+        logger.info("="*60)
+        
         try:
             # Build natural language query for the agent
+            logger.debug("📝 Building query for agent...")
             if query:
                 instruction = f"Please search your memory and tell me about: {query}"
             else:
@@ -223,8 +259,14 @@ class MemAgentStorage(BaseMemoryStorage):
                 "\n\nIMPORTANT: Only retrieve information, do not add anything new to memory."
             )
 
+            logger.debug(f"  Instruction length: {len(instruction)} chars")
+            
             # Chat with agent to retrieve information
+            logger.info("💬 Chatting with agent to retrieve information...")
             response = self._chat_with_agent(instruction)
+            
+            logger.info("✅ Retrieve completed successfully")
+            logger.debug(f"  Agent reply length: {len(response.reply or '')} chars")
 
             # Parse agent response into structured format
             # Note: The agent's reply is natural language, we return it as-is
