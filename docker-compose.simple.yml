@@ -26,8 +26,12 @@ services:
     volumes:
       # Persistent storage for memory data
       - ./data/memory:/app/data/memory
+      # MCP servers registry
+      - ./data/mcp_servers:/app/data/mcp_servers
       # Logs
       - ./logs:/app/logs
+      # Configuration (read-only)
+      - ./config.docker.yaml:/app/config.yaml:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8765/health"]
       interval: 30s
@@ -46,35 +50,17 @@ services:
     image: tg-note-bot:latest
     restart: unless-stopped
     environment:
-      # Telegram credentials
+      # Credentials only (from .env)
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - ALLOWED_USER_IDS=${ALLOWED_USER_IDS:-}
-      
-      # LLM API keys
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - QWEN_API_KEY=${QWEN_API_KEY:-}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
       - GITHUB_TOKEN=${GITHUB_TOKEN:-}
       
-      # Agent configuration
-      - AGENT_TYPE=${AGENT_TYPE:-stub}
-      - AGENT_MODEL=${AGENT_MODEL:-qwen-max}
-      - AGENT_TIMEOUT=${AGENT_TIMEOUT:-300}
-      - AGENT_ENABLE_MCP=${AGENT_ENABLE_MCP:-false}
-      - AGENT_ENABLE_MCP_MEMORY=${AGENT_ENABLE_MCP_MEMORY:-true}
-      
-      # MCP connection settings (points to mcp-hub)
+      # MCP Hub connection (Docker internal)
       - MCP_HUB_URL=http://mcp-hub:8765/sse
-      
-      # Knowledge base settings
-      - KB_PATH=/app/knowledge_base
-      - KB_GIT_ENABLED=${KB_GIT_ENABLED:-true}
-      - KB_GIT_AUTO_PUSH=${KB_GIT_AUTO_PUSH:-true}
-      
-      # Logging
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - LOG_FILE=/app/logs/bot.log
     volumes:
       # Persistent storage for knowledge base
       - ./knowledge_base:/app/knowledge_base
@@ -82,10 +68,10 @@ services:
       - ./data:/app/data
       # Logs
       - ./logs:/app/logs
-      # Optional: custom config
-      - ./config.yaml:/app/config.yaml:ro
+      # Configuration (read-only)
+      - ./config.docker.yaml:/app/config.yaml:ro
     depends_on:
-      mcp-http-server:
+      mcp-hub:
         condition: service_healthy
     networks:
       - tg-note-network

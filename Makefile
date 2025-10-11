@@ -88,11 +88,14 @@ logs:
 logs-bot:
 	docker-compose logs -f bot
 
-logs-mcp:
-	docker-compose logs -f mcp-http-server
+logs-hub:
+	docker-compose logs -f mcp-hub
 
 logs-vllm:
 	docker-compose logs -f vllm-server
+
+logs-sglang:
+	docker-compose -f docker-compose.yml -f docker-compose.sglang.yml logs -f vllm-server
 
 # Show service status
 ps:
@@ -137,6 +140,24 @@ mem-agent:
 	docker-compose up -d --build
 	@echo "✅ Mem-agent mode active (with vLLM)"
 
+# Backend alternatives
+up-vllm:
+	@echo "🚀 Starting with vLLM backend..."
+	docker-compose up -d --build
+	@echo "✅ vLLM backend active"
+
+up-sglang:
+	@echo "🚀 Starting with SGLang backend (faster inference)..."
+	docker-compose -f docker-compose.yml -f docker-compose.sglang.yml up -d --build
+	@echo "✅ SGLang backend active"
+
+up-mlx:
+	@echo "🚀 Starting with MLX backend (macOS)..."
+	@echo "⚠️  Make sure MLX server is running on host (port 8001)"
+	@echo "   Run: python -m mlx_lm.server --model $(MEM_AGENT_MODEL) --port 8001"
+	docker-compose -f docker-compose.yml -f docker-compose.mlx.yml up -d --build
+	@echo "✅ MLX backend active (host connection)"
+
 # Backup
 backup:
 	@echo "📦 Creating backup..."
@@ -151,8 +172,8 @@ health:
 	@echo "Bot:"
 	@docker-compose exec bot python -c "print('✅ Bot container running')" 2>/dev/null || echo "❌ Bot not running"
 	@echo ""
-	@echo "MCP Server:"
-	@curl -s http://localhost:8765/health | python -m json.tool 2>/dev/null || echo "❌ MCP server not responding"
+	@echo "MCP Hub:"
+	@curl -s http://localhost:8765/health | python -m json.tool 2>/dev/null || echo "❌ MCP Hub not responding"
 	@echo ""
-	@echo "vLLM Server:"
-	@curl -s http://localhost:8001/health 2>/dev/null && echo "✅ vLLM server running" || echo "⚠️  vLLM server not running (OK if using JSON/vector mode)"
+	@echo "Inference Server (vLLM/SGLang/MLX):"
+	@curl -s http://localhost:8001/health 2>/dev/null && echo "✅ Inference server running" || echo "⚠️  Inference server not running (OK if using JSON/vector mode)"
