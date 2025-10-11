@@ -79,30 +79,54 @@ class MemoryMCPServer:
         Args:
             user_id: User ID for per-user storage (required)
         """
+        logger.info("="*80)
+        logger.info("🚀 INITIALIZING MCP MEMORY SERVER (STDIO)")
+        logger.info("="*80)
+        
         # User-specific storage directory
         # Each user must have their own isolated memory
         if not user_id:
+            logger.error("❌ user_id is required for memory storage")
             raise ValueError("user_id is required for memory storage. Shared memory is not allowed.")
         
         self.user_id = user_id
+        logger.info(f"✓ User ID: {user_id}")
 
         # Use isolated tmp dir during pytest, otherwise use data/memory/user_{user_id}
         if os.getenv("PYTEST_CURRENT_TEST"):
             data_dir = Path(tempfile.mkdtemp(prefix=f"memsrv_user_{user_id}_"))
+            logger.info(f"🧪 Test mode: Using temporary directory")
         else:
             data_dir = Path(f"data/memory/user_{user_id}")
-        logger.info(f"Using user-specific memory path: {data_dir}")
+        logger.info(f"📁 Data directory: {data_dir.absolute()}")
 
         # Get storage type from environment (default: json)
         # Can be "json", "vector", or "mem-agent"
         storage_type = os.getenv("MEM_AGENT_STORAGE_TYPE", "json")
+        logger.info(f"💾 Storage type: {storage_type}")
+
+        # Log all relevant environment variables
+        logger.info("")
+        logger.info("📋 Configuration:")
+        logger.info(f"  - MEM_AGENT_STORAGE_TYPE: {os.getenv('MEM_AGENT_STORAGE_TYPE', 'json (default)')}")
+        logger.info(f"  - MEM_AGENT_MODEL: {os.getenv('MEM_AGENT_MODEL', 'not set')}")
+        logger.info(f"  - MEM_AGENT_BACKEND: {os.getenv('MEM_AGENT_BACKEND', 'auto (default)')}")
+        logger.info(f"  - MEM_AGENT_MAX_TOOL_TURNS: {os.getenv('MEM_AGENT_MAX_TOOL_TURNS', '20 (default)')}")
+        logger.info("")
 
         # Create storage using factory or legacy wrapper
         if storage_type != "json":
             # Use factory for non-default storage types
+            logger.info(f"🔧 Creating {storage_type} storage via factory...")
             try:
                 model_name = os.getenv("MEM_AGENT_MODEL", None)
                 backend = os.getenv("MEM_AGENT_BACKEND", "auto")
+                
+                if model_name:
+                    logger.info(f"  📦 Model: {model_name}")
+                    logger.info(f"  🎮 Backend: {backend}")
+                else:
+                    logger.warning("  ⚠️  No model specified, using default")
 
                 self.storage = MemoryStorageFactory.create(
                     storage_type=storage_type,
@@ -110,24 +134,20 @@ class MemoryMCPServer:
                     model_name=model_name,
                     backend=backend,
                 )
-                logger.info(f"Created {storage_type} storage via factory with backend={backend}")
+                logger.info(f"✅ Successfully created {storage_type} storage")
             except Exception as e:
-                logger.warning(
-                    f"Failed to create {storage_type} storage: {e}. Falling back to json."
-                )
+                logger.error(f"❌ Failed to create {storage_type} storage: {e}", exc_info=True)
+                logger.warning("⚠️  Falling back to JSON storage")
                 self.storage = MemoryStorage(data_dir)
         else:
             # Use legacy wrapper for JSON (default)
+            logger.info("🔧 Creating JSON storage (default)...")
             self.storage = MemoryStorage(data_dir)
+            logger.info("✅ JSON storage created successfully")
 
-        logger.info(
-            f"MCP Memory Server initialized successfully"
-        )
-        logger.info(f"  User ID: {user_id}")
-        logger.info(f"  Storage type: {storage_type}")
-        logger.info(f"  Data directory: {data_dir}")
-        logger.info(f"  Backend: {os.getenv('MEM_AGENT_BACKEND', 'auto')}")
-        logger.info(f"  Model: {os.getenv('MEM_AGENT_MODEL', 'default')}")
+        logger.info("")
+        logger.info("✅ MCP Memory Server initialized successfully")
+        logger.info("="*80)
 
     async def handle_list_tools(self) -> List[Dict[str, Any]]:
         """
@@ -210,44 +230,68 @@ class MemoryMCPServer:
         Returns:
             Tool result as MCP content
         """
-        logger.info(f"Tool call: {name} with args: {arguments}")
+        logger.info("="*60)
+        logger.info(f"🔧 TOOL CALL: {name}")
+        logger.info(f"📥 Arguments: {json.dumps(arguments, ensure_ascii=False, indent=2)}")
 
         try:
             if name == "store_memory":
-                logger.debug(f"Executing store_memory with args: {arguments}")
+                logger.info("💾 Executing store_memory...")
+                logger.debug(f"  Content length: {len(arguments.get('content', ''))} chars")
+                logger.debug(f"  Category: {arguments.get('category', 'general')}")
+                logger.debug(f"  Tags: {arguments.get('tags', [])}")
+                
                 result = self.storage.store(
                     content=arguments.get("content", ""),
                     category=arguments.get("category", "general"),
                     tags=arguments.get("tags"),
                     metadata=arguments.get("metadata"),
                 )
-                logger.debug(f"Store result: {result}")
+                logger.info(f"✅ Store successful: {result.get('id', 'N/A')}")
+                logger.debug(f"📤 Result: {json.dumps(result, ensure_ascii=False)}")
 
             elif name == "retrieve_memory":
-                logger.debug(f"Executing retrieve_memory with args: {arguments}")
+                logger.info("🔍 Executing retrieve_memory...")
+                logger.debug(f"  Query: {arguments.get('query', 'all')}")
+                logger.debug(f"  Category: {arguments.get('category', 'any')}")
+                logger.debug(f"  Limit: {arguments.get('limit', 10)}")
+                
                 result = self.storage.retrieve(
                     query=arguments.get("query"),
                     category=arguments.get("category"),
                     tags=arguments.get("tags"),
                     limit=arguments.get("limit", 10),
                 )
-                logger.debug(f"Retrieve result count: {result.get('count', 0)}")
+                count = result.get('count', 0)
+                logger.info(f"✅ Retrieve successful: found {count} memories")
+                if count > 0:
+                    logger.debug(f"📤 First result preview: {str(result.get('memories', [{}])[0])[:200]}...")
 
             elif name == "list_categories":
-                logger.debug(f"Executing list_categories")
+                logger.info("📋 Executing list_categories...")
                 result = self.storage.list_categories()
-                logger.debug(f"Categories result: {result}")
+                categories = result.get('categories', {})
+                logger.info(f"✅ Categories retrieved: {len(categories)} categories")
+                logger.debug(f"📤 Categories: {list(categories.keys())}")
 
             else:
-                logger.warning(f"Unknown tool requested: {name}")
+                logger.warning(f"❌ Unknown tool requested: {name}")
                 result = {"success": False, "error": f"Unknown tool: {name}"}
 
             # Return as MCP content
-            return [{"type": "text", "text": json.dumps(result, ensure_ascii=False, indent=2)}]
+            response = [{"type": "text", "text": json.dumps(result, ensure_ascii=False, indent=2)}]
+            logger.info(f"📤 Response prepared (length: {len(response[0]['text'])} chars)")
+            logger.info("="*60)
+            return response
 
         except Exception as e:
-            logger.error(f"Tool execution error for {name}: {e}", exc_info=True)
-            logger.error(f"Arguments were: {arguments}")
+            logger.error("="*60)
+            logger.error(f"❌ TOOL EXECUTION ERROR: {name}")
+            logger.error(f"Error type: {type(e).__name__}")
+            logger.error(f"Error message: {str(e)}")
+            logger.error(f"Arguments were: {json.dumps(arguments, ensure_ascii=False, indent=2)}")
+            logger.error("="*60, exc_info=True)
+            
             error_result = {
                 "success": False,
                 "error": str(e),
@@ -270,45 +314,50 @@ class MemoryMCPServer:
         params = request.get("params", {})
         request_id = request.get("id")
 
-        logger.debug(f"Request: method={method}, id={request_id}")
+        logger.info(f"📨 Request received: method={method}, id={request_id}")
+        logger.debug(f"  Params: {json.dumps(params, ensure_ascii=False)}")
 
         try:
             # Handle initialization
             if method == "initialize":
-                logger.info(f"Initializing MCP server (request_id={request_id})")
+                logger.info(f"🔄 Initializing MCP server (request_id={request_id})")
                 result = {
                     "protocolVersion": "2024-11-05",
                     "capabilities": {"tools": {}},
                     "serverInfo": {"name": "mem-agent", "version": "1.0.0"},
                 }
+                logger.info(f"✅ Initialization complete")
 
             # Handle tools/list
             elif method == "tools/list":
-                logger.debug(f"Listing tools (request_id={request_id})")
+                logger.info(f"📋 Listing tools (request_id={request_id})")
                 tools = await self.handle_list_tools()
                 result = {"tools": tools}
+                logger.info(f"✅ Returned {len(tools)} tools")
 
             # Handle tools/call
             elif method == "tools/call":
                 tool_name = params.get("name")
                 arguments = params.get("arguments", {})
-                logger.info(f"Calling tool '{tool_name}' (request_id={request_id})")
+                logger.info(f"🔧 Calling tool '{tool_name}' (request_id={request_id})")
                 content = await self.handle_call_tool(tool_name, arguments)
                 result = {"content": content}
+                logger.info(f"✅ Tool '{tool_name}' completed successfully")
 
             else:
-                logger.warning(f"Unknown method '{method}' (request_id={request_id})")
+                logger.warning(f"❌ Unknown method '{method}' (request_id={request_id})")
                 return {
                     "jsonrpc": "2.0",
                     "id": request_id,
                     "error": {"code": -32601, "message": f"Method not found: {method}"},
                 }
 
+            logger.debug(f"📤 Sending response for request_id={request_id}")
             return {"jsonrpc": "2.0", "id": request_id, "result": result}
 
         except Exception as e:
-            logger.error(f"Request handling error for method '{method}': {e}", exc_info=True)
-            logger.error(f"Request params: {params}")
+            logger.error(f"❌ Request handling error for method '{method}': {e}", exc_info=True)
+            logger.error(f"Request params: {json.dumps(params, ensure_ascii=False, indent=2)}")
             return {
                 "jsonrpc": "2.0",
                 "id": request_id,

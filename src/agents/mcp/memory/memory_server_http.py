@@ -14,6 +14,7 @@ Default:
 """
 
 import argparse
+import json
 import os
 import sys
 from pathlib import Path
@@ -88,23 +89,43 @@ def get_storage(user_id: int) -> MemoryStorage:
     """
     # Return existing storage if already initialized
     if user_id in _storages:
+        logger.debug(f"♻️ Reusing existing storage for user {user_id}")
         return _storages[user_id]
     
     # Create new storage for this user
+    logger.info("="*60)
+    logger.info(f"🚀 INITIALIZING STORAGE FOR USER {user_id}")
+    logger.info("="*60)
+    
     data_dir = Path(f"data/memory/user_{user_id}")
-    logger.info(f"Initializing storage for user {user_id}: {data_dir}")
+    logger.info(f"📁 Data directory: {data_dir.absolute()}")
 
     # Get storage type from environment (default: json)
     # Can be "json", "vector", or "mem-agent"
     storage_type = os.getenv("MEM_AGENT_STORAGE_TYPE", "json")
-    logger.info(f"Initializing storage type: {storage_type}")
+    logger.info(f"💾 Storage type: {storage_type}")
+    
+    # Log all relevant environment variables
+    logger.info("")
+    logger.info("📋 Configuration:")
+    logger.info(f"  - MEM_AGENT_STORAGE_TYPE: {os.getenv('MEM_AGENT_STORAGE_TYPE', 'json (default)')}")
+    logger.info(f"  - MEM_AGENT_MODEL: {os.getenv('MEM_AGENT_MODEL', 'not set')}")
+    logger.info(f"  - MEM_AGENT_BACKEND: {os.getenv('MEM_AGENT_BACKEND', 'auto (default)')}")
+    logger.info("")
 
     # Create storage using factory or legacy wrapper
     if storage_type != "json":
         # Use factory for non-default storage types
+        logger.info(f"🔧 Creating {storage_type} storage via factory...")
         try:
             model_name = os.getenv("MEM_AGENT_MODEL", None)
             backend = os.getenv("MEM_AGENT_BACKEND", "auto")
+            
+            if model_name:
+                logger.info(f"  📦 Model: {model_name}")
+                logger.info(f"  🎮 Backend: {backend}")
+            else:
+                logger.warning("  ⚠️  No model specified, using default")
 
             storage = MemoryStorageFactory.create(
                 storage_type=storage_type,
@@ -112,22 +133,24 @@ def get_storage(user_id: int) -> MemoryStorage:
                 model_name=model_name,
                 backend=backend,
             )
-            logger.info(f"Created {storage_type} storage via factory with backend={backend}")
+            logger.info(f"✅ Successfully created {storage_type} storage for user {user_id}")
             _storages[user_id] = storage
+            logger.info("="*60)
             return storage
         except Exception as e:
-            logger.error(
-                f"Failed to create {storage_type} storage: {e}. Falling back to json.",
-                exc_info=True,
-            )
+            logger.error(f"❌ Failed to create {storage_type} storage: {e}", exc_info=True)
+            logger.warning("⚠️  Falling back to JSON storage")
             storage = MemoryStorage(data_dir)
             _storages[user_id] = storage
+            logger.info("="*60)
             return storage
     else:
         # Use legacy wrapper for JSON (default)
-        logger.info("Using default JSON storage")
+        logger.info("🔧 Creating JSON storage (default)...")
         storage = MemoryStorage(data_dir)
         _storages[user_id] = storage
+        logger.info(f"✅ JSON storage created successfully for user {user_id}")
+        logger.info("="*60)
         return storage
 
 
@@ -152,22 +175,28 @@ def store_memory(
     Returns:
         Result with memory ID
     """
-    logger.debug(f"store_memory called for user {user_id}: content={content[:100]}..., category={category}")
+    logger.info("💾 STORE_MEMORY called")
+    logger.info(f"  User: {user_id}")
+    logger.info(f"  Category: {category}")
+    logger.info(f"  Content length: {len(content)} chars")
+    logger.debug(f"  Content preview: {content[:200]}...")
+    logger.debug(f"  Tags: {tags}")
     
     try:
         storage = get_storage(user_id)
     except Exception as e:
-        logger.error(f"Failed to get storage for user {user_id}: {e}")
+        logger.error(f"❌ Failed to get storage for user {user_id}: {e}", exc_info=True)
         return {"success": False, "error": str(e)}
 
     try:
         result = storage.store(
             content=content, category=category, tags=tags or [], metadata=metadata or {}
         )
-        logger.debug(f"Store successful: {result}")
+        logger.info(f"✅ Store successful: ID={result.get('id', 'N/A')}")
+        logger.debug(f"  Result: {json.dumps(result, ensure_ascii=False)}")
         return result
     except Exception as e:
-        logger.error(f"Error storing memory: {e}", exc_info=True)
+        logger.error(f"❌ Error storing memory: {e}", exc_info=True)
         return {"success": False, "error": str(e), "error_type": type(e).__name__}
 
 
@@ -192,20 +221,28 @@ def retrieve_memory(
     Returns:
         List of matching memories
     """
-    logger.debug(f"retrieve_memory called for user {user_id}: query={query}, category={category}, limit={limit}")
+    logger.info("🔍 RETRIEVE_MEMORY called")
+    logger.info(f"  User: {user_id}")
+    logger.info(f"  Query: {query or 'all'}")
+    logger.info(f"  Category: {category or 'any'}")
+    logger.info(f"  Tags: {tags}")
+    logger.info(f"  Limit: {limit}")
     
     try:
         storage = get_storage(user_id)
     except Exception as e:
-        logger.error(f"Failed to get storage for user {user_id}: {e}")
+        logger.error(f"❌ Failed to get storage for user {user_id}: {e}", exc_info=True)
         return {"success": False, "error": str(e)}
 
     try:
         result = storage.retrieve(query=query, category=category, tags=tags, limit=limit)
-        logger.debug(f"Retrieve successful: found {result.get('count', 0)} memories")
+        count = result.get('count', 0)
+        logger.info(f"✅ Retrieve successful: found {count} memories")
+        if count > 0:
+            logger.debug(f"  First result preview: {str(result.get('memories', [{}])[0])[:200]}...")
         return result
     except Exception as e:
-        logger.error(f"Error retrieving memory: {e}", exc_info=True)
+        logger.error(f"❌ Error retrieving memory: {e}", exc_info=True)
         return {"success": False, "error": str(e), "error_type": type(e).__name__}
 
 
@@ -220,20 +257,23 @@ def list_categories(user_id: int) -> dict:
     Returns:
         List of categories with their memory counts
     """
-    logger.debug(f"list_categories called for user {user_id}")
+    logger.info("📋 LIST_CATEGORIES called")
+    logger.info(f"  User: {user_id}")
     
     try:
         storage = get_storage(user_id)
     except Exception as e:
-        logger.error(f"Failed to get storage for user {user_id}: {e}")
+        logger.error(f"❌ Failed to get storage for user {user_id}: {e}", exc_info=True)
         return {"success": False, "error": str(e)}
 
     try:
         result = storage.list_categories()
-        logger.debug(f"Categories retrieved: {result}")
+        categories = result.get('categories', {})
+        logger.info(f"✅ Categories retrieved: {len(categories)} categories")
+        logger.debug(f"  Categories: {list(categories.keys())}")
         return result
     except Exception as e:
-        logger.error(f"Error listing categories: {e}", exc_info=True)
+        logger.error(f"❌ Error listing categories: {e}", exc_info=True)
         return {"success": False, "error": str(e), "error_type": type(e).__name__}
 
 
@@ -261,20 +301,26 @@ def main():
         level=args.log_level,
     )
 
-    logger.info("="*60)
-    logger.info("Starting MCP Memory Server (HTTP/SSE)")
-    logger.info("="*60)
+    logger.info("="*80)
+    logger.info("🚀 STARTING MCP MEMORY SERVER (HTTP/SSE)")
+    logger.info("="*80)
     logger.info("")
-    logger.info("Server Configuration:")
-    logger.info(f"  Host: {args.host}")
-    logger.info(f"  Port: {args.port}")
-    logger.info(f"  Mode: Multi-user (per-user storage)")
-    logger.info(f"  Storage type: {os.getenv('MEM_AGENT_STORAGE_TYPE', 'json')}")
-    logger.info(f"  Backend: {os.getenv('MEM_AGENT_BACKEND', 'auto')}")
-    logger.info(f"  Model: {os.getenv('MEM_AGENT_MODEL', 'default')}")
+    logger.info("🔧 Server Configuration:")
+    logger.info(f"  🏗️  Host: {args.host}")
+    logger.info(f"  🔌 Port: {args.port}")
+    logger.info(f"  👥 Mode: Multi-user (per-user storage)")
+    logger.info(f"  💾 Storage type: {os.getenv('MEM_AGENT_STORAGE_TYPE', 'json')}")
+    logger.info(f"  🎮 Backend: {os.getenv('MEM_AGENT_BACKEND', 'auto')}")
+    logger.info(f"  📦 Model: {os.getenv('MEM_AGENT_MODEL', 'default')}")
     logger.info("")
-    logger.info("Note: Each user's storage is isolated at data/memory/user_{{user_id}}/")
-    logger.info("="*60)
+    logger.info("📋 Environment Variables:")
+    logger.info(f"  - MEM_AGENT_STORAGE_TYPE: {os.getenv('MEM_AGENT_STORAGE_TYPE', 'not set (default: json)')}")
+    logger.info(f"  - MEM_AGENT_MODEL: {os.getenv('MEM_AGENT_MODEL', 'not set')}")
+    logger.info(f"  - MEM_AGENT_BACKEND: {os.getenv('MEM_AGENT_BACKEND', 'not set (default: auto)')}")
+    logger.info(f"  - MEM_AGENT_MAX_TOOL_TURNS: {os.getenv('MEM_AGENT_MAX_TOOL_TURNS', 'not set (default: 20)')}")
+    logger.info("")
+    logger.info("ℹ️  Note: Each user's storage is isolated at data/memory/user_{{user_id}}/")
+    logger.info("="*80)
 
     # Run server
     try:
