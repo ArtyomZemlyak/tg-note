@@ -1,4 +1,5 @@
-# Dockerfile for MCP HTTP Server
+# Dockerfile for MCP Hub Server
+# Unified gateway with registry and built-in tools
 # Multi-stage build for optimized image size
 
 FROM python:3.11-slim as builder
@@ -46,12 +47,12 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app
 
-# Expose MCP server port
+# Expose MCP Hub port
 EXPOSE 8765
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:8765/health || exit 1
 
-# Run MCP server
-CMD ["python", "-m", "src.agents.mcp.memory.memory_server_http", "--host", "0.0.0.0", "--port", "8765"]
+# Run MCP Hub server
+CMD ["python", "-m", "src.agents.mcp.mcp_hub_server", "--host", "0.0.0.0", "--port", "8765"]

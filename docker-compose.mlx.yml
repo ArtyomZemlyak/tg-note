@@ -1,0 +1,41 @@
+# Docker Compose for MLX backend (macOS Apple Silicon)
+# Use this for running on macOS with Apple Silicon (M1/M2/M3)
+#
+# Note: MLX requires macOS with Apple Silicon
+# This setup runs the MLX server directly on the host (not in Docker)
+# 
+# Usage:
+#   1. Install MLX on macOS: pip install mlx mlx-lm
+#   2. Start MLX server manually:
+#      python -m mlx_lm.server --model ${MEM_AGENT_MODEL} --port 8001
+#   3. Start other services:
+#      docker-compose -f docker-compose.yml -f docker-compose.mlx.yml up -d
+# Or:
+#   make up-mlx
+
+version: '3.8'
+
+services:
+  # Remove vllm-server (MLX runs on host)
+  vllm-server:
+    profiles:
+      - disabled  # This disables the service
+
+  # Update mcp-hub to connect to host MLX server
+  mcp-hub:
+    environment:
+      - MEM_AGENT_BACKEND=mlx
+      - MEM_AGENT_HOST=host.docker.internal  # Connect to host machine
+      - MEM_AGENT_PORT=8001
+      - MEM_AGENT_BASE_URL=http://host.docker.internal:8001/v1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # Allow connecting to host
+    depends_on: []  # Remove dependency on vllm-server
+
+  # Update bot to connect to host MLX server
+  bot:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      mcp-hub:
+        condition: service_healthy

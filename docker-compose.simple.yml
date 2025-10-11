@@ -5,14 +5,14 @@
 version: '3.8'
 
 services:
-  # MCP HTTP Server (Memory Gateway)
+  # MCP Hub Server (Unified Gateway)
   # Using JSON storage mode (no GPU required)
-  mcp-http-server:
+  mcp-hub:
     build:
       context: .
-      dockerfile: Dockerfile.mcp
-    container_name: tg-note-mcp
-    image: tg-note-mcp:latest
+      dockerfile: Dockerfile.hub
+    container_name: tg-note-hub
+    image: tg-note-hub:latest
     restart: unless-stopped
     ports:
       - "${MCP_PORT:-8765}:8765"
@@ -64,8 +64,8 @@ services:
       - AGENT_ENABLE_MCP=${AGENT_ENABLE_MCP:-false}
       - AGENT_ENABLE_MCP_MEMORY=${AGENT_ENABLE_MCP_MEMORY:-true}
       
-      # MCP connection settings (points to mcp-http-server)
-      - MCP_MEMORY_URL=http://mcp-http-server:8765/sse
+      # MCP connection settings (points to mcp-hub)
+      - MCP_HUB_URL=http://mcp-hub:8765/sse
       
       # Knowledge base settings
       - KB_PATH=/app/knowledge_base
