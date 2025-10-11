@@ -215,8 +215,8 @@ def main():
     print("   - Within session: Maintains working memory across multiple LLM calls")
     print("5. You can change settings in config.yaml or .env:")
     print("   - Model: driaforall/mem-agent (LLM-based memory agent)")
-    print("   - MEM_AGENT_MEMORY_POSTFIX (default: memory)")
-    print("   - Each user's notes are isolated in their own KB")
+    print("   - Storage type: json (fast), vector (semantic), mem-agent (LLM-powered)")
+    print("   - Each user's memory is isolated at: data/memory/user_{user_id}/")
     print("6. To start the MCP server:")
     print(
         "   python -m src.agents.mcp.memory.mem_agent_impl.mcp_server --host 127.0.0.1 --port 8766"

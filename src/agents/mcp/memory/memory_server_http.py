@@ -6,7 +6,7 @@ This server provides memory storage/retrieval via HTTP using Server-Sent Events 
 Alternative to stdio-based memory_server.py for better compatibility with some clients.
 
 Usage:
-    python -m src.agents.mcp.memory.memory_server_http [--port PORT] [--host HOST] [--user-id USER_ID]
+    python -m src.agents.mcp.memory.memory_server_http [--port PORT] [--host HOST]
 
 Default:
     Host: 127.0.0.1
@@ -17,7 +17,7 @@ import argparse
 import os
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional
 
 from loguru import logger
 
@@ -72,40 +72,27 @@ logger.add(
 # Initialize FastMCP server
 mcp = FastMCP("memory", version="1.0.0")
 
-# Global storage (will be initialized in main)
-storage: Optional[MemoryStorage] = None
+# Per-user storage instances (user_id -> MemoryStorage)
+_storages: Dict[int, MemoryStorage] = {}
 
 
-def init_storage(user_id: Optional[int] = None):
+def get_storage(user_id: int) -> MemoryStorage:
     """
-    Initialize memory storage using the factory pattern
+    Get or create memory storage for a specific user
 
     Args:
-        user_id: Optional user ID for per-user storage
+        user_id: User ID for per-user storage (required)
 
     Returns:
         Initialized memory storage (type depends on MEM_AGENT_STORAGE_TYPE env var)
     """
-    # Setup storage directory
-    # Priority:
-    # 1. KB_PATH env var (set by memory_tool.py for user-specific KB)
-    # 2. Legacy user_id-based path (for backward compatibility)
-    # 3. Shared memory (fallback)
-    kb_path = os.getenv("KB_PATH")
-    memory_postfix = os.getenv("MEM_AGENT_MEMORY_POSTFIX", "memory")
-
-    if kb_path:
-        # Use KB-based path: {kb_path}/{memory_postfix}
-        data_dir = Path(kb_path) / memory_postfix
-        logger.info(f"Using KB-based memory path: {data_dir}")
-    elif user_id:
-        # Legacy: user_id-based path
-        data_dir = Path(f"data/memory/user_{user_id}")
-        logger.info(f"Using legacy user-based memory path: {data_dir}")
-    else:
-        # Fallback: shared memory
-        data_dir = Path("data/memory/shared")
-        logger.info(f"Using shared memory path: {data_dir}")
+    # Return existing storage if already initialized
+    if user_id in _storages:
+        return _storages[user_id]
+    
+    # Create new storage for this user
+    data_dir = Path(f"data/memory/user_{user_id}")
+    logger.info(f"Initializing storage for user {user_id}: {data_dir}")
 
     # Get storage type from environment (default: json)
     # Can be "json", "vector", or "mem-agent"
@@ -126,28 +113,38 @@ def init_storage(user_id: Optional[int] = None):
                 backend=backend,
             )
             logger.info(f"Created {storage_type} storage via factory with backend={backend}")
+            _storages[user_id] = storage
             return storage
         except Exception as e:
             logger.error(
                 f"Failed to create {storage_type} storage: {e}. Falling back to json.",
                 exc_info=True,
             )
-            return MemoryStorage(data_dir)
+            storage = MemoryStorage(data_dir)
+            _storages[user_id] = storage
+            return storage
     else:
         # Use legacy wrapper for JSON (default)
         logger.info("Using default JSON storage")
-        return MemoryStorage(data_dir)
+        storage = MemoryStorage(data_dir)
+        _storages[user_id] = storage
+        return storage
 
 
 @mcp.tool()
 def store_memory(
-    content: str, category: str = "general", tags: list[str] = None, metadata: dict = None
+    content: str, 
+    user_id: int,
+    category: str = "general", 
+    tags: list[str] = None, 
+    metadata: dict = None
 ) -> dict:
     """
     Store information in memory for later retrieval
 
     Args:
         content: Content to store in memory
+        user_id: User ID (required for per-user isolation)
         category: Category for organization (e.g., 'tasks', 'notes', 'ideas')
         tags: Optional tags for categorization
         metadata: Additional metadata (optional)
@@ -155,11 +152,13 @@ def store_memory(
     Returns:
         Result with memory ID
     """
-    logger.debug(f"store_memory called: content={content[:100]}..., category={category}")
+    logger.debug(f"store_memory called for user {user_id}: content={content[:100]}..., category={category}")
     
-    if storage is None:
-        logger.error("Storage not initialized")
-        return {"success": False, "error": "Storage not initialized"}
+    try:
+        storage = get_storage(user_id)
+    except Exception as e:
+        logger.error(f"Failed to get storage for user {user_id}: {e}")
+        return {"success": False, "error": str(e)}
 
     try:
         result = storage.store(
@@ -174,12 +173,17 @@ def store_memory(
 
 @mcp.tool()
 def retrieve_memory(
-    query: str = None, category: str = None, tags: list[str] = None, limit: int = 10
+    user_id: int,
+    query: str = None, 
+    category: str = None, 
+    tags: list[str] = None, 
+    limit: int = 10
 ) -> dict:
     """
     Retrieve information from memory
 
     Args:
+        user_id: User ID (required for per-user isolation)
         query: Search query (optional - returns all if not specified)
         category: Filter by category (optional)
         tags: Filter by tags (optional)
@@ -188,11 +192,13 @@ def retrieve_memory(
     Returns:
         List of matching memories
     """
-    logger.debug(f"retrieve_memory called: query={query}, category={category}, limit={limit}")
+    logger.debug(f"retrieve_memory called for user {user_id}: query={query}, category={category}, limit={limit}")
     
-    if storage is None:
-        logger.error("Storage not initialized")
-        return {"success": False, "error": "Storage not initialized"}
+    try:
+        storage = get_storage(user_id)
+    except Exception as e:
+        logger.error(f"Failed to get storage for user {user_id}: {e}")
+        return {"success": False, "error": str(e)}
 
     try:
         result = storage.retrieve(query=query, category=category, tags=tags, limit=limit)
@@ -204,18 +210,23 @@ def retrieve_memory(
 
 
 @mcp.tool()
-def list_categories() -> dict:
+def list_categories(user_id: int) -> dict:
     """
     List all memory categories with counts
+
+    Args:
+        user_id: User ID (required for per-user isolation)
 
     Returns:
         List of categories with their memory counts
     """
-    logger.debug("list_categories called")
+    logger.debug(f"list_categories called for user {user_id}")
     
-    if storage is None:
-        logger.error("Storage not initialized")
-        return {"success": False, "error": "Storage not initialized"}
+    try:
+        storage = get_storage(user_id)
+    except Exception as e:
+        logger.error(f"Failed to get storage for user {user_id}: {e}")
+        return {"success": False, "error": str(e)}
 
     try:
         result = storage.list_categories()
@@ -228,16 +239,11 @@ def list_categories() -> dict:
 
 def main():
     """Main entry point"""
-    global storage
-
     parser = argparse.ArgumentParser(
-        description="Memory HTTP MCP Server - Memory storage via HTTP/SSE"
+        description="Memory HTTP MCP Server - Multi-user memory storage via HTTP/SSE"
     )
     parser.add_argument("--host", default="127.0.0.1", help="Host to bind to (default: 127.0.0.1)")
     parser.add_argument("--port", type=int, default=8765, help="Port to bind to (default: 8765)")
-    parser.add_argument(
-        "--user-id", type=int, help="User ID for per-user memory storage (optional)"
-    )
     parser.add_argument(
         "--log-level",
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
@@ -255,27 +261,19 @@ def main():
         level=args.log_level,
     )
 
-    # Initialize storage
     logger.info("="*60)
     logger.info("Starting MCP Memory Server (HTTP/SSE)")
     logger.info("="*60)
-    logger.info("Initializing memory storage...")
-    try:
-        storage = init_storage(user_id=args.user_id)
-        storage_type_name = type(storage).__name__
-        logger.info(f"Storage initialized successfully: {storage_type_name}")
-    except Exception as e:
-        logger.error(f"Failed to initialize storage: {e}", exc_info=True)
-        sys.exit(1)
-
     logger.info("")
     logger.info("Server Configuration:")
     logger.info(f"  Host: {args.host}")
     logger.info(f"  Port: {args.port}")
-    logger.info(f"  User ID: {args.user_id or 'shared'}")
+    logger.info(f"  Mode: Multi-user (per-user storage)")
     logger.info(f"  Storage type: {os.getenv('MEM_AGENT_STORAGE_TYPE', 'json')}")
     logger.info(f"  Backend: {os.getenv('MEM_AGENT_BACKEND', 'auto')}")
     logger.info(f"  Model: {os.getenv('MEM_AGENT_MODEL', 'default')}")
+    logger.info("")
+    logger.info("Note: Each user's storage is isolated at data/memory/user_{{user_id}}/")
     logger.info("="*60)
 
     # Run server
