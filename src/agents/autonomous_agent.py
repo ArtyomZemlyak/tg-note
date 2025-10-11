@@ -270,7 +270,7 @@ class AutonomousAgent(BaseAgent):
             enable_vector_search: Enable vector search tool
             vector_search_manager: Optional pre-configured vector search manager
             enable_mcp: Enable MCP (Model Context Protocol) support
-            enable_mcp_memory: Enable MCP memory agent tool (mem-agent HTTP server)
+            enable_mcp_memory: Enable MCP memory agent tool (memory HTTP server)
         """
         super().__init__(config)
 

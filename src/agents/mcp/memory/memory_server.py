@@ -324,7 +324,7 @@ class MemoryMCPServer:
                 result = {
                     "protocolVersion": "2024-11-05",
                     "capabilities": {"tools": {}},
-                    "serverInfo": {"name": "mem-agent", "version": "1.0.0"},
+                    "serverInfo": {"name": "memory", "version": "1.0.0"},
                 }
                 logger.info(f"✅ Initialization complete")
 
