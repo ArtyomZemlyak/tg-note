@@ -8,11 +8,10 @@ from src.agents.mcp.memory.mem_agent_impl.schemas import ChatMessage, Role
 from src.agents.mcp.memory.mem_agent_impl.settings import (
     MEM_AGENT_BASE_URL,
     MEM_AGENT_HOST,
+    MEM_AGENT_MODEL,
     MEM_AGENT_OPENAI_API_KEY,
     MEM_AGENT_PORT,
     OPENROUTER_API_KEY,
-    OPENROUTER_BASE_URL,
-    OPENROUTER_STRONG_MODEL,
 )
 
 
@@ -21,9 +20,9 @@ def create_openai_client() -> OpenAI:
 
     Priority:
     1) Explicit mem-agent endpoint (MEM_AGENT_BASE_URL, MEM_AGENT_OPENAI_API_KEY)
-    2) Legacy OpenRouter endpoint
+    2) Legacy OpenRouter endpoint (if OPENROUTER_API_KEY is set)
     """
-    base_url = MEM_AGENT_BASE_URL or OPENROUTER_BASE_URL
+    base_url = MEM_AGENT_BASE_URL
     api_key = MEM_AGENT_OPENAI_API_KEY or OPENROUTER_API_KEY
     
     logger.debug("🔧 Creating OpenAI-compatible client")
@@ -63,7 +62,7 @@ def get_model_response(
     messages: Optional[list[ChatMessage]] = None,
     message: Optional[str] = None,
     system_prompt: Optional[str] = None,
-    model: str = OPENROUTER_STRONG_MODEL,
+    model: str = MEM_AGENT_MODEL,
     client: Optional[OpenAI] = None,
     use_vllm: bool = False,
 ) -> Union[str, BaseModel]:

@@ -46,10 +46,10 @@ from src.agents.mcp.memory.mem_agent_impl.settings import (
     MAX_TOOL_TURNS,
     MEM_AGENT_BASE_URL,
     MEM_AGENT_HOST,
+    MEM_AGENT_MODEL,
     MEM_AGENT_OPENAI_API_KEY,
     MEM_AGENT_PORT,
     MEMORY_PATH,
-    OPENROUTER_STRONG_MODEL,
     SAVE_CONVERSATION_PATH,
 )
 from src.agents.mcp.memory.mem_agent_impl.utils import (
@@ -89,13 +89,13 @@ class Agent:
         logger.info(f"🔧 Max tool turns: {max_tool_turns}")
         logger.info(f"🎮 Backend mode: {'vLLM' if use_vllm else 'OpenAI-compatible/auto'}")
 
-        # Set model: use provided model, or fallback to OPENROUTER_STRONG_MODEL
+        # Set model: use provided model, or fallback to MEM_AGENT_MODEL
         if model:
             self.model = model
             logger.info(f"📦 Using specified model: {model}")
         else:
-            self.model = OPENROUTER_STRONG_MODEL
-            logger.info(f"📦 Using default model: {OPENROUTER_STRONG_MODEL}")
+            self.model = MEM_AGENT_MODEL
+            logger.info(f"📦 Using default model: {MEM_AGENT_MODEL}")
 
         # Each Agent instance gets its own clients to avoid bottlenecks
         logger.info("🔌 Setting up model client...")
@@ -169,7 +169,7 @@ class Agent:
                 logger.debug(f"vLLM server not reachable: {e}")
 
             # Try to start vLLM server in background
-            logger.info(f"Starting vLLM server at {host}:{port} with model {OPENROUTER_STRONG_MODEL}")
+            logger.info(f"Starting vLLM server at {host}:{port} with model {MEM_AGENT_MODEL}")
             
             # Create log file for vLLM server
             vllm_log_file = log_dir / "vllm_server.log"
@@ -195,7 +195,7 @@ class Agent:
                         "--port",
                         str(port),
                         "--model",
-                        OPENROUTER_STRONG_MODEL,
+                        MEM_AGENT_MODEL,
                     ],
                     stdout=log_f,
                     stderr=err_f,
@@ -234,7 +234,9 @@ class Agent:
             except URLError as e:
                 logger.debug(f"MLX server not reachable: {e}")
 
-            logger.info(f"Starting MLX server at {host}:{port} with model {OPENROUTER_STRONG_MODEL}")
+            # Use MLX-formatted model for macOS
+            mlx_model = os.getenv("MEM_AGENT_MLX_MODEL", "jc2375/mem-agent-mlx-fp16")
+            logger.info(f"Starting MLX server at {host}:{port} with model {mlx_model}")
             
             # Create log file for MLX server
             mlx_log_file = log_dir / "mlx_server.log"
@@ -252,15 +254,15 @@ class Agent:
                 
                 subprocess.Popen(
                     [
-                        "mlx_lm",
-                        "serve",
-                        OPENROUTER_STRONG_MODEL,
+                        sys.executable,
+                        "-m",
+                        "mlx_lm.server",
+                        "--model",
+                        mlx_model,
                         "--host",
                         host,
                         "--port",
                         str(port),
-                        "--api",
-                        "openai",
                     ],
                     stdout=log_f,
                     stderr=err_f,
