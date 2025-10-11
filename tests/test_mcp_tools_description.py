@@ -112,45 +112,55 @@ class TestAutonomousAgentMCPIntegration:
     async def test_autonomous_agent_get_mcp_tools_enabled(self):
         """Test that MCP tools description is generated when enabled"""
         config = {"enable_mcp": True, "user_id": 12345}
-        agent = AutonomousAgent(config=config, enable_mcp=True)
+        
+        # Mock discover_and_create_mcp_tools to prevent actual MCP discovery during agent init
+        with patch("src.agents.tools.registry.discover_and_create_mcp_tools", new_callable=AsyncMock) as mock_discover:
+            mock_discover.return_value = []
+            
+            agent = AutonomousAgent(config=config, enable_mcp=True)
 
-        # Mock the MCP description function - patch where it's imported FROM
-        with patch("src.agents.mcp.get_mcp_tools_description") as mock_get:
-            mock_get.return_value = "# Test MCP Tools"
+            # Mock the MCP description function - patch where it's imported FROM
+            with patch("src.agents.mcp.get_mcp_tools_description", new_callable=AsyncMock) as mock_get:
+                mock_get.return_value = "# Test MCP Tools"
 
-            with patch("src.agents.mcp.format_mcp_tools_for_prompt") as mock_format:
-                mock_format.return_value = "## MCP Tools Available\n\n# Test MCP Tools"
+                with patch("src.agents.mcp.format_mcp_tools_for_prompt") as mock_format:
+                    mock_format.return_value = "## MCP Tools Available\n\n# Test MCP Tools"
 
-                description = await agent.get_mcp_tools_description()
+                    description = await agent.get_mcp_tools_description()
 
-                # Should call the functions with correct parameters
-                mock_get.assert_called_once_with(user_id=12345)
-                mock_format.assert_called_once_with("# Test MCP Tools", include_in_system=True)
+                    # Should call the functions with correct parameters
+                    mock_get.assert_called_once_with(user_id=12345)
+                    mock_format.assert_called_once_with("# Test MCP Tools", include_in_system=True)
 
-                # Should cache the result
-                assert agent._mcp_tools_description == "## MCP Tools Available\n\n# Test MCP Tools"
+                    # Should cache the result
+                    assert agent._mcp_tools_description == "## MCP Tools Available\n\n# Test MCP Tools"
 
     @pytest.mark.asyncio
     async def test_autonomous_agent_caches_mcp_description(self):
         """Test that MCP tools description is cached"""
         config = {"enable_mcp": True}
-        agent = AutonomousAgent(config=config, enable_mcp=True)
+        
+        # Mock discover_and_create_mcp_tools to prevent actual MCP discovery during agent init
+        with patch("src.agents.tools.registry.discover_and_create_mcp_tools", new_callable=AsyncMock) as mock_discover:
+            mock_discover.return_value = []
+            
+            agent = AutonomousAgent(config=config, enable_mcp=True)
 
-        with patch("src.agents.mcp.get_mcp_tools_description") as mock_get:
-            mock_get.return_value = "# Test MCP Tools"
+            with patch("src.agents.mcp.get_mcp_tools_description", new_callable=AsyncMock) as mock_get:
+                mock_get.return_value = "# Test MCP Tools"
 
-            with patch("src.agents.mcp.format_mcp_tools_for_prompt") as mock_format:
-                mock_format.return_value = "Formatted tools"
+                with patch("src.agents.mcp.format_mcp_tools_for_prompt") as mock_format:
+                    mock_format.return_value = "Formatted tools"
 
-                # First call
-                description1 = await agent.get_mcp_tools_description()
+                    # First call
+                    description1 = await agent.get_mcp_tools_description()
 
-                # Second call
-                description2 = await agent.get_mcp_tools_description()
+                    # Second call
+                    description2 = await agent.get_mcp_tools_description()
 
-                # Should only call once (cached)
-                assert mock_get.call_count == 1
-                assert description1 == description2
+                    # Should only call once (cached)
+                    assert mock_get.call_count == 1
+                    assert description1 == description2
 
 
 class TestQwenCodeCLIAgentMCPIntegration:
