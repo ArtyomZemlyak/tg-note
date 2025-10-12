@@ -7,7 +7,7 @@ from typing import Optional, Tuple, Union
 
 from loguru import logger
 
-from src.agents.mcp.memory.mem_agent_impl.engine import execute_sandboxed_code
+from src.mcp.memory.mem_agent_impl.engine import execute_sandboxed_code
 
 # Configure logging for mem-agent
 log_dir = Path("logs")
@@ -36,13 +36,13 @@ if not logger._core.handlers:
         backtrace=True,
         diagnose=True,
     )
-from src.agents.mcp.memory.mem_agent_impl.model import (
+from src.mcp.memory.mem_agent_impl.model import (
     create_openai_client,
     create_vllm_client,
     get_model_response,
 )
-from src.agents.mcp.memory.mem_agent_impl.schemas import AgentResponse, ChatMessage, Role
-from src.agents.mcp.memory.mem_agent_impl.settings import (
+from src.mcp.memory.mem_agent_impl.schemas import AgentResponse, ChatMessage, Role
+from src.mcp.memory.mem_agent_impl.settings import (
     MAX_TOOL_TURNS,
     MEM_AGENT_BASE_URL,
     MEM_AGENT_HOST,
@@ -52,7 +52,7 @@ from src.agents.mcp.memory.mem_agent_impl.settings import (
     MEMORY_PATH,
     SAVE_CONVERSATION_PATH,
 )
-from src.agents.mcp.memory.mem_agent_impl.utils import (
+from src.mcp.memory.mem_agent_impl.utils import (
     create_memory_if_not_exists,
     extract_python_code,
     extract_reply,
@@ -365,7 +365,7 @@ class Agent:
                 result = execute_sandboxed_code(
                     code=python_code,
                     allowed_path=self.memory_path,
-                    import_module="src.agents.mcp.memory.mem_agent_impl.tools",
+                    import_module="src.mcp.memory.mem_agent_impl.tools",
                 )
                 if result[1]:  # If there's an error
                     logger.warning(f"⚠️  Code execution error: {result[1]}")
@@ -411,7 +411,7 @@ class Agent:
                 result = execute_sandboxed_code(
                     code=python_code,
                     allowed_path=self.memory_path,
-                    import_module="src.agents.mcp.memory.mem_agent_impl.tools",
+                    import_module="src.mcp.memory.mem_agent_impl.tools",
                 )
                 if result[1]:
                     logger.warning(f"    ⚠️  Tool execution error: {result[1]}")

@@ -18,7 +18,7 @@ def test_imports():
 
     try:
         # Core interfaces
-        from src.agents.mcp.memory import (
+        from src.mcp.memory import (
             BaseMemoryStorage,
             JsonMemoryStorage,
             MemAgentStorage,
@@ -34,7 +34,7 @@ def test_imports():
 
     try:
         # Mem-agent implementation
-        from src.agents.mcp.memory.mem_agent_impl import Agent, AgentResponse, ChatMessage, Role
+        from src.mcp.memory.mem_agent_impl import Agent, AgentResponse, ChatMessage, Role
 
         print("✓ Mem-agent imports OK")
     except ImportError as e:
@@ -49,7 +49,7 @@ def test_factory():
     print("\nTesting factory...")
 
     try:
-        from src.agents.mcp.memory import MemoryStorageFactory
+        from src.mcp.memory import MemoryStorageFactory
 
         # List available types
         types = MemoryStorageFactory.list_available_types()
@@ -72,7 +72,7 @@ def test_json_storage():
     print("\nTesting JSON storage...")
 
     try:
-        from src.agents.mcp.memory import MemoryStorageFactory
+        from src.mcp.memory import MemoryStorageFactory
 
         storage = MemoryStorageFactory.create(
             storage_type="json", data_dir=Path("/tmp/test_integration_json")
@@ -106,7 +106,7 @@ def test_mem_agent_creation():
     print("\nTesting mem-agent storage creation...")
 
     try:
-        from src.agents.mcp.memory import MemoryStorageFactory
+        from src.mcp.memory import MemoryStorageFactory
 
         # Just test creation, not actual LLM operations
         storage = MemoryStorageFactory.create(
@@ -138,7 +138,7 @@ def test_direct_agent():
     print("\nTesting direct agent import...")
 
     try:
-        from src.agents.mcp.memory.mem_agent_impl import Agent
+        from src.mcp.memory.mem_agent_impl import Agent
 
         # Just test import, not instantiation (requires config)
         print(f"✓ Agent class imported: {Agent}")

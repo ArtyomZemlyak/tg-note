@@ -15,8 +15,8 @@ from tempfile import TemporaryDirectory
 from loguru import logger
 
 # Import the factory and storage types
-from src.agents.mcp.memory import MemoryStorage  # Legacy wrapper
-from src.agents.mcp.memory import JsonMemoryStorage, MemoryStorageFactory, VectorBasedMemoryStorage
+from src.mcp.memory import MemoryStorage  # Legacy wrapper
+from src.mcp.memory import JsonMemoryStorage, MemoryStorageFactory, VectorBasedMemoryStorage
 
 
 def example_json_storage():

@@ -13,7 +13,7 @@ from pathlib import Path
 # Add parent directory to path to import modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.agents.mcp.memory.mem_agent_impl import Agent
+from src.mcp.memory.mem_agent_impl import Agent
 
 
 def main():

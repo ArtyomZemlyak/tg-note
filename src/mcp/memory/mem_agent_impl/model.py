@@ -4,8 +4,8 @@ from loguru import logger
 from openai import OpenAI
 from pydantic import BaseModel
 
-from src.agents.mcp.memory.mem_agent_impl.schemas import ChatMessage, Role
-from src.agents.mcp.memory.mem_agent_impl.settings import (
+from src.mcp.memory.mem_agent_impl.schemas import ChatMessage, Role
+from src.mcp.memory.mem_agent_impl.settings import (
     MEM_AGENT_BASE_URL,
     MEM_AGENT_HOST,
     MEM_AGENT_MODEL,

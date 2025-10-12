@@ -5,7 +5,7 @@ This module provides backward compatibility by wrapping the new storage implemen
 Uses the factory pattern to create the appropriate storage based on configuration.
 
 For new code, prefer using the factory directly:
-    from src.agents.mcp.memory import MemoryStorageFactory
+    from src.mcp.memory import MemoryStorageFactory
     storage = MemoryStorageFactory.create("json", data_dir)
 """
 
@@ -34,7 +34,7 @@ class MemoryStorage(BaseMemoryStorage):
         results = storage.retrieve(query="Hello")
 
     Note: For new code, prefer using the factory directly for more control:
-        from src.agents.mcp.memory import MemoryStorageFactory
+        from src.mcp.memory import MemoryStorageFactory
         storage = MemoryStorageFactory.create("vector", data_dir, model_name="...")
     """
 

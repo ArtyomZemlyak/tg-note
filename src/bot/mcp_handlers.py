@@ -11,7 +11,7 @@ from telebot.async_telebot import AsyncTeleBot
 from telebot.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from src.bot.utils import escape_markdown
-from src.mcp_registry.manager import MCPServersManager
+from src.mcp.registry.manager import MCPServersManager
 
 
 class MCPHandlers:

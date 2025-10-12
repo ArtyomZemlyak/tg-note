@@ -4,7 +4,7 @@ from typing import Optional
 
 from pydantic import BaseModel
 
-from src.agents.mcp.memory.mem_agent_impl.utils import create_memory_if_not_exists
+from src.mcp.memory.mem_agent_impl.utils import create_memory_if_not_exists
 
 
 class Role(str, Enum):

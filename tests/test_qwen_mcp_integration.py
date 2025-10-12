@@ -11,9 +11,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.agents.mcp.memory.memory_server import MemoryMCPServer
-from src.agents.mcp.memory.memory_storage import MemoryStorage
-from src.agents.mcp.qwen_config_generator import QwenMCPConfigGenerator, setup_qwen_mcp_config
+from src.mcp.memory.memory_server import MemoryMCPServer
+from src.mcp.memory.memory_storage import MemoryStorage
+from src.mcp.qwen_config_generator import QwenMCPConfigGenerator, setup_qwen_mcp_config
 
 
 class TestMemoryStorage:

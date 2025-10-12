@@ -11,7 +11,7 @@ Can be run as:
 - Standalone daemon
 
 Usage:
-    python -m src.agents.mcp.memory.memory_server [--user-id USER_ID]
+    python -m src.mcp.memory.memory_server [--user-id USER_ID]
 """
 
 import argparse
@@ -26,10 +26,10 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
-from src.agents.mcp.memory.memory_factory import MemoryStorageFactory
+from src.mcp.memory.memory_factory import MemoryStorageFactory
 
 # Import shared memory storage and factory
-from src.agents.mcp.memory.memory_storage import MemoryStorage
+from src.mcp.memory.memory_storage import MemoryStorage
 
 # Configure logger for standalone mode
 logger.remove()

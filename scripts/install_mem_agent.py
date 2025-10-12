@@ -219,7 +219,7 @@ def main():
     print("   - Each user's memory is isolated at: data/memory/user_{user_id}/")
     print("6. To start the MCP server:")
     print(
-        "   python -m src.agents.mcp.memory.mem_agent_impl.mcp_server --host 127.0.0.1 --port 8766"
+        "   python -m src.mcp.memory.mem_agent_impl.mcp_server --host 127.0.0.1 --port 8766"
     )
     print("\n")
 
