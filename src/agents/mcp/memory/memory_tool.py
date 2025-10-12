@@ -164,7 +164,7 @@ class MemoryMCPTool(BaseMCPTool):
                 return MCPServerConfig(
                     command=memory_config.get("command", "python3"),
                     args=memory_config.get(
-                        "args", ["-m", "src.agents.mcp.memory.memory_server_http"]
+                        "args", ["-m", "src.agents.mcp.memory.memory_server"]
                     ),
                     env=memory_config.get("env", {}),
                     cwd=Path(memory_config["cwd"]) if memory_config.get("cwd") else None,
@@ -178,7 +178,7 @@ class MemoryMCPTool(BaseMCPTool):
                 command="python3",
                 args=[
                     "-m",
-                    "src.agents.mcp.memory.memory_server_http",
+                    "src.agents.mcp.mcp_hub_server",
                     "--host",
                     "127.0.0.1",
                     "--port",
