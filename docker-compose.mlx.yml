@@ -20,6 +20,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.mlx
+    # Force amd64 build to ensure MLX Linux wheels resolve on Apple Silicon hosts
+    platform: linux/amd64
     image: tg-note-mlx:latest
     container_name: tg-note-mlx
     ports:

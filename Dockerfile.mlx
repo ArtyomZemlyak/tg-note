@@ -23,9 +23,17 @@ ENV PYTHONUNBUFFERED=1 \
 # Ensure cache dir exists
 RUN mkdir -p /root/.cache/huggingface
 
-# Install MLX and MLX-LM at build-time
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir mlx mlx-lm
+# Install MLX and MLX-LM at build-time when supported
+# - MLX Linux wheels are available for amd64; skip on other arches (e.g., arm64)
+RUN set -eux; \
+    arch="$(uname -m)"; \
+    python -m pip install --no-cache-dir --upgrade pip; \
+    if [ "$arch" = "x86_64" ]; then \
+      python -m pip install --no-cache-dir 'mlx[cpu]' mlx-lm; \
+    else \
+      echo "Skipping MLX install on arch: $arch (supported: x86_64)."; \
+      echo "This image is intended for macOS (Apple Silicon) or Linux amd64 with MLX."; \
+    fi
 
 EXPOSE 8001
 
@@ -34,4 +42,8 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=5 \
   CMD curl -f http://localhost:8001/health || exit 1
 
 # Use shell form to allow env var expansion with defaults
-CMD python -m mlx_lm.server --model "${MEM_AGENT_MODEL:-jc2375/mem-agent-mlx-fp16}" --port "${PORT:-8001}"
+# Preflight: exit with clear message if MLX/MLX-LM are missing (e.g., non-x86_64 Linux)
+CMD sh -c 'python -c "import mlx, mlx_lm" 2>/dev/null || { \
+  echo "MLX/MLX-LM not installed for arch $(uname -m). Use Linux x86_64 (mlx[cpu]) or macOS Apple Silicon."; \
+  exit 1; \
+}; exec python -m mlx_lm.server --model "${MEM_AGENT_MODEL:-jc2375/mem-agent-mlx-fp16}" --port "${PORT:-8001}"'
