@@ -275,6 +275,29 @@ def run_server(host: str = "127.0.0.1", port: int = 8766):
     logger.info(f"  👥 Mode: Multi-user (per-memory-path storage)")
     logger.info("="*80)
     
+    # STEP 1: Start vLLM/MLX server before initializing agent
+    logger.info("")
+    logger.info("="*80)
+    logger.info("STEP 1: Starting local LLM server (vLLM/MLX)")
+    logger.info("="*80)
+    
+    try:
+        from .server_manager import ensure_server_started
+        
+        server_started = ensure_server_started(timeout=60)
+        if server_started:
+            logger.info("✅ Local LLM server is ready")
+        else:
+            logger.warning("⚠️ Local LLM server not started - will use configured endpoint")
+    except Exception as e:
+        logger.error(f"❌ Error starting server: {e}", exc_info=True)
+        logger.warning("⚠️ Continuing without local server - will use configured endpoint")
+    
+    logger.info("")
+    logger.info("="*80)
+    logger.info("STEP 2: Starting MCP server")
+    logger.info("="*80)
+    
     print(f"🚀 Starting mem-agent MCP server on {host}:{port}")
     try:
         logger.info(f"▶️  Server listening on http://{host}:{port}/sse")
