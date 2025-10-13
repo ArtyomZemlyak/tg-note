@@ -34,4 +34,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=5 \
   CMD curl -f http://localhost:8001/health || exit 1
 
 # Use shell form to allow env var expansion with defaults
-CMD python -m mlx_lm.server --model "${MEM_AGENT_MODEL:-driaforall/mem-agent}" --port "${PORT:-8001}"
+CMD python -m mlx_lm.server --model "${MEM_AGENT_MODEL:-jc2375/mem-agent-mlx-fp16}" --port "${PORT:-8001}"

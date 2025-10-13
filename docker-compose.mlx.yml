@@ -26,6 +26,7 @@ services:
       - "${MLX_PORT:-8001}:8001"
     environment:
       - HF_HOME=/root/.cache/huggingface
+      - MEM_AGENT_MODEL=${MEM_AGENT_MODEL:-jc2375/mem-agent-mlx-fp16}
     volumes:
       - ~/.cache/huggingface:/root/.cache/huggingface
     healthcheck:

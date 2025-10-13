@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
-from ..tools.base_tool import BaseTool, ToolContext
+from ..agents.tools.base_tool import BaseTool, ToolContext
 from .client import MCPClient
 from .registry_client import MCPRegistryClient
 
