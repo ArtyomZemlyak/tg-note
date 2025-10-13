@@ -18,7 +18,7 @@ def test_imports():
     print("Testing imports...")
 
     try:
-        from src.agents.mcp.memory.mem_agent_impl import (
+        from src.mcp.memory.mem_agent_impl import (
             Agent,
             AgentResponse,
             ChatMessage,
@@ -28,19 +28,19 @@ def test_imports():
 
         print("✓ Main imports successful")
 
-        from src.agents.mcp.memory.mem_agent_impl.settings import MAX_TOOL_TURNS, get_memory_path
+        from src.mcp.memory.mem_agent_impl.settings import MAX_TOOL_TURNS, get_memory_path
 
         print("✓ Settings import successful")
 
-        from src.agents.mcp.memory.mem_agent_impl.utils import extract_python_code, extract_reply
+        from src.mcp.memory.mem_agent_impl.utils import extract_python_code, extract_reply
 
         print("✓ Utils import successful")
 
-        from src.agents.mcp.memory.mem_agent_impl.tools import create_file, read_file
+        from src.mcp.memory.mem_agent_impl.tools import create_file, read_file
 
         print("✓ Tools import successful")
 
-        from src.agents.mcp.memory.mem_agent_impl.mcp_server import get_agent, mcp
+        from src.mcp.memory.mem_agent_impl.mcp_server import get_agent, mcp
 
         print("✓ MCP server import successful")
 
@@ -58,7 +58,7 @@ def test_schemas():
     print("\nTesting schemas...")
 
     try:
-        from src.agents.mcp.memory.mem_agent_impl.schemas import AgentResponse, ChatMessage, Role
+        from src.mcp.memory.mem_agent_impl.schemas import AgentResponse, ChatMessage, Role
 
         # Test ChatMessage
         msg = ChatMessage(role=Role.USER, content="Test message")
@@ -83,7 +83,7 @@ def test_utils():
     print("\nTesting utility functions...")
 
     try:
-        from src.agents.mcp.memory.mem_agent_impl.utils import (
+        from src.mcp.memory.mem_agent_impl.utils import (
             extract_python_code,
             extract_reply,
             extract_thoughts,
@@ -118,7 +118,7 @@ def test_tools():
     print("\nTesting tool functions...")
 
     try:
-        from src.agents.mcp.memory.mem_agent_impl.tools import (
+        from src.mcp.memory.mem_agent_impl.tools import (
             check_if_file_exists,
             create_file,
             list_files,
@@ -168,7 +168,7 @@ def test_settings():
     print("\nTesting settings...")
 
     try:
-        from src.agents.mcp.memory.mem_agent_impl.settings import (
+        from src.mcp.memory.mem_agent_impl.settings import (
             FILE_SIZE_LIMIT,
             MAX_TOOL_TURNS,
             SANDBOX_TIMEOUT,

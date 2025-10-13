@@ -360,7 +360,7 @@ class MCPServerManager:
                         "_command": "python3",
                         "_args": [
                             "-m",
-                            "src.agents.mcp.mcp_hub_server",
+                            "src.mcp.mcp_hub_server",
                             "--host",
                             "127.0.0.1",
                             "--port",
@@ -398,7 +398,7 @@ class MCPServerManager:
             command="python3",
             args=[
                 "-m",
-                "src.agents.mcp.mcp_hub_server",
+                "src.mcp.mcp_hub_server",
                 "--host",
                 "127.0.0.1",
                 "--port",

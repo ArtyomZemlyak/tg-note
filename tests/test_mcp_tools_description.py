@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
 from src.agents.autonomous_agent import AutonomousAgent
-from src.agents.mcp.tools_description import format_mcp_tools_for_prompt, get_mcp_tools_description
+from src.mcp.tools_description import format_mcp_tools_for_prompt, get_mcp_tools_description
 from src.agents.qwen_code_cli_agent import QwenCodeCLIAgent
 
 
@@ -22,7 +22,7 @@ class TestMCPToolsDescription:
     async def test_get_mcp_tools_description_no_servers(self):
         """Test description generation when no MCP servers are available"""
         # Mock registry client to return no servers
-        with patch("src.agents.mcp.tools_description.MCPRegistryClient") as mock_registry:
+        with patch("src.mcp.tools_description.MCPRegistryClient") as mock_registry:
             mock_instance = Mock()
             mock_instance.initialize = Mock()
             mock_instance.connect_all_enabled = AsyncMock(return_value={})
@@ -54,7 +54,7 @@ class TestMCPToolsDescription:
             ]
         )
 
-        with patch("src.agents.mcp.tools_description.MCPRegistryClient") as mock_registry:
+        with patch("src.mcp.tools_description.MCPRegistryClient") as mock_registry:
             mock_instance = Mock()
             mock_instance.initialize = Mock()
             mock_instance.connect_all_enabled = AsyncMock(return_value={"test_server": mock_client})
@@ -120,10 +120,10 @@ class TestAutonomousAgentMCPIntegration:
             agent = AutonomousAgent(config=config, enable_mcp=True)
 
             # Mock the MCP description function - patch where it's imported FROM
-            with patch("src.agents.mcp.get_mcp_tools_description", new_callable=AsyncMock) as mock_get:
+            with patch("src.mcp.get_mcp_tools_description", new_callable=AsyncMock) as mock_get:
                 mock_get.return_value = "# Test MCP Tools"
 
-                with patch("src.agents.mcp.format_mcp_tools_for_prompt") as mock_format:
+                with patch("src.mcp.format_mcp_tools_for_prompt") as mock_format:
                     mock_format.return_value = "## MCP Tools Available\n\n# Test MCP Tools"
 
                     description = await agent.get_mcp_tools_description()
@@ -146,10 +146,10 @@ class TestAutonomousAgentMCPIntegration:
             
             agent = AutonomousAgent(config=config, enable_mcp=True)
 
-            with patch("src.agents.mcp.get_mcp_tools_description", new_callable=AsyncMock) as mock_get:
+            with patch("src.mcp.get_mcp_tools_description", new_callable=AsyncMock) as mock_get:
                 mock_get.return_value = "# Test MCP Tools"
 
-                with patch("src.agents.mcp.format_mcp_tools_for_prompt") as mock_format:
+                with patch("src.mcp.format_mcp_tools_for_prompt") as mock_format:
                     mock_format.return_value = "Formatted tools"
 
                     # First call
@@ -189,10 +189,10 @@ class TestQwenCodeCLIAgentMCPIntegration:
             agent = QwenCodeCLIAgent(config=config)
 
             # Mock the MCP description function - patch where it's imported FROM
-            with patch("src.agents.mcp.get_mcp_tools_description") as mock_get:
+            with patch("src.mcp.get_mcp_tools_description") as mock_get:
                 mock_get.return_value = "# Test MCP Tools"
 
-                with patch("src.agents.mcp.format_mcp_tools_for_prompt") as mock_format:
+                with patch("src.mcp.format_mcp_tools_for_prompt") as mock_format:
                     mock_format.return_value = "\n---\n\n# Test MCP Tools"
 
                     description = await agent.get_mcp_tools_description()

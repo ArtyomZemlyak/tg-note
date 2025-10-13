@@ -12,7 +12,7 @@ The agent will:
 Prerequisites:
 - qwen CLI installed: npm install -g @qwen-code/qwen-code@latest
 - qwen CLI authenticated: qwen (follow prompts)
-- HTTP server running: python3 -m src.agents.mcp.mem_agent_server_http
+- HTTP server running: python3 -m src.mcp.mem_agent_server_http
 
 Note: HTTP/SSE mode is now the default (use_http=True).
 For STDIO mode, set use_http=False in setup_qwen_mcp_config().
@@ -97,7 +97,7 @@ async def example_manual_config():
     print("=" * 80)
 
     # Manually generate qwen MCP config
-    from src.agents.mcp.qwen_config_generator import QwenMCPConfigGenerator
+    from src.mcp.qwen_config_generator import QwenMCPConfigGenerator
 
     # HTTP mode is default (use_http=True)
     generator = QwenMCPConfigGenerator(user_id=456)
@@ -130,7 +130,7 @@ async def example_standalone_mcp_server():
     print("Example 3: Testing Standalone MCP Server")
     print("=" * 80)
 
-    from src.agents.mcp.memory.memory_server import MemoryMCPServer
+    from src.mcp.memory.memory_server import MemoryMCPServer
 
     # Create server instance
     server = MemoryMCPServer(user_id=789)
@@ -220,7 +220,7 @@ async def main():
     print("Examples completed!")
     print("=" * 80)
     print("\n📚 Next steps:")
-    print("1. Start MCP Hub: python3 -m src.agents.mcp.mcp_hub_server")
+    print("1. Start MCP Hub: python3 -m src.mcp.mcp_hub_server")
     print("2. Check ~/.qwen/settings.json to see generated configuration")
     print("3. Run: qwen (CLI will connect to configured MCP servers)")
     print("4. Test MCP tools in qwen CLI")

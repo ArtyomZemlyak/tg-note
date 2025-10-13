@@ -14,7 +14,7 @@ Architecture:
 - Per-user isolation for both tools and servers
 
 Usage:
-    python -m src.agents.mcp.mcp_hub_server [--port PORT] [--host HOST]
+    python -m src.mcp.mcp_hub_server [--port PORT] [--host HOST]
 
 Default:
     Host: 127.0.0.1
@@ -37,11 +37,11 @@ except ImportError:
     sys.exit(1)
 
 # Import memory storage components
-from src.agents.mcp.memory.memory_factory import MemoryStorageFactory
-from src.agents.mcp.memory.memory_storage import MemoryStorage
+from src.mcp.memory.memory_factory import MemoryStorageFactory
+from src.mcp.memory.memory_storage import MemoryStorage
 
 # Import registry components
-from src.mcp_registry.registry import MCPServerRegistry, MCPServerSpec
+from src.mcp.registry.registry import MCPServerRegistry, MCPServerSpec
 
 # Configure logger
 log_dir = Path("logs")

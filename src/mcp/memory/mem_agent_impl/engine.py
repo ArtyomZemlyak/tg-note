@@ -13,7 +13,7 @@ from typing import Optional
 
 from loguru import logger as loguru_logger
 
-from src.agents.mcp.memory.mem_agent_impl.settings import SANDBOX_TIMEOUT
+from src.mcp.memory.mem_agent_impl.settings import SANDBOX_TIMEOUT
 
 # Configure logging for sandboxed code execution
 log_dir = Path("logs")
@@ -296,7 +296,7 @@ def execute_sandboxed_code(
     
     try:
         result = subprocess.run(
-            [sys.executable, "-m", "src.agents.mcp.memory.mem_agent_impl.engine"],
+            [sys.executable, "-m", "src.mcp.memory.mem_agent_impl.engine"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             timeout=timeout,

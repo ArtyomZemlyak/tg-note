@@ -12,7 +12,7 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.agents.mcp.memory import MemoryStorageFactory
+from src.mcp.memory import MemoryStorageFactory
 
 
 def example_json_storage():

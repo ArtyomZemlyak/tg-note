@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from src.mcp_registry import MCPServerRegistry, MCPServersManager
+from src.mcp.registry import MCPServerRegistry, MCPServersManager
 
 
 @pytest.fixture

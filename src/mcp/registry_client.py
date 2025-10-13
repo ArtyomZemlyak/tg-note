@@ -11,7 +11,7 @@ from typing import Dict, List, Optional
 
 from loguru import logger
 
-from src.mcp_registry import MCPServersManager, MCPServerSpec
+from src.mcp.registry import MCPServersManager, MCPServerSpec
 
 from .client import MCPClient, MCPServerConfig
 

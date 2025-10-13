@@ -18,7 +18,7 @@ from src.bot.settings_manager import SettingsManager
 from src.core.background_task_manager import BackgroundTaskManager
 from src.knowledge_base.repository import RepositoryManager
 from src.knowledge_base.user_settings import UserSettings
-from src.mcp_registry.manager import MCPServersManager
+from src.mcp.registry.manager import MCPServersManager
 from src.services.interfaces import IMessageProcessor, IUserContextManager
 from src.tracker.processing_tracker import ProcessingTracker
 

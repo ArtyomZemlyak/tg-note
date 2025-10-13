@@ -7,7 +7,7 @@ from loguru import logger
 from telebot.async_telebot import AsyncTeleBot
 
 from config import settings
-from src.agents.mcp.server_manager import MCPServerManager
+from src.mcp.server_manager import MCPServerManager
 from src.bot.settings_manager import SettingsManager, UserSettingsStorage
 from src.bot.telegram_adapter import TelegramBotAdapter
 from src.bot.telegram_bot import TelegramBot
