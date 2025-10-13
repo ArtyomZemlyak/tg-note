@@ -7,6 +7,7 @@ services:
     image: vllm/vllm-openai:latest
     container_name: tg-note-vllm
     restart: unless-stopped
+    env_file: .env
     command: >
       --model ${MEM_AGENT_MODEL:-driaforall/mem-agent}
       --host 0.0.0.0
@@ -49,6 +50,7 @@ services:
     container_name: tg-note-hub
     image: tg-note-hub:latest
     restart: unless-stopped
+    env_file: .env
     ports:
       - "${MCP_PORT:-8765}:8765"
     environment:
@@ -64,7 +66,7 @@ services:
       # Logs
       - ./logs:/app/logs
       # Configuration (read-only)
-      - ./config.docker.yaml:/app/config.yaml:ro
+      - ./config.example.yaml:/app/config.yaml:ro
       # Shared HuggingFace cache for embeddings (bind host cache)
       - ~/.cache/huggingface:/root/.cache/huggingface
     depends_on:
@@ -87,6 +89,7 @@ services:
     container_name: tg-note-bot
     image: tg-note-bot:latest
     restart: unless-stopped
+    env_file: .env
     environment:
       # Credentials only (from .env); all other settings via config.yaml
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
@@ -106,7 +109,7 @@ services:
       # Logs
       - ./logs:/app/logs
       # Configuration (read-only)
-      - ./config.docker.yaml:/app/config.yaml:ro
+      - ./config.example.yaml:/app/config.yaml:ro
     depends_on:
       mcp-hub:
         condition: service_healthy

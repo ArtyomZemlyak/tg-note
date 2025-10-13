@@ -14,6 +14,7 @@ services:
     container_name: tg-note-hub
     image: tg-note-hub:latest
     restart: unless-stopped
+    env_file: .env
     ports:
       - "${MCP_PORT:-8765}:8765"
     environment:
@@ -31,7 +32,7 @@ services:
       # Logs
       - ./logs:/app/logs
       # Configuration (read-only)
-      - ./config.docker.yaml:/app/config.yaml:ro
+      - ./config.example.yaml:/app/config.yaml:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8765/health"]
       interval: 30s
@@ -49,6 +50,7 @@ services:
     container_name: tg-note-bot
     image: tg-note-bot:latest
     restart: unless-stopped
+    env_file: .env
     environment:
       # Credentials only (from .env)
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
@@ -69,7 +71,7 @@ services:
       # Logs
       - ./logs:/app/logs
       # Configuration (read-only)
-      - ./config.docker.yaml:/app/config.yaml:ro
+      - ./config.example.yaml:/app/config.yaml:ro
     depends_on:
       mcp-hub:
         condition: service_healthy
