@@ -46,4 +46,6 @@ services:
   # Update mcp-hub environment to use SGLang
   mcp-hub:
     environment:
-      - MEM_AGENT_BACKEND=sglang
+      # Backend selection is controlled at deploy level; only host/port here
+      - MEM_AGENT_HOST=vllm-server
+      - MEM_AGENT_PORT=8001

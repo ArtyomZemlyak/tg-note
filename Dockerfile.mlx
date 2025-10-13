@@ -1,0 +1,36 @@
+# Dockerfile for MLX-LM server
+# NOTE: MLX only supports macOS (Apple Silicon). Docker uses Linux containers,
+# so this image will only run successfully on hosts where MLX can be installed
+# (i.e., macOS Apple Silicon). On Linux hosts, the container will start and fail
+# fast with a clear message.
+
+FROM python:3.11-slim
+
+# Install minimal runtime deps
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# HuggingFace cache and Python runtime settings
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    HF_HOME=/root/.cache/huggingface \
+    PORT=8001
+
+# Ensure cache dir exists
+RUN mkdir -p /root/.cache/huggingface
+
+# Create a launch script that installs MLX/MLX-LM at runtime and starts server.
+# This avoids build-time failures on Linux where MLX wheels are unavailable.
+RUN bash -lc 'cat > /usr/local/bin/launch-mlx.sh << "EOF"\n#!/usr/bin/env bash\nset -euo pipefail\n\n# Upgrade pip and attempt to install MLX and MLX-LM\npip install --no-cache-dir --upgrade pip\nif ! pip install --no-cache-dir mlx mlx-lm; then\n  echo "\n[ERROR] Failed to install MLX.\nMLX is supported only on macOS (Apple Silicon).\\n" >&2\n  echo "If you are on Linux, use vLLM or SGLang backends instead, \n or run MLX-LM directly on the macOS host.\n" >&2\n  exit 1\nfi\n\n# Start MLX-LM OpenAI-compatible server\nexec python -m mlx_lm.server \\\n  --model "${MEM_AGENT_MODEL:-driaforall/mem-agent}" \\\n  --port "${PORT:-8001}" "$@"\nEOF\nchmod +x /usr/local/bin/launch-mlx.sh'
+
+EXPOSE 8001
+
+# Healthcheck expects the server to expose /health (mlx-lm provides one)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=5 \
+  CMD curl -f http://localhost:8001/health || exit 1
+
+CMD ["launch-mlx.sh"]
