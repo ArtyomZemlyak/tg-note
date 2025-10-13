@@ -23,9 +23,9 @@ ENV PYTHONUNBUFFERED=1 \
 # Ensure cache dir exists
 RUN mkdir -p /root/.cache/huggingface
 
-# Create a launch script that installs MLX/MLX-LM at runtime and starts server.
-# This avoids build-time failures on Linux where MLX wheels are unavailable.
-RUN bash -lc 'cat > /usr/local/bin/launch-mlx.sh << "EOF"\n#!/usr/bin/env bash\nset -euo pipefail\n\n# Upgrade pip and attempt to install MLX and MLX-LM\npip install --no-cache-dir --upgrade pip\nif ! pip install --no-cache-dir mlx mlx-lm; then\n  echo "\n[ERROR] Failed to install MLX.\nMLX is supported only on macOS (Apple Silicon).\\n" >&2\n  echo "If you are on Linux, use vLLM or SGLang backends instead, \n or run MLX-LM directly on the macOS host.\n" >&2\n  exit 1\nfi\n\n# Start MLX-LM OpenAI-compatible server\nexec python -m mlx_lm.server \\\n  --model "${MEM_AGENT_MODEL:-driaforall/mem-agent}" \\\n  --port "${PORT:-8001}" "$@"\nEOF\nchmod +x /usr/local/bin/launch-mlx.sh'
+# Install MLX and MLX-LM at build-time
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir mlx mlx-lm
 
 EXPOSE 8001
 
@@ -33,4 +33,5 @@ EXPOSE 8001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=5 \
   CMD curl -f http://localhost:8001/health || exit 1
 
-CMD ["launch-mlx.sh"]
+# Use shell form to allow env var expansion with defaults
+CMD python -m mlx_lm.server --model "${MEM_AGENT_MODEL:-driaforall/mem-agent}" --port "${PORT:-8001}"
