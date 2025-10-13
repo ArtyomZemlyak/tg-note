@@ -372,7 +372,7 @@ The system supports three types of agents for content processing:
 > - **AutonomousAgent**: Uses Python MCP client (`DynamicMCPTool`) - MCP servers managed from Python code
 > - **QwenCodeCLIAgent**: Uses Qwen's native MCP client - MCP servers configured in `.qwen/settings.json` as standalone processes
 >
-> [Learn more about MCP integration →](docs/QWEN_CLI_MCP_CORRECT_APPROACH.md)
+> [Learn more about MCP integration →](https://artyomzemlyak.github.io/tg-note/agents/qwen-code-cli/)
 
 ---
 
@@ -462,7 +462,7 @@ Create `.qwen/settings.json` in your KB directory:
 }
 ```
 
-> **ℹ️ MCP Integration**: Qwen CLI has built-in MCP support! It can connect to MCP servers configured as standalone processes. This is different from AutonomousAgent's Python MCP client. [Learn more →](docs/QWEN_CLI_MCP_CORRECT_APPROACH.md)
+> **ℹ️ MCP Integration**: Qwen CLI has built-in MCP support! It can connect to MCP servers configured as standalone processes. This is different from AutonomousAgent's Python MCP client. [Learn more →](https://artyomzemlyak.github.io/tg-note/agents/qwen-code-cli/)
 
 📚 [Detailed Documentation →](https://artyomzemlyak.github.io/tg-note/agents/qwen-code-cli/)
 
