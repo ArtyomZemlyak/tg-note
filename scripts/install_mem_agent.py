@@ -255,7 +255,10 @@ def main():
     print("   AGENT_ENABLE_MCP_MEMORY: true")
     if is_apple_silicon():
         print("2. Start LM Studio and enable the local OpenAI-compatible server:")
-        print("   - Run: scripts/run_lmstudio_model.sh")
+        print("   - Quick setup and model load via CLI:")
+        print("     ./scripts/lms_load_mem_agent.sh")
+        print("   - Or manually:")
+        print("     ./scripts/run_lmstudio_model.sh")
         print("   - This sets MEM_AGENT_BASE_URL=http://127.0.0.1:1234/v1 and MEM_AGENT_OPENAI_API_KEY=lm-studio")
     else:
         print("2. Start the containerized backend (vLLM) as per docker-compose setup")

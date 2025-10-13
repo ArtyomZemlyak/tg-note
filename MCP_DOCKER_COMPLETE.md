@@ -16,7 +16,7 @@
    - Bot подключается через `MCP_HUB_URL`
 
 3. **docker-compose.sglang.yml** - SGLang backend
-4. **docker-compose.mlx.yml** - MLX backend (macOS)
+4. ~~docker-compose.mlx.yml~~ - removed; use LM Studio on macOS
 5. **config.docker.yaml** - Настройки без кредов
 6. **DOCKER_MCP_REFACTORING.md** - Документация
 

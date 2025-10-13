@@ -153,10 +153,10 @@ up-sglang:
 
 up-mlx:
 	@echo "🚀 Starting with MLX backend (macOS)..."
-	@echo "⚠️  Make sure MLX server is running on host (port 8001)"
-	@echo "   Run: python -m mlx_lm.server --model $(MEM_AGENT_MODEL) --port 8001"
-	docker-compose -f docker-compose.yml -f docker-compose.mlx.yml up -d --build
-	@echo "✅ MLX backend active (host connection)"
+	@echo "⚠️  MLX Docker backend is deprecated. Use LM Studio on macOS."
+	@echo "   Run: ./scripts/lms_load_mem_agent.sh   # downloads & loads model via lms CLI"
+	@echo "   Or:  ./scripts/run_lmstudio_model.sh   # manual server setup"
+	@echo "   Tip: Inside Docker on macOS, export LMSTUDIO_HOST=host.docker.internal"
 
 # Backup
 backup:
