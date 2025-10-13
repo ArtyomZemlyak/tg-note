@@ -125,7 +125,7 @@ class QwenCodeCLIAgent(BaseAgent):
         For STDIO mode, pass use_http=False to setup_qwen_mcp_config().
         """
         try:
-            from .mcp.qwen_config_generator import setup_qwen_mcp_config
+            from src.mcp.qwen_config_generator import setup_qwen_mcp_config
 
             # Determine where to save config
             kb_path = Path(self.working_directory) if self.working_directory else None
@@ -345,7 +345,10 @@ class QwenCodeCLIAgent(BaseAgent):
             return ""
 
         try:
-            from .mcp import format_mcp_tools_for_prompt, get_mcp_tools_description
+            from src.mcp.tools_description import (
+                format_mcp_tools_for_prompt,
+                get_mcp_tools_description,
+            )
 
             # Get tools description
             tools_desc = await get_mcp_tools_description(user_id=self.user_id)

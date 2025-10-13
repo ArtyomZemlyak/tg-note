@@ -18,7 +18,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Check if we're in the right directory
-if [ ! -f "src/agents/mcp/mcp_hub_server.py" ]; then
+if [ ! -f "src/mcp/mcp_hub_server.py" ]; then
     echo -e "${RED}❌ Ошибка: Запустите скрипт из корня проекта (/workspace)${NC}"
     echo -e "${RED}❌ Error: Run script from project root (/workspace)${NC}"
     exit 1
@@ -28,7 +28,7 @@ echo -e "${BLUE}=== 1. Проверка HTTP сервера / Checking HTTP serv
 echo ""
 
 # Check if MCP Hub server file exists
-if [ -f "src/agents/mcp/mcp_hub_server.py" ]; then
+if [ -f "src/mcp/mcp_hub_server.py" ]; then
     echo -e "${GREEN}✅ MCP Hub сервер найден / MCP Hub server found${NC}"
     echo "   📄 src/agents/mcp/mcp_hub_server.py"
 else
@@ -94,7 +94,7 @@ fi
 if [ $FOUND_CONFIGS -eq 0 ]; then
     echo -e "${YELLOW}⚠️  Конфигурации не найдены / No configs found${NC}"
     echo "   Создайте конфигурацию / Create config with:"
-    echo "   python3 -m src.agents.mcp.qwen_config_generator --http"
+    echo "   python3 -m src.mcp.qwen_config_generator --http"
     echo ""
 fi
 
@@ -108,7 +108,7 @@ if [ $STDIO_CONFIGS -gt 0 ]; then
     echo -e "${YELLOW}⚠️  Обнаружены конфигурации в STDIO формате!${NC}"
     echo -e "${YELLOW}⚠️  STDIO configs detected!${NC}"
     echo "   Рекомендуется обновить на HTTP формат / Recommended to update to HTTP:"
-    echo "   python3 -m src.agents.mcp.qwen_config_generator --http"
+    echo "   python3 -m src.mcp.qwen_config_generator --http"
     echo ""
 fi
 
@@ -152,13 +152,13 @@ else
     echo -e "${YELLOW}⚠️  MCP Hub сервер не запущен / MCP Hub is not running${NC}"
     echo ""
     echo "   Для запуска MCP Hub / To start MCP Hub:"
-    echo "   ${GREEN}python3 -m src.agents.mcp.mcp_hub_server${NC}"
+    echo "   ${GREEN}python3 -m src.mcp.mcp_hub_server${NC}"
     echo ""
     echo "   Или с параметрами / Or with parameters:"
-    echo "   ${GREEN}python3 -m src.agents.mcp.mcp_hub_server --port 8765 --host 127.0.0.1${NC}"
+    echo "   ${GREEN}python3 -m src.mcp.mcp_hub_server --port 8765 --host 127.0.0.1${NC}"
     echo ""
     echo "   В фоновом режиме / In background:"
-    echo "   ${GREEN}nohup python3 -m src.agents.mcp.mcp_hub_server > mcp_hub.log 2>&1 &${NC}"
+    echo "   ${GREEN}nohup python3 -m src.mcp.mcp_hub_server > mcp_hub.log 2>&1 &${NC}"
     echo ""
 fi
 
@@ -184,8 +184,8 @@ echo ""
 echo "📚 Документация / Documentation:"
 echo "   • MCP Server Setup: docs_site/agents/mem-agent-setup.md"
 echo "   • MCP Tools: docs_site/agents/mcp-tools.md"
-echo "   • MCP Hub: src/agents/mcp/mcp_hub_server.py"
-echo "   • Config Generator: src/agents/mcp/qwen_config_generator.py"
+echo "   • MCP Hub: src/mcp/mcp_hub_server.py"
+echo "   • Config Generator: src/mcp/qwen_config_generator.py"
 echo ""
 
 echo "🔗 Полезные ссылки / Useful links:"
@@ -201,7 +201,7 @@ if ! curl -s --connect-timeout 2 http://127.0.0.1:8765/health >/dev/null 2>&1; t
 fi
 if [ $STDIO_CONFIGS -gt 0 ]; then
     echo "   2. Обновите конфигурации на HTTP / Update configs to HTTP:"
-    echo "      ${GREEN}python3 -m src.agents.mcp.qwen_config_generator --http${NC}"
+    echo "      ${GREEN}python3 -m src.mcp.qwen_config_generator --http${NC}"
 fi
 echo "   3. Перезапустите qwen-code-cli / Restart qwen-code-cli"
 echo "   4. Проверьте статус mem-agent (должно быть 'Connected' с 3 tools)"

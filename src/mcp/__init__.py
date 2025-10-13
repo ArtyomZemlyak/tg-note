@@ -1,55 +1,18 @@
 """
-MCP (Model Context Protocol) support for autonomous agents.
+MCP (Model Context Protocol) support package.
 
-This module provides:
-- MCP client for connecting to MCP servers
-- MCP registry client for discovering servers from configuration
-- Base classes for MCP tools
-- Built-in MCP tools (memory agent, etc.)
-- Dynamic MCP tools for auto-discovery and integration
-- Qwen native MCP configuration generator
+Note: This package's top-level imports are intentionally minimal to avoid
+import-time side effects and heavy dependencies. Import specific submodules
+directly, for example:
 
-Two integration approaches:
-1. Python MCP Client (for AutonomousAgent)
-   - DynamicMCPTool, MCPClient, MCPRegistryClient
-   - MCP servers managed from Python code
+    from src.mcp.tools_description import get_mcp_tools_description
+    from src.mcp.qwen_config_generator import setup_qwen_mcp_config
 
-2. Qwen Native MCP (for QwenCodeCLIAgent)
-   - QwenMCPConfigGenerator, mem_agent_server
-   - MCP servers configured in .qwen/settings.json
-   - Standalone server processes
+Other components are available under their respective submodules:
+- client: MCPClient, MCPServerConfig
+- registry: registry, manager, registry_client
+- dynamic_mcp_tools: DynamicMCPTool, discover_and_create_mcp_tools
+- memory: memory tools and servers
 """
 
-from .base_mcp_tool import BaseMCPTool
-from .client import MCPClient, MCPServerConfig
-from .dynamic_mcp_tools import (
-    DynamicMCPTool,
-    create_mcp_tools_for_user,
-    discover_and_create_mcp_tools,
-)
-from .memory.memory_tool import MemoryMCPTool
-from .qwen_config_generator import QwenMCPConfigGenerator, setup_qwen_mcp_config
-from .registry_client import MCPRegistryClient
-from .server_manager import MCPServerManager, get_server_manager, set_server_manager
-from .tools_description import format_mcp_tools_for_prompt, get_mcp_tools_description
-
-__all__ = [
-    # Python MCP Client
-    "MCPClient",
-    "MCPServerConfig",
-    "MCPRegistryClient",
-    "BaseMCPTool",
-    "MemoryMCPTool",
-    "discover_and_create_mcp_tools",
-    "create_mcp_tools_for_user",
-    "DynamicMCPTool",
-    "get_mcp_tools_description",
-    "format_mcp_tools_for_prompt",
-    # Qwen Native MCP
-    "QwenMCPConfigGenerator",
-    "setup_qwen_mcp_config",
-    # Server Manager
-    "MCPServerManager",
-    "get_server_manager",
-    "set_server_manager",
-]
+__all__ = []
