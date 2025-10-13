@@ -13,13 +13,15 @@ RUN apt-get update && apt-get install -y \
 # Create app directory
 WORKDIR /app
 
-# Copy dependency files
-COPY pyproject.toml poetry.lock* ./
+# Copy dependency files (include README to satisfy pyproject readme)
+COPY pyproject.toml poetry.lock* README.md ./
 
-# Install dependencies
-# Install base dependencies + MCP + mem-agent (without platform-specific backends)
+# Install dependencies with Poetry (no virtualenv)
+# Install base app with extras for mcp and mem-agent
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir .[mcp,mem-agent]
+    pip install --no-cache-dir poetry && \
+    poetry config virtualenvs.create false && \
+    poetry install --no-interaction --no-ansi -E mcp -E mem-agent --no-root
 
 # Runtime stage
 FROM python:3.11-slim

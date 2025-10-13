@@ -19,7 +19,7 @@ services:
     environment:
       - HF_HOME=/root/.cache/huggingface
     volumes:
-      - huggingface-cache:/root/.cache/huggingface
+      - ~/.cache/huggingface:/root/.cache/huggingface
     deploy:
       resources:
         reservations:
@@ -53,9 +53,9 @@ services:
       - "${MCP_PORT:-8765}:8765"
     environment:
       # vLLM/SGLang/MLX connection (Docker internal)
+      # Prefer config.yaml; keep host/port for service discovery
       - MEM_AGENT_HOST=vllm-server
       - MEM_AGENT_PORT=8001
-      - MEM_AGENT_BASE_URL=http://vllm-server:8001/v1
     volumes:
       # Persistent storage for memory data
       - ./data/memory:/app/data/memory
@@ -65,8 +65,8 @@ services:
       - ./logs:/app/logs
       # Configuration (read-only)
       - ./config.docker.yaml:/app/config.yaml:ro
-      # Shared HuggingFace cache for embeddings
-      - huggingface-cache:/root/.cache/huggingface
+      # Shared HuggingFace cache for embeddings (bind host cache)
+      - ~/.cache/huggingface:/root/.cache/huggingface
     depends_on:
       vllm-server:
         condition: service_healthy
@@ -88,7 +88,7 @@ services:
     image: tg-note-bot:latest
     restart: unless-stopped
     environment:
-      # Credentials only (from .env)
+      # Credentials only (from .env); all other settings via config.yaml
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - ALLOWED_USER_IDS=${ALLOWED_USER_IDS:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
@@ -96,7 +96,6 @@ services:
       - QWEN_API_KEY=${QWEN_API_KEY:-}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
       - GITHUB_TOKEN=${GITHUB_TOKEN:-}
-      
       # MCP Hub connection (Docker internal)
       - MCP_HUB_URL=http://mcp-hub:8765/sse
     volumes:
@@ -119,6 +118,3 @@ networks:
     driver: bridge
 
 volumes:
-  # Shared HuggingFace cache for models and embeddings
-  huggingface-cache:
-    driver: local
