@@ -189,7 +189,7 @@ def get_storage(user_id: int) -> MemoryStorage:
 # ============================================================================
 
 @mcp.custom_route("/health", methods=["GET"])
-async def health_check():
+async def health_check(request):
     """Health check endpoint for container orchestration"""
     registry = get_registry()
     return {
