@@ -23,7 +23,7 @@ from loguru import logger
 class QwenMCPConfigGenerator:
     """Generator for qwen CLI MCP configuration"""
 
-    def __init__(self, user_id: Optional[int] = None, use_http: bool = True, http_port: int = 8765):
+    def __init__(self, user_id: Optional[int] = None, use_http: bool = True, http_port: int = 8765, mcp_hub_url: Optional[str] = None):
         """
         Initialize config generator
 
@@ -31,11 +31,17 @@ class QwenMCPConfigGenerator:
             user_id: Optional user ID for per-user MCP servers
             use_http: Use HTTP/SSE transport instead of stdio (default: True)
             http_port: Port for HTTP server (default: 8765)
+            mcp_hub_url: Custom MCP Hub URL (for Docker environments). If not provided, auto-detected.
         """
         self.user_id = user_id
         self.use_http = use_http
         self.http_port = http_port
+        self.mcp_hub_url = mcp_hub_url
         self.project_root = Path(__file__).parent.parent.parent.parent.resolve()
+        
+        # Auto-detect Docker environment if URL not provided
+        if self.use_http and self.mcp_hub_url is None:
+            self.mcp_hub_url = self._detect_mcp_hub_url()
 
     def generate_config(self) -> Dict:
         """
@@ -62,6 +68,40 @@ class QwenMCPConfigGenerator:
 
         return config
 
+    def _detect_mcp_hub_url(self) -> str:
+        """
+        Detect MCP Hub URL based on environment
+        
+        Returns:
+            MCP Hub URL (Docker internal or localhost)
+        """
+        import os
+        
+        # Check if running in Docker container
+        # Method 1: Check for .dockerenv file
+        if Path("/.dockerenv").exists():
+            logger.info("[QwenMCPConfig] Detected Docker environment (/.dockerenv)")
+            return f"http://mcp-hub:{self.http_port}/sse"
+        
+        # Method 2: Check for MCP_HUB_URL environment variable
+        mcp_hub_env = os.getenv("MCP_HUB_URL")
+        if mcp_hub_env:
+            logger.info(f"[QwenMCPConfig] Using MCP_HUB_URL from environment: {mcp_hub_env}")
+            return mcp_hub_env
+        
+        # Method 3: Check /proc/1/cgroup for docker
+        try:
+            with open("/proc/1/cgroup", "r") as f:
+                if "docker" in f.read():
+                    logger.info("[QwenMCPConfig] Detected Docker environment (/proc/1/cgroup)")
+                    return f"http://mcp-hub:{self.http_port}/sse"
+        except Exception:
+            pass
+        
+        # Default: assume host environment
+        logger.info("[QwenMCPConfig] Using localhost (host environment)")
+        return f"http://127.0.0.1:{self.http_port}/sse"
+    
     def _generate_memory_config(self) -> Optional[Dict]:
         """
         Generate configuration for memory MCP server
@@ -72,7 +112,7 @@ class QwenMCPConfigGenerator:
         # Use HTTP/SSE transport
         if self.use_http:
             return {
-                "url": f"http://127.0.0.1:{self.http_port}/sse",
+                "url": self.mcp_hub_url,
                 "timeout": 10000,
                 "trust": True,
                 "description": (
@@ -205,6 +245,7 @@ def setup_qwen_mcp_config(
     global_config: bool = True,
     use_http: bool = True,
     http_port: int = 8765,
+    mcp_hub_url: Optional[str] = None,
 ) -> List[Path]:
     """
     Setup qwen MCP configuration
@@ -220,11 +261,17 @@ def setup_qwen_mcp_config(
         global_config: Whether to save to global ~/.qwen/settings.json
         use_http: Use HTTP/SSE transport instead of stdio (default: True)
         http_port: Port for HTTP server (default: 8765)
+        mcp_hub_url: Custom MCP Hub URL (for Docker environments). If not provided, auto-detected.
 
     Returns:
         List of paths where configuration was saved
     """
-    generator = QwenMCPConfigGenerator(user_id=user_id, use_http=use_http, http_port=http_port)
+    generator = QwenMCPConfigGenerator(
+        user_id=user_id, 
+        use_http=use_http, 
+        http_port=http_port,
+        mcp_hub_url=mcp_hub_url
+    )
     saved_paths = []
 
     # Save to global config
@@ -261,11 +308,17 @@ def main():
     parser.add_argument(
         "--port", type=int, default=8765, help="Port for HTTP server (default: 8765)"
     )
+    parser.add_argument(
+        "--url", type=str, help="Custom MCP Hub URL (for Docker environments)"
+    )
 
     args = parser.parse_args()
 
     generator = QwenMCPConfigGenerator(
-        user_id=args.user_id, use_http=args.http, http_port=args.port
+        user_id=args.user_id, 
+        use_http=args.http, 
+        http_port=args.port,
+        mcp_hub_url=args.url
     )
 
     if args.print:
