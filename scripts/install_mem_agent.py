@@ -23,7 +23,9 @@ Note: Uses settings from config.settings to avoid conflicts
 import argparse
 import json
 import os
+import platform
 import subprocess
+import shutil
 import sys
 import tomllib
 from pathlib import Path
@@ -53,39 +55,56 @@ def run_command(cmd: list, description: str) -> bool:
         return False
 
 
+def is_apple_silicon() -> bool:
+    """Return True if running on macOS with Apple Silicon (arm64)."""
+    return platform.system() == "Darwin" and platform.machine() == "arm64"
+
+
+def normalize_dep_name(dep: str) -> str:
+    """Extract the base package name from a dependency spec string."""
+    # Split on common version/extras delimiters
+    for sep in ["[", " ", "<", ">", "=", "~", "!", ";"]:
+        dep = dep.split(sep, 1)[0]
+    return dep.strip()
+
+
 def get_dependencies_from_pyproject() -> list[str]:
-    """Read dependencies from pyproject.toml"""
+    """Read minimal dependencies from pyproject.toml, filtering heavy ML deps."""
     pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
 
     try:
         with open(pyproject_path, "rb") as f:
             pyproject = tomllib.load(f)
 
-        # Get core mem-agent dependencies
-        deps = []
+        # On Apple Silicon, we rely on LM Studio; no Python ML deps needed
+        if is_apple_silicon():
+            return []
+
+        # Otherwise, install only lightweight, platform-independent deps
         optional_deps = pyproject.get("project", {}).get("optional-dependencies", {})
+        core_deps: list[str] = list(optional_deps.get("mem-agent", []))
 
-        # Add core mem-agent dependencies
-        core_deps = optional_deps.get("mem-agent", [])
-        deps.extend(core_deps)
-
-        # Add platform-specific dependencies
-        if sys.platform == "darwin":
-            # macOS - MLX support
-            platform_deps = optional_deps.get("mem-agent-macos", [])
-            deps.extend(platform_deps)
-        else:
-            # Linux/Windows - vLLM support
-            platform_deps = optional_deps.get("mem-agent-linux", [])
-            deps.extend(platform_deps)
-
-        return deps
+        # Filter out heavy ML/runtime packages since models run in containers/LM Studio
+        heavy_names = {
+            "transformers",
+            "torch",
+            "tensorflow",
+            "jax",
+            "vllm",
+            "mlx",
+            "mlx-lm",
+            "sentence-transformers",
+            "faiss-cpu",
+            "faiss-gpu",
+        }
+        filtered_deps = [d for d in core_deps if normalize_dep_name(d) not in heavy_names]
+        return filtered_deps
     except Exception as e:
         print(f"[!] Warning: Could not read dependencies from pyproject.toml: {e}")
         print("[!] Falling back to minimal dependencies")
         # Fallback to minimal dependencies
-        return [
-            "transformers",
+        base = [
+            # intentionally omit heavy ML libs like transformers/torch
             "huggingface-hub",
             "fastmcp",
             "aiofiles",
@@ -94,6 +113,7 @@ def get_dependencies_from_pyproject() -> list[str]:
             "jinja2",
             "pygments",
         ]
+        return [] if is_apple_silicon() else base
 
 
 def check_huggingface_cli() -> bool:
@@ -106,21 +126,48 @@ def check_huggingface_cli() -> bool:
 
 
 def install_dependencies() -> bool:
-    """Install mem-agent dependencies from pyproject.toml"""
+    """Install minimal mem-agent dependencies (skip heavy ML backends)."""
     print("\n=== Installing Dependencies ===\n")
 
     # Get dependencies from pyproject.toml
     deps = get_dependencies_from_pyproject()
 
-    platform_name = "macOS (MLX)" if sys.platform == "darwin" else "Linux/Windows (vLLM)"
-    print(f"[*] Platform: {platform_name}")
-    print(f"[*] Installing {len(deps)} dependencies from pyproject.toml\n")
+    if is_apple_silicon():
+        print("[*] Platform: macOS (Apple Silicon)")
+        print("[*] Skipping Python ML dependencies (LM Studio will be used)")
+        return True
+
+    print("[*] Platform: Linux/Windows (models served via containers)")
+    print(f"[*] Installing {len(deps)} lightweight dependencies from pyproject.toml\n")
 
     for dep in deps:
         if not run_command([sys.executable, "-m", "pip", "install", dep], f"Installing {dep}"):
             print(f"\n[!] Warning: Failed to install {dep}, continuing anyway...")
 
     return True
+
+
+def install_lm_studio() -> bool:
+    """Install LM Studio on macOS via Homebrew if available, or print instructions."""
+    print("\n=== Installing LM Studio (macOS) ===\n")
+    # Prefer Homebrew if present
+    brew_path = shutil.which("brew")
+
+    if brew_path:
+        print("[*] Homebrew detected. Installing LM Studio via Homebrew cask...")
+        if run_command([brew_path, "install", "--cask", "lm-studio"], "Installing LM Studio"):
+            print("[✓] LM Studio installed via Homebrew")
+            return True
+        else:
+            print("[!] Homebrew install failed. You can install manually from the website.")
+    else:
+        print("[!] Homebrew not found.")
+
+    print("\nManual installation required:")
+    print("  1) Download LM Studio: https://lmstudio.ai")
+    print("  2) Drag 'LM Studio.app' to /Applications")
+    print("  3) Run 'scripts/run_lmstudio_model.sh' to set environment and validate server")
+    return False
 
 
 def download_model(model_id: str, precision: str = "4bit") -> bool:
@@ -184,19 +231,20 @@ def main():
         print("[!] Using default settings (config.settings not available)")
     print()
 
-    # Step 1: Install dependencies
-    if not install_dependencies():
-        print("\n[✗] Installation failed at dependency installation stage")
-        return 1
-
-    # Step 2: Download model (unless skipped)
-    if not args.skip_model_download:
-        if not download_model(args.model, args.precision):
-            print("\n[!] Warning: Model download failed, but continuing anyway...")
-            print("    You can download the model manually later using:")
-            print(f"    huggingface-cli download {args.model}")
+    # Step 1: Platform-specific setup
+    if is_apple_silicon():
+        # Apple Silicon: use LM Studio; skip Python ML deps and model download
+        if not install_dependencies():
+            print("\n[✗] Failed to perform base setup")
+            return 1
+        install_lm_studio()
+        print("\n[*] Skipping model download (LM Studio will handle model management)")
     else:
-        print("\n[*] Skipping model download (as requested)")
+        # Non-macOS: models run in containers; install only lightweight deps and skip downloads
+        if not install_dependencies():
+            print("\n[✗] Installation failed at dependency installation stage")
+            return 1
+        print("\n[*] Skipping local model download (containerized backend will handle models)")
 
     print("\n" + "=" * 60)
     print("Installation Complete!")
@@ -205,22 +253,18 @@ def main():
     print("1. Enable mem-agent in your config.yaml or .env:")
     print("   AGENT_ENABLE_MCP: true")
     print("   AGENT_ENABLE_MCP_MEMORY: true")
-    print("2. Start the bot - MCP server will be auto-configured and started")
-    print("3. Agent's notes will be stored per-user at:")
-    print("   knowledge_base/{user-kb-name}/memory/")
-    print("   (directories are created automatically on first use)")
-    print("4. How the agent uses it:")
-    print("   - During tasks: Agent records notes about findings, context, etc.")
-    print("   - When needed: Agent searches notes to recall previously recorded info")
-    print("   - Within session: Maintains working memory across multiple LLM calls")
-    print("5. You can change settings in config.yaml or .env:")
-    print("   - Model: driaforall/mem-agent (LLM-based memory agent)")
-    print("   - Storage type: json (fast), vector (semantic), mem-agent (LLM-powered)")
-    print("   - Each user's memory is isolated at: data/memory/user_{user_id}/")
-    print("6. To start the MCP server:")
-    print(
-        "   python -m src.mcp.memory.mem_agent_impl.mcp_server --host 127.0.0.1 --port 8766"
-    )
+    if is_apple_silicon():
+        print("2. Start LM Studio and enable the local OpenAI-compatible server:")
+        print("   - Quick setup and model load via CLI:")
+        print("     ./scripts/lms_load_mem_agent.sh")
+        print("   - Or manually:")
+        print("     ./scripts/run_lmstudio_model.sh")
+        print("   - This sets MEM_AGENT_BASE_URL=http://127.0.0.1:1234/v1 and MEM_AGENT_OPENAI_API_KEY=lm-studio")
+    else:
+        print("2. Start the containerized backend (vLLM) as per docker-compose setup")
+        print("   - Ensure the server is reachable on MEM_AGENT_HOST:MEM_AGENT_PORT or set MEM_AGENT_BASE_URL")
+    print("3. Start the bot - MCP server will be auto-configured and started")
+    print("4. Agent's notes are stored per-user inside your KB path (memory/)")
     print("\n")
 
     return 0

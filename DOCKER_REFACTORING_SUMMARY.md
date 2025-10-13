@@ -31,7 +31,7 @@
 - Добавлены варианты:
   - `docker-compose.yml` - vLLM (по умолчанию)
   - `docker-compose.sglang.yml` - SGLang (быстрее)
-  - `docker-compose.mlx.yml` - MLX для macOS
+  - ~~`docker-compose.mlx.yml` - MLX для macOS~~ (removed; use LM Studio on macOS)
 
 **Преимущества:**
 - ✅ Не нужно поддерживать свои Dockerfile
@@ -97,7 +97,7 @@ src/agents/mcp/
 docker-compose.yml             # Основной (vLLM)
 docker-compose.simple.yml      # Упрощенный (без GPU)
 docker-compose.sglang.yml      # Override для SGLang
-docker-compose.mlx.yml         # Override для MLX (macOS)
+~docker-compose.mlx.yml~         # Removed; use LM Studio on macOS
 
 config.docker.yaml             # Настройки для Docker (без кредов)
 .env.docker.example            # Только креды

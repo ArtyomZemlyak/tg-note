@@ -83,7 +83,7 @@
 src/agents/mcp/mcp_hub_server.py              # MCP Hub
 docker-compose.yml                             # vLLM (обновлен)
 docker-compose.sglang.yml                      # SGLang
-docker-compose.mlx.yml                         # MLX
+~docker-compose.mlx.yml~                       # removed; use LM Studio on macOS
 config.docker.yaml                             # Настройки для Docker
 Dockerfile.hub                                 # MCP Hub образ
 DOCKER_REFACTORING_SUMMARY.md                 # Docs
