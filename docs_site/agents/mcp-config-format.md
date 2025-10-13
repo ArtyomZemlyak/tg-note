@@ -4,7 +4,7 @@ This document describes the standard MCP (Model Context Protocol) server configu
 
 ## Overview
 
-The configuration file `data/mcp_servers/mem-agent.json` follows the standard MCP configuration format that is compatible with:
+The configuration file `data/mcp_servers/mcp-hub.json` follows the standard MCP configuration format that is compatible with:
 
 - ✓ Cursor MCP
 - ✓ Claude Desktop
@@ -32,11 +32,12 @@ For servers using HTTP with Server-Sent Events (SSE), the configuration format i
 ```json
 {
   "mcpServers": {
-    "mem-agent": {
+    "mcp-hub": {
       "url": "http://127.0.0.1:8765/sse",
       "timeout": 10000,
       "trust": true,
-      "description": "Agent's personal note-taking and search system"
+      "description": "MCP Hub - Built-in memory tools and server registry",
+      "tools": ["store_memory", "retrieve_memory", "list_categories"]
     }
   }
 }
@@ -65,14 +66,14 @@ For servers using standard input/output, the configuration format is:
 ```json
 {
   "mcpServers": {
-    "mem-agent": {
+    "mcp-hub": {
       "command": "python",
-      "args": ["-m", "src.agents.mcp.memory.memory_server"],
+      "args": ["-m", "src.mcp.mcp_hub_server"],
       "cwd": "/path/to/project",
       "env": {},
       "timeout": 10000,
       "trust": true,
-      "description": "Agent's personal note-taking and search system"
+      "description": "MCP Hub - Built-in memory tools and server registry"
     }
   }
 }
@@ -101,7 +102,7 @@ For servers using standard input/output, the configuration format is:
 
 ### Generated Configuration
 
-When the bot starts, it automatically generates `data/mcp_servers/mem-agent.json` with:
+When the bot starts, it automatically generates `data/mcp_servers/mcp-hub.json` with:
 
 1. **HTTP/SSE configuration** (default) - Used for client connections
 2. **stdio variant** (reference) - Available in `_stdio_variant` field for alternative setups
@@ -111,24 +112,15 @@ Example generated file:
 ```json
 {
   "mcpServers": {
-    "mem-agent": {
+    "mcp-hub": {
       "url": "http://127.0.0.1:8765/sse",
       "timeout": 10000,
       "trust": true,
-      "description": "Agent's personal note-taking and search system",
+      "description": "MCP Hub - Built-in memory tools and server registry",
       "_transport": "http",
       "_command": "python",
-      "_args": ["-m", "src.agents.mcp.memory.memory_server_http", "--host", "127.0.0.1", "--port", "8765"],
-      "_cwd": "/workspace",
-      "_stdio_variant": {
-        "command": "python",
-        "args": ["-m", "src.agents.mcp.mem_agent_server_http", "--host", "127.0.0.1", "--port", "8765"],
-        "cwd": "/workspace",
-        "env": {},
-        "timeout": 10000,
-        "trust": true,
-        "description": "Agent's personal note-taking and search system (stdio variant)"
-      }
+      "_args": ["-m", "src.mcp.mcp_hub_server", "--host", "127.0.0.1", "--port", "8765"],
+      "_cwd": "/workspace"
     }
   }
 }
@@ -177,7 +169,7 @@ from src.agents.mcp.memory.memory_tool import MemoryMCPTool
 tool = MemoryMCPTool()
 config = tool.mcp_server_config
 
-# Config is automatically loaded from mem-agent.json
+# Config is automatically loaded from mcp-hub.json (with legacy fallbacks)
 # and supports both HTTP/SSE and stdio formats
 ```
 

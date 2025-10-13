@@ -1,13 +1,14 @@
 {
   "mcpServers": {
-    "mem-agent": {
+    "mcp-hub": {
       "url": "http://127.0.0.1:8765/sse",
       "timeout": 10000,
       "trust": true,
-      "description": "Memory storage and retrieval agent (HTTP/SSE)"
+      "description": "MCP Hub - Unified MCP gateway (HTTP/SSE). Provides built-in memory tools: store_memory, retrieve_memory, list_categories.",
+      "tools": ["store_memory", "retrieve_memory", "list_categories"]
     }
   },
   "allowMCPServers": [
-    "mem-agent"
+    "mcp-hub"
   ]
 }

@@ -159,6 +159,14 @@ class MCPServerRegistry:
                 with open(json_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
 
+                # Skip client-style configs that use the standard MCP client format
+                # {"mcpServers": {"server-name": { ... }}}
+                if isinstance(data, dict) and "mcpServers" in data:
+                    logger.info(
+                        f"[MCPRegistry] Skipping {json_file}: detected client config format ('mcpServers')"
+                    )
+                    continue
+
                 # Create server spec
                 spec = MCPServerSpec.from_dict(data, config_file=json_file)
 
