@@ -73,11 +73,9 @@ MEM_AGENT_STORAGE_TYPE: json  # Storage type: "json", "vector", or "mem-agent"
 MEM_AGENT_MODEL: BAAI/bge-m3  # Model for embeddings (vector) or LLM (mem-agent)
 MEM_AGENT_MODEL_PRECISION: 4bit
 MEM_AGENT_BACKEND: auto
-MEM_AGENT_MEMORY_POSTFIX: memory  # Postfix within KB (kb_path/memory)
 MEM_AGENT_MAX_TOOL_TURNS: 20  # For mem-agent storage type only
 
 # MCP settings
-MCP_SERVERS_POSTFIX: .mcp_servers  # Per-user MCP servers (kb_path/.mcp_servers)
 ```
 
 Or use environment variables in `.env`:
@@ -89,8 +87,6 @@ MEM_AGENT_STORAGE_TYPE=json  # "json", "vector", or "mem-agent"
 MEM_AGENT_MODEL=BAAI/bge-m3  # or driaforall/mem-agent for LLM-based
 MEM_AGENT_MODEL_PRECISION=4bit
 MEM_AGENT_BACKEND=auto
-MEM_AGENT_MEMORY_POSTFIX=memory
-MCP_SERVERS_POSTFIX=.mcp_servers
 ```
 
 #### Choosing Storage Type
@@ -150,8 +146,8 @@ huggingface-cli scan-cache | grep mem-agent
 # Verify MCP server configuration exists
 cat data/mcp_servers/mem-agent.json
 
-# Check memory directory
-ls -la knowledge_bases/default/memory/
+# Check memory directory (per-user)
+ls -la data/memory/user_123/
 ```
 
 ## Advanced Installation
@@ -403,7 +399,6 @@ huggingface-cli delete-cache
 | `MEM_AGENT_MODEL` | `BAAI/bge-m3` | Model ID (embeddings for vector, LLM for mem-agent) |
 | `MEM_AGENT_MODEL_PRECISION` | `4bit` | Model precision (4bit, 8bit, fp16) |
 | `MEM_AGENT_BACKEND` | `auto` | Backend (auto, vllm, mlx, transformers) |
-| `MEM_AGENT_MEMORY_POSTFIX` | `memory` | Memory directory postfix within KB |
 | `MEM_AGENT_MAX_TOOL_TURNS` | `20` | Max tool execution iterations (mem-agent only) |
 | `MEM_AGENT_TIMEOUT` | `20` | Timeout for code execution (mem-agent only) |
 | `MEM_AGENT_VLLM_HOST` | `127.0.0.1` | vLLM server host (if using vllm backend) |
@@ -411,7 +406,6 @@ huggingface-cli delete-cache
 | `MEM_AGENT_FILE_SIZE_LIMIT` | `1048576` | Max file size - 1MB (mem-agent only) |
 | `MEM_AGENT_DIR_SIZE_LIMIT` | `10485760` | Max directory size - 10MB (mem-agent only) |
 | `MEM_AGENT_MEMORY_SIZE_LIMIT` | `104857600` | Max total memory - 100MB (mem-agent only) |
-| `MCP_SERVERS_POSTFIX` | `.mcp_servers` | MCP servers directory postfix within KB |
 
 ### Storage Type Comparison
 
@@ -540,8 +534,8 @@ MEM_AGENT_MAX_TOOL_TURNS: 10  # Faster but less thorough
 
    ```bash
    # Replace {user_kb} with actual KB name
-   ls -la knowledge_bases/{user_kb}/memory/
-   chmod -R 755 knowledge_bases/{user_kb}/memory/
+   ls -la data/memory/user_{user_id}/
+   chmod -R 755 data/memory/user_{user_id}/
    ```
 
 2. Verify path in configuration:
@@ -550,17 +544,16 @@ MEM_AGENT_MAX_TOOL_TURNS: 10  # Faster but less thorough
    from config.settings import settings
    from pathlib import Path
 
-   kb_path = Path("./knowledge_bases/user_kb")
-   print(f"Memory postfix: {settings.MEM_AGENT_MEMORY_POSTFIX}")
-   print(f"Full path: {settings.get_mem_agent_memory_path(kb_path)}")
+   user_id = 123
+   print(f"Full path: {settings.get_mem_agent_memory_dir(user_id)}")
    ```
 
 3. Create manually:
 
    ```bash
    # Replace {user_kb} with actual KB name
-   mkdir -p knowledge_bases/{user_kb}/memory/entities
-   touch knowledge_bases/{user_kb}/memory/user.md
+   mkdir -p data/memory/user_{user_id}/entities
+   touch data/memory/user_{user_id}/user.md
    ```
 
 ### MCP Server Connection Issues
@@ -628,7 +621,7 @@ MEM_AGENT_MAX_TOOL_TURNS: 10  # Faster but less thorough
 
 ### Security
 
-1. **Review memories**: Periodically check `knowledge_bases/{user_kb}/memory/` for sensitive info
+1. **Review memories**: Periodically check `data/memory/user_{user_id}/` for sensitive info
 2. **Set size limits**: Prevent memory from growing too large
 3. **Backup regularly**: Memory files are plain text, easy to backup
 4. **Per-user isolation**: Each user has isolated memory and MCP configs in their KB
