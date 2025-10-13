@@ -268,10 +268,10 @@ class MCPServerManager:
         Setup default MCP servers based on settings
 
         This registers servers that should be auto-started when enabled in settings:
-        - memory HTTP server (if AGENT_ENABLE_MCP_MEMORY is True)
+        - mcp-hub HTTP/SSE connection (if AGENT_ENABLE_MCP_MEMORY is True)
 
         Also creates necessary configuration files:
-        - data/mcp_servers/memory.json (for Python MCP clients)
+        - data/mcp_servers/mcp-hub.json (for Python MCP clients)
         - ~/.qwen/settings.json (for Qwen CLI)
         
         Note: In Docker deployments, mcp-hub is already running as a container.
@@ -309,12 +309,12 @@ class MCPServerManager:
         mcp_servers_dir = Path("data/mcp_servers")
         mcp_servers_dir.mkdir(parents=True, exist_ok=True)
         
-        # Create memory.json config for HTTP/SSE transport
-        memory_config_file = mcp_servers_dir / "memory.json"
+        # Create mcp-hub.json config for HTTP/SSE transport
+        mcp_hub_config_file = mcp_servers_dir / "mcp-hub.json"
         
         config = {
             "mcpServers": {
-                "memory": {
+                "mcp-hub": {
                     "url": url,
                     "transport": "sse",
                     "timeout": 10000,
@@ -325,10 +325,10 @@ class MCPServerManager:
         }
         
         try:
-            with open(memory_config_file, "w", encoding="utf-8") as f:
+            with open(mcp_hub_config_file, "w", encoding="utf-8") as f:
                 json.dump(config, f, indent=2, ensure_ascii=False)
             logger.info(
-                f"[MCPServerManager] Created MCP Hub config (HTTP/SSE): {memory_config_file}"
+                f"[MCPServerManager] Created MCP Hub config (HTTP/SSE): {mcp_hub_config_file}"
             )
         except Exception as e:
             logger.error(f"[MCPServerManager] Failed to create MCP Hub config: {e}")
@@ -339,22 +339,22 @@ class MCPServerManager:
         mcp_servers_dir = Path("data/mcp_servers")
         mcp_servers_dir.mkdir(parents=True, exist_ok=True)
 
-        # Create memory.json config file if it doesn't exist
-        memory_config_file = mcp_servers_dir / "memory.json"
-        if not memory_config_file.exists():
+        # Create mcp-hub.json config file if it doesn't exist
+        mcp_hub_config_file = mcp_servers_dir / "mcp-hub.json"
+        if not mcp_hub_config_file.exists():
             logger.info(
-                f"[MCPServerManager] Creating MCP server config at {memory_config_file}"
+                f"[MCPServerManager] Creating MCP server config at {mcp_hub_config_file}"
             )
 
             # Standard MCP server configuration format
             config = {
                 "mcpServers": {
-                    "memory": {
+                    "mcp-hub": {
                         # HTTP/SSE transport
                         "url": "http://127.0.0.1:8765/sse",
                         "timeout": 10000,
                         "trust": True,
-                        "description": "Agent's personal note-taking and search system",
+                        "description": "MCP Hub - Built-in memory tools and server registry",
                         # Additional metadata for internal use
                         "_transport": "http",
                         "_command": "python3",
@@ -372,16 +372,16 @@ class MCPServerManager:
             }
 
             try:
-                with open(memory_config_file, "w", encoding="utf-8") as f:
+                with open(mcp_hub_config_file, "w", encoding="utf-8") as f:
                     json.dump(config, f, indent=2, ensure_ascii=False)
                 logger.info(
-                    f"[MCPServerManager] Created MCP server config: {memory_config_file}"
+                    f"[MCPServerManager] Created MCP server config: {mcp_hub_config_file}"
                 )
             except Exception as e:
                 logger.error(f"[MCPServerManager] Failed to create MCP server config: {e}")
         else:
             logger.debug(
-                f"[MCPServerManager] MCP server config already exists: {memory_config_file}"
+                f"[MCPServerManager] MCP server config already exists: {mcp_hub_config_file}"
             )
 
         # Prepare environment variables from settings
@@ -394,7 +394,7 @@ class MCPServerManager:
 
         # Register mcp-hub server subprocess
         self.register_server(
-            name="memory",
+            name="mcp-hub",
             command="python3",
             args=[
                 "-m",

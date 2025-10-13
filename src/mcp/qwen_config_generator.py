@@ -46,10 +46,10 @@ class QwenMCPConfigGenerator:
         """
         config: Dict[str, Any] = {"mcpServers": {}}
 
-        # Add memory MCP server
+        # Add MCP Hub server (unified gateway with memory tools)
         memory_config = self._generate_memory_config()
         if memory_config:
-            config["mcpServers"]["memory"] = memory_config
+            config["mcpServers"]["mcp-hub"] = memory_config
 
         # Add other MCP servers here in the future
         # config["mcpServers"]["filesystem"] = ...
@@ -75,7 +75,15 @@ class QwenMCPConfigGenerator:
                 "url": f"http://127.0.0.1:{self.http_port}/sse",
                 "timeout": 10000,
                 "trust": True,
-                "description": "Memory storage and retrieval agent (HTTP/SSE)",
+                "description": (
+                    "MCP Hub - Unified MCP gateway (HTTP/SSE). "
+                    "Provides built-in memory tools: store_memory, retrieve_memory, list_categories."
+                ),
+                "tools": [
+                    "store_memory",
+                    "retrieve_memory",
+                    "list_categories",
+                ],
             }
 
         # Use stdio transport (default)
@@ -100,7 +108,14 @@ class QwenMCPConfigGenerator:
             "cwd": str(self.project_root),
             "timeout": 10000,  # 10 seconds
             "trust": True,  # Trust our own server
-            "description": "Memory storage and retrieval agent",
+            "description": (
+                "MCP Hub - Unified MCP gateway with built-in memory tools"
+            ),
+            "tools": [
+                "store_memory",
+                "retrieve_memory",
+                "list_categories",
+            ],
         }
 
         return config

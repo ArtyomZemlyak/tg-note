@@ -293,9 +293,9 @@ class TestQwenMCPConfigGenerator:
         config = generator.generate_config()
 
         assert "mcpServers" in config
-        assert "memory" in config["mcpServers"]
+        assert "mcp-hub" in config["mcpServers"]
         assert "allowMCPServers" in config
-        assert "memory" in config["allowMCPServers"]
+        assert "mcp-hub" in config["allowMCPServers"]
 
     def test_memory_config(self, generator):
         """Test memory configuration (HTTP mode by default)"""
@@ -394,9 +394,9 @@ class TestQwenMCPConfigGenerator:
             with open(settings_file) as f:
                 config = json.load(f)
 
-            assert "memory" in config["mcpServers"]
+            assert "mcp-hub" in config["mcpServers"]
             assert "other-server" in config["mcpServers"]
-            assert "memory" in config["allowMCPServers"]
+            assert "mcp-hub" in config["allowMCPServers"]
             assert "other-server" in config["allowMCPServers"]
             assert config["otherSetting"] == "value"
 
@@ -406,7 +406,7 @@ class TestQwenMCPConfigGenerator:
 
         config = json.loads(json_str)
         assert "mcpServers" in config
-        assert "mem-agent" in config["mcpServers"]
+        assert "mcp-hub" in config["mcpServers"]
 
 
 class TestSetupQwenMCPConfig:

@@ -11,8 +11,9 @@ This is designed for autonomous agents (like qwen code cli) where the agent make
 LLM calls within one session and needs to maintain context across these calls.
 
 The memory system uses embeddings (e.g., BAAI/bge-m3) from HuggingFace
-and the MCP server configuration is loaded from data/mcp_servers/memory.json
-which is created by running scripts/install_mem_agent.py.
+and the MCP server configuration is loaded from data/mcp_servers/mcp-hub.json
+(falls back to memory.json for backward compatibility), which is created by
+running scripts/install_mem_agent.py or the server manager.
 
 References:
 - Model: https://huggingface.co/BAAI/bge-m3
@@ -85,7 +86,7 @@ class MemoryMCPTool(BaseMCPTool):
     @property
     def mcp_server_config(self) -> MCPServerConfig:
         """
-        Load MCP server configuration from data/mcp_servers/memory.json
+        Load MCP server configuration from data/mcp_servers/mcp-hub.json
 
         The configuration is created by MCPServerManager and contains settings
         for the memory HTTP server (SSE transport).
@@ -93,13 +94,17 @@ class MemoryMCPTool(BaseMCPTool):
         Note: The KB_PATH environment variable is set dynamically at runtime
         in the execute() method, as it's user-specific.
         """
-        config_file = Path("data/mcp_servers/memory.json")
+        config_file = Path("data/mcp_servers/mcp-hub.json")
 
         if not config_file.exists():
-            # Try legacy mem-agent.json for backward compatibility
-            legacy_config_file = Path("data/mcp_servers/mem-agent.json")
-            if legacy_config_file.exists():
-                config_file = legacy_config_file
+            # Try legacy memory.json first, then mem-agent.json for backward compatibility
+            legacy_memory_file = Path("data/mcp_servers/memory.json")
+            legacy_mem_agent_file = Path("data/mcp_servers/mem-agent.json")
+            if legacy_memory_file.exists():
+                config_file = legacy_memory_file
+                logger.info(f"[MemoryMCPTool] Using legacy config file: {config_file}")
+            elif legacy_mem_agent_file.exists():
+                config_file = legacy_mem_agent_file
                 logger.info(f"[MemoryMCPTool] Using legacy config file: {config_file}")
             else:
                 logger.warning(
@@ -126,9 +131,13 @@ class MemoryMCPTool(BaseMCPTool):
             with open(config_file, "r", encoding="utf-8") as f:
                 config_data = json.load(f)
 
-            # Standard MCP format: {"mcpServers": {"memory": {...}}} or {"mcpServers": {"mem-agent": {...}}}
+            # Standard MCP format: prefer "mcp-hub", fallback to legacy keys
             mcp_servers = config_data.get("mcpServers", {})
-            memory_config = mcp_servers.get("memory") or mcp_servers.get("mem-agent")
+            memory_config = (
+                mcp_servers.get("mcp-hub")
+                or mcp_servers.get("memory")
+                or mcp_servers.get("mem-agent")
+            )
 
             if not memory_config:
                 logger.warning(f"[MemoryMCPTool] No memory config found in {config_file}")
