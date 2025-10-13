@@ -22,8 +22,9 @@
   - [Bot Commands](#bot-commands)
   - [Working with Content](#working-with-content)
 - [Agent Types](#-agent-types)
-  - [qwen_code_cli (Recommended)](#1-qwen_code_cli-recommended-)
-  - [stub](#2-stub)
+  - [autonomous (Recommended for MCP)](#1-autonomous-recommended-for-mcp-)
+  - [qwen_code_cli (Best for Free Tier)](#2-qwen_code_cli-best-for-free-tier-)
+  - [stub (Testing Only)](#3-stub-testing-only)
 - [Architecture](#-architecture)
   - [System Components](#system-components)
   - [Data Flow](#data-flow)
@@ -77,6 +78,7 @@ Perfect for:
 - **Git**
 - **Telegram Account**
 - **Node.js 20+** (optional, for qwen_code_cli agent)
+- **Docker & Docker Compose** (optional, for containerized deployment)
 
 ### Installation
 
@@ -102,6 +104,26 @@ poetry install
 ```
 
 This will automatically create a virtual environment and install all dependencies.
+
+4. **Optional features (extras)**
+
+```bash
+# Enable MCP and mem-agent extras (tooling, memory backends)
+poetry install -E mcp -E mem-agent
+
+# Vector search capabilities
+poetry install -E vector-search
+```
+
+Alternatively with pip/pipx:
+
+```bash
+# Editable install with extras
+pip install -e ".[mcp,mem-agent,vector-search]"
+
+# Or isolate via pipx
+pipx install "."
+```
 
 ### Configuration
 
@@ -176,10 +198,14 @@ AGENT_TYPE: "qwen_code_cli"
 1. **Start the bot**
 
 ```bash
+# Recommended (via console script)
+poetry run tg-note
+
+# Or directly with Python
 poetry run python main.py
-# or activate the virtual environment first:
-poetry shell
-python main.py
+
+# If installed with pip (outside Poetry)
+tg-note
 ```
 
 You should see:
@@ -705,15 +731,56 @@ poetry run python verify_structure.py
 
 ## 🚀 Deployment
 
-### Docker (Coming Soon)
+### Docker Compose
+
+This repository includes production-like Docker setup with a Makefile.
+
+Prerequisites: Docker and Docker Compose.
+
+1) One-time setup
 
 ```bash
-docker build -t tg-note .
-docker run -d \
-  --env-file .env \
-  -v $(pwd)/knowledge_base:/app/knowledge_base \
-  tg-note
+make setup            # copies .env.docker.example -> .env and creates data dirs
 ```
+
+2) Start in simple mode (no GPU, JSON storage)
+
+```bash
+make up-simple        # uses docker-compose.simple.yml
+make logs-bot         # follow bot logs
+```
+
+3) Full stack with vLLM (GPU) for mem-agent
+
+```bash
+make up               # uses docker-compose.yml (vLLM + MCP Hub + Bot)
+```
+
+Helpful commands:
+
+```bash
+make down             # stop services
+make rebuild          # rebuild and restart
+make logs             # show all service logs
+make ps               # show service status
+
+# Storage modes (simple stack)
+make json             # JSON storage (default)
+make vector           # Vector storage (semantic search)
+make mem-agent        # mem-agent storage (requires GPU backend)
+
+# Alternative backend
+make up-sglang        # SGLang backend instead of vLLM
+```
+
+Without Makefile:
+
+```bash
+docker-compose -f docker-compose.simple.yml up -d          # simple mode
+docker-compose up -d                                       # full stack (vLLM)
+```
+
+Configuration used inside containers is mounted from `config.docker.yaml` and secrets come from `.env` (see `.env.docker.example`).
 
 ### Systemd Service (Linux)
 
