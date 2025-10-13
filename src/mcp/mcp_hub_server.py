@@ -191,19 +191,29 @@ def get_storage(user_id: int) -> MemoryStorage:
 @mcp.custom_route("/health", methods=["GET"])
 async def health_check(request):
     """Health check endpoint for container orchestration"""
-    registry = get_registry()
-    return {
-        "status": "ok",
-        "service": "mcp-hub",
-        "version": "1.0.0",
-        "registry": {
-            "servers_total": len(registry.get_all_servers()),
-            "servers_enabled": len(registry.get_enabled_servers()),
-        },
-        "storage": {
-            "active_users": len(_storages),
+    try:
+        registry = get_registry()
+        return {
+            "status": "ok",
+            "service": "mcp-hub",
+            "version": "1.0.0",
+            "registry": {
+                "servers_total": len(registry.get_all_servers()),
+                "servers_enabled": len(registry.get_enabled_servers()),
+            },
+            "storage": {
+                "active_users": len(_storages),
+            }
         }
-    }
+    except Exception as e:
+        logger.error(f"❌ Exception in health check endpoint: {e}", exc_info=True)
+        return {
+            "status": "error",
+            "service": "mcp-hub",
+            "version": "1.0.0",
+            "error": str(e),
+            "error_type": type(e).__name__
+        }
 
 
 # ============================================================================
