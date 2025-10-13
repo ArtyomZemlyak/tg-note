@@ -9,13 +9,14 @@ from typing import Optional
 from loguru import logger
 
 try:
-    from git import InvalidGitRepositoryError, Repo
+    from git import GitCommandError, InvalidGitRepositoryError, Repo
 
     GIT_AVAILABLE = True
 except ImportError:
     GIT_AVAILABLE = False
     Repo = None
     InvalidGitRepositoryError = Exception
+    GitCommandError = Exception
 
 
 class GitOperations:
@@ -105,13 +106,13 @@ class GitOperations:
             logger.error(f"Failed to commit: {e}")
             return False
 
-    def push(self, remote: str = "origin", branch: str = "main") -> bool:
+    def push(self, remote: str = "origin", branch: Optional[str] = None) -> bool:
         """
         Push commits to remote
 
         Args:
             remote: Remote name
-            branch: Branch name
+            branch: Branch name to push to on remote. If None/"auto", pushes current branch.
 
         Returns:
             True if successful, False otherwise
@@ -120,13 +121,62 @@ class GitOperations:
             return False
 
         try:
-            origin = self.repo.remote(remote)
-            origin.push(branch)
-            logger.info(f"Pushed to {remote}/{branch}")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to push: {e}")
-            return False
+            # Validate remote
+            try:
+                remote_obj = self.repo.remote(remote)
+            except ValueError:
+                available = ", ".join(r.name for r in self.repo.remotes) or "<none>"
+                logger.error(
+                    f"Failed to push: Remote '{remote}' not found. Available remotes: {available}. "
+                    f"To set a remote, run: git remote add origin <url>"
+                )
+                return False
+
+            # Determine local ref (current branch or HEAD)
+            active_branch_name: Optional[str] = None
+            try:
+                active_branch_name = self.repo.active_branch.name  # type: ignore[attr-defined]
+            except Exception:
+                # Detached HEAD or no branch
+                active_branch_name = None
+
+            # Determine target branch on remote
+            target_branch = branch if branch not in (None, "", "auto", "current", "HEAD") else None
+            if target_branch is None:
+                target_branch = active_branch_name or "main"
+
+            # Determine local refspec (what to push)
+            local_ref = active_branch_name or "HEAD"
+
+            # Check tracking configuration
+            has_tracking = False
+            if active_branch_name:
+                try:
+                    tracking = self.repo.active_branch.tracking_branch()  # type: ignore[attr-defined]
+                    has_tracking = bool(tracking and tracking.remote_name == remote and tracking.remote_head == target_branch)
+                except Exception:
+                    has_tracking = False
+
+            # Perform push
+            try:
+                if has_tracking:
+                    # Tracking set correctly, simple push
+                    self.repo.git.push(remote)
+                else:
+                    # First push or remote/branch mismatch: set upstream while pushing
+                    self.repo.git.push("--set-upstream", remote, f"{local_ref}:{target_branch}")
+
+                logger.info(f"Pushed to {remote}/{target_branch}")
+                return True
+            except GitCommandError as gce:  # type: ignore[misc]
+                logger.error(f"Failed to push (git): {gce}")
+                return False
+            except Exception as e:
+                logger.error(
+                    f"Failed to push: {type(e).__name__}: {e}. "
+                    f"Tried pushing {local_ref} -> {remote}/{target_branch}."
+                )
+                return False
 
     def add_commit_push(
         self, file_path: str, message: str, remote: str = "origin", branch: str = "main"
