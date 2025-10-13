@@ -30,7 +30,7 @@ if not loguru_logger._core.handlers:
         backtrace=True,
         diagnose=True,
     )
-    
+
     loguru_logger.add(
         log_dir / "mem_agent_sandbox_errors.log",
         format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} | {message}",
@@ -293,7 +293,7 @@ def execute_sandboxed_code(
     env["SANDBOX_PARAMS"] = base64.b64encode(pickle.dumps(params)).decode()
 
     loguru_logger.debug(f"Starting sandboxed code execution with timeout={timeout}s")
-    
+
     try:
         result = subprocess.run(
             [sys.executable, "-m", "src.mcp.memory.mem_agent_impl.engine"],
@@ -304,7 +304,9 @@ def execute_sandboxed_code(
         )
         loguru_logger.debug(f"Sandbox subprocess completed with return code {result.returncode}")
     except subprocess.TimeoutExpired:
-        loguru_logger.error(f"Sandboxed code exceeded time limit of {timeout} seconds; terminating.")
+        loguru_logger.error(
+            f"Sandboxed code exceeded time limit of {timeout} seconds; terminating."
+        )
         logger.error("Sandboxed code exceeded time limit of %d seconds; terminating.", timeout)
         return None, f"TimeoutError: Code execution exceeded {timeout} seconds."
     except Exception as e:
@@ -313,7 +315,9 @@ def execute_sandboxed_code(
 
     if result.returncode != 0:
         error_output = result.stderr.decode().strip()
-        loguru_logger.error(f"Sandbox execution failed with return code {result.returncode}: {error_output}")
+        loguru_logger.error(
+            f"Sandbox execution failed with return code {result.returncode}: {error_output}"
+        )
         return None, error_output
 
     try:
@@ -321,7 +325,9 @@ def execute_sandboxed_code(
         if error_msg:
             loguru_logger.warning(f"Sandbox execution completed with error: {error_msg}")
         else:
-            loguru_logger.debug(f"Sandbox execution successful, returned {len(local_vars)} variables")
+            loguru_logger.debug(
+                f"Sandbox execution successful, returned {len(local_vars)} variables"
+            )
     except Exception as e:
         loguru_logger.error(f"Failed to decode sandbox output: {e}", exc_info=True)
         return None, f"Failed to decode sandbox output: {e}"

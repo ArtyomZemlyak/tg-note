@@ -24,11 +24,11 @@ def create_openai_client() -> OpenAI:
     """
     base_url = MEM_AGENT_BASE_URL
     api_key = MEM_AGENT_OPENAI_API_KEY or OPENROUTER_API_KEY
-    
+
     logger.debug("🔧 Creating OpenAI-compatible client")
     logger.debug(f"  Base URL: {base_url or 'default'}")
     logger.debug(f"  API key: {'set' if api_key else 'not set'}")
-    
+
     return OpenAI(api_key=api_key, base_url=base_url)
 
 
@@ -38,7 +38,7 @@ def create_vllm_client(host: str = MEM_AGENT_HOST, port: int = MEM_AGENT_PORT) -
     logger.debug(f"  Host: {host}")
     logger.debug(f"  Port: {port}")
     logger.debug(f"  Base URL: http://{host}:{port}/v1")
-    
+
     return OpenAI(
         base_url=f"http://{host}:{port}/v1",
         api_key="EMPTY",
@@ -84,11 +84,11 @@ def get_model_response(
     if messages is None and message is None:
         raise ValueError("Either 'messages' or 'message' must be provided.")
 
-    logger.debug("="*60)
+    logger.debug("=" * 60)
     logger.debug("🧠 GET_MODEL_RESPONSE called")
     logger.debug(f"  Model: {model}")
     logger.debug(f"  Backend: {'vLLM' if use_vllm else 'OpenAI-compatible'}")
-    
+
     # Use provided clients or fall back to global ones
     if client is None:
         logger.debug("  No client provided, creating new one...")
@@ -109,9 +109,9 @@ def get_model_response(
         messages = [_as_dict(m) for m in messages]
 
     # Calculate total tokens (rough estimate)
-    total_chars = sum(len(str(m.get('content', ''))) for m in messages)
+    total_chars = sum(len(str(m.get("content", ""))) for m in messages)
     logger.debug(f"  Total message characters: {total_chars}")
-    logger.debug("="*60)
+    logger.debug("=" * 60)
 
     try:
         logger.info("📤 Sending request to model...")
@@ -127,17 +127,17 @@ def get_model_response(
                 messages=messages,
                 # stop=["</reply>", "</python>"]
             )
-        
+
         response_content = completion.choices[0].message.content
         logger.info(f"✅ Model response received: {len(response_content)} chars")
         logger.debug(f"  Response preview: {response_content[:200]}...")
-        
+
         return response_content
-        
+
     except Exception as e:
-        logger.error("="*60)
+        logger.error("=" * 60)
         logger.error(f"❌ Error getting model response: {e}")
         logger.error(f"  Model: {model}")
         logger.error(f"  Backend: {'vLLM' if use_vllm else 'OpenAI-compatible'}")
-        logger.error("="*60, exc_info=True)
+        logger.error("=" * 60, exc_info=True)
         raise

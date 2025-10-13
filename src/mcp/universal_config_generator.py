@@ -4,7 +4,7 @@ Universal MCP Configuration Generator
 Generates MCP server configurations compatible with various LLM clients:
 - Qwen CLI
 - Cursor
-- Claude Desktop  
+- Claude Desktop
 - LM Studio
 - Other OpenAI-compatible APIs with MCP support
 - Any MCP-compatible client
@@ -62,9 +62,7 @@ class UniversalMCPConfigGenerator:
         # Method 2: Check for MCP_HUB_URL environment variable
         mcp_hub_env = os.getenv("MCP_HUB_URL")
         if mcp_hub_env:
-            logger.info(
-                f"[UniversalMCPConfig] Using MCP_HUB_URL from environment: {mcp_hub_env}"
-            )
+            logger.info(f"[UniversalMCPConfig] Using MCP_HUB_URL from environment: {mcp_hub_env}")
             return mcp_hub_env
 
         # Method 3: Check /proc/1/cgroup for docker
@@ -83,7 +81,7 @@ class UniversalMCPConfigGenerator:
     def generate_standard_config(self) -> Dict[str, Any]:
         """
         Generate standard MCP configuration format
-        
+
         This format is compatible with:
         - Cursor
         - Claude Desktop
@@ -115,9 +113,9 @@ class UniversalMCPConfigGenerator:
     def generate_lm_studio_config(self) -> Dict[str, Any]:
         """
         Generate LM Studio compatible configuration
-        
+
         LM Studio supports MCP through a specific configuration format.
-        
+
         Returns:
             LM Studio configuration dict
         """
@@ -136,10 +134,10 @@ class UniversalMCPConfigGenerator:
     def generate_openai_compatible_config(self) -> Dict[str, Any]:
         """
         Generate configuration for OpenAI-compatible APIs with MCP support
-        
+
         Some OpenAI-compatible inference servers support MCP servers
         as additional context providers.
-        
+
         Returns:
             Configuration dict
         """
@@ -226,9 +224,7 @@ class UniversalMCPConfigGenerator:
         logger.info(f"Saved Cursor MCP config to {cursor_config_path}")
         return cursor_config_path
 
-    def save_for_claude_desktop(
-        self, claude_config_path: Optional[Path] = None
-    ) -> Path:
+    def save_for_claude_desktop(self, claude_config_path: Optional[Path] = None) -> Path:
         """
         Save configuration for Claude Desktop
 
@@ -242,7 +238,11 @@ class UniversalMCPConfigGenerator:
         if claude_config_path is None:
             # Default path for macOS
             claude_config_path = (
-                Path.home() / "Library" / "Application Support" / "Claude" / "claude_desktop_config.json"
+                Path.home()
+                / "Library"
+                / "Application Support"
+                / "Claude"
+                / "claude_desktop_config.json"
             )
 
         claude_config_path.parent.mkdir(parents=True, exist_ok=True)
@@ -340,7 +340,7 @@ class UniversalMCPConfigGenerator:
             Dict mapping client names to saved config paths
         """
         saved_paths = {}
-        
+
         # List of save operations
         save_operations = [
             ("qwen_cli", self.save_for_qwen_cli),
@@ -371,32 +371,20 @@ def main():
         description="Generate MCP configurations for various LLM clients"
     )
     parser.add_argument("--user-id", type=int, help="User ID for per-user MCP servers")
-    parser.add_argument(
-        "--port", type=int, default=8765, help="MCP Hub port (default: 8765)"
-    )
-    parser.add_argument(
-        "--url", type=str, help="Custom MCP Hub URL (for Docker environments)"
-    )
+    parser.add_argument("--port", type=int, default=8765, help="MCP Hub port (default: 8765)")
+    parser.add_argument("--url", type=str, help="Custom MCP Hub URL (for Docker environments)")
     parser.add_argument(
         "--all",
         action="store_true",
         help="Save configurations for all supported clients",
     )
-    parser.add_argument(
-        "--qwen", action="store_true", help="Save configuration for Qwen CLI"
-    )
-    parser.add_argument(
-        "--cursor", action="store_true", help="Save configuration for Cursor"
-    )
+    parser.add_argument("--qwen", action="store_true", help="Save configuration for Qwen CLI")
+    parser.add_argument("--cursor", action="store_true", help="Save configuration for Cursor")
     parser.add_argument(
         "--claude", action="store_true", help="Save configuration for Claude Desktop"
     )
-    parser.add_argument(
-        "--lmstudio", action="store_true", help="Save configuration for LM Studio"
-    )
-    parser.add_argument(
-        "--data", action="store_true", help="Save configuration to data directory"
-    )
+    parser.add_argument("--lmstudio", action="store_true", help="Save configuration for LM Studio")
+    parser.add_argument("--data", action="store_true", help="Save configuration to data directory")
     parser.add_argument(
         "--print", action="store_true", help="Print standard configuration to stdout"
     )

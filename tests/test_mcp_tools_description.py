@@ -11,8 +11,8 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
 from src.agents.autonomous_agent import AutonomousAgent
-from src.mcp.tools_description import format_mcp_tools_for_prompt, get_mcp_tools_description
 from src.agents.qwen_code_cli_agent import QwenCodeCLIAgent
+from src.mcp.tools_description import format_mcp_tools_for_prompt, get_mcp_tools_description
 
 
 class TestMCPToolsDescription:
@@ -112,11 +112,13 @@ class TestAutonomousAgentMCPIntegration:
     async def test_autonomous_agent_get_mcp_tools_enabled(self):
         """Test that MCP tools description is generated when enabled"""
         config = {"enable_mcp": True, "user_id": 12345}
-        
+
         # Mock discover_and_create_mcp_tools to prevent actual MCP discovery during agent init
-        with patch("src.agents.tools.registry.discover_and_create_mcp_tools", new_callable=AsyncMock) as mock_discover:
+        with patch(
+            "src.agents.tools.registry.discover_and_create_mcp_tools", new_callable=AsyncMock
+        ) as mock_discover:
             mock_discover.return_value = []
-            
+
             agent = AutonomousAgent(config=config, enable_mcp=True)
 
             # Mock the MCP description function - patch where it's imported FROM
@@ -133,17 +135,21 @@ class TestAutonomousAgentMCPIntegration:
                     mock_format.assert_called_once_with("# Test MCP Tools", include_in_system=True)
 
                     # Should cache the result
-                    assert agent._mcp_tools_description == "## MCP Tools Available\n\n# Test MCP Tools"
+                    assert (
+                        agent._mcp_tools_description == "## MCP Tools Available\n\n# Test MCP Tools"
+                    )
 
     @pytest.mark.asyncio
     async def test_autonomous_agent_caches_mcp_description(self):
         """Test that MCP tools description is cached"""
         config = {"enable_mcp": True}
-        
+
         # Mock discover_and_create_mcp_tools to prevent actual MCP discovery during agent init
-        with patch("src.agents.tools.registry.discover_and_create_mcp_tools", new_callable=AsyncMock) as mock_discover:
+        with patch(
+            "src.agents.tools.registry.discover_and_create_mcp_tools", new_callable=AsyncMock
+        ) as mock_discover:
             mock_discover.return_value = []
-            
+
             agent = AutonomousAgent(config=config, enable_mcp=True)
 
             with patch("src.mcp.get_mcp_tools_description", new_callable=AsyncMock) as mock_get:

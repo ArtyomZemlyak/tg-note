@@ -8,156 +8,82 @@ Complete reference for all tg-note bot commands.
 
 The bot has three working modes that you can switch between:
 
-### /note - Note Creation Mode (Default)
+### /note — Note Creation Mode (Default)
 
 Switches the bot to knowledge base creation mode.
 
-**Usage:**
-
+Usage:
 ```
 /note
 ```
 
-**Response:**
-
+Reply example:
 ```
-📝 Режим создания базы знаний активирован!
+📝 Note creation mode is active!
 
-Теперь ваши сообщения будут анализироваться и сохраняться в базу знаний.
-Отправьте сообщение, репост или документ для обработки.
+Your messages will be analyzed and saved to the knowledge base.
+Send a message, a forward, or a document to process.
 
-Для переключения в режим вопросов используйте /ask
+Switch: /ask | /agent
 ```
 
-**What it does:**
-
-- Bot analyzes incoming messages
-- Creates structured notes in knowledge base
-- Automatically categorizes content
-- Saves to Git repository
+What it does:
+- Analyze incoming messages
+- Create structured notes in knowledge base
+- Auto-categorize content
+- Save to Git repository
 
 ---
 
-### /ask - Question Mode
+### /ask — Question Mode
 
 Switches the bot to question mode for querying your knowledge base.
 
-**Usage:**
-
+Usage:
 ```
 /ask
 ```
 
-**Requirements:**
+Requirement:
+- Knowledge base must be configured via `/setkb`
 
-- Knowledge base must be set up via `/setkb`
-
-**Response:**
-
+Reply example:
 ```
-🤔 Режим вопросов по базе знаний активирован!
+🤔 Question mode is active!
 
-Теперь вы можете задавать вопросы агенту о содержимому вашей базы знаний.
-Агент будет искать информацию в базе и отвечать на ваши вопросы.
+You can now ask questions about your knowledge base.
+The agent will search and answer based on your content.
 
-Для возврата в режим создания заметок используйте /note
-Для переключения в режим агента используйте /agent
-```
-
-**What it does:**
-
-- Accepts questions about knowledge base content
-- Agent searches for relevant information using KB reading tools
-- Provides answers based on found content
-- Shows sources of information
-
-**Example interaction:**
-
-```
-User: /ask
-Bot: 🤔 Режим вопросов по базе знаний активирован!
-
-User: Что такое GPT-4?
-Bot: 🔍 Ищу информацию в базе знаний...
-     💡 Ответ:
-
-     GPT-4 - это большая языковая модель от OpenAI...
-
-     Источники:
-     - ai/models/gpt4.md
-     - ai/multimodal/vision.md
+Switch: /note | /agent
 ```
 
 ---
 
-### /agent - Agent Mode (Full Access)
+### /agent — Agent Mode (Full Access)
 
 Switches the bot to agent mode with full autonomous capabilities.
 
-**Usage:**
-
+Usage:
 ```
 /agent
 ```
 
-**Requirements:**
+Requirement:
+- Knowledge base must be configured via `/setkb`
 
-- Knowledge base must be set up via `/setkb`
-
-**Response:**
-
+Reply example:
 ```
-🤖 Режим агента активирован!
+🤖 Agent mode is active!
 
-Теперь агент может выполнять любые задачи с вашей базой знаний:
-• Отвечать на вопросы
-• Добавлять новую информацию
-• Редактировать существующие заметки
-• Переструктурировать базу знаний
-• И многое другое!
+The agent can now perform any KB tasks:
+• Answer questions
+• Add new information
+• Edit existing notes
+• Restructure the knowledge base
 
-Просто опишите что нужно сделать, и агент выполнит задачу автономно.
+Describe what to do; the agent will complete it autonomously.
 
-Переключить: /note | /ask
-```
-
-**What it does:**
-
-- Accepts any tasks related to knowledge base
-- Can answer questions (like /ask mode)
-- Can add/edit/delete/restructure content
-- Has full autonomous access to KB (restricted to topics/ folder by default)
-- Shows detailed results with file changes
-
-**Example interactions:**
-
-**Answering questions:**
-
-```
-User: Что такое GPT-4?
-Bot: 💡 Ответ:
-     GPT-4 - это большая языковая модель от OpenAI...
-```
-
-**Adding information:**
-
-```
-User: Добавь информацию о новой модели Gemini 2.0
-Bot: 📋 Выполнено: Добавлена информация о Gemini 2.0
-     📝 Изменения:
-       ✨ Создано файлов: 1
-         • ai/models/gemini-2.0.md
-```
-
-**Restructuring:**
-
-```
-User: Переименуй папку "ml" в "machine-learning"
-Bot: 📋 Выполнено: Папка переименована, ссылки обновлены
-     📝 Изменения:
-       📁 Создано папок: 1
-         • machine-learning
-       ✏️ Изменено файлов: 5
+Switch: /note | /ask
 ```
 
 ---
@@ -165,59 +91,36 @@ Bot: 📋 Выполнено: Папка переименована, ссылк�
 ## Basic Commands
 
 ### /start
+Initialize bot interaction.
 
-Initialize interaction with the bot.
-
-**Usage:**
-
+Usage:
 ```
 /start
 ```
 
-**Response:**
-
-- Welcome message
-- Bot introduction
-- Quick start instructions
-- Information about working modes
-
----
-
 ### /help
+Show help and quick links.
 
-Display help information and available commands.
-
-**Usage:**
-
+Usage:
 ```
 /help
 ```
-
-**Response:**
-
-- List of all commands
-- Brief descriptions
-- Links to documentation
-- Working modes information
 
 ---
 
 ## Knowledge Base Commands
 
 ### /setkb
+Setup or change knowledge base location.
 
-Setup or change your knowledge base location.
-
-**Usage:**
-
+Usage:
 ```
 /setkb <name|url>
 ```
 
-**Examples:**
-
+Examples:
 ```
-# Local knowledge base
+# Local KB
 /setkb my-notes
 
 # GitHub repository
@@ -227,333 +130,59 @@ Setup or change your knowledge base location.
 /setkb https://github.com/username/private-kb
 ```
 
-**What it does:**
-
-- Creates or connects to a knowledge base
-- Initializes Git if needed
-- Sets up directory structure
-
----
-
 ### /kb
-
 Show current knowledge base information.
 
-**Usage:**
-
+Usage:
 ```
 /kb
 ```
 
-**Response:**
-
+Returns:
 - KB path
-- Git status
-- Number of files
-- Last commit info
+- KB type
+- GitHub URL (if used)
 
 ---
 
+## Status
+
 ### /status
+Show processing statistics and current mode.
 
-Display processing statistics and current working mode.
-
-**Usage:**
-
+Usage:
 ```
 /status
 ```
 
-**Response:**
-
+Returns:
 - Messages processed
-- Notes created
-- Success/failure rate
-- Agent type in use
-- **Current working mode** (Note Creation or Question Mode)
-- Knowledge base information
+- Pending groups
+- Last processed time
+- Knowledge base info
 - Git integration status
-
-**Example:**
-
-```
-📊 Статистика обработки
-
-Всего обработано сообщений: 10
-Ожидает обработки: 0
-Последняя обработка: 2024-01-01 12:00:00
-
-База знаний: my-notes (local)
-Git интеграция: Включена
-
-📝 Текущий режим: Создание базы знаний
-Переключить: /note | /ask | /agent
-```
+- Current mode and how to switch
 
 ---
 
-## Settings Commands
+## Settings
 
 ### /settings
-
 Open interactive settings menu.
 
-**Usage:**
+### /viewsettings [category]
+View all settings or filter by category.
 
-```
-/settings
-```
-
-**Features:**
-
-- Browse settings by category
-- Interactive inline keyboard
-- Quick toggles for boolean values
-- Detailed setting information
-
-**Categories:**
-
-- 📚 Knowledge Base
-- 🤖 Agent Configuration
-- ⚙️ Processing
-- 📝 Logging
-
-[Learn more →](settings-management.md)
-
----
-
-### /viewsettings
-
-View all settings or filtered by category.
-
-**Usage:**
-
-```
-/viewsettings [category]
-```
-
-**Examples:**
-
-```
-# View all settings
-/viewsettings
-
-# View specific category
-/viewsettings knowledge_base
-/viewsettings agent
-/viewsettings processing
-```
-
-**Response:**
-
-- Setting name
-- Current value
-- Default value
-- Description
-
----
-
-### /resetsetting
-
-Reset a setting to its default value.
-
-**Usage:**
-
-```
-/resetsetting <name>
-```
-
-**Examples:**
-
-```
-/resetsetting KB_GIT_AUTO_PUSH
-/resetsetting AGENT_TIMEOUT
-/resetsetting LOG_LEVEL
-```
-
----
+### /resetsetting <name>
+Reset a setting to default.
 
 ### /kbsettings
-
-Quick access to Knowledge Base settings.
-
-**Usage:**
-
-```
-/kbsettings
-```
-
-**Shows:**
-
-- KB_PATH
-- KB_GIT_ENABLED
-- KB_GIT_AUTO_PUSH
-- KB_GIT_REMOTE
-- KB_GIT_BRANCH
-
----
+Quick access to KB settings.
 
 ### /agentsettings
+Quick access to agent settings.
 
-Quick access to Agent settings.
-
-**Usage:**
-
-```
-/agentsettings
-```
-
-**Shows:**
-
-- AGENT_TYPE
-- AGENT_MODEL
-- AGENT_TIMEOUT
-- AGENT_ENABLE_WEB_SEARCH
-- AGENT_ENABLE_GIT
-- AGENT_ENABLE_GITHUB
-
----
-
-## Message Processing
-
-### Send Text Message
-
-Simply send any text message to save it.
-
-**Example:**
-
-```
-This is an interesting article about AI...
-```
-
-**Processing:**
-
-1. Message received
-2. Analyzed by agent
-3. Categorized automatically
-4. Saved as Markdown
-5. Committed to Git
-
----
-
-### Forward Message
-
-Forward messages from any chat or channel.
-
-**How:**
-
-1. Find message to save
-2. Tap Forward
-3. Select your tg-note bot
-
-**Supports:**
-
-- Channel posts
-- Group messages
-- Media with captions
-- Links and URLs
-
----
-
-### Send Multiple Messages
-
-Send consecutive messages - they'll be grouped automatically.
-
-**Example:**
-
-```
-First message about a topic...
-(Send)
-Second message with more details...
-(Send)
-Third message with conclusion...
-```
-
-**Processing:**
-
-- Bot waits 30 seconds (configurable)
-- Groups related messages
-- Creates single note
-
----
-
-### Send Links
-
-Send article links for processing.
-
-**Example:**
-
-```
-https://arxiv.org/abs/12345
-```
-
-**With Qwen Code CLI:**
-
-- Fetches article content
-- Analyzes and summarizes
-- Extracts key information
-- Saves structured note
-
----
-
-## Command Reference Table
-
-| Command | Arguments | Description | Example |
-|---------|-----------|-------------|---------|
-| `/start` | - | Initialize bot | `/start` |
-| `/help` | - | Show help | `/help` |
-| `/note` | - | Switch to note creation mode | `/note` |
-| `/ask` | - | Switch to question mode | `/ask` |
-| `/agent` | - | Switch to agent mode (full access) | `/agent` |
-| `/setkb` | `<name\|url>` | Setup KB | `/setkb my-notes` |
-| `/kb` | - | Show KB info | `/kb` |
-| `/status` | - | Show statistics and mode | `/status` |
-| `/settings` | - | Settings menu | `/settings` |
-| `/viewsettings` | `[category]` | View settings | `/viewsettings agent` |
-| `/resetsetting` | `<name>` | Reset setting | `/resetsetting AGENT_TIMEOUT` |
-| `/kbsettings` | - | KB settings | `/kbsettings` |
-| `/agentsettings` | - | Agent settings | `/agentsettings` |
-
----
-
-## Tips & Tricks
-
-### Quick Configuration
-
-```
-/settings → Choose category → Select setting → Change value
-```
-
-### View Settings
-
-```
-/viewsettings
-/viewsettings agent
-/viewsettings knowledge_base
-```
-
-### Interactive Changes
-
-```
-/settings
-# Navigate through categories
-# Click on setting to change
-# For boolean: Use Enable/Disable buttons
-# For others: Send new value
-```
-
-### Reset All (Individual)
-
-```
-/resetsetting KB_GIT_AUTO_PUSH
-/resetsetting AGENT_TIMEOUT
-/resetsetting MESSAGE_GROUP_TIMEOUT
-```
-
----
-
-## See Also
-
-- [Settings Management Guide](settings-management.md)
-- [Working with Content](working-with-content.md)
-- [Knowledge Base Setup](knowledge-base-setup.md)
+See also:
+- Settings Management
+- Working with Content
+- Knowledge Base Setup

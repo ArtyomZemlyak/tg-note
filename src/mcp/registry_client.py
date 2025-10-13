@@ -83,7 +83,7 @@ class MCPRegistryClient:
                             config_url = servers[spec.name].get("url")
                 except:
                     pass
-                    
+
             # Create config based on transport type
             if config_url:
                 # HTTP/SSE transport

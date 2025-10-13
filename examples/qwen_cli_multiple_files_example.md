@@ -1,58 +1,57 @@
-# Примеры работы qwen-code CLI агента с множественными файлами
+# Qwen Code CLI agent examples with multiple files
 
-## Пример 1: Статья о новой модели
+## Example 1: Article about a new model
 
-### Входящее сообщение
+### Incoming message
 
 ```
-Пользователь в Telegram:
+User in Telegram:
 
-Переслал статью:
-Claude 3.5 Sonnet - новая модель от Anthropic с улучшенным coding
-и reasoning. Модель превосходит GPT-4 в бенчмарках по программированию
-и показывает отличные результаты в математике.
+Forwarded article:
+Claude 3.5 Sonnet - a new model from Anthropic with improved coding
+and reasoning. The model outperforms GPT-4 in programming benchmarks
+and shows great results in math.
 
 Link: https://www.anthropic.com/news/claude-3-5-sonnet
 ```
 
-### Что делает агент
+### What the agent does
 
-#### Шаг 1: Анализ
+#### Step 1: Analysis
 
 ```
-Агент qwen-code анализирует:
-- Тип: статья о модели
-- Темы:
-  1. Модель Claude 3.5 Sonnet
-  2. Компания Anthropic
+Qwen-code agent analyzes:
+- Type: article about a model
+- Topics:
+  1. Claude 3.5 Sonnet model
+  2. Anthropic company
   3. Coding capabilities
   4. Reasoning capabilities
-  5. Сравнение с GPT-4
+  5. Comparison with GPT-4
 ```
 
-#### Шаг 2: План (TODO)
+#### Step 2: Plan (TODO)
 
 ```markdown
-Агент создаёт план:
+Agent creates a plan:
 
-- [x] Проговорить: язык - РУССКИЙ
-- [x] Определить тип источника: статья о модели
-- [x] Web search: найти информацию об Anthropic
-- [x] Web search: найти информацию о Claude 3.5
-- [x] Определить темы: 4 темы
-- [x] Создать папки: ai/models, companies, ai/capabilities
-- [x] Создать файл: ai/models/claude-3-5-sonnet.md
-- [x] Создать файл: companies/anthropic.md
-- [x] Создать файл: ai/capabilities/coding.md
-- [x] Создать файл: ai/capabilities/reasoning.md
-- [x] Добавить связи между файлами
-- [x] Проверка: всё на русском ✓
+- [x] Language: RUSSIAN
+- [x] Detect source type: model article
+- [x] Web search: find info about Anthropic
+- [x] Web search: find info about Claude 3.5
+- [x] Identify topics: 4 topics
+- [x] Create folders: ai/models, companies, ai/capabilities
+- [x] Create file: ai/models/claude-3-5-sonnet.md
+- [x] Create file: companies/anthropic.md
+- [x] Create file: ai/capabilities/coding.md
+- [x] Create file: ai/capabilities/reasoning.md
+- [x] Add cross-links between files
 ```
 
-#### Шаг 3: Выполнение
+#### Step 3: Execution
 
 ```bash
-# qwen CLI выполняет:
+# qwen CLI performs:
 
 1. folder_create ai/models
 2. folder_create companies
@@ -63,74 +62,68 @@ Link: https://www.anthropic.com/news/claude-3-5-sonnet
 6. file_create ai/capabilities/coding.md
 7. file_create ai/capabilities/reasoning.md
 
-8. file_edit ai/models/claude-3-5-sonnet.md  # Добавить связи
-9. file_edit companies/anthropic.md           # Добавить связи
-10. file_edit ai/capabilities/coding.md       # Добавить связи
-11. file_edit ai/capabilities/reasoning.md    # Добавить связи
+8. file_edit ai/models/claude-3-5-sonnet.md  # Add links
+9. file_edit companies/anthropic.md           # Add links
+10. file_edit ai/capabilities/coding.md       # Add links
+11. file_edit ai/capabilities/reasoning.md    # Add links
 ```
 
-### Созданные файлы
+### Created files
 
 #### `ai/models/claude-3-5-sonnet.md`
 
 ```markdown
 # Claude 3.5 Sonnet
 
-## Описание
-Claude 3.5 Sonnet - языковая модель от Anthropic, выпущенная в 2024 году.
-Представляет улучшенную версию серии Claude 3 с акцентом на программирование
-и логическое мышление.
+## Description
+Claude 3.5 Sonnet is a language model from Anthropic, released in 2024.
+It represents an improved version of the Claude 3 series with a focus
+on programming and logical reasoning.
 
-## Основная информация
+## Main information
 
-### Технические характеристики
-- **Разработчик**: [[companies/anthropic.md|Anthropic]]
-- **Семейство**: Claude 3.x
-- **Версия**: 3.5 Sonnet
-- **Год выпуска**: 2024
+### Technical specs
+- **Developer**: [[companies/anthropic.md|Anthropic]]
+- **Family**: Claude 3.x
+- **Version**: 3.5 Sonnet
+- **Release year**: 2024
 
-### Возможности
+### Capabilities
 
-#### Программирование
-- Превосходная генерация кода
-- Понимание сложных алгоритмов
-- Рефакторинг и оптимизация
-- Debugging и code review
+#### Programming
+- Excellent code generation
+- Understanding complex algorithms
+- Refactoring and optimization
+- Debugging and code review
 
-См. подробнее: [[ai/capabilities/coding.md|Coding возможности AI]]
+See also: [[ai/capabilities/coding.md|Coding capabilities of AI]]
 
 #### Reasoning
-- Улучшенное логическое мышление
-- Решение математических задач
-- Многошаговые рассуждения
+- Improved logical reasoning
+- Solving math problems
+- Multi-step reasoning
 
-См. подробнее: [[ai/capabilities/reasoning.md|Reasoning в AI моделях]]
+See also: [[ai/capabilities/reasoning.md|Reasoning in AI models]]
 
-## Ключевые концепции
-- **Constitutional AI**: Безопасное поведение через принципы
-- **Расширенный контекст**: Поддержка длинных диалогов
-- **Reasoning**: Продвинутые способности к рассуждению
+## Key concepts
+- **Constitutional AI**: Safer behavior through principles
+- **Extended context**: Support for long dialogues
+- **Reasoning**: Advanced reasoning capabilities
 
-## Сравнение с конкурентами
+## Comparison with competitors
 
 ### vs GPT-4
-- ✅ Лучше в программировании (по бенчмаркам)
-- ✅ Лучше в математике
-- ≈ Сопоставимо в общих задачах
+- ✅ Better at programming (benchmarks)
+- ✅ Better at math
+- ≈ Comparable in general tasks
 
-## Примеры применения
-- Помощь в разработке программного обеспечения
-- Code review и оптимизация
-- Обучение программированию
-- Решение сложных математических задач
+## Use cases
+- Software development assistance
+- Code review and optimization
+- Learning programming
+- Solving complex math problems
 
-## Связанные темы
-- [[companies/anthropic.md]] - Разработчик модели
-- [[ai/capabilities/coding.md]] - Coding возможности
-- [[ai/capabilities/reasoning.md]] - Reasoning возможности
-- [[ai/models/gpt4.md]] - Конкурирующая модель
-
-## Источники
+## Sources
 - https://www.anthropic.com/news/claude-3-5-sonnet
 - https://www.anthropic.com/claude
 ```
@@ -140,49 +133,48 @@ Claude 3.5 Sonnet - языковая модель от Anthropic, выпущен
 ```markdown
 # Anthropic
 
-## Описание
-Anthropic - компания по разработке искусственного интеллекта,
-основанная в 2021 году бывшими сотрудниками OpenAI.
-Специализируется на безопасном и надежном AI.
+## Description
+Anthropic is an AI company founded in 2021 by former OpenAI employees.
+Specializes in safe and reliable AI.
 
-## Основная информация
+## Main information
 
-### История
-- **Основана**: 2021
-- **Основатели**: Дарио Амодеи, Даниэла Амодеи и другие ex-OpenAI
-- **Штаб-квартира**: Сан-Франциско, США
+### History
+- **Founded**: 2021
+- **Founders**: Dario Amodei, Daniela Amodei and other ex-OpenAI
+- **HQ**: San Francisco, USA
 
-### Миссия
-Создание надежных, интерпретируемых и управляемых AI систем.
+### Mission
+Build reliable, interpretable, and steerable AI systems.
 
-### Ключевые подходы
-- **Constitutional AI**: Обучение через принципы
-- **Safety-first**: Безопасность как приоритет
-- **Alignment research**: Исследования согласования AI
+### Key approaches
+- **Constitutional AI**: Principle-based learning
+- **Safety-first**: Safety as priority
+- **Alignment research**: AI alignment research
 
-## Продукты
+## Products
 
-### Claude (семейство моделей)
+### Claude (model family)
 - Claude 1 (2022)
 - Claude 2 (2023)
 - Claude 3 (Opus, Sonnet, Haiku) (2024)
 - [[ai/models/claude-3-5-sonnet.md|Claude 3.5 Sonnet]] (2024)
 
 ### API
-- Claude API для разработчиков
-- Интеграция с приложениями
+- Claude API for developers
+- Integration with applications
 
-## Инвестиции
+## Investments
 - Google (2023)
 - Spark Capital
-- Общий объем: $1.5B+
+- Total: $1.5B+
 
-## Связанные темы
-- [[ai/models/claude-3-5-sonnet.md]] - Последняя модель
-- [[ai/safety/constitutional-ai.md]] - Подход к безопасности
-- [[companies/openai.md]] - Конкурент
+## Related topics
+- [[ai/models/claude-3-5-sonnet.md]] — Latest model
+- [[ai/safety/constitutional-ai.md]] — Safety approach
+- [[companies/openai.md]] — Competitor
 
-## Источники
+## Sources
 - https://www.anthropic.com
 - https://www.anthropic.com/company
 ```
@@ -190,57 +182,57 @@ Anthropic - компания по разработке искусственно�
 #### `ai/capabilities/coding.md`
 
 ```markdown
-# Coding возможности AI моделей
+# Coding capabilities of AI models
 
-## Описание
-Обзор возможностей современных AI моделей в области программирования,
-генерации кода и помощи разработчикам.
+## Description
+Overview of modern AI models' capabilities in programming,
+code generation and developer assistance.
 
-## Основная информация
+## Main information
 
-### Типы задач
-1. **Генерация кода**
-   - Написание функций по описанию
-   - Создание целых модулей
-   - Генерация тестов
+### Task types
+1. **Code generation**
+   - Writing functions from description
+   - Creating modules
+   - Test generation
 
 2. **Code understanding**
-   - Объяснение кода
-   - Поиск багов
+   - Explaining code
+   - Finding bugs
    - Code review
 
-3. **Рефакторинг**
-   - Оптимизация кода
-   - Улучшение читаемости
-   - Применение best practices
+3. **Refactoring**
+   - Optimization
+   - Improving readability
+   - Best practices
 
 4. **Debugging**
-   - Поиск ошибок
-   - Предложение исправлений
-   - Объяснение проблем
+   - Finding errors
+   - Proposing fixes
+   - Explaining problems
 
-### Бенчмарки
-- **HumanEval**: Оценка генерации кода
+### Benchmarks
+- **HumanEval**: Code generation
 - **MBPP**: Mostly Basic Python Problems
-- **CodeContests**: Соревновательное программирование
+- **CodeContests**: Competitive programming
 
-## Ключевые модели
+## Key models
 
-### Специализированные
+### Specialized
 - Codex (OpenAI)
 - CodeLlama (Meta)
 - StarCoder (BigCode)
 
-### Универсальные с сильным coding
-- [[ai/models/claude-3-5-sonnet.md|Claude 3.5 Sonnet]] - текущий лидер
+### General with strong coding
+- [[ai/models/claude-3-5-sonnet.md|Claude 3.5 Sonnet]] — current leader
 - GPT-4
 - Gemini 1.5
 
-## Примеры применения
+## Use cases
 
 ### 1. Code generation
 ```python
-# Задача: "Создай функцию для быстрой сортировки"
+# Task: "Create a quicksort function"
 
 def quicksort(arr):
     if len(arr) <= 1:
@@ -254,203 +246,201 @@ def quicksort(arr):
 
 ### 2. Bug finding
 
-Модель может найти ошибки в коде и предложить исправления.
+The model can find bugs and suggest fixes.
 
-### 3. Объяснение кода
+### 3. Explaining code
 
-Модель объясняет что делает код пошагово.
+Step-by-step code explanation.
 
-## Ограничения
+## Limitations
 
-- Не всегда оптимальные решения
-- Могут быть subtle bugs
-- Требуют проверки человеком
+- Not always optimal solutions
+- May contain subtle bugs
+- Requires human review
 
-## Связанные темы
+## Related topics
 
-- [[ai/models/claude-3-5-sonnet.md]] - Сильная coding модель
-- [[ai/capabilities/reasoning.md]] - Reasoning для coding
-- [[tech/tools/github-copilot.md]] - Coding assistant
+- [[ai/models/claude-3-5-sonnet.md]] — Strong coding model
+- [[ai/capabilities/reasoning.md]] — Reasoning for coding
+- [[tech/tools/github-copilot.md]] — Coding assistant
 
-## Источники
+## Sources
 
 - <https://paperswithcode.com/task/code-generation>
 - <https://huggingface.co/spaces/bigcode/bigcode-models-leaderboard>
-
 ```
 
 #### `ai/capabilities/reasoning.md`
 
 ```markdown
-# Reasoning в AI моделях
+# Reasoning in AI models
 
-## Описание
-Способности AI моделей к логическому мышлению, рассуждениям
-и решению сложных задач, требующих многошаговых выводов.
+## Description
+AI models' ability to logical reasoning and solving
+complex problems requiring multi-step thinking.
 
-## Основная информация
+## Main information
 
-### Типы reasoning
-1. **Дедуктивное reasoning**
-   - От общего к частному
-   - Логические выводы
+### Types of reasoning
+1. **Deductive reasoning**
+   - From general to specific
+   - Logical inferences
 
-2. **Индуктивное reasoning**
-   - От частного к общему
-   - Обобщения и паттерны
+2. **Inductive reasoning**
+   - From specific to general
+   - Generalizations and patterns
 
-3. **Абдуктивное reasoning**
-   - Поиск лучшего объяснения
-   - Гипотезы
+3. **Abductive reasoning**
+   - Best explanation search
+   - Hypotheses
 
-4. **Аналогическое reasoning**
-   - Сравнение ситуаций
-   - Применение знаний
+4. **Analogical reasoning**
+   - Comparing situations
+   - Applying knowledge
 
-### Математическое reasoning
-- Решение уравнений
-- Доказательства теорем
-- Текстовые задачи
-- Геометрия
+### Mathematical reasoning
+- Solving equations
+- Proving theorems
+- Word problems
+- Geometry
 
 ### Chain-of-Thought (CoT)
-Техника промптинга для улучшения reasoning:
-- Пошаговое решение
-- Явные рассуждения
-- Промежуточные выводы
+Prompting technique to improve reasoning:
+- Step-by-step reasoning
+- Explicit thoughts
+- Intermediate conclusions
 
-## Модели с сильным reasoning
+## Models with strong reasoning
 
-### Современные лидеры
+### Current leaders
 - [[ai/models/claude-3-5-sonnet.md|Claude 3.5 Sonnet]]
 - GPT-4
 - Gemini 1.5 Pro
 
-### Специализированные
-- AlphaGeometry (математика)
+### Specialized
+- AlphaGeometry (math)
 - MinervaLM (STEM)
 
-## Бенчмарки
+## Benchmarks
 - **GSM8K**: Grade school math
-- **MATH**: Математические задачи
+- **MATH**: Math problems
 - **ARC**: Abstract reasoning
-- **BigBench**: Комплексный тест
+- **BigBench**: Comprehensive test
 
-## Примеры
+## Examples
 
-### Математическая задача
+### Math problem
 ```
-
-Задача: У Джона 5 яблок. Он дал 2 яблока Мэри.
-Мэри дала половину своих яблок Бобу. Сколько яблок у Боба?
+Problem: John has 5 apples. He gave 2 apples to Mary.
+Mary gave half of her apples to Bob. How many apples does Bob have?
 
 Reasoning:
 
-1. У Джона было 5 яблок
-2. Он дал 2 Мэри → у Мэри 2 яблока
-3. Мэри дала половину Бобу → 2/2 = 1
-4. У Боба 1 яблоко
+1. John had 5 apples
+2. He gave 2 to Mary → Mary has 2 apples
+3. Mary gave half to Bob → 2/2 = 1
+4. Bob has 1 apple
 
-Ответ: 1 яблоко
-
+Answer: 1 apple
 ```
 
-### Логическая задача
-Модель может решать задачи на логику с пошаговыми рассуждениями.
+### Logical task
+The model can solve logic problems with step-by-step reasoning.
 
-## Улучшение reasoning
+## Improving reasoning
 
-### Техники промптинга
+### Prompting techniques
 - Chain-of-Thought
 - Self-consistency
 - Tree of Thoughts
 - ReAct (Reasoning + Acting)
 
 ### Fine-tuning
-- На датасетах с reasoning
+- On datasets with reasoning
 - Synthetic data generation
 
-## Связанные темы
-- [[ai/models/claude-3-5-sonnet.md]] - Модель с сильным reasoning
-- [[ai/prompting/chain-of-thought.md]] - CoT техника
-- [[ai/capabilities/coding.md]] - Reasoning для программирования
+## Related topics
 
-## Источники
+- [[ai/models/claude-3-5-sonnet.md]] — Model with strong reasoning
+- [[ai/prompting/chain-of-thought.md]] — CoT technique
+- [[ai/capabilities/coding.md]] — Reasoning for programming
+
+## Sources
 - https://arxiv.org/abs/2201.11903 (Chain-of-Thought paper)
 - https://paperswithcode.com/task/mathematical-reasoning
 ```
 
-### Результат для пользователя
+### Result for the user
 
 ```
-Telegram бот →  Пользователю:
+Telegram bot →  To the user:
 
-✅ Информация добавлена в Базу Знаний!
+✅ Information added to Knowledge Base!
 
-Созданы файлы:
+Created files:
 📄 ai/models/claude-3-5-sonnet.md
 📄 companies/anthropic.md
 📄 ai/capabilities/coding.md
 📄 ai/capabilities/reasoning.md
 
-Темы:
-🏷 AI модели
-🏷 Компании
-🏷 Программирование
-🏷 Логическое мышление
+Topics:
+🏷 AI models
+🏷 Companies
+🏷 Programming
+🏷 Logical reasoning
 
-Файлы связаны между собой для удобной навигации.
+Files are cross-linked for easy navigation.
 ```
 
-## Пример 2: Техническая заметка
+## Example 2: Technical note
 
-### Вход
-
-```
-Пользователь:
-
-Заметка: Попробовал новый подход к RAG - вместо простого
-поиска по векторам, сначала использую LLM для генерации
-поисковых запросов, потом гибридный поиск (векторный + BM25),
-а потом ре-ранкинг результатов. Работает намного лучше!
-
-Можно комбинировать с query expansion и HyDE.
-```
-
-### Выход агента
+### Input
 
 ```
-Созданы файлы:
+User:
+
+Note: Tried a new approach to RAG — instead of simple
+vector search, first use LLM to generate queries,
+then hybrid search (vector + BM25), and then re-ranking.
+Works much better!
+
+Can be combined with query expansion and HyDE.
+```
+
+### Agent output
+
+```
+Created files:
 
 1. ai/rag/advanced-retrieval.md
-   - Продвинутые техники retrieval
-   - Гибридный поиск
-   - Ре-ранкинг
+   - Advanced retrieval techniques
+   - Hybrid search
+   - Re-ranking
 
 2. ai/rag/query-optimization.md
-   - Генерация запросов через LLM
+   - Query generation via LLM
    - Query expansion
    - HyDE (Hypothetical Document Embeddings)
 
 3. tech/search/hybrid-search.md
-   - Векторный поиск
+   - Vector search
    - BM25
-   - Комбинирование подходов
+   - Combining approaches
 
 4. tech/search/reranking.md
-   - Методы ре-ранкинга
-   - Модели для ре-ранкинга
+   - Re-ranking methods
+   - Models for re-ranking
    - Best practices
 
-Все файлы связаны cross-references.
+Files are cross-referenced.
 ```
 
-## Пример 3: Новость из нескольких источников
+## Example 3: News from multiple sources
 
-### Вход
+### Input
 
 ```
-Пользователь (пересылает несколько сообщений):
+User (forwards several messages):
 
 1) Meta released Llama 3.1 with 405B parameters
 2) Supports 128K context window
@@ -458,43 +448,41 @@ Telegram бот →  Пользователю:
 4) Beats GPT-4 on many benchmarks
 ```
 
-### Агент создаёт
+### Agent creates
 
 ```
 1. companies/meta.md
-   - О компании Meta
-   - AI исследования
-   - Open source политика
+   - About Meta
+   - AI research
+   - Open source policy
 
 2. ai/models/llama-3-1.md
-   - Llama 3.1 детали
-   - 405B версия
-   - Бенчмарки
+   - Llama 3.1 details
+   - 405B version
+   - Benchmarks
 
 3. ai/concepts/model-sizes.md
-   - Размеры моделей
-   - 405B параметров
+   - Model sizes
+   - 405B parameters
    - Scaling laws
 
 4. ai/licensing/open-source-models.md
-   - Open source в AI
+   - Open source in AI
    - Llama license
-   - Сравнение лицензий
+   - License comparison
 
 5. ai/context/long-context-models.md
-   - Длинный контекст
-   - 128K токенов
-   - Применения
+   - Long context
+   - 128K tokens
+   - Use cases
 ```
 
 ---
 
-Эти примеры показывают как qwen-code CLI агент **автоматически**:
+These examples show how the qwen-code CLI agent automatically:
 
-- Анализирует информацию
-- Разбивает по темам
-- Создаёт структуру
-- Наполняет файлы
-- Связывает всё вместе
-
-**Всё на русском языке! 🇷🇺**
+- Analyzes information
+- Splits by topics
+- Creates structure
+- Populates files
+- Links everything together

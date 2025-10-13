@@ -152,7 +152,11 @@ class GitOperations:
         if active_branch_name:
             try:
                 tracking = self.repo.active_branch.tracking_branch()  # type: ignore[attr-defined]
-                has_tracking = bool(tracking and tracking.remote_name == remote and tracking.remote_head == target_branch)
+                has_tracking = bool(
+                    tracking
+                    and tracking.remote_name == remote
+                    and tracking.remote_head == target_branch
+                )
             except Exception:
                 has_tracking = False
 

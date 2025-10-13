@@ -9,10 +9,18 @@ directly, for example:
     from src.mcp.qwen_config_generator import setup_qwen_mcp_config
 
 Other components are available under their respective submodules:
-- client: MCPClient, MCPServerConfig
-- registry: registry, manager, registry_client
-- dynamic_mcp_tools: DynamicMCPTool, discover_and_create_mcp_tools
-- memory: memory tools and servers
+ - client: MCPClient, MCPServerConfig
+ - registry: registry, manager, registry_client
+ - dynamic_mcp_tools: DynamicMCPTool, discover_and_create_mcp_tools
+ - memory: memory tools and servers
 """
 
-__all__ = []
+from .dynamic_mcp_tools import DynamicMCPTool, discover_and_create_mcp_tools
+from .tools_description import format_mcp_tools_for_prompt, get_mcp_tools_description
+
+__all__ = [
+    "get_mcp_tools_description",
+    "format_mcp_tools_for_prompt",
+    "DynamicMCPTool",
+    "discover_and_create_mcp_tools",
+]
