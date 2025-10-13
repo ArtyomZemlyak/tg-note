@@ -413,29 +413,47 @@ class MCPServerManager:
         Create ~/.qwen/settings.json for Qwen CLI MCP support
 
         This allows QwenCodeCLIAgent to use MCP servers via Qwen CLI's native MCP client.
+        Also creates universal MCP configs for other LLM clients.
         """
         try:
             from .qwen_config_generator import setup_qwen_mcp_config
+            from .universal_config_generator import UniversalMCPConfigGenerator
 
             logger.info(
-                "[MCPServerManager] Creating Qwen CLI MCP configuration at ~/.qwen/settings.json (HTTP/SSE mode)"
+                "[MCPServerManager] Creating MCP configurations for various clients..."
             )
 
-            # Generate and save configuration (global only, no KB-specific)
-            # HTTP/SSE mode is default (use_http=True)
+            # Detect MCP Hub URL
+            import os
+            mcp_hub_url = os.getenv("MCP_HUB_URL")
+            
+            # Generate and save Qwen CLI configuration
+            logger.info("[MCPServerManager] Creating Qwen CLI config (HTTP/SSE mode)")
             saved_paths = setup_qwen_mcp_config(
                 user_id=None,  # No user-specific config
                 kb_path=None,  # No KB-specific config
                 global_config=True,  # Only global ~/.qwen/settings.json
+                mcp_hub_url=mcp_hub_url,  # Auto-detect Docker or use env var
             )
+            logger.info(f"[MCPServerManager] Qwen CLI config saved to: {saved_paths}")
 
-            logger.info(f"[MCPServerManager] Qwen CLI MCP configuration saved to: {saved_paths}")
+            # Generate universal configs for other clients
+            logger.info("[MCPServerManager] Creating universal MCP configs for other clients")
+            universal_gen = UniversalMCPConfigGenerator(
+                user_id=None,
+                http_port=self.settings.get("MCP_PORT", 8765) if hasattr(self.settings, "get") else 8765,
+                mcp_hub_url=mcp_hub_url,
+            )
+            
+            # Save to data directory for Python clients and custom integrations
+            data_config_path = universal_gen.save_for_data_directory()
+            logger.info(f"[MCPServerManager] Universal config saved to: {data_config_path}")
 
         except Exception as e:
             logger.warning(
-                f"[MCPServerManager] Failed to create Qwen CLI config (non-critical): {e}"
+                f"[MCPServerManager] Failed to create MCP configs (non-critical): {e}"
             )
-            logger.debug(f"[MCPServerManager] Qwen CLI config error details:", exc_info=True)
+            logger.debug(f"[MCPServerManager] MCP config error details:", exc_info=True)
 
     async def auto_start_servers(self) -> Dict[str, bool]:
         """
