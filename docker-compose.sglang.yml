@@ -25,7 +25,7 @@ services:
       - HF_HOME=/root/.cache/huggingface
       - SGLANG_ALLOW_OVERWRITE=1
     volumes:
-      - huggingface-cache:/root/.cache/huggingface
+      - ~/.cache/huggingface:/root/.cache/huggingface
     deploy:
       resources:
         reservations:

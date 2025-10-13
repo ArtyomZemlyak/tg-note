@@ -16,26 +16,47 @@
 version: '3.8'
 
 services:
-  # Remove vllm-server (MLX runs on host)
+  # MLX server (containerized) – CPU-only images available, but MLX
+  # officially targets macOS; for Linux we'll keep host-run mode as default.
+  # If you have a working container, set MEM_AGENT_BACKEND=mlx and use it.
+  mlx-server:
+    image: ghcr.io/ml-explore/mlx-lm:latest
+    container_name: tg-note-mlx
+    command: >
+      python -m mlx_lm.server --model ${MEM_AGENT_MODEL:-driaforall/mem-agent} --port 8001
+    ports:
+      - "${MLX_PORT:-8001}:8001"
+    environment:
+      - HF_HOME=/root/.cache/huggingface
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - tg-note-network
+
+  # Disable vLLM when using MLX override
   vllm-server:
     profiles:
-      - disabled  # This disables the service
+      - disabled
 
-  # Update mcp-hub to connect to host MLX server
+  # Update mcp-hub to connect to mlx-server
   mcp-hub:
     environment:
       - MEM_AGENT_BACKEND=mlx
-      - MEM_AGENT_HOST=host.docker.internal  # Connect to host machine
+      - MEM_AGENT_HOST=mlx-server
       - MEM_AGENT_PORT=8001
-      - MEM_AGENT_BASE_URL=http://host.docker.internal:8001/v1
-    extra_hosts:
-      - "host.docker.internal:host-gateway"  # Allow connecting to host
-    depends_on: []  # Remove dependency on vllm-server
+      # Base URL is constructed internally
+    depends_on:
+      mlx-server:
+        condition: service_healthy
 
-  # Update bot to connect to host MLX server
+  # Bot depends on mcp-hub
   bot:
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     depends_on:
       mcp-hub:
         condition: service_healthy
