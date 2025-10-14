@@ -184,11 +184,15 @@ Path to log file.
 
 ### ALLOWED_USER_IDS
 
-Comma-separated list of allowed Telegram user IDs.
+Whitelist of allowed Telegram user IDs. When set via environment variables, it accepts:
 
-- **Type:** `str`
-- **Default:** `""` (empty = all users allowed)
-- **Example:** `"123456789,987654321"`
+- empty string → allow all users
+- comma-separated string → e.g., `"123456789,987654321"`
+- JSON list → e.g., `[123456789, 987654321]`
+
+- **Type:** `List[int]`
+- **Default:** `[]` (empty list = all users allowed)
+- **Examples:** `"123456789,987654321"` or `[123456789, 987654321]`
 
 ---
 

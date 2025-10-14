@@ -52,7 +52,8 @@ LOG_LEVEL: INFO  # DEBUG, INFO, WARNING, ERROR, CRITICAL
 LOG_FILE: ./logs/bot.log
 
 # Security
-ALLOWED_USER_IDS: ""  # Comma-separated, empty = all allowed
+# Accepts empty (allow all), comma-separated (e.g., "123,456"), or JSON list (e.g., [123,456])
+ALLOWED_USER_IDS: ""  # Empty = all allowed
 ```
 
 ### .env File
@@ -248,10 +249,10 @@ GITHUB_TOKEN=ghp_...
 
 #### ALLOWED_USER_IDS
 
-- **Type:** String (comma-separated)
-- **Default:** `""` (all users allowed)
+- **Type:** List[int] (from env supports: empty, comma-separated, or JSON list)
+- **Default:** `[]` (all users allowed)
 - **Description:** Whitelist of allowed Telegram user IDs
-- **Example:** `12345678,87654321`
+- **Examples:** `"12345678,87654321"` or `[12345678, 87654321]`
 
 #### OPENAI_API_KEY
 
