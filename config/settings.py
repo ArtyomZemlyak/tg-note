@@ -52,6 +52,40 @@ class EnvOverridesSource(PydanticBaseSettingsSource):
     def __init__(self, settings_cls: Type[BaseSettings]):
         super().__init__(settings_cls)
 
+    def get_field_value(self, field_name: str, field_info: Any) -> Tuple[Any, str, bool]:
+        """Return per-field override from environment with robust parsing.
+
+        Only handles `ALLOWED_USER_IDS`; other fields are ignored.
+        """
+        import json
+        import os
+
+        if field_name != "ALLOWED_USER_IDS":
+            return None, field_name, False
+
+        raw_allowed = os.environ.get("ALLOWED_USER_IDS")
+        if raw_allowed is None:
+            return None, field_name, False
+
+        value = raw_allowed.strip()
+        if value == "":
+            return [], field_name, False
+
+        try:
+            if value.startswith("["):
+                parsed = json.loads(value)
+                return [int(x) for x in parsed], field_name, False
+            else:
+                return [int(uid.strip()) for uid in value.split(",") if uid.strip()], field_name, False
+        except Exception:
+            # Fallback to robust comma-splitting
+            return [int(uid.strip()) for uid in value.split(",") if uid.strip()], field_name, False
+
+    def prepare_field_value(
+        self, field_name: str, field: Any, value: Any, value_is_complex: bool
+    ) -> Any:
+        return value
+
     def __call__(self) -> Dict[str, Any]:
         import json
         import os
