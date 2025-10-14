@@ -10,21 +10,9 @@
         "retrieve_memory",
         "list_categories"
       ]
-    },
-    "memory": {
-      "url": "http://127.0.0.1:8765/sse",
-      "timeout": 10000,
-      "trust": true,
-      "description": "MCP Hub - Unified MCP gateway (HTTP/SSE). Provides built-in memory tools: store_memory, retrieve_memory, list_categories.",
-      "tools": [
-        "store_memory",
-        "retrieve_memory",
-        "list_categories"
-      ]
     }
   },
   "allowMCPServers": [
-    "memory",
     "mcp-hub"
   ]
 }

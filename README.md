@@ -478,13 +478,14 @@ Create `.qwen/settings.json` in your KB directory:
 ```json
 {
   "mcpServers": {
-    "mem-agent": {
-      "command": "python",
-      "args": ["-m", "mem_agent.mcp_server"],
-      "cwd": "/path/to/mem-agent",
-      "trust": true
+    "mcp-hub": {
+      "url": "http://127.0.0.1:8765/sse",
+      "timeout": 10000,
+      "trust": true,
+      "description": "MCP Hub - Built-in memory tools and server registry"
     }
-  }
+  },
+  "allowMCPServers": ["mcp-hub"]
 }
 ```
 

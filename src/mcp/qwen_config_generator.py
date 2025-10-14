@@ -60,13 +60,10 @@ class QwenMCPConfigGenerator:
         """
         config: Dict[str, Any] = {"mcpServers": {}}
 
-        # Add Memory server configuration under both aliases for compatibility
+        # Add MCP Hub server configuration (single canonical name)
         memory_config = self._generate_memory_config()
         if memory_config:
-            # Historical alias used in docs/tests
             config["mcpServers"]["mcp-hub"] = memory_config
-            # Canonical name of the server
-            config["mcpServers"]["memory"] = memory_config
 
         # Add other MCP servers here in the future
         # config["mcpServers"]["filesystem"] = ...

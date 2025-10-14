@@ -358,7 +358,7 @@ class TestQwenMCPConfigGenerator:
                 config = json.load(f)
 
             assert "mcpServers" in config
-            assert "memory" in config["mcpServers"]
+            assert "mcp-hub" in config["mcpServers"]
 
     def test_save_to_kb_dir(self, generator):
         """Test saving to KB directory"""
