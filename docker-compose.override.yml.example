@@ -16,7 +16,7 @@ services:
   # mcp-http-server:
   #   ports:
   #     - "9000:8765"
-  # 
+  #
   # vllm-server:
   #   ports:
   #     - "9001:8001"

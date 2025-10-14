@@ -1,43 +1,42 @@
-# Настройка MCP для контейнеризованных развёртываний
+# MCP setup for containerized deployments
 
-Руководство по настройке MCP (Model Context Protocol) серверов для развёртываний в Docker.
+Guide for configuring MCP (Model Context Protocol) servers for Docker deployments.
 
-## Обзор
+## Overview
 
-При запуске в Docker, MCP Hub развёртывается как отдельный контейнер (`mcp-hub`), который взаимодействует с:
-- **Контейнер бота** - Основной Telegram бот с Python MCP клиентами
-- **Qwen CLI** - Запускается внутри контейнера бота или на хост-машине
-- **Другие LLM** - Локально развёрнутые LLM (vLLM, SGLang, LM Studio и т.д.)
+When running in Docker, the MCP Hub runs as a separate container (`mcp-hub`) and interacts with:
+- Bot container — Telegram bot with Python MCP clients
+- Qwen CLI — runs inside the bot container or on the host
+- Other LLMs — local inference backends (vLLM, SGLang, LM Studio, etc.)
 
-## Архитектура
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ Docker окружение                                            │
+│ Docker environment                                          │
 │                                                             │
-│  ┌──────────────┐         ┌──────────────┐                │
-│  │  Контейнер   │ HTTP/SSE│  Контейнер   │                │
-│  │  бота        │────────▶│  MCP Hub     │                │
-│  │              │         │  :8765       │                │
-│  │  - Qwen CLI  │         │              │                │
-│  │  - Python    │         │  - Память    │                │
-│  └──────────────┘         │  - Реестр    │                │
-│                           └──────────────┘                │
+│  ┌──────────────┐         ┌──────────────┐                  │
+│  │     Bot      │ HTTP/SSE│   MCP Hub    │                  │
+│  │              │────────▶│     :8765    │                  │
+│  │  - Qwen CLI  │         │               │                  │
+│  │  - Python    │         │  - Memory     │                  │
+│  └──────────────┘         │  - Registry   │                  │
+│                           └──────────────┘                  │
 │                                  ▲                          │
 │                                  │                          │
 │                                  │ vLLM/SGLang              │
-│                           ┌──────────────┐                │
-│                           │  vLLM        │                │
-│                           │  сервер      │                │
-│                           │  :8001       │                │
-│                           └──────────────┘                │
+│                           ┌──────────────┐                  │
+│                           │    vLLM      │                  │
+│                           │   server     │                  │
+│                           │    :8001     │                  │
+│                           └──────────────┘                  │
 └─────────────────────────────────────────────────────────────┘
                                   ▲
                                   │ HTTP :8765
                                   │
                            ┌──────────────┐
-                           │  Хост        │
-                           │  машина      │
+                           │    Host      │
+                           │   machine    │
                            │              │
                            │  - Qwen CLI  │
                            │  - LM Studio │
@@ -45,72 +44,68 @@
                            └──────────────┘
 ```
 
-## Конфигурация сети
+## Networking
 
-### Внутренняя сеть Docker
+### Docker internal network
 
-Сервисы внутри Docker Compose сети общаются по именам сервисов:
+Services communicate by service names inside Docker Compose network:
 
 ```yaml
 # docker-compose.yml
 services:
   mcp-hub:
     ports:
-      - "8765:8765"  # Доступен на хосте
-    
+      - "8765:8765"  # Exposed to host
+
   bot:
     environment:
-      - MCP_HUB_URL=http://mcp-hub:8765/sse  # Внутри Docker
+      - MCP_HUB_URL=http://mcp-hub:8765/sse  # Inside Docker
 ```
 
-**Внутренние URL:**
+**Internal URLs:**
 - MCP Hub: `http://mcp-hub:8765/sse`
 - vLLM: `http://vllm-server:8001`
 
-### Доступ с хост-машины
+### Access from host
 
-С хост-машины используйте localhost:
+From host use localhost:
 
-**URL для хоста:**
+**Host URLs:**
 - MCP Hub: `http://127.0.0.1:8765/sse`
 - vLLM: `http://127.0.0.1:8001`
 
-## Файлы конфигурации MCP
+## MCP configuration files
 
-### Автоматически генерируемые конфигурации
+### Auto-generated configurations
 
-Система автоматически создаёт конфигурации для разных клиентов:
+The system automatically generates configurations for different clients:
 
-1. **Qwen CLI** - `~/.qwen/settings.json`
-2. **Python клиенты** - `data/mcp_servers/mcp-hub.json`
-3. **Cursor** - `.mcp.json` (корень проекта)
-4. **Claude Desktop** - `~/Library/Application Support/Claude/claude_desktop_config.json`
-5. **LM Studio** - `~/.lmstudio/mcp_config.json`
+1. Qwen CLI — `~/.qwen/settings.json`
+2. Python clients — `data/mcp_servers/mcp-hub.json`
+3. Cursor — `.mcp.json` (project root)
+4. Claude Desktop — `~/Library/Application Support/Claude/claude_desktop_config.json`
+5. LM Studio — `~/.lmstudio/mcp_config.json`
 
-### Определение окружения
+### Environment detection
 
-Генераторы конфигурации автоматически определяют окружение:
+Config generators automatically detect environment:
 
-```python
-# Логика автоопределения:
-1. Проверка файла /.dockerenv (Docker контейнер)
-2. Проверка переменной окружения MCP_HUB_URL
-3. Проверка /proc/1/cgroup на наличие docker
-4. По умолчанию localhost (хост окружение)
-```
+Detection order:
+1. Check environment variable `MCP_HUB_URL`
+2. Default to localhost (host environment)
 
-## Конфигурация для разных сценариев
+## Scenarios
 
-### 1. Qwen CLI внутри контейнера бота
+### 1. Qwen CLI in bot container
 
-Когда Qwen CLI запускается внутри контейнера бота:
+When Qwen CLI runs inside the bot container:
 
-**Окружение:**
+**Environment:**
 ```bash
 MCP_HUB_URL=http://mcp-hub:8765/sse
 ```
 
-**Сгенерированный `~/.qwen/settings.json`:**
+**Generated `~/.qwen/settings.json`:**
 ```json
 {
   "mcpServers": {
@@ -125,11 +120,11 @@ MCP_HUB_URL=http://mcp-hub:8765/sse
 }
 ```
 
-### 2. Qwen CLI на хост-машине
+### 2. Qwen CLI on host
 
-Когда Qwen CLI запускается на хосте:
+When Qwen CLI runs on the host:
 
-**Сгенерированный `~/.qwen/settings.json`:**
+**Generated `~/.qwen/settings.json`:**
 ```json
 {
   "mcpServers": {
@@ -144,58 +139,41 @@ MCP_HUB_URL=http://mcp-hub:8765/sse
 }
 ```
 
-### 3. LM Studio на хосте
+## Manual setup
 
-**Сгенерированный `~/.lmstudio/mcp_config.json`:**
-```json
-{
-  "mcp_servers": {
-    "mcp-hub": {
-      "transport": "http",
-      "url": "http://127.0.0.1:8765/sse",
-      "timeout": 10000,
-      "enabled": true,
-      "description": "MCP Hub - Memory and tool gateway"
-    }
-  }
-}
-```
+### Using universal configuration generator
 
-## Ручная настройка
-
-### Использование универсального генератора конфигураций
-
-Сгенерировать конфигурации для всех поддерживаемых клиентов:
+Generate configurations for all supported clients:
 
 ```bash
-# Внутри контейнера
+# Inside container
 python -m src.mcp.universal_config_generator --all
 
-# На хост-машине
+# On host
 python -m src.mcp.universal_config_generator --all --url http://127.0.0.1:8765/sse
 ```
 
-Сгенерировать конфигурацию для конкретного клиента:
+Generate configuration for a specific client:
 
 ```bash
-# Только Qwen CLI
+# Qwen CLI only
 python -m src.mcp.universal_config_generator --qwen
 
-# Только Cursor
+# Cursor only
 python -m src.mcp.universal_config_generator --cursor
 
-# Только LM Studio
+# LM Studio only
 python -m src.mcp.universal_config_generator --lmstudio
 
-# Директория data (Python клиенты)
+# Data directory (Python clients)
 python -m src.mcp.universal_config_generator --data
 ```
 
-## Аутентификация и безопасность
+## Authentication and security
 
-### API ключи в Docker
+### API keys in Docker
 
-API ключи передаются через переменные окружения и автоматически доступны для Qwen CLI:
+API keys are passed via environment variables and automatically available to Qwen CLI:
 
 ```yaml
 # docker-compose.yml
@@ -208,139 +186,137 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
 ```
 
-### Переменные окружения
+### Environment variables
 
-В файле `.env`:
+In `.env`:
 
 ```bash
-# API ключи
+# API keys
 OPENAI_API_KEY=sk-...
 OPENAI_BASE_URL=https://api.openai.com/v1
 QWEN_API_KEY=...
 ANTHROPIC_API_KEY=...
 
-# Конфигурация MCP (опционально - автоопределяется если не задано)
+# MCP configuration (optional — auto-detected if not provided)
 MCP_HUB_URL=http://mcp-hub:8765/sse
 ```
 
-### Запуск Qwen CLI в контейнере
-
-Qwen CLI внутри контейнера автоматически имеет доступ к переменным окружения:
+### Running Qwen CLI in container
 
 ```bash
-# Войти в контейнер бота
+# Enter bot container
 docker exec -it tg-note-bot bash
 
-# Qwen CLI автоматически использует переменные окружения
-qwen "Проанализируй этот код и сохрани insights в памяти"
+# Qwen CLI will use environment variables automatically
+qwen "Analyze this code and save insights to memory"
 
-# MCP Hub доступен по адресу http://mcp-hub:8765/sse
+# MCP Hub available at http://mcp-hub:8765/sse
 ```
 
-### Запуск Qwen CLI на хосте
+### Running Qwen CLI on host
 
-На хост-машине установите переменные окружения:
+On host set environment variables:
 
 ```bash
-# Экспортировать API ключи
+# Export API keys
 export OPENAI_API_KEY=sk-...
 export OPENAI_BASE_URL=https://api.openai.com/v1
 
-# Запустить qwen CLI
-qwen "Проанализируй этот код и сохрани insights в памяти"
+# Run qwen CLI
+qwen "Analyze this code and save insights to memory"
 
-# MCP Hub доступен по адресу http://127.0.0.1:8765/sse
+# MCP Hub available at http://127.0.0.1:8765/sse
 ```
 
-## Обновление аутентификации
+## Auth updates
 
-При ротации API ключей:
+When rotating API keys:
 
-1. **Обновить файл `.env`:**
+1. Update `.env`:
    ```bash
    vim .env
-   # Обновить OPENAI_API_KEY=...
+   # Update OPENAI_API_KEY=...
    ```
 
-2. **Перезапустить контейнеры:**
+2. Restart containers:
    ```bash
    docker-compose restart bot
    ```
 
-3. **Проверить доступ к MCP:**
+3. Check MCP health:
    ```bash
    curl http://127.0.0.1:8765/health
    ```
 
-Не нужно перегенерировать конфигурации MCP - аутентификация обрабатывается отдельно через переменные окружения.
+No need to regenerate MCP configs — authentication is handled via environment variables.
 
-## Диагностика проблем
+## Troubleshooting
 
-### MCP Hub недоступен
+### MCP Hub is unreachable
 
-**Из контейнера бота:**
+**From bot container:**
 ```bash
 docker exec -it tg-note-bot bash
 curl http://mcp-hub:8765/health
 ```
 
-**С хоста:**
+**From host:**
 ```bash
 curl http://127.0.0.1:8765/health
 ```
 
-### Проверка конфигурации MCP
+### Inspect MCP configuration
 
-**Конфигурация Qwen CLI:**
+**Qwen CLI config:**
 ```bash
 cat ~/.qwen/settings.json
 ```
 
-**Конфигурация Python клиентов:**
+**Python client config:**
 ```bash
 cat data/mcp_servers/mcp-hub.json
 ```
 
-### Перегенерация конфигураций
+### Regenerate configs
 
-**Внутри контейнера бота:**
+**Inside bot container:**
 ```bash
 docker exec -it tg-note-bot python -m src.mcp.universal_config_generator --all
 ```
 
-**На хосте:**
+**On host:**
 ```bash
 python -m src.mcp.universal_config_generator --all --url http://127.0.0.1:8765/sse
 ```
 
-### Проверка логов
+### Logs
 
-**Логи MCP Hub:**
+**MCP Hub logs:**
 ```bash
 docker logs tg-note-hub
-# или
+# or
 tail -f logs/mcp_hub.log
 ```
 
-**Логи бота:**
+**Bot logs:**
 ```bash
 docker logs tg-note-bot
-# или
+# or
 tail -f logs/bot.log
 ```
 
-## Ответы на ваши вопросы
+## FAQ
 
-### Как должны выглядеть MCP JSON конфиги?
+### What should MCP JSON configs look like?
 
-**Для Qwen CLI (`~/.qwen/settings.json`):**
+**Qwen CLI (`~/.qwen/settings.json`):**
 ```json
 {
   "mcpServers": {
     "mcp-hub": {
-      "url": "http://mcp-hub:8765/sse",  // В Docker
-      // или
-      "url": "http://127.0.0.1:8765/sse", // На хосте
+      "url": "http://mcp-hub:8765/sse",  // In Docker
+      // or
+      "url": "http://127.0.0.1:8765/sse", // On host
       "timeout": 10000,
       "trust": true
     }
@@ -349,12 +325,12 @@ tail -f logs/bot.log
 }
 ```
 
-**Для общих MCP серверов (`data/mcp_servers/mcp-hub.json`):**
+**Generic MCP servers (`data/mcp_servers/mcp-hub.json`):**
 ```json
 {
   "mcpServers": {
     "mcp-hub": {
-      "url": "http://mcp-hub:8765/sse",  // Автоопределяется
+      "url": "http://mcp-hub:8765/sse",
       "timeout": 10000,
       "trust": true,
       "description": "MCP Hub - Memory tools"
@@ -363,51 +339,44 @@ tail -f logs/bot.log
 }
 ```
 
-### Как Qwen CLI запускается в контейнерах?
+### How does Qwen CLI run in containers?
 
-1. **Qwen CLI установлен в контейнере бота** (через Dockerfile.bot)
-2. **Переменные окружения пробрасываются** через docker-compose.yml:
+1. Qwen CLI is installed in bot container (via Dockerfile.bot)
+2. Environment variables are passed via docker-compose.yml:
    ```yaml
    bot:
      environment:
        - OPENAI_API_KEY=${OPENAI_API_KEY}
        - MCP_HUB_URL=http://mcp-hub:8765/sse
    ```
-3. **Конфигурация MCP генерируется автоматически** при старте бота
-4. **Qwen CLI использует сгенерированную конфигурацию** из `~/.qwen/settings.json`
+3. MCP config is generated automatically on bot startup
+4. Qwen CLI uses generated config from `~/.qwen/settings.json`
 
-### Как работает аутентификация?
+### How does authentication work?
 
-1. **API ключи хранятся в `.env`** - никогда не в конфигурациях MCP
-2. **Docker автоматически пробрасывает** переменные окружения в контейнеры
-3. **Qwen CLI читает ключи** из переменных окружения автоматически
-4. **При обновлении ключей** - просто рестарт контейнеров, без изменения конфигов
+1. API keys are stored in `.env` — never in MCP configs
+2. Docker passes environment variables to containers
+3. Qwen CLI reads keys from environment automatically
+4. When keys change — just restart containers, no config changes required
 
-### Доступ для других локальных LLM
+### Access for other local LLMs
 
-Для других локальных LLM (например, запущенных через LM Studio, Ollama с MCP поддержкой):
+For other local LLMs (e.g., LM Studio, Ollama with MCP support):
 
 ```bash
-# Сгенерировать конфигурации для всех клиентов
+# Generate configs for all clients
 python -m src.mcp.universal_config_generator --all --url http://127.0.0.1:8765/sse
 
-# Или для конкретного клиента
+# Or for a specific client
 python -m src.mcp.universal_config_generator --lmstudio --url http://127.0.0.1:8765/sse
 ```
 
-Это создаст конфигурационные файлы с правильными URL для доступа с хост-машины.
+This creates configuration files with correct URLs for host access.
 
-## Лучшие практики
+## Best practices
 
-1. **Используйте переменные окружения** - Храните все секреты в `.env`, никогда в конфигах
-2. **Автоопределение окружения** - Позвольте системе автоматически определять Docker vs хост
-3. **Регенерация при развёртывании** - MCP конфигурации автогенерируются при старте контейнеров
-4. **Единообразие портов** - Держите MCP Hub на порту 8765 для консистентности
-5. **Проверки здоровья** - Используйте `/health` эндпоинт для проверки работы MCP Hub
-
-## Ссылки
-
-- [MCP Configuration Format](../agents/mcp-config-format.md)
-- [MCP Tools Documentation](../agents/mcp-tools.md)
-- [Qwen CLI Documentation](../agents/qwen-code-cli.md)
-- [Docker Deployment](./docker.md)
+1. Use environment variables — store secrets in `.env`, never in configs
+2. Environment detection — let the system detect Docker vs host
+3. Regenerate on deploy — MCP configs are auto-generated on container start
+4. Consistent ports — keep MCP Hub on port 8765
+5. Health checks — use `/health` endpoint to verify MCP Hub

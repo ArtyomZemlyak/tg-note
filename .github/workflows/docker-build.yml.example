@@ -21,7 +21,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-    
+
     strategy:
       matrix:
         include:
@@ -34,7 +34,7 @@ jobs:
           - dockerfile: Dockerfile.vllm
             image: vllm
             platforms: linux/amd64
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -81,11 +81,11 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request'
-    
+
     strategy:
       matrix:
         image: [bot, mcp, vllm]
-    
+
     steps:
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master

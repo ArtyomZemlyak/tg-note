@@ -7,7 +7,6 @@ from loguru import logger
 from telebot.async_telebot import AsyncTeleBot
 
 from config import settings
-from src.mcp.server_manager import MCPServerManager
 from src.bot.settings_manager import SettingsManager, UserSettingsStorage
 from src.bot.telegram_adapter import TelegramBotAdapter
 from src.bot.telegram_bot import TelegramBot
@@ -15,6 +14,7 @@ from src.core.background_task_manager import BackgroundTaskManager
 from src.core.container import Container
 from src.knowledge_base.repository import RepositoryManager
 from src.knowledge_base.user_settings import UserSettings
+from src.mcp.server_manager import MCPServerManager
 from src.services.agent_task_service import AgentTaskService
 from src.services.conversation_context import ConversationContextManager
 from src.services.message_processor import MessageProcessor

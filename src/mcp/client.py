@@ -48,7 +48,7 @@ class MCPServerConfig:
     cwd: Optional[Path] = None
     transport: str = "stdio"  # "stdio" or "sse" (HTTP Server-Sent Events)
     url: Optional[str] = None  # URL for SSE transport (e.g., "http://127.0.0.1:8765/sse")
-    
+
     def __post_init__(self):
         if self.args is None:
             self.args = []
@@ -80,13 +80,13 @@ class MCPClient:
             args=["@example/mcp-server"],
             transport="stdio"
         )
-        
+
     Example (HTTP/SSE - for Docker deployments):
         config = MCPServerConfig(
             transport="sse",
             url="http://mcp-hub:8765/sse"
         )
-        
+
     client = MCPClient(config)
     await client.connect()
     """
@@ -121,7 +121,7 @@ class MCPClient:
             logger.error(f"[MCPClient] Failed to connect: {e}", exc_info=True)
             await self.disconnect()
             return False
-            
+
     async def _connect_stdio(self) -> bool:
         """Connect via stdio transport"""
         logger.info(f"[MCPClient] Connecting to MCP server (stdio): {self.config.command}")
@@ -148,17 +148,17 @@ class MCPClient:
 
         # Initialize connection
         return await self._initialize()
-        
+
     async def _connect_sse(self) -> bool:
         """Connect via HTTP/SSE transport"""
         logger.info(f"[MCPClient] Connecting to MCP server (SSE): {self.config.url}")
-        
+
         # Create aiohttp session
         self.session = aiohttp.ClientSession()
-        
+
         # Initialize connection
         return await self._initialize()
-        
+
     async def _initialize(self) -> bool:
         """Initialize MCP connection (common for both transports)"""
         # Send initialize request
@@ -174,9 +174,7 @@ class MCPClient:
         )
 
         if not init_response or "error" in init_response:
-            error = (
-                init_response.get("error", "Unknown error") if init_response else "No response"
-            )
+            error = init_response.get("error", "Unknown error") if init_response else "No response"
             raise RuntimeError(f"Failed to initialize: {error}")
 
         # Send initialized notification
@@ -195,9 +193,7 @@ class MCPClient:
                 )
                 for tool in tools_list
             ]
-            logger.info(
-                f"[MCPClient] ✓ Connected. Available tools: {[t.name for t in self.tools]}"
-            )
+            logger.info(f"[MCPClient] ✓ Connected. Available tools: {[t.name for t in self.tools]}")
 
         self.is_connected = True
         return True
@@ -211,7 +207,7 @@ class MCPClient:
             except:
                 self.process.kill()
             self.process = None
-            
+
         if self.session:
             await self.session.close()
             self.session = None
@@ -422,8 +418,10 @@ class MCPClient:
             return await self._send_request_http(method, params)
         else:
             return await self._send_request_stdio(method, params)
-            
-    async def _send_request_stdio(self, method: str, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+
+    async def _send_request_stdio(
+        self, method: str, params: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
         """Send request via stdio transport"""
         if not self.process or not self.process.stdin or not self.process.stdout:
             return None
@@ -448,8 +446,10 @@ class MCPClient:
         except Exception as e:
             logger.error(f"[MCPClient] stdio request failed: {e}", exc_info=True)
             return None
-            
-    async def _send_request_http(self, method: str, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+
+    async def _send_request_http(
+        self, method: str, params: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
         """Send request via HTTP/SSE transport"""
         if not self.session:
             return None
@@ -459,14 +459,12 @@ class MCPClient:
 
         try:
             async with self.session.post(
-                self.config.url,
-                json=request,
-                timeout=aiohttp.ClientTimeout(total=30)
+                self.config.url, json=request, timeout=aiohttp.ClientTimeout(total=30)
             ) as response:
                 if response.status != 200:
                     logger.error(f"[MCPClient] HTTP request failed with status {response.status}")
                     return None
-                
+
                 result = await response.json()
                 return result
 
@@ -488,7 +486,7 @@ class MCPClient:
             await self._send_notification_http(method, params)
         else:
             await self._send_notification_stdio(method, params)
-            
+
     async def _send_notification_stdio(
         self, method: str, params: Optional[Dict[str, Any]] = None
     ) -> None:
@@ -504,7 +502,7 @@ class MCPClient:
             self.process.stdin.flush()
         except Exception as e:
             logger.error(f"[MCPClient] stdio notification failed: {e}", exc_info=True)
-            
+
     async def _send_notification_http(
         self, method: str, params: Optional[Dict[str, Any]] = None
     ) -> None:
@@ -516,9 +514,7 @@ class MCPClient:
 
         try:
             await self.session.post(
-                self.config.url,
-                json=notification,
-                timeout=aiohttp.ClientTimeout(total=5)
+                self.config.url, json=notification, timeout=aiohttp.ClientTimeout(total=5)
             )
         except Exception as e:
             logger.error(f"[MCPClient] HTTP notification failed: {e}", exc_info=True)

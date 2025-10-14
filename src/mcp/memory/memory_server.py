@@ -79,16 +79,18 @@ class MemoryMCPServer:
         Args:
             user_id: User ID for per-user storage (required)
         """
-        logger.info("="*80)
+        logger.info("=" * 80)
         logger.info("🚀 INITIALIZING MCP MEMORY SERVER (STDIO)")
-        logger.info("="*80)
-        
+        logger.info("=" * 80)
+
         # User-specific storage directory
         # Each user must have their own isolated memory
         if not user_id:
             logger.error("❌ user_id is required for memory storage")
-            raise ValueError("user_id is required for memory storage. Shared memory is not allowed.")
-        
+            raise ValueError(
+                "user_id is required for memory storage. Shared memory is not allowed."
+            )
+
         self.user_id = user_id
         logger.info(f"✓ User ID: {user_id}")
 
@@ -108,10 +110,14 @@ class MemoryMCPServer:
         # Log all relevant environment variables
         logger.info("")
         logger.info("📋 Configuration:")
-        logger.info(f"  - MEM_AGENT_STORAGE_TYPE: {os.getenv('MEM_AGENT_STORAGE_TYPE', 'json (default)')}")
+        logger.info(
+            f"  - MEM_AGENT_STORAGE_TYPE: {os.getenv('MEM_AGENT_STORAGE_TYPE', 'json (default)')}"
+        )
         logger.info(f"  - MEM_AGENT_MODEL: {os.getenv('MEM_AGENT_MODEL', 'not set')}")
         logger.info(f"  - MEM_AGENT_BACKEND: {os.getenv('MEM_AGENT_BACKEND', 'auto (default)')}")
-        logger.info(f"  - MEM_AGENT_MAX_TOOL_TURNS: {os.getenv('MEM_AGENT_MAX_TOOL_TURNS', '20 (default)')}")
+        logger.info(
+            f"  - MEM_AGENT_MAX_TOOL_TURNS: {os.getenv('MEM_AGENT_MAX_TOOL_TURNS', '20 (default)')}"
+        )
         logger.info("")
 
         # Create storage using factory or legacy wrapper
@@ -121,7 +127,7 @@ class MemoryMCPServer:
             try:
                 model_name = os.getenv("MEM_AGENT_MODEL", None)
                 backend = os.getenv("MEM_AGENT_BACKEND", "auto")
-                
+
                 if model_name:
                     logger.info(f"  📦 Model: {model_name}")
                     logger.info(f"  🎮 Backend: {backend}")
@@ -147,7 +153,7 @@ class MemoryMCPServer:
 
         logger.info("")
         logger.info("✅ MCP Memory Server initialized successfully")
-        logger.info("="*80)
+        logger.info("=" * 80)
 
     async def handle_list_tools(self) -> List[Dict[str, Any]]:
         """
@@ -230,7 +236,7 @@ class MemoryMCPServer:
         Returns:
             Tool result as MCP content
         """
-        logger.info("="*60)
+        logger.info("=" * 60)
         logger.info(f"🔧 TOOL CALL: {name}")
         logger.info(f"📥 Arguments: {json.dumps(arguments, ensure_ascii=False, indent=2)}")
 
@@ -240,7 +246,7 @@ class MemoryMCPServer:
                 logger.debug(f"  Content length: {len(arguments.get('content', ''))} chars")
                 logger.debug(f"  Category: {arguments.get('category', 'general')}")
                 logger.debug(f"  Tags: {arguments.get('tags', [])}")
-                
+
                 result = self.storage.store(
                     content=arguments.get("content", ""),
                     category=arguments.get("category", "general"),
@@ -255,24 +261,34 @@ class MemoryMCPServer:
                 logger.debug(f"  Query: {arguments.get('query', 'all')}")
                 logger.debug(f"  Category: {arguments.get('category', 'any')}")
                 logger.debug(f"  Limit: {arguments.get('limit', 10)}")
-                
+
                 result = self.storage.retrieve(
                     query=arguments.get("query"),
                     category=arguments.get("category"),
                     tags=arguments.get("tags"),
                     limit=arguments.get("limit", 10),
                 )
-                count = result.get('count', 0)
+                count = result.get("count", 0)
                 logger.info(f"✅ Retrieve successful: found {count} memories")
                 if count > 0:
-                    logger.debug(f"📤 First result preview: {str(result.get('memories', [{}])[0])[:200]}...")
+                    logger.debug(
+                        f"📤 First result preview: {str(result.get('memories', [{}])[0])[:200]}..."
+                    )
 
             elif name == "list_categories":
                 logger.info("📋 Executing list_categories...")
                 result = self.storage.list_categories()
-                categories = result.get('categories', {})
-                logger.info(f"✅ Categories retrieved: {len(categories)} categories")
-                logger.debug(f"📤 Categories: {list(categories.keys())}")
+                categories = result.get("categories", [])
+                # categories is a list of {name,count} dicts in JsonMemoryStorage
+                num_categories = len(categories) if isinstance(categories, list) else 0
+                logger.info(f"✅ Categories retrieved: {num_categories} categories")
+                try:
+                    category_names = (
+                        [c.get("name") for c in categories] if isinstance(categories, list) else []
+                    )
+                    logger.debug(f"📤 Categories: {category_names}")
+                except Exception:
+                    pass
 
             else:
                 logger.warning(f"❌ Unknown tool requested: {name}")
@@ -281,17 +297,17 @@ class MemoryMCPServer:
             # Return as MCP content
             response = [{"type": "text", "text": json.dumps(result, ensure_ascii=False, indent=2)}]
             logger.info(f"📤 Response prepared (length: {len(response[0]['text'])} chars)")
-            logger.info("="*60)
+            logger.info("=" * 60)
             return response
 
         except Exception as e:
-            logger.error("="*60)
+            logger.error("=" * 60)
             logger.error(f"❌ TOOL EXECUTION ERROR: {name}")
             logger.error(f"Error type: {type(e).__name__}")
             logger.error(f"Error message: {str(e)}")
             logger.error(f"Arguments were: {json.dumps(arguments, ensure_ascii=False, indent=2)}")
-            logger.error("="*60, exc_info=True)
-            
+            logger.error("=" * 60, exc_info=True)
+
             error_result = {
                 "success": False,
                 "error": str(e),
@@ -374,14 +390,14 @@ class MemoryMCPServer:
 
         Reads JSON-RPC requests from stdin, sends responses to stdout
         """
-        logger.info("="*60)
+        logger.info("=" * 60)
         logger.info("MCP Memory Server started (stdio transport)")
-        logger.info("="*60)
+        logger.info("=" * 60)
         logger.info(f"Ready to accept requests for user_id={self.user_id}")
         logger.info(f"Storage type: {os.getenv('MEM_AGENT_STORAGE_TYPE', 'json')}")
         logger.info(f"Backend: {os.getenv('MEM_AGENT_BACKEND', 'auto')}")
         logger.info(f"Model: {os.getenv('MEM_AGENT_MODEL', 'default')}")
-        logger.info("="*60)
+        logger.info("=" * 60)
 
         # Send initialization notification
         init_notification = {"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}}

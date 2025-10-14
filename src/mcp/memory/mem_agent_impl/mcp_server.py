@@ -32,7 +32,7 @@ if not logger._core.handlers:
         backtrace=True,
         diagnose=True,
     )
-    
+
     logger.add(
         log_dir / "mem_agent_mcp_server_errors.log",
         format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} | {message}",
@@ -70,17 +70,17 @@ def get_agent(
     key = memory_path or "default"
 
     if key not in _agent_instances:
-        logger.info("="*60)
+        logger.info("=" * 60)
         logger.info(f"🤖 CREATING NEW MEM-AGENT INSTANCE")
         logger.info(f"  Memory path: {memory_path or 'default'}")
         logger.info(f"  Use vLLM: {use_vllm}")
         logger.info(f"  Model: {model or 'default from settings'}")
-        logger.info("="*60)
-        
+        logger.info("=" * 60)
+
         _agent_instances[key] = Agent(
             memory_path=memory_path, use_vllm=use_vllm, model=model, predetermined_memory_path=False
         )
-        
+
         logger.info(f"✅ Agent instance created successfully")
     else:
         logger.debug(f"♻️ Reusing existing agent instance for key: {key}")
@@ -109,13 +109,13 @@ async def chat_with_memory(question: str, memory_path: Optional[str] = None) -> 
         >>> await chat_with_memory("What's my favorite color?")
         "According to my memory, your favorite color is blue."
     """
-    logger.info("="*60)
+    logger.info("=" * 60)
     logger.info("💬 CHAT_WITH_MEMORY called")
     logger.info(f"  Question length: {len(question)} chars")
     logger.info(f"  Question preview: {question[:200]}...")
     logger.info(f"  Memory path: {memory_path or 'default'}")
-    logger.info("="*60)
-    
+    logger.info("=" * 60)
+
     try:
         # Get or create agent instance
         agent = get_agent(memory_path=memory_path)
@@ -133,9 +133,9 @@ async def chat_with_memory(question: str, memory_path: Optional[str] = None) -> 
         return result
 
     except Exception as e:
-        logger.error("="*60)
+        logger.error("=" * 60)
         logger.error(f"❌ Error in chat_with_memory: {e}")
-        logger.error("="*60, exc_info=True)
+        logger.error("=" * 60, exc_info=True)
         return f"Error communicating with memory agent: {str(e)}"
 
 
@@ -158,13 +158,13 @@ async def query_memory(query: str, memory_path: Optional[str] = None) -> str:
         >>> await query_memory("What do you know about my work?")
         "You work at Acme Corp as a senior engineer..."
     """
-    logger.info("="*60)
+    logger.info("=" * 60)
     logger.info("🔍 QUERY_MEMORY called")
     logger.info(f"  Query length: {len(query)} chars")
     logger.info(f"  Query: {query[:200]}...")
     logger.info(f"  Memory path: {memory_path or 'default'}")
-    logger.info("="*60)
-    
+    logger.info("=" * 60)
+
     try:
         # Prefix the query to indicate we only want retrieval
         retrieval_query = f"Please search your memory and tell me: {query}. Do not add any new information to memory."
@@ -180,9 +180,9 @@ async def query_memory(query: str, memory_path: Optional[str] = None) -> str:
         return result
 
     except Exception as e:
-        logger.error("="*60)
+        logger.error("=" * 60)
         logger.error(f"❌ Error in query_memory: {e}")
-        logger.error("="*60, exc_info=True)
+        logger.error("=" * 60, exc_info=True)
         return f"Error querying memory: {str(e)}"
 
 
@@ -203,7 +203,7 @@ async def save_to_memory(information: str, memory_path: Optional[str] = None) ->
         "I've saved that information to memory."
     """
     logger.info(f"save_to_memory called with information: {information[:100]}...")
-    
+
     try:
         save_instruction = f"Please save the following information to memory: {information}"
 
@@ -241,7 +241,7 @@ async def list_memory_structure(memory_path: Optional[str] = None) -> str:
             └── google.md
     """
     logger.info(f"list_memory_structure called for memory_path={memory_path}")
-    
+
     try:
         list_instruction = "Please show me the current structure of your memory using list_files()."
 
@@ -267,14 +267,14 @@ def run_server(host: str = "127.0.0.1", port: int = 8766):
         host: Host to bind to (default: 127.0.0.1)
         port: Port to bind to (default: 8766)
     """
-    logger.info("="*80)
+    logger.info("=" * 80)
     logger.info("🚀 STARTING MEM-AGENT MCP SERVER")
-    logger.info("="*80)
+    logger.info("=" * 80)
     logger.info(f"  🏗️  Host: {host}")
     logger.info(f"  🔌 Port: {port}")
     logger.info(f"  👥 Mode: Multi-user (per-memory-path storage)")
-    logger.info("="*80)
-    
+    logger.info("=" * 80)
+
     print(f"🚀 Starting mem-agent MCP server on {host}:{port}")
     try:
         logger.info(f"▶️  Server listening on http://{host}:{port}/sse")
@@ -282,9 +282,9 @@ def run_server(host: str = "127.0.0.1", port: int = 8766):
     except KeyboardInterrupt:
         logger.info("🛑 Server stopped by user")
     except Exception as e:
-        logger.error("="*60)
+        logger.error("=" * 60)
         logger.error(f"❌ Error running MCP server: {e}")
-        logger.error("="*60, exc_info=True)
+        logger.error("=" * 60, exc_info=True)
         raise
 
 

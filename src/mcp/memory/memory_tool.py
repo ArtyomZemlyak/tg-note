@@ -172,9 +172,7 @@ class MemoryMCPTool(BaseMCPTool):
                 # stdio transport (has "command" and "args" fields)
                 return MCPServerConfig(
                     command=memory_config.get("command", "python3"),
-                    args=memory_config.get(
-                        "args", ["-m", "src.mcp.memory.memory_server"]
-                    ),
+                    args=memory_config.get("args", ["-m", "src.mcp.memory.memory_server"]),
                     env=memory_config.get("env", {}),
                     cwd=Path(memory_config["cwd"]) if memory_config.get("cwd") else None,
                     transport="stdio",
@@ -224,10 +222,7 @@ class MemoryMCPTool(BaseMCPTool):
         # Get user_id from context (required for per-user isolation)
         user_id = getattr(context, "user_id", None)
         if not user_id:
-            return {
-                "success": False,
-                "error": "user_id is required but not provided in context"
-            }
+            return {"success": False, "error": "user_id is required but not provided in context"}
 
         action = params.get("action", "")
         content = params.get("content", "")

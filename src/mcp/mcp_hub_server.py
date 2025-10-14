@@ -94,7 +94,7 @@ _registry: Optional[MCPServerRegistry] = None
 def get_registry() -> MCPServerRegistry:
     """
     Get or create global MCP server registry
-    
+
     Returns:
         MCPServerRegistry instance
     """
@@ -103,7 +103,9 @@ def get_registry() -> MCPServerRegistry:
         servers_dir = Path("data/mcp_servers")
         _registry = MCPServerRegistry(servers_dir, user_id=None)
         _registry.discover_servers()
-        logger.info(f"📋 Registry initialized: {len(_registry.get_all_servers())} servers discovered")
+        logger.info(
+            f"📋 Registry initialized: {len(_registry.get_all_servers())} servers discovered"
+        )
     return _registry
 
 
@@ -121,12 +123,12 @@ def get_storage(user_id: int) -> MemoryStorage:
     if user_id in _storages:
         logger.debug(f"♻️ Reusing existing storage for user {user_id}")
         return _storages[user_id]
-    
+
     # Create new storage for this user
-    logger.info("="*60)
+    logger.info("=" * 60)
     logger.info(f"🚀 INITIALIZING STORAGE FOR USER {user_id}")
-    logger.info("="*60)
-    
+    logger.info("=" * 60)
+
     data_dir = Path(f"data/memory/user_{user_id}")
     logger.info(f"📁 Data directory: {data_dir.absolute()}")
 
@@ -134,11 +136,13 @@ def get_storage(user_id: int) -> MemoryStorage:
     # Can be "json", "vector", or "mem-agent"
     storage_type = os.getenv("MEM_AGENT_STORAGE_TYPE", "json")
     logger.info(f"💾 Storage type: {storage_type}")
-    
+
     # Log all relevant environment variables
     logger.info("")
     logger.info("📋 Configuration:")
-    logger.info(f"  - MEM_AGENT_STORAGE_TYPE: {os.getenv('MEM_AGENT_STORAGE_TYPE', 'json (default)')}")
+    logger.info(
+        f"  - MEM_AGENT_STORAGE_TYPE: {os.getenv('MEM_AGENT_STORAGE_TYPE', 'json (default)')}"
+    )
     logger.info(f"  - MEM_AGENT_MODEL: {os.getenv('MEM_AGENT_MODEL', 'not set')}")
     logger.info(f"  - MEM_AGENT_BACKEND: {os.getenv('MEM_AGENT_BACKEND', 'auto (default)')}")
     logger.info("")
@@ -150,7 +154,7 @@ def get_storage(user_id: int) -> MemoryStorage:
         try:
             model_name = os.getenv("MEM_AGENT_MODEL", None)
             backend = os.getenv("MEM_AGENT_BACKEND", "auto")
-            
+
             if model_name:
                 logger.info(f"  📦 Model: {model_name}")
                 logger.info(f"  🎮 Backend: {backend}")
@@ -165,14 +169,14 @@ def get_storage(user_id: int) -> MemoryStorage:
             )
             logger.info(f"✅ Successfully created {storage_type} storage for user {user_id}")
             _storages[user_id] = storage
-            logger.info("="*60)
+            logger.info("=" * 60)
             return storage
         except Exception as e:
             logger.error(f"❌ Failed to create {storage_type} storage: {e}", exc_info=True)
             logger.warning("⚠️  Falling back to JSON storage")
             storage = MemoryStorage(data_dir)
             _storages[user_id] = storage
-            logger.info("="*60)
+            logger.info("=" * 60)
             return storage
     else:
         # Use legacy wrapper for JSON (default)
@@ -180,13 +184,14 @@ def get_storage(user_id: int) -> MemoryStorage:
         storage = MemoryStorage(data_dir)
         _storages[user_id] = storage
         logger.info(f"✅ JSON storage created successfully for user {user_id}")
-        logger.info("="*60)
+        logger.info("=" * 60)
         return storage
 
 
 # ============================================================================
 # Health Check Endpoint
 # ============================================================================
+
 
 @mcp.custom_route("/health", methods=["GET"])
 async def health_check(request):
@@ -203,7 +208,7 @@ async def health_check(request):
             },
             "storage": {
                 "active_users": len(_storages),
-            }
+            },
         }
     except Exception as e:
         logger.error(f"❌ Exception in health check endpoint: {e}", exc_info=True)
@@ -212,7 +217,7 @@ async def health_check(request):
             "service": "mcp-hub",
             "version": "1.0.0",
             "error": str(e),
-            "error_type": type(e).__name__
+            "error_type": type(e).__name__,
         }
 
 
@@ -220,13 +225,14 @@ async def health_check(request):
 # Memory Tools - Built-in MCP Tools
 # ============================================================================
 
+
 @mcp.tool()
 def store_memory(
-    content: str, 
+    content: str,
     user_id: int,
-    category: str = "general", 
-    tags: list[str] = None, 
-    metadata: dict = None
+    category: str = "general",
+    tags: list[str] = None,
+    metadata: dict = None,
 ) -> dict:
     """
     Store information in memory for later retrieval
@@ -247,7 +253,7 @@ def store_memory(
     logger.info(f"  Content length: {len(content)} chars")
     logger.debug(f"  Content preview: {content[:200]}...")
     logger.debug(f"  Tags: {tags}")
-    
+
     try:
         storage = get_storage(user_id)
     except Exception as e:
@@ -268,11 +274,7 @@ def store_memory(
 
 @mcp.tool()
 def retrieve_memory(
-    user_id: int,
-    query: str = None, 
-    category: str = None, 
-    tags: list[str] = None, 
-    limit: int = 10
+    user_id: int, query: str = None, category: str = None, tags: list[str] = None, limit: int = 10
 ) -> dict:
     """
     Retrieve information from memory
@@ -293,7 +295,7 @@ def retrieve_memory(
     logger.info(f"  Category: {category or 'any'}")
     logger.info(f"  Tags: {tags}")
     logger.info(f"  Limit: {limit}")
-    
+
     try:
         storage = get_storage(user_id)
     except Exception as e:
@@ -302,7 +304,7 @@ def retrieve_memory(
 
     try:
         result = storage.retrieve(query=query, category=category, tags=tags, limit=limit)
-        count = result.get('count', 0)
+        count = result.get("count", 0)
         logger.info(f"✅ Retrieve successful: found {count} memories")
         if count > 0:
             logger.debug(f"  First result preview: {str(result.get('memories', [{}])[0])[:200]}...")
@@ -325,7 +327,7 @@ def list_categories(user_id: int) -> dict:
     """
     logger.info("📋 LIST_CATEGORIES called")
     logger.info(f"  User: {user_id}")
-    
+
     try:
         storage = get_storage(user_id)
     except Exception as e:
@@ -334,7 +336,7 @@ def list_categories(user_id: int) -> dict:
 
     try:
         result = storage.list_categories()
-        categories = result.get('categories', {})
+        categories = result.get("categories", {})
         logger.info(f"✅ Categories retrieved: {len(categories)} categories")
         logger.debug(f"  Categories: {list(categories.keys())}")
         return result
@@ -347,24 +349,25 @@ def list_categories(user_id: int) -> dict:
 # Registry Tools - MCP Server Management
 # ============================================================================
 
+
 @mcp.tool()
 def list_mcp_servers(user_id: int = None) -> dict:
     """
     List all registered MCP servers
-    
+
     Args:
         user_id: Optional user ID for user-specific servers
-    
+
     Returns:
         List of registered servers with their status
     """
     logger.info("📋 LIST_MCP_SERVERS called")
     logger.info(f"  User: {user_id or 'global'}")
-    
+
     try:
         registry = get_registry()
         servers = registry.get_all_servers()
-        
+
         result = {
             "success": True,
             "total": len(servers),
@@ -376,12 +379,12 @@ def list_mcp_servers(user_id: int = None) -> dict:
                     "command": spec.command,
                 }
                 for spec in servers
-            ]
+            ],
         }
-        
+
         logger.info(f"✅ Listed {len(servers)} servers")
         return result
-        
+
     except Exception as e:
         logger.error(f"❌ Error listing servers: {e}", exc_info=True)
         return {"success": False, "error": str(e)}
@@ -391,22 +394,22 @@ def list_mcp_servers(user_id: int = None) -> dict:
 def get_mcp_server(name: str) -> dict:
     """
     Get details of a specific MCP server
-    
+
     Args:
         name: Server name
-    
+
     Returns:
         Server details
     """
     logger.info(f"🔍 GET_MCP_SERVER called: {name}")
-    
+
     try:
         registry = get_registry()
         spec = registry.get_server(name)
-        
+
         if not spec:
             return {"success": False, "error": f"Server '{name}' not found"}
-        
+
         result = {
             "success": True,
             "server": {
@@ -417,12 +420,12 @@ def get_mcp_server(name: str) -> dict:
                 "args": spec.args,
                 "env": spec.env or {},
                 "working_dir": spec.working_dir,
-            }
+            },
         }
-        
+
         logger.info(f"✅ Retrieved server: {name}")
         return result
-        
+
     except Exception as e:
         logger.error(f"❌ Error getting server: {e}", exc_info=True)
         return {"success": False, "error": str(e)}
@@ -436,11 +439,11 @@ def register_mcp_server(
     args: list[str],
     env: dict = None,
     working_dir: str = None,
-    enabled: bool = True
+    enabled: bool = True,
 ) -> dict:
     """
     Register a new MCP server
-    
+
     Args:
         name: Server name (unique identifier)
         description: Human-readable description
@@ -449,15 +452,15 @@ def register_mcp_server(
         env: Environment variables (optional)
         working_dir: Working directory (optional)
         enabled: Whether to enable the server
-    
+
     Returns:
         Success status
     """
     logger.info(f"➕ REGISTER_MCP_SERVER called: {name}")
-    
+
     try:
         registry = get_registry()
-        
+
         spec = MCPServerSpec(
             name=name,
             description=description,
@@ -467,15 +470,15 @@ def register_mcp_server(
             working_dir=working_dir,
             enabled=enabled,
         )
-        
+
         success = registry.add_server(spec)
-        
+
         if success:
             logger.info(f"✅ Registered server: {name}")
             return {"success": True, "message": f"Server '{name}' registered successfully"}
         else:
             return {"success": False, "error": f"Server '{name}' already exists"}
-        
+
     except Exception as e:
         logger.error(f"❌ Error registering server: {e}", exc_info=True)
         return {"success": False, "error": str(e)}
@@ -485,24 +488,24 @@ def register_mcp_server(
 def enable_mcp_server(name: str) -> dict:
     """
     Enable an MCP server
-    
+
     Args:
         name: Server name
-    
+
     Returns:
         Success status
     """
     logger.info(f"✅ ENABLE_MCP_SERVER called: {name}")
-    
+
     try:
         registry = get_registry()
         success = registry.enable_server(name)
-        
+
         if success:
             return {"success": True, "message": f"Server '{name}' enabled"}
         else:
             return {"success": False, "error": f"Server '{name}' not found"}
-        
+
     except Exception as e:
         logger.error(f"❌ Error enabling server: {e}", exc_info=True)
         return {"success": False, "error": str(e)}
@@ -512,24 +515,24 @@ def enable_mcp_server(name: str) -> dict:
 def disable_mcp_server(name: str) -> dict:
     """
     Disable an MCP server
-    
+
     Args:
         name: Server name
-    
+
     Returns:
         Success status
     """
     logger.info(f"❌ DISABLE_MCP_SERVER called: {name}")
-    
+
     try:
         registry = get_registry()
         success = registry.disable_server(name)
-        
+
         if success:
             return {"success": True, "message": f"Server '{name}' disabled"}
         else:
             return {"success": False, "error": f"Server '{name}' not found"}
-        
+
     except Exception as e:
         logger.error(f"❌ Error disabling server: {e}", exc_info=True)
         return {"success": False, "error": str(e)}
@@ -538,6 +541,7 @@ def disable_mcp_server(name: str) -> dict:
 # ============================================================================
 # Main Entry Point
 # ============================================================================
+
 
 def main():
     """Main entry point"""
@@ -555,9 +559,9 @@ def main():
 
     args = parser.parse_args()
 
-    logger.info("="*80)
+    logger.info("=" * 80)
     logger.info("🚀 STARTING MCP HUB SERVER")
-    logger.info("="*80)
+    logger.info("=" * 80)
     logger.info("")
     logger.info("🔧 Server Configuration:")
     logger.info(f"  🏗️  Host: {args.host}")
@@ -575,15 +579,21 @@ def main():
     logger.info(f"  - Model: {os.getenv('MEM_AGENT_MODEL', 'default')}")
     logger.info("")
     logger.info("📋 Environment Variables:")
-    logger.info(f"  - MEM_AGENT_STORAGE_TYPE: {os.getenv('MEM_AGENT_STORAGE_TYPE', 'not set (default: json)')}")
+    logger.info(
+        f"  - MEM_AGENT_STORAGE_TYPE: {os.getenv('MEM_AGENT_STORAGE_TYPE', 'not set (default: json)')}"
+    )
     logger.info(f"  - MEM_AGENT_MODEL: {os.getenv('MEM_AGENT_MODEL', 'not set')}")
-    logger.info(f"  - MEM_AGENT_BACKEND: {os.getenv('MEM_AGENT_BACKEND', 'not set (default: auto)')}")
-    logger.info(f"  - MEM_AGENT_MAX_TOOL_TURNS: {os.getenv('MEM_AGENT_MAX_TOOL_TURNS', 'not set (default: 20)')}")
+    logger.info(
+        f"  - MEM_AGENT_BACKEND: {os.getenv('MEM_AGENT_BACKEND', 'not set (default: auto)')}"
+    )
+    logger.info(
+        f"  - MEM_AGENT_MAX_TOOL_TURNS: {os.getenv('MEM_AGENT_MAX_TOOL_TURNS', 'not set (default: 20)')}"
+    )
     logger.info("")
     logger.info("ℹ️  Notes:")
     logger.info("  - User storage: data/memory/user_{user_id}/")
     logger.info("  - Server configs: data/mcp_servers/*.json")
-    logger.info("="*80)
+    logger.info("=" * 80)
 
     # Initialize registry
     get_registry()

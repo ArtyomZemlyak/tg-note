@@ -394,10 +394,8 @@ class AutonomousAgent(BaseAgent):
             return ""
 
         try:
-            from src.mcp.tools_description import (
-                format_mcp_tools_for_prompt,
-                get_mcp_tools_description,
-            )
+            # Import from src.mcp top-level so tests can monkeypatch
+            from src.mcp import format_mcp_tools_for_prompt, get_mcp_tools_description
 
             # Get tools description
             tools_desc = await get_mcp_tools_description(user_id=self.user_id)

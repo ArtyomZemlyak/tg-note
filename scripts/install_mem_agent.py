@@ -24,8 +24,8 @@ import argparse
 import json
 import os
 import platform
-import subprocess
 import shutil
+import subprocess
 import sys
 import tomllib
 from pathlib import Path
@@ -259,10 +259,14 @@ def main():
         print("     ./scripts/lms_load_mem_agent.sh")
         print("   - Or manually:")
         print("     ./scripts/run_lmstudio_model.sh")
-        print("   - This sets MEM_AGENT_BASE_URL=http://127.0.0.1:1234/v1 and MEM_AGENT_OPENAI_API_KEY=lm-studio")
+        print(
+            "   - This sets MEM_AGENT_BASE_URL=http://127.0.0.1:1234/v1 and MEM_AGENT_OPENAI_API_KEY=lm-studio"
+        )
     else:
         print("2. Start the containerized backend (vLLM) as per docker-compose setup")
-        print("   - Ensure the server is reachable on MEM_AGENT_HOST:MEM_AGENT_PORT or set MEM_AGENT_BASE_URL")
+        print(
+            "   - Ensure the server is reachable on MEM_AGENT_HOST:MEM_AGENT_PORT or set MEM_AGENT_BASE_URL"
+        )
     print("3. Start the bot - MCP server will be auto-configured and started")
     print("4. Agent's notes are stored per-user inside your KB path (memory/)")
     print("\n")

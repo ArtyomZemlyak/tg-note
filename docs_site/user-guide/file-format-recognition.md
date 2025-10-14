@@ -1,73 +1,66 @@
-# Распознавание форматов файлов
+# File format recognition
 
-## Обзор
+## Overview
 
-tg-note теперь поддерживает автоматическое распознавание и обработку различных форматов файлов с помощью библиотеки [Docling](https://github.com/DS4SD/docling). Когда вы отправляете файл боту, система автоматически извлекает текстовое содержимое и интегрирует его в вашу базу знаний.
+tg-note supports automatic recognition and processing of various file formats using [Docling](https://github.com/DS4SD/docling). When you send a file to the bot, the system automatically extracts text content and integrates it into your knowledge base.
 
-## Поддерживаемые форматы
+## Supported formats
 
-### Документы
+### Documents
+- PDF (`.pdf`)
+- Word (`.docx`)
+- PowerPoint (`.pptx`)
+- Excel (`.xlsx`)
 
-- **PDF** (`.pdf`) - PDF документы с текстом и изображениями
-- **Word** (`.docx`) - Microsoft Word документы
-- **PowerPoint** (`.pptx`) - Microsoft PowerPoint презентации
-- **Excel** (`.xlsx`) - Microsoft Excel таблицы
+### Text files
+- Markdown (`.md`)
+- HTML (`.html`)
+- Plain Text (`.txt`)
 
-### Текстовые файлы
+### Images
+- JPEG (`.jpg`, `.jpeg`)
+- PNG (`.png`)
+- TIFF (`.tiff`)
 
-- **Markdown** (`.md`) - Markdown файлы
-- **HTML** (`.html`) - HTML документы
-- **Plain Text** (`.txt`) - Обычные текстовые файлы
+## How it works
 
-### Изображения
+### Automatic processing
+1. Send a file to the bot (attachment or forwarded)
+2. The bot downloads the file to a temporary directory
+3. Docling processes the file and extracts text
+4. The content is merged with the message text for analysis
+5. The result is saved to the knowledge base
 
-- **JPEG** (`.jpg`, `.jpeg`) - JPEG изображения
-- **PNG** (`.png`) - PNG изображения
-- **TIFF** (`.tiff`) - TIFF изображения
-
-## Как это работает
-
-### Автоматическая обработка
-
-1. **Отправьте файл** боту (как вложение или пересланное сообщение)
-2. **Бот скачивает файл** во временную директорию
-3. **Docling обрабатывает файл** и извлекает текстовое содержимое
-4. **Содержимое добавляется** к тексту сообщения для анализа агентом
-5. **Результат сохраняется** в базу знаний
-
-### Пример использования
-
+### Example
 ```
-# Просто отправьте файл боту
-# Бот автоматически:
-# 1. Определит формат файла
-# 2. Извлечет содержимое
-# 3. Проанализирует с помощью AI агента
-# 4. Сохранит в базу знаний с правильной структурой
+# Just send a file to the bot
+# The bot will:
+# 1. Detect file format
+# 2. Extract content
+# 3. Analyze with the AI agent
+# 4. Save to the KB with proper structure
 ```
 
-## Архитектура
+## Architecture
 
-### Компоненты
+### Components
+1. `FileProcessor` (`src/processor/file_processor.py`)
+   - Manages file processing
+   - Docling integration
+   - Telegram file download
+   - Temporary storage
 
-1. **FileProcessor** (`src/processor/file_processor.py`)
-   - Управляет обработкой файлов
-   - Интеграция с Docling
-   - Скачивание файлов из Telegram
-   - Временное хранилище файлов
+2. `ContentParser` (`src/processor/content_parser.py`)
+   - Adds `parse_group_with_files()`
+   - Merges file content with message text
+   - Async processing
 
-2. **ContentParser** (`src/processor/content_parser.py`)
-   - Расширен методом `parse_group_with_files()`
-   - Интегрирует содержимое файлов с текстом сообщения
-   - Поддерживает асинхронную обработку
+3. `BotHandlers` (`src/bot/handlers.py`)
+   - Uses new method to process files
+   - Supports documents and photos
+   - Automatic temp files cleanup
 
-3. **BotHandlers** (`src/bot/handlers.py`)
-   - Использует новый метод для обработки файлов
-   - Поддерживает документы и фотографии
-   - Автоматическая очистка временных файлов
-
-### Процесс обработки
-
+### Processing flow
 ```
 ┌─────────────────┐
 │ Telegram Message│
@@ -105,110 +98,88 @@ tg-note теперь поддерживает автоматическое ра�
 └─────────────────┘
 ```
 
-## Установка
+## Installation
 
-### Требования
-
-Docling автоматически устанавливается как зависимость:
+Docling is installed as a dependency.
 
 ```bash
-# Установка с Poetry
+# Poetry
 poetry install
 
-# Или с pip
-pip install -r requirements.txt
+# Or pip
+pip install -e "."
 ```
 
-### Проверка установки
-
-Чтобы проверить, что Docling установлен правильно:
+### Verify installation
 
 ```python
 from src.processor.file_processor import FileProcessor
 
 processor = FileProcessor()
 if processor.is_available():
-    print("Docling доступен!")
-    print(f"Поддерживаемые форматы: {processor.get_supported_formats()}")
+    print("Docling available!")
+    print(f"Supported formats: {processor.get_supported_formats()}")
 else:
-    print("Docling недоступен")
+    print("Docling not available")
 ```
 
-## Примеры использования
+## Examples
 
-### Обработка PDF документа
-
+### PDF document
 ```
-1. Отправьте PDF файл боту
-2. Бот ответит: "🔄 Обрабатываю сообщение..."
-3. После обработки вы получите уведомление с деталями:
-   ✅ Сообщение успешно обработано и сохранено!
-   📁 Файл: research-paper-2024-10-04.md
-   📂 Категория: science/research
-   🏷 Теги: pdf, research, ai
-```
-
-### Обработка изображения с текстом
-
-```
-1. Отправьте изображение (например, скриншот или фото документа)
-2. Docling извлечет текст с изображения
-3. Текст будет проанализирован и сохранен в базу знаний
+1. Send a PDF file
+2. Bot replies: "🔄 Processing message..."
+3. After processing you get details:
+   ✅ Saved successfully!
+   📁 File: research-paper-2024-10-04.md
+   📂 Category: science/research
+   🏷 Tags: pdf, research, ai
 ```
 
-### Пакетная обработка файлов
-
+### Image with text
 ```
-1. Отправьте несколько файлов подряд
-2. Бот сгруппирует их (в течение 30 секунд)
-3. Все файлы будут обработаны и объединены в одну заметку
+1. Send an image (screenshot or document photo)
+2. Docling extracts text from the image
+3. The text is analyzed and saved to the KB
 ```
 
-## Обработка ошибок
+### Multiple files
+```
+1. Send multiple files in a row
+2. Bot groups them (30 seconds)
+3. All files are processed and merged into one note
+```
 
-### Неподдерживаемый формат
+## Error handling
 
-Если файл не поддерживается, бот:
+### Unsupported format
+- The bot still tries to extract text
+- Processes the rest of the message content
+- Does not abort processing
 
-- Все равно попытается извлечь текст (если это возможно)
-- Обработает остальное содержимое сообщения
-- Не прервет обработку всего сообщения
+### File processing error
+- Error is logged
+- User can be notified (optional)
+- Other content is still processed
 
-### Ошибка обработки файла
+### Temporary files
+- Temporary directories are created
+- Files are cleaned up after processing
+- Exceptions on cleanup are handled
 
-В случае ошибки при обработке файла:
+## Settings
 
-- Ошибка логируется в журнал
-- Пользователь получает уведомление (опционально)
-- Остальное содержимое сообщения все равно обрабатывается
+File format recognition works out of the box. You can customize:
 
-### Временные файлы
-
-Система автоматически:
-
-- Создает временные директории для файлов
-- Очищает файлы после обработки
-- Обрабатывает исключения при очистке
-
-## Настройки
-
-Распознавание форматов файлов работает автоматически без дополнительных настроек. Однако, вы можете настроить:
-
-### Таймаут для группировки сообщений
-
+### Message grouping timeout
 ```yaml
 # config.yaml
-MESSAGE_GROUP_TIMEOUT: 30  # секунды
+MESSAGE_GROUP_TIMEOUT: 30  # seconds
 ```
 
-Это влияет на то, как долго бот ждет перед обработкой группы файлов.
+## Advanced usage
 
-## Расширенное использование
-
-### Программный доступ
-
-Вы можете использовать `FileProcessor` напрямую в своем коде:
-
+### Programmatic access
 ```python
 from pathlib import Path
 from src.processor.file_processor import FileProcessor
@@ -217,97 +188,79 @@ async def process_my_file():
     processor = FileProcessor()
 
     if not processor.is_available():
-        print("Docling недоступен")
+        print("Docling not available")
         return
 
     result = await processor.process_file(Path("my_document.pdf"))
 
     if result:
-        print(f"Извлечено {len(result['text'])} символов")
-        print(f"Метаданные: {result['metadata']}")
-        print(f"Текст: {result['text'][:100]}...")
+        print(f"Extracted {len(result['text'])} chars")
+        print(f"Metadata: {result['metadata']}")
+        print(f"Text: {result['text'][:100]}...")
 ```
 
-### Интеграция с агентами
-
-Содержимое файлов автоматически добавляется к контексту для AI агентов:
-
+### Agent integration
 ```python
-# В content_parser.py
+# in content_parser.py
 content = await self.content_parser.parse_group_with_files(group, bot=self.bot)
 
-# content['text'] теперь содержит:
-# - Текст сообщения
-# - Содержимое всех прикрепленных файлов
-# - Метаданные файлов
+# content['text'] contains:
+# - Message text
+# - Extracted file content
+# - File metadata
 ```
 
-## Производительность
+## Performance
 
-### Оптимизация
+### Optimization
+- Async IO for file operations
+- Temporary files cleaned automatically
+- Sequential but efficient handling of multiple files
 
-- **Асинхронная обработка**: Все операции с файлами выполняются асинхронно
-- **Временные файлы**: Файлы хранятся временно и автоматически удаляются
-- **Параллельная обработка**: Несколько файлов в одном сообщении обрабатываются последовательно, но эффективно
+### Telegram limits
+- Max file size: 20 MB (bots)
+- Files hosted by Telegram temporarily
+- Download speed depends on network
 
-### Ограничения Telegram
+## Debugging
 
-- Максимальный размер файла: 20 МБ (для ботов)
-- Файлы хранятся на серверах Telegram ограниченное время
-- Скорость скачивания зависит от сети
-
-## Отладка
-
-### Логирование
-
-Включите подробное логирование для отладки:
-
+Enable detailed logging:
 ```yaml
 # config.yaml
 LOG_LEVEL: DEBUG
 ```
 
-Это покажет:
+You will see:
+- File download progress
+- Docling results
+- Errors and warnings
+- Cleanup operations
 
-- Процесс скачивания файлов
-- Результаты обработки Docling
-- Ошибки и предупреждения
-- Операции очистки
-
-### Проверка работы Docling
-
+### Check Docling
 ```python
 import logging
 logging.basicConfig(level=logging.DEBUG)
-
 from src.processor.file_processor import FileProcessor
 
 processor = FileProcessor()
-print(f"Docling доступен: {processor.is_available()}")
-print(f"Поддерживаемые форматы: {processor.get_supported_formats()}")
+print(f"Docling available: {processor.is_available()}")
+print(f"Supported: {processor.get_supported_formats()}")
 ```
 
-## Известные проблемы
+## Known issues
+- Large files (>10 MB) may take longer
+- Low-quality images reduce OCR quality
+- Complex PDF layout may require extra processing
 
-1. **Большие файлы**: Очень большие файлы (>10 МБ) могут требовать больше времени для обработки
-2. **Изображения низкого качества**: OCR может не работать идеально на изображениях низкого качества
-3. **Сложная верстка**: Некоторые PDF с сложной версткой могут требовать дополнительной обработки
-
-## Поддержка
-
-Для получения помощи:
-
-- 📖 [Документация](https://artyomzemlyak.github.io/tg-note/)
-- 🐛 [Сообщить об ошибке](https://github.com/ArtyomZemlyak/tg-note/issues)
-- 💬 [Обсуждения](https://github.com/ArtyomZemlyak/tg-note/discussions)
+## Support
+- Docs: https://artyomzemlyak.github.io/tg-note/
+- Issues: https://github.com/ArtyomZemlyak/tg-note/issues
+- Discussions: https://github.com/ArtyomZemlyak/tg-note/discussions
 
 ## Roadmap
-
-Планируемые улучшения:
-
-- ✅ Базовая поддержка файлов (реализовано)
-- 🚧 Поддержка аудио и видео файлов
-- 📋 Улучшенное извлечение таблиц
-- 📋 Поддержка архивов (.zip, .tar.gz)
-- 📋 Batch processing для множества файлов
-- 📋 Кэширование обработанных файлов
+- ✅ Basic file support
+- 🚧 Audio/video files
+- 📋 Better table extraction
+- 📋 Archive support (.zip, .tar.gz)
+- 📋 Batch processing
+- 📋 Caching

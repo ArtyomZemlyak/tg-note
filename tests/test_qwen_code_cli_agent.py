@@ -2,7 +2,7 @@
 Tests for Qwen Code CLI Agent
 """
 
-from unittest.mock import AsyncMock, MagicMock, mock_open, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, mock_open, patch
 
 import pytest
 

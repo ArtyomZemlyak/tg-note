@@ -57,7 +57,7 @@ services:
   mcp-hub:
     ports:
       - "8765:8765"  # Exposed to host
-    
+
   bot:
     environment:
       - MCP_HUB_URL=http://mcp-hub:8765/sse  # Docker internal

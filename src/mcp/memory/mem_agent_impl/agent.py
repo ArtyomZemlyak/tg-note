@@ -25,7 +25,7 @@ if not logger._core.handlers:
         backtrace=True,
         diagnose=True,
     )
-    
+
     logger.add(
         log_dir / "mem_agent_errors.log",
         format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} | {message}",
@@ -71,10 +71,10 @@ class Agent:
         model: Optional[str] = None,
         predetermined_memory_path: bool = False,
     ):
-        logger.info("="*80)
+        logger.info("=" * 80)
         logger.info("🤖 INITIALIZING MEM-AGENT")
-        logger.info("="*80)
-        
+        logger.info("=" * 80)
+
         # Load the system prompt and add it to the conversation history
         logger.info("📜 Loading system prompt...")
         self.system_prompt = load_system_prompt()
@@ -131,10 +131,10 @@ class Agent:
         # Ensure memory_path is absolute for consistency
         self.memory_path = os.path.abspath(self.memory_path)
         logger.info(f"  Absolute memory path: {self.memory_path}")
-        
+
         logger.info("")
         logger.info("✅ MEM-AGENT INITIALIZED SUCCESSFULLY")
-        logger.info("="*80)
+        logger.info("=" * 80)
 
     def _ensure_local_server(self) -> None:
         """Ensure a local OpenAI-compatible server is running and export MEM_AGENT_BASE_URL.
@@ -149,16 +149,16 @@ class Agent:
         from urllib.request import urlopen
 
         system = platform.system().lower()
-        logger.info("="*60)
+        logger.info("=" * 60)
         logger.info(f"🔍 ENSURING LOCAL SERVER (system={system})")
-        logger.info("="*60)
+        logger.info("=" * 60)
 
         # Prefer vLLM on Linux, MLX on macOS
         if system == "linux":
             host, port = MEM_AGENT_HOST, MEM_AGENT_PORT
             base_url = f"http://{host}:{port}/v1"
             logger.debug(f"Checking vLLM server at {base_url}")
-            
+
             # Quick reachability check
             try:
                 urlopen(f"{base_url}/models", timeout=0.5)
@@ -170,21 +170,25 @@ class Agent:
 
             # Try to start vLLM server in background
             logger.info(f"Starting vLLM server at {host}:{port} with model {MEM_AGENT_MODEL}")
-            
+
             # Create log file for vLLM server
             vllm_log_file = log_dir / "vllm_server.log"
             vllm_error_file = log_dir / "vllm_server_errors.log"
-            
+
             try:
                 # Open log files (keep them open for the subprocess)
                 log_f = open(vllm_log_file, "a")
                 err_f = open(vllm_error_file, "a")
-                
-                log_f.write(f"\n=== vLLM server startup at {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
-                err_f.write(f"\n=== vLLM server startup at {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
+
+                log_f.write(
+                    f"\n=== vLLM server startup at {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n"
+                )
+                err_f.write(
+                    f"\n=== vLLM server startup at {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n"
+                )
                 log_f.flush()
                 err_f.flush()
-                
+
                 subprocess.Popen(
                     [
                         sys.executable,
@@ -201,7 +205,7 @@ class Agent:
                     stderr=err_f,
                 )
                 logger.info("vLLM server process started, waiting for it to be ready...")
-                
+
                 # Give it a brief moment to come up
                 for i in range(10):
                     time.sleep(0.5)
@@ -213,8 +217,10 @@ class Agent:
                     except URLError:
                         logger.debug(f"Waiting for vLLM server... ({i+1}/10)")
                         continue
-                
-                logger.warning(f"vLLM server did not become ready after 5 seconds. Check {vllm_error_file}")
+
+                logger.warning(
+                    f"vLLM server did not become ready after 5 seconds. Check {vllm_error_file}"
+                )
             except Exception as e:
                 # Fall back silently; create_openai_client will use defaults
                 logger.error(f"Failed to start vLLM server: {e}", exc_info=True)
@@ -225,7 +231,7 @@ class Agent:
             host, port = MEM_AGENT_HOST, MEM_AGENT_PORT
             base_url = f"http://{host}:{port}/v1"
             logger.debug(f"Checking MLX server at {base_url}")
-            
+
             try:
                 urlopen(f"{base_url}/models", timeout=0.5)
                 logger.info(f"MLX server already running at {base_url}")
@@ -236,21 +242,25 @@ class Agent:
 
             # Use model from MEM_AGENT_MODEL setting
             logger.info(f"Starting MLX server at {host}:{port} with model {MEM_AGENT_MODEL}")
-            
+
             # Create log file for MLX server
             mlx_log_file = log_dir / "mlx_server.log"
             mlx_error_file = log_dir / "mlx_server_errors.log"
-            
+
             try:
                 # Open log files (keep them open for the subprocess)
                 log_f = open(mlx_log_file, "a")
                 err_f = open(mlx_error_file, "a")
-                
-                log_f.write(f"\n=== MLX server startup at {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
-                err_f.write(f"\n=== MLX server startup at {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
+
+                log_f.write(
+                    f"\n=== MLX server startup at {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n"
+                )
+                err_f.write(
+                    f"\n=== MLX server startup at {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n"
+                )
                 log_f.flush()
                 err_f.flush()
-                
+
                 subprocess.Popen(
                     [
                         sys.executable,
@@ -267,7 +277,7 @@ class Agent:
                     stderr=err_f,
                 )
                 logger.info("MLX server process started, waiting for it to be ready...")
-                
+
                 for i in range(10):
                     time.sleep(0.5)
                     try:
@@ -278,8 +288,10 @@ class Agent:
                     except URLError:
                         logger.debug(f"Waiting for MLX server... ({i+1}/10)")
                         continue
-                
-                logger.warning(f"MLX server did not become ready after 5 seconds. Check {mlx_error_file}")
+
+                logger.warning(
+                    f"MLX server did not become ready after 5 seconds. Check {mlx_error_file}"
+                )
             except Exception as e:
                 logger.error(f"Failed to start MLX server: {e}", exc_info=True)
                 logger.info("Will attempt to use OpenRouter or configured OpenAI endpoint instead")
@@ -319,15 +331,15 @@ class Agent:
         Returns:
             The response from the agent.
         """
-        logger.info("="*80)
+        logger.info("=" * 80)
         logger.info("💬 MEM-AGENT CHAT STARTED")
-        logger.info("="*80)
+        logger.info("=" * 80)
         logger.info(f"  Message length: {len(message)} chars")
         logger.info(f"  Message preview: {message[:200]}...")
         logger.info(f"  Memory path: {self.memory_path}")
         logger.info(f"  Model: {self.model}")
-        logger.info("="*80)
-        
+        logger.info("=" * 80)
+
         try:
             # Add the user message to the conversation history
             logger.debug("📝 Adding user message to history")
@@ -343,9 +355,9 @@ class Agent:
             )
             logger.info(f"✅ Model response received: {len(response)} chars")
         except Exception as e:
-            logger.error("="*60)
+            logger.error("=" * 60)
             logger.error(f"❌ Error getting model response: {e}")
-            logger.error("="*60, exc_info=True)
+            logger.error("=" * 60, exc_info=True)
             raise
 
         # Extract the thoughts, reply and python code from the response
@@ -353,7 +365,9 @@ class Agent:
         thoughts, reply, python_code = self.extract_response_parts(response)
         logger.info(f"  Thoughts: {'Yes' if thoughts else 'No'} ({len(thoughts or '')} chars)")
         logger.info(f"  Reply: {'Yes' if reply else 'No'} ({len(reply or '')} chars)")
-        logger.info(f"  Python code: {'Yes' if python_code else 'No'} ({len(python_code or '')} chars)")
+        logger.info(
+            f"  Python code: {'Yes' if python_code else 'No'} ({len(python_code or '')} chars)"
+        )
 
         # Execute the code from the agent's response
         result = ({}, "")
@@ -383,15 +397,15 @@ class Agent:
         remaining_tool_turns = self.max_tool_turns
         tool_turn = 0
         logger.info(f"🔄 Starting tool execution loop (max_turns={self.max_tool_turns})")
-        
+
         while remaining_tool_turns > 0 and not reply:
             tool_turn += 1
             logger.info(f"  🔧 Tool turn {tool_turn}/{self.max_tool_turns}")
-            
+
             self._add_message(
                 ChatMessage(role=Role.USER, content=format_results(result[0], result[1]))
             )
-            
+
             logger.debug(f"    Getting model response for tool turn {tool_turn}...")
             response = get_model_response(
                 messages=self.messages,
@@ -402,7 +416,9 @@ class Agent:
 
             # Extract the thoughts, reply and python code from the response
             thoughts, reply, python_code = self.extract_response_parts(response)
-            logger.debug(f"    Reply: {'Yes' if reply else 'No'}, Code: {'Yes' if python_code else 'No'}")
+            logger.debug(
+                f"    Reply: {'Yes' if reply else 'No'}, Code: {'Yes' if python_code else 'No'}"
+            )
 
             self._add_message(ChatMessage(role=Role.ASSISTANT, content=response))
             if python_code:
@@ -419,14 +435,14 @@ class Agent:
                 # Reset result when no Python code is executed
                 result = ({}, "")
             remaining_tool_turns -= 1
-        
+
         if tool_turn > 0:
             logger.info(f"✅ Tool execution loop completed after {tool_turn} turns")
-        
-        logger.info("="*80)
+
+        logger.info("=" * 80)
         logger.info("✅ MEM-AGENT CHAT COMPLETED")
         logger.info(f"  Final reply length: {len(reply or '')} chars")
-        logger.info("="*80)
+        logger.info("=" * 80)
 
         return AgentResponse(thoughts=thoughts, reply=reply, python_block=python_code)
 

@@ -19,6 +19,13 @@ from loguru import logger
 
 from .base_tool import BaseTool, ToolContext
 
+# Expose discover_and_create_mcp_tools at module level for testing/patching
+try:
+    # Importing from src.mcp top-level ensures tests can patch
+    from ..mcp import discover_and_create_mcp_tools  # type: ignore
+except Exception:  # pragma: no cover - optional for environments without MCP
+    discover_and_create_mcp_tools = None  # type: ignore
+
 
 class ToolManager:
     """

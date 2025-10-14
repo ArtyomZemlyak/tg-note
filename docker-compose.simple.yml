@@ -20,7 +20,7 @@ services:
     environment:
       # Force JSON storage (no vLLM needed)
       - MEM_AGENT_STORAGE_TYPE=json
-      
+
       # Agent settings
       - MEM_AGENT_MAX_TOOL_TURNS=20
       - MEM_AGENT_TIMEOUT=20
@@ -60,7 +60,7 @@ services:
       - QWEN_API_KEY=${QWEN_API_KEY:-}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
       - GITHUB_TOKEN=${GITHUB_TOKEN:-}
-      
+
       # MCP Hub connection (Docker internal)
       - MCP_HUB_URL=http://mcp-hub:8765/sse
     volumes:

@@ -1,27 +1,24 @@
 # Knowledge Base Reading Tools
 
-Автономный агент теперь имеет набор инструментов для чтения и поиска в базе знаний. Эти инструменты позволяют агенту взаимодействовать с существующими данными в KB перед созданием нового контента.
+The autonomous agent provides tools to read and search content in your knowledge base. These tools let the agent inspect existing data before creating new content.
 
-## Доступные инструменты
+## Available Tools
 
-### 1. `kb_read_file` - Чтение файлов
+### 1. `kb_read_file` — Read files
 
-Читает один или несколько файлов из базы знаний.
+Reads one or more files from the knowledge base.
 
-**Параметры:**
+Parameters:
+- `paths` (array of strings, required) — List of relative file paths
 
-- `paths` (array of strings, обязательный) - Список относительных путей к файлам
-
-**Пример использования:**
-
+Example:
 ```json
 {
   "paths": ["topics/ai/neural-networks.md", "topics/tech/python.md"]
 }
 ```
 
-**Возвращает:**
-
+Returns:
 ```json
 {
   "success": true,
@@ -38,26 +35,23 @@
 }
 ```
 
-**Особенности:**
-
-- Поддерживает чтение нескольких файлов за один вызов
-- Валидация путей для предотвращения path traversal атак
-- Возвращает содержимое и метаданные каждого файла
-- Обрабатывает ошибки отдельно для каждого файла
+Notes:
+- Reads multiple files in a single call
+- Validates paths to prevent path traversal
+- Returns content and metadata
+- Handles per-file errors
 
 ---
 
-### 2. `kb_list_directory` - Перечисление содержимого папки
+### 2. `kb_list_directory` — List directory contents
 
-Перечисляет файлы и папки в указанной директории.
+Lists files and folders at a given path.
 
-**Параметры:**
+Parameters:
+- `path` (string, required) — Relative directory path; empty for root
+- `recursive` (boolean, optional) — Recursively list subdirectories (default false)
 
-- `path` (string, обязательный) - Относительный путь к папке. Пустая строка для корня.
-- `recursive` (boolean, опциональный) - Рекурсивно перечислить все подпапки (по умолчанию `false`)
-
-**Пример использования:**
-
+Example:
 ```json
 {
   "path": "topics/ai",
@@ -65,77 +59,51 @@
 }
 ```
 
-**Возвращает:**
-
+Returns:
 ```json
 {
   "success": true,
   "path": "topics/ai",
   "recursive": false,
   "files": [
-    {
-      "path": "topics/ai/neural-networks.md",
-      "name": "neural-networks.md",
-      "size": 1234
-    }
+    { "path": "topics/ai/neural-networks.md", "name": "neural-networks.md", "size": 1234 }
   ],
   "directories": [
-    {
-      "path": "topics/ai/machine-learning",
-      "name": "machine-learning"
-    }
+    { "path": "topics/ai/machine-learning", "name": "machine-learning" }
   ],
   "file_count": 1,
   "directory_count": 1
 }
 ```
 
-**Особенности:**
-
-- Может работать рекурсивно для получения всего дерева файлов
-- Возвращает отдельно файлы и папки
-- Включает размер файлов
-- Безопасная валидация путей
-
 ---
 
-### 3. `kb_search_files` - Поиск файлов по названию
+### 3. `kb_search_files` — Search files by name
 
-Ищет файлы и папки по названию или glob-шаблону.
+Searches files and folders by name or glob pattern.
 
-**Параметры:**
+Parameters:
+- `pattern` (string, required) — Glob pattern (`*`, `?`, `[]`)
+- `case_sensitive` (boolean, optional) — Case-sensitive search (default false)
 
-- `pattern` (string, обязательный) - Шаблон поиска (поддерживает glob: `*`, `?`, `[]`)
-- `case_sensitive` (boolean, опциональный) - Регистрозависимый поиск (по умолчанию `false`)
+Examples:
+- `*.md` — all markdown files
+- `ai/**/*.md` — all markdown files under `ai` recursively
+- `*neural*` — names containing "neural"
 
-**Примеры шаблонов:**
-
-- `*.md` - все markdown файлы
-- `ai/**/*.md` - все markdown файлы в папке ai и подпапках
-- `*neural*` - файлы содержащие "neural" в названии
-
-**Пример использования:**
-
+Example:
 ```json
-{
-  "pattern": "*neural*.md",
-  "case_sensitive": false
-}
+{ "pattern": "*neural*.md", "case_sensitive": false }
 ```
 
-**Возвращает:**
-
+Returns:
 ```json
 {
   "success": true,
   "pattern": "*neural*.md",
   "case_sensitive": false,
   "files": [
-    {
-      "path": "topics/ai/neural-networks.md",
-      "name": "neural-networks.md",
-      "size": 1234
-    }
+    { "path": "topics/ai/neural-networks.md", "name": "neural-networks.md", "size": 1234 }
   ],
   "directories": [],
   "file_count": 1,
@@ -143,37 +111,23 @@
 }
 ```
 
-**Особенности:**
-
-- Поддержка glob-шаблонов
-- Поиск как по полному пути, так и только по имени файла
-- Регистронезависимый поиск по умолчанию
-- Возвращает и файлы, и директории
-
 ---
 
-### 4. `kb_search_content` - Поиск по содержимому
+### 4. `kb_search_content` — Full-text search
 
-Ищет текст внутри файлов в базе знаний.
+Searches text inside files.
 
-**Параметры:**
+Parameters:
+- `query` (string, required)
+- `case_sensitive` (boolean, optional) — default false
+- `file_pattern` (string, optional) — glob to filter files (default `*.md`)
 
-- `query` (string, обязательный) - Текст для поиска
-- `case_sensitive` (boolean, опциональный) - Регистрозависимый поиск (по умолчанию `false`)
-- `file_pattern` (string, опциональный) - Glob шаблон для фильтрации файлов (по умолчанию `*.md`)
-
-**Пример использования:**
-
+Example:
 ```json
-{
-  "query": "machine learning",
-  "case_sensitive": false,
-  "file_pattern": "*.md"
-}
+{ "query": "machine learning", "case_sensitive": false, "file_pattern": "*.md" }
 ```
 
-**Возвращает:**
-
+Returns:
 ```json
 {
   "success": true,
@@ -198,85 +152,57 @@
 }
 ```
 
-**Особенности:**
+Security:
+- Validates paths to prevent traversal
+- Access is limited to `kb_root_path`
 
-- Полнотекстовый поиск по содержимому файлов
-- Возвращает номера строк и контекст вокруг найденного текста
-- Ограничение: первые 5 совпадений на файл
-- Фильтрация по типу файлов через glob-шаблон
-- Эффективный поиск только в нужных файлах
+## Usage examples
 
----
-
-## Безопасность
-
-Все инструменты включают валидацию путей для предотвращения:
-
-- Path traversal атак (`../../../etc/passwd`)
-- Доступа за пределы корня базы знаний
-- Чтения системных файлов
-
-Все пути должны быть относительными и находиться внутри `kb_root_path`.
-
----
-
-## Примеры использования
-
-### Сценарий 1: Проверка существующего контента перед созданием
-
+### Scenario 1: Check existing content before creating
 ```python
-# Агент сначала ищет существующие файлы о нейронных сетях
+# Search existing files
 result = await agent._execute_tool({
     "tool_name": "kb_search_files",
     "tool_params": {"pattern": "*neural*.md"}
 })
 
-# Если находит, читает их
+# If found, read them
 if result["file_count"] > 0:
     read_result = await agent._execute_tool({
         "tool_name": "kb_read_file",
         "tool_params": {"paths": [f["path"] for f in result["files"]]}
     })
-    # Анализирует контент и дополняет, а не дублирует
+    # Analyze to avoid duplication
 ```
 
-### Сценарий 2: Структурированное исследование базы знаний
-
+### Scenario 2: Structured KB exploration
 ```python
-# Список всех категорий
-categories = await agent._execute_tool({
+# List all categories
+dirs = await agent._execute_tool({
     "tool_name": "kb_list_directory",
     "tool_params": {"path": "topics", "recursive": False}
 })
 
-# Для каждой категории получить статистику
-for category in categories["directories"]:
+# For each category, get stats
+for category in dirs["directories"]:
     files = await agent._execute_tool({
         "tool_name": "kb_list_directory",
         "tool_params": {"path": category["path"], "recursive": True}
     })
 ```
 
-### Сценарий 3: Поиск связанных тем
-
+### Scenario 3: Find related topics
 ```python
-# Ищет все упоминания "Python" в базе
+# Find all mentions of "Python"
 python_refs = await agent._execute_tool({
     "tool_name": "kb_search_content",
-    "tool_params": {
-        "query": "Python",
-        "file_pattern": "*.md"
-    }
+    "tool_params": {"query": "Python", "file_pattern": "*.md"}
 })
-
-# Создает карту связей между темами
 ```
 
----
+## Integration with agent loop
 
-## Интеграция с агентским циклом
-
-Эти инструменты автоматически доступны в агентском цикле и могут быть вызваны LLM через function calling:
+These tools are available in the agent toolset and can be called via function calling.
 
 ```python
 agent = AutonomousAgent(
@@ -284,52 +210,24 @@ agent = AutonomousAgent(
     kb_root_path=Path("./my_knowledge_base")
 )
 
-# LLM может решить использовать любой из этих инструментов
-# на основе задачи и контекста
 result = await agent.process({
     "text": "Find and summarize all articles about machine learning"
 })
 ```
 
-LLM сам решает:
+LLM decides:
+1. Which tools to use
+2. In what order
+3. How to combine results
 
-1. Какие инструменты использовать
-2. В каком порядке их вызывать
-3. Как объединить результаты
+## Performance
 
----
+Recommendations:
+- Read a handful of files at once (10–20 max)
+- Avoid recursive listings unless needed
+- Use specific glob patterns rather than `*`
+- Provide `file_pattern` for content searches
 
-## Производительность
-
-**Рекомендации:**
-
-1. **kb_read_file**: Читайте несколько файлов за раз, но не более 10-20 одновременно
-2. **kb_list_directory**: Используйте `recursive=false` когда возможно
-3. **kb_search_files**: Используйте специфичные шаблоны вместо `*`
-4. **kb_search_content**: Указывайте `file_pattern` для ограничения области поиска
-
-**Ограничения:**
-
-- `kb_search_content` возвращает максимум 5 совпадений на файл
-- Все операции выполняются синхронно (в будущем могут быть оптимизированы)
-- Рекурсивный listing может быть медленным на больших базах
-
----
-
-## Расширение
-
-Для добавления новых инструментов чтения KB:
-
-1. Создайте метод `_tool_kb_your_tool` в `AutonomousAgent`
-2. Зарегистрируйте в `_register_all_tools()`
-3. Добавьте схему в `_build_tools_schema()`
-4. Добавьте тесты в `tests/test_kb_reading_tools.py`
-
-Пример:
-
-```python
-async def _tool_kb_get_stats(self, params: Dict[str, Any]) -> Dict[str, Any]:
-    """Get statistics about knowledge base"""
-    # Implementation
-    pass
-```
+Limits:
+- `kb_search_content` returns up to 5 matches per file
+- Recursive listing can be slow on large KBs

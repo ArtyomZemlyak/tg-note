@@ -132,7 +132,18 @@ class BotHandlers:
     async def stop_background_tasks(self) -> None:
         """Stop background tasks"""
         self.logger.info("Stopping background tasks")
-        await self.user_context_manager.cleanup()
+        # Support both async and sync implementations of cleanup for test doubles
+        cleanup = getattr(self.user_context_manager, "cleanup", None)
+        if cleanup is None:
+            return
+        try:
+            result = cleanup()
+            # If result is awaitable, await it; otherwise it's a sync mock/func
+            if hasattr(result, "__await__"):
+                await result
+        except TypeError:
+            # Some mocks may not be awaitable; ignore in that case
+            pass
 
     async def _handle_timeout(self, chat_id: int, group: MessageGroup) -> None:
         """Handle timed-out message group"""

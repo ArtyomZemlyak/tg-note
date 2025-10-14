@@ -273,7 +273,7 @@ class MCPServerManager:
         Also creates necessary configuration files:
         - data/mcp_servers/mcp-hub.json (for Python MCP clients)
         - ~/.qwen/settings.json (for Qwen CLI)
-        
+
         Note: In Docker deployments, mcp-hub is already running as a container.
         We register it as HTTP/SSE connection instead of launching subprocess.
         """
@@ -281,8 +281,9 @@ class MCPServerManager:
         if self.settings.AGENT_ENABLE_MCP_MEMORY:
             # Check if running in Docker (by presence of MCP_HUB_URL env var)
             import os
+
             mcp_hub_url = os.getenv("MCP_HUB_URL")
-            
+
             if mcp_hub_url:
                 logger.info(
                     f"[MCPServerManager] Docker mode: Connecting to mcp-hub at {mcp_hub_url}"
@@ -301,17 +302,17 @@ class MCPServerManager:
     def _setup_mcp_hub_connection(self, url: str) -> None:
         """
         Setup connection to mcp-hub (Docker mode)
-        
+
         Args:
             url: MCP Hub URL (e.g., http://mcp-hub:8765/sse)
         """
         # Create data/mcp_servers directory if it doesn't exist
         mcp_servers_dir = Path("data/mcp_servers")
         mcp_servers_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Create mcp-hub.json config for HTTP/SSE transport
         mcp_hub_config_file = mcp_servers_dir / "mcp-hub.json"
-        
+
         config = {
             "mcpServers": {
                 "mcp-hub": {
@@ -323,7 +324,7 @@ class MCPServerManager:
                 }
             }
         }
-        
+
         try:
             with open(mcp_hub_config_file, "w", encoding="utf-8") as f:
                 json.dump(config, f, indent=2, ensure_ascii=False)
@@ -332,7 +333,7 @@ class MCPServerManager:
             )
         except Exception as e:
             logger.error(f"[MCPServerManager] Failed to create MCP Hub config: {e}")
-            
+
     def _setup_memory_subprocess(self) -> None:
         """Setup memory server as subprocess (standalone mode)"""
         # Create data/mcp_servers directory if it doesn't exist
@@ -342,9 +343,7 @@ class MCPServerManager:
         # Create mcp-hub.json config file if it doesn't exist
         mcp_hub_config_file = mcp_servers_dir / "mcp-hub.json"
         if not mcp_hub_config_file.exists():
-            logger.info(
-                f"[MCPServerManager] Creating MCP server config at {mcp_hub_config_file}"
-            )
+            logger.info(f"[MCPServerManager] Creating MCP server config at {mcp_hub_config_file}")
 
             # Standard MCP server configuration format
             config = {
@@ -374,9 +373,7 @@ class MCPServerManager:
             try:
                 with open(mcp_hub_config_file, "w", encoding="utf-8") as f:
                     json.dump(config, f, indent=2, ensure_ascii=False)
-                logger.info(
-                    f"[MCPServerManager] Created MCP server config: {mcp_hub_config_file}"
-                )
+                logger.info(f"[MCPServerManager] Created MCP server config: {mcp_hub_config_file}")
             except Exception as e:
                 logger.error(f"[MCPServerManager] Failed to create MCP server config: {e}")
         else:
@@ -419,14 +416,13 @@ class MCPServerManager:
             from .qwen_config_generator import setup_qwen_mcp_config
             from .universal_config_generator import UniversalMCPConfigGenerator
 
-            logger.info(
-                "[MCPServerManager] Creating MCP configurations for various clients..."
-            )
+            logger.info("[MCPServerManager] Creating MCP configurations for various clients...")
 
             # Detect MCP Hub URL
             import os
+
             mcp_hub_url = os.getenv("MCP_HUB_URL")
-            
+
             # Generate and save Qwen CLI configuration
             logger.info("[MCPServerManager] Creating Qwen CLI config (HTTP/SSE mode)")
             saved_paths = setup_qwen_mcp_config(
@@ -441,18 +437,18 @@ class MCPServerManager:
             logger.info("[MCPServerManager] Creating universal MCP configs for other clients")
             universal_gen = UniversalMCPConfigGenerator(
                 user_id=None,
-                http_port=self.settings.get("MCP_PORT", 8765) if hasattr(self.settings, "get") else 8765,
+                http_port=(
+                    self.settings.get("MCP_PORT", 8765) if hasattr(self.settings, "get") else 8765
+                ),
                 mcp_hub_url=mcp_hub_url,
             )
-            
+
             # Save to data directory for Python clients and custom integrations
             data_config_path = universal_gen.save_for_data_directory()
             logger.info(f"[MCPServerManager] Universal config saved to: {data_config_path}")
 
         except Exception as e:
-            logger.warning(
-                f"[MCPServerManager] Failed to create MCP configs (non-critical): {e}"
-            )
+            logger.warning(f"[MCPServerManager] Failed to create MCP configs (non-critical): {e}")
             logger.debug(f"[MCPServerManager] MCP config error details:", exc_info=True)
 
     async def auto_start_servers(self) -> Dict[str, bool]:

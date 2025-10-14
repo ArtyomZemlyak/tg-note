@@ -6,10 +6,7 @@ from pathlib import Path
 from typing import Union
 
 from src.mcp.memory.mem_agent_impl.settings import MEMORY_PATH
-from src.mcp.memory.mem_agent_impl.utils import (
-    check_size_limits,
-    create_memory_if_not_exists,
-)
+from src.mcp.memory.mem_agent_impl.utils import check_size_limits, create_memory_if_not_exists
 
 
 def get_size(file_or_dir_path: str) -> int:
