@@ -42,6 +42,82 @@ class CliSettingsSource(PydanticBaseSettingsSource):
         return self._cli_args
 
 
+class EnvOverridesSource(PydanticBaseSettingsSource):
+    """Custom env source to handle special parsing cases.
+
+    Specifically fixes JSON decoding errors for complex types when env vars are
+    empty strings or comma-separated values (common in Docker Compose).
+    """
+
+    def __init__(self, settings_cls: Type[BaseSettings]):
+        super().__init__(settings_cls)
+
+    def get_field_value(self, field_name: str, field_info: Any) -> Tuple[Any, str, bool]:
+        """Return per-field override from environment with robust parsing.
+
+        Only handles `ALLOWED_USER_IDS`; other fields are ignored.
+        """
+        import json
+        import os
+
+        if field_name != "ALLOWED_USER_IDS":
+            return None, field_name, False
+
+        raw_allowed = os.environ.get("ALLOWED_USER_IDS")
+        if raw_allowed is None:
+            return None, field_name, False
+
+        value = raw_allowed.strip()
+        if value == "":
+            return [], field_name, False
+
+        try:
+            if value.startswith("["):
+                parsed = json.loads(value)
+                return [int(x) for x in parsed], field_name, False
+            else:
+                return [int(uid.strip()) for uid in value.split(",") if uid.strip()], field_name, False
+        except Exception:
+            # Fallback to robust comma-splitting
+            return [int(uid.strip()) for uid in value.split(",") if uid.strip()], field_name, False
+
+    def prepare_field_value(
+        self, field_name: str, field: Any, value: Any, value_is_complex: bool
+    ) -> Any:
+        return value
+
+    def __call__(self) -> Dict[str, Any]:
+        import json
+        import os
+
+        result: Dict[str, Any] = {}
+
+        # Handle ALLOWED_USER_IDS from environment in a resilient way
+        raw_allowed = os.environ.get("ALLOWED_USER_IDS")
+        if raw_allowed is not None:
+            value = raw_allowed.strip()
+            if value == "":
+                # Empty string means no restriction
+                result["ALLOWED_USER_IDS"] = []
+            else:
+                # Try JSON first if it looks like JSON, otherwise treat as comma-separated
+                try:
+                    if value.startswith("["):
+                        parsed = json.loads(value)
+                        result["ALLOWED_USER_IDS"] = [int(x) for x in parsed]
+                    else:
+                        result["ALLOWED_USER_IDS"] = [
+                            int(uid.strip()) for uid in value.split(",") if uid.strip()
+                        ]
+                except Exception:
+                    # Fallback to robust comma-splitting
+                    result["ALLOWED_USER_IDS"] = [
+                        int(uid.strip()) for uid in value.split(",") if uid.strip()
+                    ]
+
+        return result
+
+
 class Settings(BaseSettings):
     """Application settings loaded from multiple sources"""
 
@@ -259,13 +335,15 @@ class Settings(BaseSettings):
         # Create custom sources
         yaml_settings = YamlConfigSettingsSource(settings_cls, yaml_file=yaml_file)
         cli_settings = CliSettingsSource(settings_cls)
+        env_overrides = EnvOverridesSource(settings_cls)
 
         # Return sources in priority order (leftmost = highest priority)
         return (
-            env_settings,  # Highest priority - check first
-            cli_settings,  # Check second
-            dotenv_settings,  # Check third
-            yaml_settings,  # Lowest priority - check last
+            env_overrides,  # Highest priority - fix/normalize problematic env vars
+            env_settings,  # Then standard env vars
+            cli_settings,  # Then CLI (reserved)
+            dotenv_settings,  # Then .env file
+            yaml_settings,  # Finally YAML config
         )
 
     @field_validator("ALLOWED_USER_IDS", mode="before")

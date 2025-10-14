@@ -97,7 +97,8 @@ MESSAGE_GROUP_TIMEOUT: 30  # seconds
 LOG_LEVEL: INFO
 LOG_FILE: ./logs/bot.log
 
-# User Access Control (empty = all users allowed)
+# User Access Control
+# Accepts empty (allow all), comma-separated (e.g., "123,456"), or JSON list (e.g., [123,456])
 ALLOWED_USER_IDS: ""
 ```
 
