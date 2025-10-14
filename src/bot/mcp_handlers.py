@@ -12,6 +12,10 @@ from telebot.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 
 from src.bot.utils import escape_markdown
 from src.mcp.registry.manager import MCPServersManager
+import os
+import json
+import aiohttp
+from urllib.parse import urlsplit, urlunsplit
 
 
 class MCPHandlers:
@@ -29,6 +33,12 @@ class MCPHandlers:
         self.mcp_manager = mcp_manager or MCPServersManager()
         # Track users waiting for JSON input: user_id -> waiting state
         self.waiting_for_json: Dict[int, bool] = {}
+        # Resolve MCP Hub base URL for HTTP registry API if in Docker mode
+        self._hub_base = None
+        mcp_hub_url = os.environ.get("MCP_HUB_URL")
+        if mcp_hub_url:
+            parts = urlsplit(mcp_hub_url)
+            self._hub_base = urlunsplit((parts.scheme, parts.netloc, "", "", ""))
 
     async def register_handlers_async(self):
         """Register all MCP handlers"""
@@ -39,6 +49,10 @@ class MCPHandlers:
         self.bot.message_handler(commands=["enablemcp"])(self.handle_enable_mcp)
         self.bot.message_handler(commands=["disablemcp"])(self.handle_disable_mcp)
         self.bot.message_handler(commands=["removemcp"])(self.handle_remove_mcp)
+        # Support uploading JSON file to add server
+        self.bot.message_handler(content_types=["document"], func=lambda m: self._is_json_file(m))(
+            self.handle_add_mcp_server_file
+        )
 
         # Text message handler for JSON input
         self.bot.message_handler(func=lambda m: m.from_user.id in self.waiting_for_json)(
@@ -98,6 +112,11 @@ class MCPHandlers:
             )
 
             await self.bot.reply_to(message, help_text, parse_mode="Markdown")
+            if self._hub_base:
+                await self.bot.send_message(
+                    message.chat.id,
+                    f"Hub mode detected. You can also upload a .json file to register via hub.",
+                )
 
     async def handle_json_input(self, message: Message) -> None:
         """Handle JSON input for MCP server configuration"""
@@ -135,8 +154,25 @@ class MCPHandlers:
                         json_content = part
                         break
 
-            # Add server via manager
-            success = self.mcp_manager.add_server_from_json(json_content)
+            # Add server via MCP Hub HTTP API if available, else local registry
+            success = False
+            if self._hub_base:
+                try:
+                    async with aiohttp.ClientSession() as session:
+                        async with session.post(
+                            f"{self._hub_base}/registry/servers",
+                            json=json.loads(json_content),
+                            timeout=aiohttp.ClientTimeout(total=10),
+                        ) as resp:
+                            if resp.status in (200, 201):
+                                success = True
+                            else:
+                                # Fall back to local manager on failure
+                                success = self.mcp_manager.add_server_from_json(json_content)
+                except Exception:
+                    success = self.mcp_manager.add_server_from_json(json_content)
+            else:
+                success = self.mcp_manager.add_server_from_json(json_content)
 
             if success:
                 await self.bot.reply_to(
@@ -167,8 +203,45 @@ class MCPHandlers:
         """Handle /listmcpservers command - list all MCP servers"""
         logger.info(f"List MCP servers requested by user {message.from_user.id}")
 
-        # Get all servers
-        all_servers = self.mcp_manager.get_all_servers()
+        # Prefer hub endpoint if available
+        all_servers = None
+        if self._hub_base:
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        f"{self._hub_base}/registry/servers",
+                        timeout=aiohttp.ClientTimeout(total=10),
+                    ) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            all_servers = []
+                            for srv in data.get("servers", []):
+                                # Minimal adapter object
+                                from dataclasses import make_dataclass
+
+                                MCPServer = make_dataclass(
+                                    "MCPServer",
+                                    [
+                                        ("name", str),
+                                        ("description", str),
+                                        ("command", str),
+                                        ("enabled", bool),
+                                    ],
+                                )
+                                all_servers.append(
+                                    MCPServer(
+                                        name=srv.get("name", ""),
+                                        description=srv.get("description", ""),
+                                        command=srv.get("command", ""),
+                                        enabled=bool(srv.get("enabled", False)),
+                                    )
+                                )
+            except Exception:
+                all_servers = None
+
+        if all_servers is None:
+            # Fallback to local registry
+            all_servers = self.mcp_manager.get_all_servers()
 
         if not all_servers:
             await self.bot.reply_to(
@@ -225,7 +298,23 @@ class MCPHandlers:
         """Handle /mcpstatus command - show MCP servers summary"""
         logger.info(f"MCP status requested by user {message.from_user.id}")
 
-        summary = self.mcp_manager.get_servers_summary()
+        # Prefer hub endpoint for summary
+        summary = None
+        if self._hub_base:
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        f"{self._hub_base}/registry/servers", timeout=aiohttp.ClientTimeout(total=10)
+                    ) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            total = int(data.get("total", 0))
+                            enabled = sum(1 for s in data.get("servers", []) if s.get("enabled"))
+                            summary = {"total": total, "enabled": enabled, "disabled": total - enabled}
+            except Exception:
+                summary = None
+        if summary is None:
+            summary = self.mcp_manager.get_servers_summary()
 
         status_text = (
             "📊 **MCP Servers Status**\n\n"
@@ -255,7 +344,19 @@ class MCPHandlers:
 
         server_name = args[1].strip()
 
-        success = self.mcp_manager.enable_server(server_name)
+        success = False
+        if self._hub_base:
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        f"{self._hub_base}/registry/servers/{server_name}/enable",
+                        timeout=aiohttp.ClientTimeout(total=10),
+                    ) as resp:
+                        success = resp.status == 200
+            except Exception:
+                success = False
+        if not success:
+            success = self.mcp_manager.enable_server(server_name)
 
         if success:
             await self.bot.reply_to(
@@ -289,7 +390,19 @@ class MCPHandlers:
 
         server_name = args[1].strip()
 
-        success = self.mcp_manager.disable_server(server_name)
+        success = False
+        if self._hub_base:
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        f"{self._hub_base}/registry/servers/{server_name}/disable",
+                        timeout=aiohttp.ClientTimeout(total=10),
+                    ) as resp:
+                        success = resp.status == 200
+            except Exception:
+                success = False
+        if not success:
+            success = self.mcp_manager.disable_server(server_name)
 
         if success:
             await self.bot.reply_to(
@@ -411,7 +524,19 @@ class MCPHandlers:
             elif action == "confirm_remove":
                 # Remove server
                 server_name = parts[2]
-                success = self.mcp_manager.remove_server(server_name)
+                success = False
+                if self._hub_base:
+                    try:
+                        async with aiohttp.ClientSession() as session:
+                            async with session.delete(
+                                f"{self._hub_base}/registry/servers/{server_name}",
+                                timeout=aiohttp.ClientTimeout(total=10),
+                            ) as resp:
+                                success = resp.status == 200
+                    except Exception:
+                        success = False
+                if not success:
+                    success = self.mcp_manager.remove_server(server_name)
 
                 if success:
                     await self.bot.answer_callback_query(
@@ -514,3 +639,22 @@ class MCPHandlers:
                 raise
 
         await self.bot.answer_callback_query(call.id)
+
+    def _is_json_file(self, message: Message) -> bool:
+        doc = getattr(message, "document", None)
+        if not doc:
+            return False
+        file_name = (doc.file_name or "").lower()
+        return file_name.endswith(".json") and (
+            message.caption and message.caption.strip().lower().startswith("/addmcpserver")
+        )
+
+    async def handle_add_mcp_server_file(self, message: Message) -> None:
+        """Handle uploaded JSON file with caption /addmcpserver"""
+        try:
+            file_info = await self.bot.get_file(message.document.file_id)
+            file_bytes = await self.bot.download_file(file_info.file_path)
+            json_content = file_bytes.decode("utf-8")
+            await self._process_json_config(message, json_content)
+        except Exception as e:
+            await self.bot.reply_to(message, f"❌ Error reading uploaded file: {str(e)}")

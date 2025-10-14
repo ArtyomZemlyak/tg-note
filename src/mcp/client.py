@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from loguru import logger
+import aiohttp
 
 
 @dataclass
