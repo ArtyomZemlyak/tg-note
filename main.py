@@ -203,9 +203,12 @@ async def _wait_for_mcp_hub_ready_and_log_servers(mcp_hub_sse_url: str, timeout_
                         status = data.get("status")
                         ready = data.get("ready", False)
                         if status == "ok" and ready:
+                            builtin = data.get('builtin_tools', {})
+                            registry = data.get('registry', {})
                             logger.info(
-                                f"MCP Hub healthy: total={data.get('registry',{}).get('servers_total',0)}, "
-                                f"enabled={data.get('registry',{}).get('servers_enabled',0)}"
+                                f"MCP Hub healthy: builtin_tools={builtin.get('total', 0)}, "
+                                f"mcp_servers_total={registry.get('servers_total',0)}, "
+                                f"mcp_servers_enabled={registry.get('servers_enabled',0)}"
                             )
                             break
             except Exception:
@@ -215,23 +218,38 @@ async def _wait_for_mcp_hub_ready_and_log_servers(mcp_hub_sse_url: str, timeout_
                 raise TimeoutError("Timed out waiting for MCP Hub to become healthy")
             await asyncio.sleep(1)
 
-        # Fetch and log available servers
+        # Fetch and log available servers and tools
         try:
             async with session.get(list_url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
                 if resp.status == 200:
                     data = await resp.json()
                     servers = data.get("servers", [])
                     if not servers:
-                        logger.info("No MCP servers registered in hub.")
+                        logger.info("No external MCP servers registered in hub.")
                     else:
                         brief = ", ".join(
                             [f"{srv.get('name')}({'on' if srv.get('enabled') else 'off'})" for srv in servers]
                         )
-                        logger.info(f"MCP servers available: {brief}")
+                        logger.info(f"External MCP servers available: {brief}")
                 else:
                     logger.warning(f"Failed to fetch MCP servers list: HTTP {resp.status}")
         except Exception as e:
             logger.warning(f"Error fetching MCP servers list: {e}")
+        
+        # Log built-in tools
+        try:
+            async with session.get(health_url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    builtin = data.get('builtin_tools', {})
+                    tools_count = builtin.get('total', 0)
+                    tools_names = builtin.get('names', [])
+                    if tools_count > 0:
+                        logger.info(f"Built-in tools available ({tools_count}): {', '.join(tools_names)}")
+                    else:
+                        logger.warning("No built-in tools available")
+        except Exception as e:
+            logger.warning(f"Error fetching built-in tools info: {e}")
 
 
 if __name__ == "__main__":
