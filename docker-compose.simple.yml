@@ -32,7 +32,7 @@ services:
       # Logs
       - ./logs:/app/logs
       # Configuration (read-only)
-      - ./config.example.yaml:/app/config.yaml:ro
+      - ./config.yaml:/app/config.yaml:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8765/health"]
       interval: 30s
@@ -71,7 +71,7 @@ services:
       # Logs
       - ./logs:/app/logs
       # Configuration (read-only)
-      - ./config.example.yaml:/app/config.yaml:ro
+      - ./config.yaml:/app/config.yaml:ro
       # Persist Qwen CLI auth and settings between restarts
       - ~/.qwen:/root/.qwen
     depends_on:

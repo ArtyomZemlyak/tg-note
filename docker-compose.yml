@@ -66,7 +66,7 @@ services:
       # Logs
       - ./logs:/app/logs
       # Configuration (read-only)
-      - ./config.example.yaml:/app/config.yaml:ro
+      - ./config.yaml:/app/config.yaml:ro
       # Shared HuggingFace cache for embeddings (bind host cache)
       - ~/.cache/huggingface:/root/.cache/huggingface
     depends_on:
@@ -109,7 +109,7 @@ services:
       # Logs
       - ./logs:/app/logs
       # Configuration (read-only)
-      - ./config.example.yaml:/app/config.yaml:ro
+      - ./config.yaml:/app/config.yaml:ro
       # Persist Qwen CLI auth and settings between restarts
       - ~/.qwen:/root/.qwen
     depends_on:
