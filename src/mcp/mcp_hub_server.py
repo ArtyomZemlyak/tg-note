@@ -30,6 +30,7 @@ from typing import Dict, List, Optional
 
 from loguru import logger
 from starlette.responses import JSONResponse
+from starlette.requests import Request
 
 try:
     from fastmcp import FastMCP
@@ -211,6 +212,8 @@ async def health_check(request):
                 "storage": {
                     "active_users": len(_storages),
                 },
+                # Ready once registry initialized and discovered
+                "ready": True,
             }
         )
     except Exception as e:
@@ -395,6 +398,150 @@ def list_mcp_servers(user_id: int = None) -> dict:
         logger.error(f"❌ Error listing servers: {e}", exc_info=True)
         return {"success": False, "error": str(e)}
 
+
+# ============================================================================
+# Registry HTTP API - For bot/docker integration without MCP client
+# ============================================================================
+
+
+@mcp.custom_route("/registry/servers", methods=["GET"])
+async def http_list_servers(request: Request):
+    """HTTP: List all registered MCP servers"""
+    try:
+        registry = get_registry()
+        servers = registry.get_all_servers()
+        return JSONResponse(
+            {
+                "success": True,
+                "total": len(servers),
+                "servers": [
+                    {
+                        "name": spec.name,
+                        "description": spec.description,
+                        "enabled": spec.enabled,
+                        "command": spec.command,
+                        "args": spec.args,
+                        "env": spec.env or {},
+                        "working_dir": spec.working_dir,
+                    }
+                    for spec in servers
+                ],
+            }
+        )
+    except Exception as e:
+        logger.error(f"❌ Error in http_list_servers: {e}", exc_info=True)
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@mcp.custom_route("/registry/servers", methods=["POST"])
+async def http_register_server(request: Request):
+    """HTTP: Register a new MCP server from JSON body"""
+    try:
+        payload = await request.json()
+        required = ["name", "description", "command", "args"]
+        missing = [k for k in required if k not in payload]
+        if missing:
+            return JSONResponse(
+                {"success": False, "error": f"Missing required fields: {', '.join(missing)}"},
+                status_code=422,
+            )
+
+        registry = get_registry()
+        spec = MCPServerSpec(
+            name=payload.get("name", ""),
+            description=payload.get("description", ""),
+            command=payload.get("command", ""),
+            args=payload.get("args", []),
+            env=payload.get("env"),
+            working_dir=payload.get("working_dir"),
+            enabled=payload.get("enabled", True),
+        )
+
+        success = registry.add_server(spec)
+        if not success:
+            return JSONResponse(
+                {"success": False, "error": f"Server '{spec.name}' already exists"},
+                status_code=409,
+            )
+
+        logger.info(f"✅ [HTTP] Registered server via API: {spec.name}")
+        return JSONResponse(
+            {"success": True, "message": f"Server '{spec.name}' registered successfully"},
+            status_code=201,
+        )
+    except Exception as e:
+        logger.error(f"❌ Error in http_register_server: {e}", exc_info=True)
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@mcp.custom_route("/registry/servers/{name}", methods=["GET"])
+async def http_get_server(request: Request):
+    """HTTP: Get a specific MCP server details"""
+    try:
+        name = request.path_params.get("name")
+        registry = get_registry()
+        spec = registry.get_server(name)
+        if not spec:
+            return JSONResponse({"success": False, "error": "Not found"}, status_code=404)
+        return JSONResponse(
+            {
+                "success": True,
+                "server": {
+                    "name": spec.name,
+                    "description": spec.description,
+                    "enabled": spec.enabled,
+                    "command": spec.command,
+                    "args": spec.args,
+                    "env": spec.env or {},
+                    "working_dir": spec.working_dir,
+                },
+            }
+        )
+    except Exception as e:
+        logger.error(f"❌ Error in http_get_server: {e}", exc_info=True)
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@mcp.custom_route("/registry/servers/{name}/enable", methods=["POST"])
+async def http_enable_server(request: Request):
+    """HTTP: Enable a server by name"""
+    try:
+        name = request.path_params.get("name")
+        registry = get_registry()
+        if registry.enable_server(name):
+            return JSONResponse({"success": True, "message": f"Server '{name}' enabled"})
+        return JSONResponse({"success": False, "error": "Not found"}, status_code=404)
+    except Exception as e:
+        logger.error(f"❌ Error in http_enable_server: {e}", exc_info=True)
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@mcp.custom_route("/registry/servers/{name}/disable", methods=["POST"])
+async def http_disable_server(request: Request):
+    """HTTP: Disable a server by name"""
+    try:
+        name = request.path_params.get("name")
+        registry = get_registry()
+        if registry.disable_server(name):
+            return JSONResponse({"success": True, "message": f"Server '{name}' disabled"})
+        return JSONResponse({"success": False, "error": "Not found"}, status_code=404)
+    except Exception as e:
+        logger.error(f"❌ Error in http_disable_server: {e}", exc_info=True)
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@mcp.custom_route("/registry/servers/{name}", methods=["DELETE"])
+async def http_remove_server(request: Request):
+    """HTTP: Remove a server by name"""
+    try:
+        name = request.path_params.get("name")
+        registry = get_registry()
+        if registry.remove_server(name):
+            return JSONResponse({"success": True, "message": f"Server '{name}' removed"})
+        return JSONResponse({"success": False, "error": "Not found"}, status_code=404)
+    except Exception as e:
+        logger.error(f"❌ Error in http_remove_server: {e}", exc_info=True)
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 @mcp.tool()
 def get_mcp_server(name: str) -> dict:

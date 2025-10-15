@@ -5,6 +5,7 @@ Main entry point for the Telegram bot application
 
 import asyncio
 import sys
+import os
 
 from loguru import logger
 
@@ -62,6 +63,14 @@ async def main():
         if settings.AGENT_ENABLE_MCP or settings.AGENT_ENABLE_MCP_MEMORY:
             logger.info("MCP is enabled, auto-starting MCP servers...")
             await mcp_server_manager.auto_start_servers()
+
+            # In Docker mode, wait for MCP Hub health and then log available MCP servers
+            mcp_hub_url = os.environ.get("MCP_HUB_URL")
+            if mcp_hub_url:
+                try:
+                    await _wait_for_mcp_hub_ready_and_log_servers(mcp_hub_url)
+                except Exception as e:
+                    logger.warning(f"MCP Hub health check failed: {e}")
         else:
             logger.debug("MCP is disabled, skipping MCP server startup")
 
@@ -164,6 +173,65 @@ def cli_main():
     except KeyboardInterrupt:
         print("\nShutdown complete")
         sys.exit(0)
+
+
+# Helpers
+async def _wait_for_mcp_hub_ready_and_log_servers(mcp_hub_sse_url: str, timeout_seconds: int = 60):
+    """Wait until MCP Hub /health is ready, then log available MCP servers.
+
+    Args:
+        mcp_hub_sse_url: SSE URL (e.g., http://mcp-hub:8765/sse)
+        timeout_seconds: Max time to wait
+    """
+    import aiohttp
+    from urllib.parse import urlsplit, urlunsplit
+
+    parts = urlsplit(mcp_hub_sse_url)
+    base = urlunsplit((parts.scheme, parts.netloc, "", "", ""))
+    health_url = f"{base}/health"
+    list_url = f"{base}/registry/servers"
+
+    logger.info(f"Waiting for MCP Hub health at {health_url} ...")
+
+    deadline = asyncio.get_running_loop().time() + timeout_seconds
+    async with aiohttp.ClientSession() as session:
+        while True:
+            try:
+                async with session.get(health_url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        status = data.get("status")
+                        ready = data.get("ready", False)
+                        if status == "ok" and ready:
+                            logger.info(
+                                f"MCP Hub healthy: total={data.get('registry',{}).get('servers_total',0)}, "
+                                f"enabled={data.get('registry',{}).get('servers_enabled',0)}"
+                            )
+                            break
+            except Exception:
+                pass
+
+            if asyncio.get_running_loop().time() >= deadline:
+                raise TimeoutError("Timed out waiting for MCP Hub to become healthy")
+            await asyncio.sleep(1)
+
+        # Fetch and log available servers
+        try:
+            async with session.get(list_url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    servers = data.get("servers", [])
+                    if not servers:
+                        logger.info("No MCP servers registered in hub.")
+                    else:
+                        brief = ", ".join(
+                            [f"{srv.get('name')}({'on' if srv.get('enabled') else 'off'})" for srv in servers]
+                        )
+                        logger.info(f"MCP servers available: {brief}")
+                else:
+                    logger.warning(f"Failed to fetch MCP servers list: HTTP {resp.status}")
+        except Exception as e:
+            logger.warning(f"Error fetching MCP servers list: {e}")
 
 
 if __name__ == "__main__":
