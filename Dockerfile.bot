@@ -28,6 +28,17 @@ FROM python:3.11-slim
 RUN apt-get update && apt-get install -y \
     git \
     curl \
+    gnupg \
+    ca-certificates \
+    bash \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js 20.x and Qwen Code CLI
+# Using NodeSource setup script to ensure Node 20+ on Debian slim
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get update && apt-get install -y nodejs \
+    && npm install -g @qwen-code/qwen-code@latest \
+    && qwen --version \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app directory

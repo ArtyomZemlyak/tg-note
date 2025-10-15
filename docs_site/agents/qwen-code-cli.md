@@ -43,6 +43,12 @@ brew install node@20
 npm install -g @qwen-code/qwen-code@latest
 ```
 
+Docker: The bot image already includes Node.js 20 and the Qwen CLI. You only need to authenticate inside the running container once (persisted via `~/.qwen` bind mount):
+
+```bash
+docker exec -it tg-note-bot bash -lc "qwen"
+```
+
 ### 3. Verify Installation
 
 ```bash
@@ -64,6 +70,12 @@ Follow the prompts to authenticate via qwen.ai.
 ```bash
 qwen
 /approval-mode yolo --project
+```
+
+Docker one-liners for non-interactive application:
+
+```bash
+docker exec -it tg-note-bot bash -lc "qwen <<<'/approval-mode yolo --project'"
 ```
 
 **Зачем это нужно?**
