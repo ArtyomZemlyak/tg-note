@@ -94,6 +94,24 @@ class MemoryMCPTool(BaseMCPTool):
         Note: The KB_PATH environment variable is set dynamically at runtime
         in the execute() method, as it's user-specific.
         """
+        # Prefer explicit MCP_HUB_URL in Docker mode
+        mcp_hub_url = os.getenv("MCP_HUB_URL")
+        if mcp_hub_url:
+            return MCPServerConfig(
+                command="python3",
+                args=[
+                    "-m",
+                    "src.mcp.mcp_hub_server",
+                    "--host",
+                    "127.0.0.1",
+                    "--port",
+                    "8765",
+                ],
+                env={},
+                transport="sse",
+                url=mcp_hub_url,
+            )
+
         config_file = Path("data/mcp_servers/mcp-hub.json")
 
         if not config_file.exists():
@@ -111,7 +129,7 @@ class MemoryMCPTool(BaseMCPTool):
                     f"[MemoryMCPTool] Config file not found: {config_file}. "
                     "Using default HTTP server configuration."
                 )
-                # Return default HTTP server config
+                # Return default HTTP server config (host environment)
                 return MCPServerConfig(
                     command="python3",
                     args=[

@@ -5,12 +5,14 @@ Generates human-readable descriptions of available MCP servers and their tools.
 This is used to inform LLMs about available MCP tools in their system prompts.
 """
 
+import os
 from pathlib import Path
 from typing import Dict, List, Optional
 
 from loguru import logger
 
 from .registry_client import MCPRegistryClient
+from .client import MCPClient, MCPServerConfig
 
 
 async def get_mcp_tools_description(
@@ -33,12 +35,29 @@ async def get_mcp_tools_description(
         Formatted description of MCP tools, or empty string if no tools available
     """
     try:
-        # Create registry client with user_id for per-user discovery
-        registry_client = MCPRegistryClient(servers_dir=servers_dir, user_id=user_id)
+        # Docker mode: connect directly to MCP Hub via HTTP/SSE and avoid local registry
+        mcp_hub_url = os.getenv("MCP_HUB_URL")
+        connected_clients: Dict[str, MCPClient] = {}
 
-        # Initialize and connect to all enabled servers
-        registry_client.initialize()
-        connected_clients = await registry_client.connect_all_enabled()
+        if mcp_hub_url:
+            try:
+                client = MCPClient(MCPServerConfig(transport="sse", url=mcp_hub_url))
+                if await client.connect():
+                    connected_clients["mcp-hub"] = client
+                else:
+                    logger.warning(
+                        f"[MCPToolsDescription] Failed to connect to MCP Hub at {mcp_hub_url}"
+                    )
+            except Exception as e:
+                logger.error(
+                    f"[MCPToolsDescription] Error connecting to MCP Hub at {mcp_hub_url}: {e}",
+                    exc_info=True,
+                )
+        else:
+            # Standalone mode: discover via local registry
+            registry_client = MCPRegistryClient(servers_dir=servers_dir, user_id=user_id)
+            registry_client.initialize()
+            connected_clients = await registry_client.connect_all_enabled()
 
         if not connected_clients:
             logger.debug("[MCPToolsDescription] No MCP servers connected")

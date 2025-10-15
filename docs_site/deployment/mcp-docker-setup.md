@@ -163,20 +163,9 @@ When Qwen CLI runs on the host:
 
 ### 4. Python MCP Clients
 
-**Generated `data/mcp_servers/mcp-hub.json`:**
-```json
-{
-  "mcpServers": {
-    "mcp-hub": {
-      "url": "http://mcp-hub:8765/sse",
-      "timeout": 10000,
-      "trust": true,
-      "description": "MCP Hub - Unified MCP gateway"
-    }
-  },
-  "allowMCPServers": ["mcp-hub"]
-}
-```
+- In Docker mode, the bot container no longer creates `data/mcp_servers/mcp-hub.json`.
+- Python MCP tools use `MCP_HUB_URL` directly to connect to the hub.
+- The hub container owns and persists registry/config files under `data/mcp_servers/`.
 
 ## Manual Configuration
 
@@ -335,9 +324,10 @@ cat data/mcp_servers/mcp-hub.json
 
 ### Regenerate Configurations
 
-**Inside bot container:**
+- Config regeneration should be performed in the hub container (owner of configs):
+
 ```bash
-docker exec -it tg-note-bot python -m src.mcp.universal_config_generator --all
+docker exec -it tg-note-hub python -m src.mcp.universal_config_generator --all
 ```
 
 **On host:**

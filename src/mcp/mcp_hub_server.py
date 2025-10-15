@@ -731,17 +731,27 @@ def main():
     logger.info(f"  - Backend: {os.getenv('MEM_AGENT_BACKEND', 'auto')}")
     logger.info(f"  - Model: {os.getenv('MEM_AGENT_MODEL', 'default')}")
     logger.info("")
-    logger.info("📋 Environment Variables:")
-    logger.info(
-        f"  - MEM_AGENT_STORAGE_TYPE: {os.getenv('MEM_AGENT_STORAGE_TYPE', 'not set (default: json)')}"
-    )
-    logger.info(f"  - MEM_AGENT_MODEL: {os.getenv('MEM_AGENT_MODEL', 'not set')}")
-    logger.info(
-        f"  - MEM_AGENT_BACKEND: {os.getenv('MEM_AGENT_BACKEND', 'not set (default: auto)')}"
-    )
-    logger.info(
-        f"  - MEM_AGENT_MAX_TOOL_TURNS: {os.getenv('MEM_AGENT_MAX_TOOL_TURNS', 'not set (default: 20)')}"
-    )
+    # Display effective values from config.settings when available to avoid confusing "not set" logs
+    try:
+        from config import settings as app_settings
+
+        logger.info("📋 Environment Variables (effective):")
+        logger.info(f"  - MEM_AGENT_STORAGE_TYPE: {app_settings.MEM_AGENT_STORAGE_TYPE}")
+        logger.info(f"  - MEM_AGENT_MODEL: {app_settings.MEM_AGENT_MODEL}")
+        logger.info(f"  - MEM_AGENT_BACKEND: {app_settings.MEM_AGENT_BACKEND}")
+        logger.info(f"  - MEM_AGENT_MAX_TOOL_TURNS: {app_settings.MEM_AGENT_MAX_TOOL_TURNS}")
+    except Exception:
+        logger.info("📋 Environment Variables:")
+        logger.info(
+            f"  - MEM_AGENT_STORAGE_TYPE: {os.getenv('MEM_AGENT_STORAGE_TYPE', 'not set (default: json)')}"
+        )
+        logger.info(f"  - MEM_AGENT_MODEL: {os.getenv('MEM_AGENT_MODEL', 'not set')}")
+        logger.info(
+            f"  - MEM_AGENT_BACKEND: {os.getenv('MEM_AGENT_BACKEND', 'not set (default: auto)')}"
+        )
+        logger.info(
+            f"  - MEM_AGENT_MAX_TOOL_TURNS: {os.getenv('MEM_AGENT_MAX_TOOL_TURNS', 'not set (default: 20)')}"
+        )
     logger.info("")
     logger.info("ℹ️  Notes:")
     logger.info("  - User storage: data/memory/user_{user_id}/")

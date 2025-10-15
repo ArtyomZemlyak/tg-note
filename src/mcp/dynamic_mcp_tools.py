@@ -5,13 +5,14 @@ Auto-discovers MCP servers from the registry and creates tools for them.
 Supports both shared and per-user MCP servers.
 """
 
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
 from ..agents.tools.base_tool import BaseTool, ToolContext
-from .client import MCPClient
+from .client import MCPClient, MCPServerConfig
 from .registry_client import MCPRegistryClient
 
 
@@ -115,12 +116,29 @@ async def discover_and_create_mcp_tools(
     tools = []
 
     try:
-        # Create registry client with user_id for per-user discovery
-        registry_client = MCPRegistryClient(servers_dir=servers_dir, user_id=user_id)
+        connected_clients: Dict[str, MCPClient] = {}
 
-        # Initialize and connect to all enabled servers
-        registry_client.initialize()
-        connected_clients = await registry_client.connect_all_enabled()
+        # Docker mode: connect directly to MCP Hub via HTTP/SSE and avoid local registry
+        mcp_hub_url = os.getenv("MCP_HUB_URL")
+        if mcp_hub_url:
+            try:
+                client = MCPClient(MCPServerConfig(transport="sse", url=mcp_hub_url))
+                if await client.connect():
+                    connected_clients["mcp-hub"] = client
+                else:
+                    logger.warning(
+                        f"[DynamicMCPTools] Failed to connect to MCP Hub at {mcp_hub_url}"
+                    )
+            except Exception as e:
+                logger.error(
+                    f"[DynamicMCPTools] Error connecting to MCP Hub at {mcp_hub_url}: {e}",
+                    exc_info=True,
+                )
+        else:
+            # Standalone mode: discover via local registry
+            registry_client = MCPRegistryClient(servers_dir=servers_dir, user_id=user_id)
+            registry_client.initialize()
+            connected_clients = await registry_client.connect_all_enabled()
 
         if not connected_clients:
             logger.info("[DynamicMCPTools] No MCP servers connected")
