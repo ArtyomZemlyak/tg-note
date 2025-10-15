@@ -285,10 +285,13 @@ class MCPServerManager:
             mcp_hub_url = os.getenv("MCP_HUB_URL")
 
             if mcp_hub_url:
+                # In Docker mode the MCP Hub runs as a separate container and owns
+                # all MCP configuration/registry. The bot container must not create
+                # any local MCP configs or subprocesses.
                 logger.info(
-                    f"[MCPServerManager] Docker mode: Connecting to mcp-hub at {mcp_hub_url}"
+                    f"[MCPServerManager] Docker mode: Using external mcp-hub at {mcp_hub_url}"
                 )
-                self._setup_mcp_hub_connection(mcp_hub_url)
+                # Intentionally do nothing here: no local config files or subprocesses
             else:
                 logger.info(
                     "[MCPServerManager] Standalone mode: Registering memory HTTP server subprocess"
@@ -433,19 +436,28 @@ class MCPServerManager:
             )
             logger.info(f"[MCPServerManager] Qwen CLI config saved to: {saved_paths}")
 
-            # Generate universal configs for other clients
-            logger.info("[MCPServerManager] Creating universal MCP configs for other clients")
-            universal_gen = UniversalMCPConfigGenerator(
-                user_id=None,
-                http_port=(
-                    self.settings.get("MCP_PORT", 8765) if hasattr(self.settings, "get") else 8765
-                ),
-                mcp_hub_url=mcp_hub_url,
-            )
+            # Generate universal configs for other clients unless we're in Docker mode.
+            # In Docker, the hub container owns configs/registry; the bot should not
+            # create data/mcp_servers/* files.
+            if not mcp_hub_url:
+                logger.info("[MCPServerManager] Creating universal MCP configs for other clients")
+                universal_gen = UniversalMCPConfigGenerator(
+                    user_id=None,
+                    http_port=(
+                        self.settings.get("MCP_PORT", 8765)
+                        if hasattr(self.settings, "get")
+                        else 8765
+                    ),
+                    mcp_hub_url=mcp_hub_url,
+                )
 
-            # Save to data directory for Python clients and custom integrations
-            data_config_path = universal_gen.save_for_data_directory()
-            logger.info(f"[MCPServerManager] Universal config saved to: {data_config_path}")
+                # Save to data directory for Python clients and custom integrations
+                data_config_path = universal_gen.save_for_data_directory()
+                logger.info(f"[MCPServerManager] Universal config saved to: {data_config_path}")
+            else:
+                logger.info(
+                    "[MCPServerManager] Docker mode detected; skipping universal config generation"
+                )
 
         except Exception as e:
             logger.warning(f"[MCPServerManager] Failed to create MCP configs (non-critical): {e}")

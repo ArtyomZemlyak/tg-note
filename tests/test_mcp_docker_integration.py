@@ -33,28 +33,21 @@ def test_mcp_docker_mode_uses_hub_and_no_subprocess(tmp_path, monkeypatch):
     # Assert: no subprocess servers registered
     assert manager.servers == {}, "No MCP subprocesses should be registered in Docker mode"
 
-    # Assert: client-style config created pointing to mcp-hub URL
+    # Assert: bot container does NOT create local client-style configs in Docker mode
     config_file = Path("data/mcp_servers/mcp-hub.json")
-    assert config_file.exists(), "mcp-hub client config should be created"
-
-    data = json.loads(config_file.read_text(encoding="utf-8"))
-    assert "mcpServers" in data and "mcp-hub" in data["mcpServers"], "Config must contain mcp-hub entry"
-    assert data["mcpServers"]["mcp-hub"]["url"] == hub_url, "Config URL must point to MCP hub"
+    assert not config_file.exists(), "Bot must not create mcp-hub.json in Docker mode (hub owns configs)"
 
 
-def test_memory_mcp_tool_loads_sse_config_from_file(tmp_path, monkeypatch):
-    # Arrange: prepare a client-style config file created by server manager
+def test_memory_mcp_tool_uses_env_url_in_docker(tmp_path, monkeypatch):
+    # Arrange: prefer MCP_HUB_URL environment when set
     monkeypatch.chdir(tmp_path)
-    config_dir = Path("data/mcp_servers")
-    config_dir.mkdir(parents=True, exist_ok=True)
     hub_url = "http://mcp-hub:8765/sse"
-    config = {"mcpServers": {"mcp-hub": {"url": hub_url, "transport": "sse", "timeout": 10000}}}
-    (config_dir / "mcp-hub.json").write_text(json.dumps(config), encoding="utf-8")
+    monkeypatch.setenv("MCP_HUB_URL", hub_url)
 
     # Act
     tool = MemoryMCPTool()
     cfg = tool.mcp_server_config
 
-    # Assert: MemoryMCPTool should pick SSE transport and provided URL
+    # Assert: MemoryMCPTool should pick SSE transport and provided URL from env
     assert cfg.transport == "sse"
     assert cfg.url == hub_url
