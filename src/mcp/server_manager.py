@@ -145,12 +145,26 @@ class MCPServerProcess:
 
 class MCPServerManager:
     """
-    Global MCP Server Manager
+    MCP Server Manager - Subprocess Lifecycle Manager
 
-    Manages all MCP servers for the bot:
-    - Auto-starts servers on bot startup based on settings
-    - Handles server lifecycle (start, stop)
-    - Monitors server health
+    IMPORTANT: This manager is ONLY responsible for managing MCP Hub subprocess
+    lifecycle in standalone mode. It does NOT create any configurations.
+
+    Architecture:
+    - Docker mode: Bot is a pure client. MCP Hub runs as external service.
+      This manager does nothing (no subprocess, no config generation).
+    - Standalone mode: Bot launches MCP Hub as subprocess.
+      MCP Hub service itself generates all configs during its startup.
+
+    Responsibilities:
+    - Register MCP Hub subprocess (standalone mode only)
+    - Start/stop subprocess lifecycle
+    - Monitor subprocess health
+
+    NOT responsible for:
+    - Configuration file generation (that's MCP Hub's job)
+    - MCP tool registration (that's MCP Hub's job)
+    - MCP server registry (that's MCP Hub's job)
     """
 
     def __init__(self, settings: Settings):
@@ -267,122 +281,52 @@ class MCPServerManager:
         """
         Setup default MCP servers based on settings
 
-        This registers servers that should be auto-started when enabled in settings:
-        - mcp-hub HTTP/SSE connection (if AGENT_ENABLE_MCP_MEMORY is True)
+        Architecture:
+        - Docker mode: Bot is a pure client, connects to external MCP Hub service.
+          MCP Hub service owns all config generation and registry management.
+        - Standalone mode: Bot launches MCP Hub as subprocess.
+          MCP Hub service still owns config generation via its startup.
 
-        Also creates necessary configuration files:
-        - data/mcp_servers/mcp-hub.json (for Python MCP clients)
-        - ~/.qwen/settings.json (for Qwen CLI)
-
-        Note: In Docker deployments, mcp-hub is already running as a container.
-        We register it as HTTP/SSE connection instead of launching subprocess.
+        This method only handles subprocess lifecycle in standalone mode.
+        It does NOT create any configuration files - that's MCP Hub's responsibility.
         """
-        # Register memory HTTP server if MCP memory is enabled
-        if self.settings.AGENT_ENABLE_MCP_MEMORY:
-            # Check if running in Docker (by presence of MCP_HUB_URL env var)
-            import os
+        # Check if running in Docker (by presence of MCP_HUB_URL env var)
+        import os
 
-            mcp_hub_url = os.getenv("MCP_HUB_URL")
+        mcp_hub_url = os.getenv("MCP_HUB_URL")
 
-            if mcp_hub_url:
-                # In Docker mode the MCP Hub runs as a separate container and owns
-                # all MCP configuration/registry. The bot container must not create
-                # any local MCP configs or subprocesses.
+        if mcp_hub_url:
+            # Docker mode: MCP Hub runs as external service
+            # Bot is pure client - no subprocess, no config generation
+            logger.info(
+                f"[MCPServerManager] Docker mode: Bot will connect to external MCP Hub at {mcp_hub_url}"
+            )
+            logger.info(
+                "[MCPServerManager] In Docker mode, MCP Hub service owns all config generation and registry"
+            )
+            # Intentionally do nothing: no subprocesses, no config files
+        else:
+            # Standalone mode: Launch MCP Hub as subprocess
+            # Config generation happens in MCP Hub service startup
+            if self.settings.AGENT_ENABLE_MCP_MEMORY:
                 logger.info(
-                    f"[MCPServerManager] Docker mode: Using external mcp-hub at {mcp_hub_url}"
-                )
-                # Intentionally do nothing here: no local config files or subprocesses
-            else:
-                logger.info(
-                    "[MCPServerManager] Standalone mode: Registering memory HTTP server subprocess"
+                    "[MCPServerManager] Standalone mode: Will launch MCP Hub as subprocess"
                 )
                 self._setup_memory_subprocess()
 
-        # Also create ~/.qwen/settings.json if MCP is enabled for Qwen CLI support
-        if self.settings.AGENT_ENABLE_MCP or self.settings.AGENT_ENABLE_MCP_MEMORY:
-            self._create_qwen_config()
-
-    def _setup_mcp_hub_connection(self, url: str) -> None:
-        """
-        Setup connection to mcp-hub (Docker mode)
-
-        Args:
-            url: MCP Hub URL (e.g., http://mcp-hub:8765/sse)
-        """
-        # Create data/mcp_servers directory if it doesn't exist
-        mcp_servers_dir = Path("data/mcp_servers")
-        mcp_servers_dir.mkdir(parents=True, exist_ok=True)
-
-        # Create mcp-hub.json config for HTTP/SSE transport
-        mcp_hub_config_file = mcp_servers_dir / "mcp-hub.json"
-
-        config = {
-            "mcpServers": {
-                "mcp-hub": {
-                    "url": url,
-                    "transport": "sse",
-                    "timeout": 10000,
-                    "trust": True,
-                    "description": "MCP Hub - Built-in memory tools and server registry",
-                }
-            }
-        }
-
-        try:
-            with open(mcp_hub_config_file, "w", encoding="utf-8") as f:
-                json.dump(config, f, indent=2, ensure_ascii=False)
-            logger.info(
-                f"[MCPServerManager] Created MCP Hub config (HTTP/SSE): {mcp_hub_config_file}"
-            )
-        except Exception as e:
-            logger.error(f"[MCPServerManager] Failed to create MCP Hub config: {e}")
+    # REMOVED: _setup_mcp_hub_connection method
+    # In Docker mode, the bot doesn't need to create any config files.
+    # MCP Hub service owns all configuration generation.
 
     def _setup_memory_subprocess(self) -> None:
-        """Setup memory server as subprocess (standalone mode)"""
-        # Create data/mcp_servers directory if it doesn't exist
-        mcp_servers_dir = Path("data/mcp_servers")
-        mcp_servers_dir.mkdir(parents=True, exist_ok=True)
+        """
+        Setup MCP Hub server as subprocess (standalone mode)
 
-        # Create mcp-hub.json config file if it doesn't exist
-        mcp_hub_config_file = mcp_servers_dir / "mcp-hub.json"
-        if not mcp_hub_config_file.exists():
-            logger.info(f"[MCPServerManager] Creating MCP server config at {mcp_hub_config_file}")
-
-            # Standard MCP server configuration format
-            config = {
-                "mcpServers": {
-                    "mcp-hub": {
-                        # HTTP/SSE transport
-                        "url": "http://127.0.0.1:8765/sse",
-                        "timeout": 10000,
-                        "trust": True,
-                        "description": "MCP Hub - Built-in memory tools and server registry",
-                        # Additional metadata for internal use
-                        "_transport": "http",
-                        "_command": "python3",
-                        "_args": [
-                            "-m",
-                            "src.mcp.mcp_hub_server",
-                            "--host",
-                            "127.0.0.1",
-                            "--port",
-                            "8765",
-                        ],
-                        "_cwd": str(Path.cwd()),
-                    }
-                }
-            }
-
-            try:
-                with open(mcp_hub_config_file, "w", encoding="utf-8") as f:
-                    json.dump(config, f, indent=2, ensure_ascii=False)
-                logger.info(f"[MCPServerManager] Created MCP server config: {mcp_hub_config_file}")
-            except Exception as e:
-                logger.error(f"[MCPServerManager] Failed to create MCP server config: {e}")
-        else:
-            logger.debug(
-                f"[MCPServerManager] MCP server config already exists: {mcp_hub_config_file}"
-            )
+        In standalone mode, the bot launches MCP Hub as a subprocess.
+        The MCP Hub service itself handles all config generation during its startup.
+        The bot only manages the subprocess lifecycle.
+        """
+        logger.info("[MCPServerManager] Registering MCP Hub subprocess for standalone mode")
 
         # Prepare environment variables from settings
         server_env = {
@@ -393,6 +337,7 @@ class MCPServerManager:
         }
 
         # Register mcp-hub server subprocess
+        # When this subprocess starts, it will generate all necessary configs
         self.register_server(
             name="mcp-hub",
             command="python3",
@@ -407,61 +352,13 @@ class MCPServerManager:
             env=server_env,
             cwd=Path.cwd(),
         )
+        logger.info("[MCPServerManager] MCP Hub subprocess registered (will generate configs on startup)")
 
-    def _create_qwen_config(self) -> None:
-        """
-        Create ~/.qwen/settings.json for Qwen CLI MCP support
-
-        This allows QwenCodeCLIAgent to use MCP servers via Qwen CLI's native MCP client.
-        Also creates universal MCP configs for other LLM clients.
-        """
-        try:
-            from .qwen_config_generator import setup_qwen_mcp_config
-            from .universal_config_generator import UniversalMCPConfigGenerator
-
-            logger.info("[MCPServerManager] Creating MCP configurations for various clients...")
-
-            # Detect MCP Hub URL
-            import os
-
-            mcp_hub_url = os.getenv("MCP_HUB_URL")
-
-            # Generate and save Qwen CLI configuration
-            logger.info("[MCPServerManager] Creating Qwen CLI config (HTTP/SSE mode)")
-            saved_paths = setup_qwen_mcp_config(
-                user_id=None,  # No user-specific config
-                kb_path=None,  # No KB-specific config
-                global_config=True,  # Only global ~/.qwen/settings.json
-                mcp_hub_url=mcp_hub_url,  # Auto-detect Docker or use env var
-            )
-            logger.info(f"[MCPServerManager] Qwen CLI config saved to: {saved_paths}")
-
-            # Generate universal configs for other clients unless we're in Docker mode.
-            # In Docker, the hub container owns configs/registry; the bot should not
-            # create data/mcp_servers/* files.
-            if not mcp_hub_url:
-                logger.info("[MCPServerManager] Creating universal MCP configs for other clients")
-                universal_gen = UniversalMCPConfigGenerator(
-                    user_id=None,
-                    http_port=(
-                        self.settings.get("MCP_PORT", 8765)
-                        if hasattr(self.settings, "get")
-                        else 8765
-                    ),
-                    mcp_hub_url=mcp_hub_url,
-                )
-
-                # Save to data directory for Python clients and custom integrations
-                data_config_path = universal_gen.save_for_data_directory()
-                logger.info(f"[MCPServerManager] Universal config saved to: {data_config_path}")
-            else:
-                logger.info(
-                    "[MCPServerManager] Docker mode detected; skipping universal config generation"
-                )
-
-        except Exception as e:
-            logger.warning(f"[MCPServerManager] Failed to create MCP configs (non-critical): {e}")
-            logger.debug(f"[MCPServerManager] MCP config error details:", exc_info=True)
+    # REMOVED: _create_qwen_config method
+    # Config generation is now the responsibility of MCP Hub service.
+    # In Docker mode: MCP Hub container creates configs on startup
+    # In standalone mode: MCP Hub subprocess creates configs on startup
+    # The bot should never create configs - it's a pure client.
 
     async def auto_start_servers(self) -> Dict[str, bool]:
         """

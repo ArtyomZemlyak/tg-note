@@ -17,14 +17,41 @@ As of the latest update, HTTP/SSE is the default mode for `mem-agent` MCP server
 
 ## Architecture
 
+**New Architecture (Refactored):**
+
+The MCP layer has been refactored into a dedicated service with clear separation of concerns:
+
 ```
-src/agents/mcp/
-├── __init__.py              # Package exports
-├── README.md                # This file
-├── client.py                # MCP client implementation
-├── base_mcp_tool.py         # Base class for MCP tools
-└── memory_agent_tool.py     # Memory agent MCP tool
+src/mcp/
+├── mcp_hub_server.py        # MCP Hub Service - owns ALL MCP logic
+│   ├── Built-in MCP tools (memory, etc.)
+│   ├── MCP server registry
+│   ├── Configuration generation
+│   └── HTTP/SSE API
+│
+├── server_manager.py        # Bot's subprocess manager (standalone mode only)
+│   └── Launches MCP Hub subprocess
+│
+├── registry/                # Server registry
+│   ├── registry.py          # Registry implementation
+│   └── manager.py           # Registry manager
+│
+├── memory/                  # Memory storage backends
+│   ├── memory_storage.py    # JSON storage
+│   ├── memory_vector_storage.py
+│   └── memory_mem_agent_storage.py
+│
+├── qwen_config_generator.py     # Qwen CLI config generation
+├── universal_config_generator.py # Universal MCP config generation
+└── client.py                # MCP client implementation
 ```
+
+**Key Principles:**
+- **MCP Hub Service**: Single source of truth for all MCP operations
+- **Bot as Client**: Pure client pattern (no config generation)
+- **Mode-Agnostic**: Same bot behavior in Docker and standalone modes
+
+See [MCP Architecture Documentation](../../docs_site/architecture/mcp-architecture.md) for details.
 
 ## Components
 
