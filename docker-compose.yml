@@ -110,6 +110,8 @@ services:
       - ./logs:/app/logs
       # Configuration (read-only)
       - ./config.example.yaml:/app/config.yaml:ro
+      # Persist Qwen CLI auth and settings between restarts
+      - ~/.qwen:/root/.qwen
     depends_on:
       mcp-hub:
         condition: service_healthy
