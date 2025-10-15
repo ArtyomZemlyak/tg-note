@@ -543,6 +543,80 @@ async def http_remove_server(request: Request):
         logger.error(f"❌ Error in http_remove_server: {e}", exc_info=True)
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
+
+# ============================================================================
+# Configuration API - Dynamic Config Generation
+# ============================================================================
+
+
+@mcp.custom_route("/config/client/{client_type}", methods=["GET"])
+async def http_get_client_config(request: Request):
+    """
+    HTTP: Get client configuration for a specific client type
+
+    Supported client types:
+    - standard: Standard MCP format (Cursor, Claude Desktop, Qwen CLI)
+    - lmstudio: LM Studio specific format
+    - openai: OpenAI-compatible format
+
+    Query parameters:
+    - format: json (default) or raw (for direct file download)
+    """
+    try:
+        from src.mcp.universal_config_generator import UniversalMCPConfigGenerator
+
+        client_type = request.path_params.get("client_type")
+        format_type = request.query_params.get("format", "json")
+
+        # Determine MCP Hub URL
+        mcp_hub_url = os.getenv("MCP_HUB_URL")
+        if not mcp_hub_url:
+            # Use request host/port if available
+            host = request.url.hostname or "127.0.0.1"
+            port = request.url.port or 8765
+            mcp_hub_url = f"http://{host}:{port}/sse"
+
+        # Generate config
+        generator = UniversalMCPConfigGenerator(
+            user_id=None,
+            http_port=request.url.port or 8765,
+            mcp_hub_url=mcp_hub_url,
+        )
+
+        # Select appropriate config based on client type
+        if client_type == "standard":
+            config = generator.generate_standard_config()
+        elif client_type == "lmstudio":
+            config = generator.generate_lm_studio_config()
+        elif client_type == "openai":
+            config = generator.generate_openai_compatible_config()
+        else:
+            return JSONResponse(
+                {
+                    "success": False,
+                    "error": f"Unknown client type: {client_type}. Supported: standard, lmstudio, openai",
+                },
+                status_code=400,
+            )
+
+        if format_type == "raw":
+            # Return as downloadable file
+            import json as json_module
+
+            return JSONResponse(
+                config,
+                headers={
+                    "Content-Disposition": f'attachment; filename="mcp-hub-{client_type}.json"'
+                },
+            )
+        else:
+            # Return as API response
+            return JSONResponse({"success": True, "client_type": client_type, "config": config})
+
+    except Exception as e:
+        logger.error(f"❌ Error in http_get_client_config: {e}", exc_info=True)
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
 @mcp.tool()
 def get_mcp_server(name: str) -> dict:
     """
@@ -692,6 +766,67 @@ def disable_mcp_server(name: str) -> dict:
 
 
 # ============================================================================
+# Client Configuration Generation
+# ============================================================================
+
+
+def _generate_client_configs(host: str, port: int) -> None:
+    """
+    Generate MCP client configurations for various clients
+
+    This is the MCP Hub's responsibility - it knows its URL and should
+    generate configs for clients to connect to it.
+
+    Args:
+        host: Host the server is running on
+        port: Port the server is running on
+    """
+    try:
+        from src.mcp.qwen_config_generator import setup_qwen_mcp_config
+        from src.mcp.universal_config_generator import UniversalMCPConfigGenerator
+
+        # Determine MCP Hub URL based on environment
+        mcp_hub_url = os.getenv("MCP_HUB_URL")
+        if not mcp_hub_url:
+            # Standalone mode - use the host and port we're binding to
+            mcp_hub_url = f"http://{host}:{port}/sse"
+
+        logger.info("📝 Generating client configurations...")
+        logger.info(f"   MCP Hub URL: {mcp_hub_url}")
+
+        # Generate Qwen CLI config
+        logger.info("   Creating Qwen CLI config...")
+        saved_paths = setup_qwen_mcp_config(
+            user_id=None,
+            kb_path=None,
+            global_config=True,
+            use_http=True,
+            http_port=port,
+            mcp_hub_url=mcp_hub_url,
+        )
+        logger.info(f"   ✓ Qwen CLI config: {saved_paths}")
+
+        # Generate universal configs for other clients (only in standalone mode)
+        if not os.getenv("MCP_HUB_URL"):
+            logger.info("   Creating universal MCP configs...")
+            universal_gen = UniversalMCPConfigGenerator(
+                user_id=None,
+                http_port=port,
+                mcp_hub_url=mcp_hub_url,
+            )
+            data_config_path = universal_gen.save_for_data_directory()
+            logger.info(f"   ✓ Universal config: {data_config_path}")
+        else:
+            logger.info("   Docker mode: Skipping universal config generation")
+
+        logger.info("✓ Client configurations generated successfully")
+
+    except Exception as e:
+        logger.warning(f"⚠️  Failed to generate client configs (non-critical): {e}")
+        logger.debug("Config generation error details:", exc_info=True)
+
+
+# ============================================================================
 # Main Entry Point
 # ============================================================================
 
@@ -708,6 +843,11 @@ def main():
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
         default="INFO",
         help="Logging level",
+    )
+    parser.add_argument(
+        "--skip-config-gen",
+        action="store_true",
+        help="Skip client configuration generation on startup",
     )
 
     args = parser.parse_args()
@@ -761,10 +901,21 @@ def main():
     # Initialize registry
     get_registry()
 
+    # Generate client configurations (unless skipped)
+    if not args.skip_config_gen:
+        logger.info("")
+        _generate_client_configs(args.host, args.port)
+        logger.info("")
+    else:
+        logger.info("")
+        logger.info("⏭️  Skipping client configuration generation (--skip-config-gen)")
+        logger.info("")
+
     # Run server
     try:
         logger.info(f"🌐 Server listening on http://{args.host}:{args.port}/sse")
         logger.info(f"🏥 Health check: http://{args.host}:{args.port}/health")
+        logger.info(f"📋 Registry API: http://{args.host}:{args.port}/registry/servers")
         mcp.run(transport="sse", host=args.host, port=args.port)
     except KeyboardInterrupt:
         logger.info("⏹️  Server stopped by user")
