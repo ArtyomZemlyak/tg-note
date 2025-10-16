@@ -41,7 +41,7 @@ from src.mcp.memory.mem_agent_impl.model import (
     get_model_response,
 )
 from src.mcp.memory.mem_agent_impl.schemas import AgentResponse, ChatMessage, Role
-from src.mcp.memory.mem_agent_impl.settings import (
+from config.settings import (
     MAX_TOOL_TURNS,
     MEM_AGENT_BASE_URL,
     MEM_AGENT_MODEL,

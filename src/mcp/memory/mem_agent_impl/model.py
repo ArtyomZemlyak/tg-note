@@ -5,7 +5,7 @@ from openai import OpenAI
 from pydantic import BaseModel
 
 from src.mcp.memory.mem_agent_impl.schemas import ChatMessage, Role
-from src.mcp.memory.mem_agent_impl.settings import (
+from config.settings import (
     MEM_AGENT_BASE_URL,
     MEM_AGENT_MODEL,
     MEM_AGENT_OPENAI_API_KEY,

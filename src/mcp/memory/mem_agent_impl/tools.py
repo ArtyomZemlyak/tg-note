@@ -5,7 +5,7 @@ import uuid
 from pathlib import Path
 from typing import Union
 
-from src.mcp.memory.mem_agent_impl.settings import MEMORY_PATH
+from config.settings import MEMORY_PATH
 from src.mcp.memory.mem_agent_impl.utils import check_size_limits, create_memory_if_not_exists
 
 
