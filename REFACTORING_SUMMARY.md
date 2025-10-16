@@ -44,7 +44,7 @@ When running in Docker mode with memory tools, the bot was creating MCP configur
 class MCPServerManager:
     """
     MCP Server Manager - Subprocess Lifecycle Manager
-    
+
     IMPORTANT: This manager is ONLY responsible for managing MCP Hub subprocess
     lifecycle in standalone mode. It does NOT create any configurations.
     """
@@ -57,7 +57,7 @@ class MCPServerManager:
 def _generate_client_configs(host: str, port: int) -> None:
     """
     Generate MCP client configurations for various clients
-    
+
     This is the MCP Hub's responsibility - it knows its URL and should
     generate configs for clients to connect to it.
     """
@@ -81,7 +81,7 @@ def _generate_client_configs(host: str, port: int) -> None:
 async def http_get_client_config(request: Request):
     """
     HTTP: Get client configuration for a specific client type
-    
+
     Supported client types:
     - standard: Standard MCP format (Cursor, Claude Desktop, Qwen CLI)
     - lmstudio: LM Studio specific format
@@ -254,7 +254,7 @@ ls -la data/mcp_servers/mcp-hub.json
    ```bash
    # Check Qwen CLI config
    cat ~/.qwen/settings.json | jq '.mcpServers["mcp-hub"]'
-   
+
    # Check universal config (standalone only)
    cat data/mcp_servers/mcp-hub.json | jq
    ```

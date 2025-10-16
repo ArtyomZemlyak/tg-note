@@ -94,6 +94,7 @@ class MemoryStorage(BaseMemoryStorage):
         # Try settings module first (preferred)
         try:
             from config.settings import settings
+
             return settings.MEM_AGENT_STORAGE_TYPE.lower()
         except (ImportError, AttributeError):
             pass
@@ -123,6 +124,7 @@ class MemoryStorage(BaseMemoryStorage):
         # Try settings module first (preferred)
         try:
             from config.settings import settings
+
             return settings.MEM_AGENT_MODEL
         except (ImportError, AttributeError):
             pass

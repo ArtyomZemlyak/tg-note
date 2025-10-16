@@ -105,6 +105,7 @@ class MemoryMCPServer:
         # Get settings from config.yaml (preferred) or environment variables (fallback)
         try:
             from config import settings as app_settings
+
             storage_type = app_settings.MEM_AGENT_STORAGE_TYPE
             model_name = app_settings.MEM_AGENT_MODEL
             backend = app_settings.MEM_AGENT_BACKEND
@@ -115,7 +116,7 @@ class MemoryMCPServer:
             model_name = os.getenv("MEM_AGENT_MODEL", None)
             backend = os.getenv("MEM_AGENT_BACKEND", "auto")
             logger.info("📋 Using configuration from environment variables")
-        
+
         logger.info(f"💾 Storage type: {storage_type}")
         logger.info("")
         logger.info("📋 Configuration:")

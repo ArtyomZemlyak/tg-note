@@ -11,8 +11,8 @@ from typing import Dict, List, Optional
 
 from loguru import logger
 
-from .registry_client import MCPRegistryClient
 from .client import MCPClient, MCPServerConfig
+from .registry_client import MCPRegistryClient
 
 
 async def get_mcp_tools_description(

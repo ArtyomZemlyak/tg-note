@@ -76,7 +76,11 @@ class EnvOverridesSource(PydanticBaseSettingsSource):
                 parsed = json.loads(value)
                 return [int(x) for x in parsed], field_name, False
             else:
-                return [int(uid.strip()) for uid in value.split(",") if uid.strip()], field_name, False
+                return (
+                    [int(uid.strip()) for uid in value.split(",") if uid.strip()],
+                    field_name,
+                    False,
+                )
         except Exception:
             # Fallback to robust comma-splitting
             return [int(uid.strip()) for uid in value.split(",") if uid.strip()], field_name, False
@@ -209,7 +213,8 @@ class Settings(BaseSettings):
         default=None, description="OpenAI-compatible endpoint URL (e.g., http://localhost:8001/v1)"
     )
     MEM_AGENT_OPENAI_API_KEY: Optional[str] = Field(
-        default=None, description="API key for mem-agent endpoint (use 'lm-studio' for local servers)"
+        default=None,
+        description="API key for mem-agent endpoint (use 'lm-studio' for local servers)",
     )
     MEM_AGENT_MAX_TOOL_TURNS: int = Field(
         default=20, description="Maximum number of tool execution turns"
@@ -226,7 +231,7 @@ class Settings(BaseSettings):
     MEM_AGENT_MEMORY_SIZE_LIMIT: int = Field(
         default=1024 * 1024 * 100, description="Maximum total memory size in bytes"  # 100MB
     )
-    
+
     # OpenRouter API Key (for backward compatibility)
     OPENROUTER_API_KEY: Optional[str] = Field(
         default=None, description="OpenRouter API key (for backward compatibility)"
@@ -490,9 +495,13 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", settings.OPENROUTER_API_KEY
 
 # Mem-agent constants with environment variable overrides
 MAX_TOOL_TURNS = int(os.getenv("MEM_AGENT_MAX_TOOL_TURNS", str(settings.MEM_AGENT_MAX_TOOL_TURNS)))
-FILE_SIZE_LIMIT = int(os.getenv("MEM_AGENT_FILE_SIZE_LIMIT", str(settings.MEM_AGENT_FILE_SIZE_LIMIT)))
+FILE_SIZE_LIMIT = int(
+    os.getenv("MEM_AGENT_FILE_SIZE_LIMIT", str(settings.MEM_AGENT_FILE_SIZE_LIMIT))
+)
 DIR_SIZE_LIMIT = int(os.getenv("MEM_AGENT_DIR_SIZE_LIMIT", str(settings.MEM_AGENT_DIR_SIZE_LIMIT)))
-MEMORY_SIZE_LIMIT = int(os.getenv("MEM_AGENT_MEMORY_SIZE_LIMIT", str(settings.MEM_AGENT_MEMORY_SIZE_LIMIT)))
+MEMORY_SIZE_LIMIT = int(
+    os.getenv("MEM_AGENT_MEMORY_SIZE_LIMIT", str(settings.MEM_AGENT_MEMORY_SIZE_LIMIT))
+)
 SANDBOX_TIMEOUT = int(os.getenv("MEM_AGENT_TIMEOUT", str(settings.MEM_AGENT_TIMEOUT)))
 MEM_AGENT_MODEL = settings.MEM_AGENT_MODEL
 
@@ -500,7 +509,14 @@ MEM_AGENT_MODEL = settings.MEM_AGENT_MODEL
 MEMORY_PATH = "memory"
 
 # Path settings
-SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent.parent / "src" / "mcp" / "memory" / "mem_agent_impl" / "system_prompt.txt"
+SYSTEM_PROMPT_PATH = (
+    Path(__file__).resolve().parent.parent
+    / "src"
+    / "mcp"
+    / "memory"
+    / "mem_agent_impl"
+    / "system_prompt.txt"
+)
 SAVE_CONVERSATION_PATH = Path("output/conversations/")
 
 

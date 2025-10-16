@@ -181,7 +181,7 @@ python -m src.mcp.mcp_hub_server --skip-config-gen
    ```bash
    # Docker mode
    docker-compose up
-   
+
    # Standalone mode
    python -m main
    ```

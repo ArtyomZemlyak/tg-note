@@ -3,19 +3,19 @@ MCP Server Configuration Handlers for Telegram Bot
 Allows users to manage MCP server configurations through Telegram
 """
 
+import json
+import os
 from pathlib import Path
 from typing import Dict, Optional
+from urllib.parse import urlsplit, urlunsplit
 
+import aiohttp
 from loguru import logger
 from telebot.async_telebot import AsyncTeleBot
 from telebot.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from src.bot.utils import escape_markdown
 from src.mcp.registry.manager import MCPServersManager
-import os
-import json
-import aiohttp
-from urllib.parse import urlsplit, urlunsplit
 
 
 class MCPHandlers:
@@ -304,13 +304,18 @@ class MCPHandlers:
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(
-                        f"{self._hub_base}/registry/servers", timeout=aiohttp.ClientTimeout(total=10)
+                        f"{self._hub_base}/registry/servers",
+                        timeout=aiohttp.ClientTimeout(total=10),
                     ) as resp:
                         if resp.status == 200:
                             data = await resp.json()
                             total = int(data.get("total", 0))
                             enabled = sum(1 for s in data.get("servers", []) if s.get("enabled"))
-                            summary = {"total": total, "enabled": enabled, "disabled": total - enabled}
+                            summary = {
+                                "total": total,
+                                "enabled": enabled,
+                                "disabled": total - enabled,
+                            }
             except Exception:
                 summary = None
         if summary is None:

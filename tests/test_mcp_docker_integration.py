@@ -10,8 +10,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from config.settings import Settings
-from src.mcp.server_manager import MCPServerManager
 from src.mcp.memory.memory_tool import MemoryMCPTool
+from src.mcp.server_manager import MCPServerManager
 
 
 def test_mcp_docker_mode_uses_hub_and_no_subprocess(tmp_path, monkeypatch):
@@ -36,7 +36,9 @@ def test_mcp_docker_mode_uses_hub_and_no_subprocess(tmp_path, monkeypatch):
 
     # Assert: bot container does NOT create local client-style configs in Docker mode
     config_file = Path("data/mcp_servers/mcp-hub.json")
-    assert not config_file.exists(), "Bot must not create mcp-hub.json in Docker mode (hub owns configs)"
+    assert (
+        not config_file.exists()
+    ), "Bot must not create mcp-hub.json in Docker mode (hub owns configs)"
 
 
 def test_memory_mcp_tool_uses_env_url_in_docker(tmp_path, monkeypatch):
@@ -82,7 +84,9 @@ async def test_mcp_hub_health_includes_builtin_tools():
 
     # Act & Assert: Verify the structure
     assert "builtin_tools" in mock_health_response
-    assert mock_health_response["builtin_tools"]["total"] == 8
-    assert len(mock_health_response["builtin_tools"]["names"]) == 8
+    # After refactor, MCP Hub exposes only built-in memory tools via MCP interface
+    # Management endpoints are available via HTTP API, not as MCP tools
+    assert mock_health_response["builtin_tools"]["total"] == 3
+    assert len(mock_health_response["builtin_tools"]["names"]) == 3
     assert "store_memory" in mock_health_response["builtin_tools"]["names"]
     assert "retrieve_memory" in mock_health_response["builtin_tools"]["names"]

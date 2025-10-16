@@ -309,9 +309,7 @@ class MCPServerManager:
             # Standalone mode: Launch MCP Hub as subprocess
             # Config generation happens in MCP Hub service startup
             if self.settings.AGENT_ENABLE_MCP_MEMORY:
-                logger.info(
-                    "[MCPServerManager] Standalone mode: Will launch MCP Hub as subprocess"
-                )
+                logger.info("[MCPServerManager] Standalone mode: Will launch MCP Hub as subprocess")
                 self._setup_memory_subprocess()
 
     # REMOVED: _setup_mcp_hub_connection method
@@ -352,7 +350,9 @@ class MCPServerManager:
             env=server_env,
             cwd=Path.cwd(),
         )
-        logger.info("[MCPServerManager] MCP Hub subprocess registered (will generate configs on startup)")
+        logger.info(
+            "[MCPServerManager] MCP Hub subprocess registered (will generate configs on startup)"
+        )
 
     # REMOVED: _create_qwen_config method
     # Config generation is now the responsibility of MCP Hub service.
