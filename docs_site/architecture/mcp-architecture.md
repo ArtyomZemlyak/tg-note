@@ -45,7 +45,7 @@ The MCP (Model Context Protocol) layer in tg-note follows a clean separation of 
 │  │  ✓ Per-user isolation                                 │     │
 │  │                                                        │     │
 │  │  Endpoints:                                            │     │
-│  │    - /health                                           │     │
+│  │    - /health (includes builtin tools & servers)       │     │
 │  │    - /sse (MCP protocol)                              │     │
 │  │    - /registry/servers (CRUD)                         │     │
 │  │    - /config/client/{type} (config generation)        │     │
@@ -156,6 +156,50 @@ class MCPServerManager:
             # Standalone mode: launch subprocess
             self._setup_memory_subprocess()
 ```
+
+## Health Check Endpoint
+
+The `/health` endpoint provides comprehensive information about the MCP Hub state:
+
+```bash
+curl http://localhost:8765/health
+```
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "service": "mcp-hub",
+  "version": "1.0.0",
+  "builtin_tools": {
+    "total": 8,
+    "names": [
+      "store_memory",
+      "retrieve_memory",
+      "list_categories",
+      "list_mcp_servers",
+      "get_mcp_server",
+      "register_mcp_server",
+      "enable_mcp_server",
+      "disable_mcp_server"
+    ]
+  },
+  "registry": {
+    "servers_total": 0,
+    "servers_enabled": 0
+  },
+  "storage": {
+    "active_users": 0
+  },
+  "ready": true
+}
+```
+
+**Fields:**
+- `builtin_tools` - MCP tools provided by the hub itself (always available)
+- `registry.servers_total` - External MCP servers registered (user-added servers)
+- `registry.servers_enabled` - Number of enabled external servers
+- `storage.active_users` - Number of users with active storage sessions
 
 ## Configuration Files
 

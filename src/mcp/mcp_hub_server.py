@@ -92,6 +92,24 @@ _storages: Dict[int, MemoryStorage] = {}
 # Global registry instance
 _registry: Optional[MCPServerRegistry] = None
 
+# Built-in tools count (tools provided by MCP Hub itself)
+# These are registered via @mcp.tool() decorator
+BUILTIN_TOOLS = [
+    "store_memory",
+    "retrieve_memory",
+    "list_categories",
+    "list_mcp_servers",
+    "get_mcp_server",
+    "register_mcp_server",
+    "enable_mcp_server",
+    "disable_mcp_server",
+]
+
+
+def get_builtin_tools_count() -> int:
+    """Get count of built-in MCP tools provided by the hub"""
+    return len(BUILTIN_TOOLS)
+
 
 def get_registry() -> MCPServerRegistry:
     """
@@ -197,7 +215,17 @@ def get_storage(user_id: int) -> MemoryStorage:
 
 @mcp.custom_route("/health", methods=["GET"])
 async def health_check(request):
-    """Health check endpoint for container orchestration"""
+    """Health check endpoint for container orchestration
+    
+    Returns comprehensive health information including:
+    - Built-in MCP tools (provided by hub itself)
+    - External MCP servers (registered by users)
+    - Active storage sessions
+    
+    This allows proper distinction between:
+    1. Hub's own tools (memory, server management) - always available
+    2. User-registered MCP servers - optional external integrations
+    """
     try:
         registry = get_registry()
         return JSONResponse(
@@ -205,6 +233,10 @@ async def health_check(request):
                 "status": "ok",
                 "service": "mcp-hub",
                 "version": "1.0.0",
+                "builtin_tools": {
+                    "total": get_builtin_tools_count(),
+                    "names": BUILTIN_TOOLS,
+                },
                 "registry": {
                     "servers_total": len(registry.get_all_servers()),
                     "servers_enabled": len(registry.get_enabled_servers()),
