@@ -108,9 +108,9 @@ export MEM_AGENT_MODEL=driaforall/mem-agent
 # Backend configuration (auto, vllm, mlx, or transformers)
 export MEM_AGENT_BACKEND=auto
 
-# vLLM configuration (when backend is vllm)
-export MEM_AGENT_VLLM_HOST=127.0.0.1
-export MEM_AGENT_VLLM_PORT=8001
+# OpenAI-compatible endpoint configuration
+export MEM_AGENT_BASE_URL=http://127.0.0.1:8001/v1
+export MEM_AGENT_OPENAI_API_KEY=lm-studio
 
 # Or use OpenRouter (when backend is auto/transformers without local server)
 export OPENROUTER_API_KEY=your-key
@@ -275,8 +275,8 @@ pip install fastmcp transformers openai
 curl http://127.0.0.1:8000/v1/models
 
 # Check environment variables
-echo $VLLM_HOST
-echo $VLLM_PORT
+echo $MEM_AGENT_BASE_URL
+echo $MEM_AGENT_OPENAI_API_KEY
 ```
 
 ### Memory Path Issues

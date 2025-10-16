@@ -205,8 +205,6 @@ class Settings(BaseSettings):
     MEM_AGENT_BACKEND: str = Field(
         default="auto", description="Backend to use: auto, vllm, mlx, or transformers"
     )
-    MEM_AGENT_VLLM_HOST: str = Field(default="127.0.0.1", description="vLLM server host")
-    MEM_AGENT_VLLM_PORT: int = Field(default=8001, description="vLLM server port")
     MEM_AGENT_MAX_TOOL_TURNS: int = Field(
         default=20, description="Maximum number of tool execution turns"
     )

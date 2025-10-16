@@ -7,10 +7,8 @@ from pydantic import BaseModel
 from src.mcp.memory.mem_agent_impl.schemas import ChatMessage, Role
 from src.mcp.memory.mem_agent_impl.settings import (
     MEM_AGENT_BASE_URL,
-    MEM_AGENT_HOST,
     MEM_AGENT_MODEL,
     MEM_AGENT_OPENAI_API_KEY,
-    MEM_AGENT_PORT,
     OPENROUTER_API_KEY,
 )
 
@@ -32,19 +30,6 @@ def create_openai_client() -> OpenAI:
     return OpenAI(api_key=api_key, base_url=base_url)
 
 
-def create_vllm_client(host: str = MEM_AGENT_HOST, port: int = MEM_AGENT_PORT) -> OpenAI:
-    """Create a new vLLM client instance (OpenAI-compatible)."""
-    logger.debug("🔧 Creating vLLM client")
-    logger.debug(f"  Host: {host}")
-    logger.debug(f"  Port: {port}")
-    logger.debug(f"  Base URL: http://{host}:{port}/v1")
-
-    return OpenAI(
-        base_url=f"http://{host}:{port}/v1",
-        api_key="EMPTY",
-    )
-
-
 def _as_dict(msg: Union[ChatMessage, dict]) -> dict:
     """
     Accept either ChatMessage or raw dict and return the raw dict.
@@ -64,10 +49,9 @@ def get_model_response(
     system_prompt: Optional[str] = None,
     model: str = MEM_AGENT_MODEL,
     client: Optional[OpenAI] = None,
-    use_vllm: bool = False,
 ) -> Union[str, BaseModel]:
     """
-    Get a response from a model using OpenRouter or vLLM, with optional schema for structured output.
+    Get a response from a model using OpenAI-compatible endpoint.
 
     Args:
         messages: A list of ChatMessage objects (optional).
@@ -76,7 +60,6 @@ def get_model_response(
         model: The model to use.
         schema: A Pydantic BaseModel for structured output (optional).
         client: Optional OpenAI client to use. If None, uses the global client.
-        use_vllm: Whether to use vLLM backend instead of OpenRouter.
 
     Returns:
         A string response from the model if schema is None, otherwise a BaseModel object.
@@ -87,15 +70,12 @@ def get_model_response(
     logger.debug("=" * 60)
     logger.debug("🧠 GET_MODEL_RESPONSE called")
     logger.debug(f"  Model: {model}")
-    logger.debug(f"  Backend: {'vLLM' if use_vllm else 'OpenAI-compatible'}")
+    logger.debug(f"  Backend: OpenAI-compatible")
 
-    # Use provided clients or fall back to global ones
+    # Use provided client or create a new one
     if client is None:
         logger.debug("  No client provided, creating new one...")
-        if use_vllm:
-            client = create_vllm_client()
-        else:
-            client = create_openai_client()
+        client = create_openai_client()
 
     # Build message history
     if messages is None:
@@ -115,18 +95,11 @@ def get_model_response(
 
     try:
         logger.info("📤 Sending request to model...")
-        if use_vllm:
-            completion = client.chat.completions.create(
-                model=model,
-                messages=messages,
-                # stop=["</reply>", "</python>"]
-            )
-        else:
-            completion = client.chat.completions.create(
-                model=model,
-                messages=messages,
-                # stop=["</reply>", "</python>"]
-            )
+        completion = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            # stop=["</reply>", "</python>"]
+        )
 
         response_content = completion.choices[0].message.content
         logger.info(f"✅ Model response received: {len(response_content)} chars")
@@ -138,6 +111,6 @@ def get_model_response(
         logger.error("=" * 60)
         logger.error(f"❌ Error getting model response: {e}")
         logger.error(f"  Model: {model}")
-        logger.error(f"  Backend: {'vLLM' if use_vllm else 'OpenAI-compatible'}")
+        logger.error(f"  Backend: OpenAI-compatible")
         logger.error("=" * 60, exc_info=True)
         raise

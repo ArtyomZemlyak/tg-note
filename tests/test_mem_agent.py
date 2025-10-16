@@ -33,14 +33,11 @@ def test_mem_agent_settings():
             FILE_SIZE_LIMIT,
             MAX_TOOL_TURNS,
             SANDBOX_TIMEOUT,
-            VLLM_HOST,
-            VLLM_PORT,
             get_memory_path,
         )
 
         assert isinstance(MAX_TOOL_TURNS, int)
         assert MAX_TOOL_TURNS > 0
-        assert isinstance(VLLM_PORT, int)
         assert isinstance(FILE_SIZE_LIMIT, int)
         assert isinstance(SANDBOX_TIMEOUT, int)
 

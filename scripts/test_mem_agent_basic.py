@@ -172,14 +172,11 @@ def test_settings():
             FILE_SIZE_LIMIT,
             MAX_TOOL_TURNS,
             SANDBOX_TIMEOUT,
-            VLLM_HOST,
-            VLLM_PORT,
             get_memory_path,
         )
 
         # Check basic types
         assert isinstance(MAX_TOOL_TURNS, int)
-        assert isinstance(VLLM_PORT, int)
         assert isinstance(FILE_SIZE_LIMIT, int)
         print("✓ Settings values are correct types")
 

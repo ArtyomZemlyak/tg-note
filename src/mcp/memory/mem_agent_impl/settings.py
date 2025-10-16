@@ -17,10 +17,6 @@ try:
     # Agent settings
     MAX_TOOL_TURNS = app_settings.MEM_AGENT_MAX_TOOL_TURNS
 
-    # vLLM settings
-    VLLM_HOST = app_settings.MEM_AGENT_VLLM_HOST
-    VLLM_PORT = app_settings.MEM_AGENT_VLLM_PORT
-
     # Memory settings
     FILE_SIZE_LIMIT = app_settings.MEM_AGENT_FILE_SIZE_LIMIT
     DIR_SIZE_LIMIT = app_settings.MEM_AGENT_DIR_SIZE_LIMIT
@@ -34,20 +30,12 @@ try:
     MEM_AGENT_OPENAI_API_KEY: Optional[str] = os.getenv("MEM_AGENT_OPENAI_API_KEY")
     MEM_AGENT_BASE_URL: Optional[str] = os.getenv("MEM_AGENT_BASE_URL")
 
-    # Unified host/port for local OpenAI-compatible server (vLLM/MLX)
-    MEM_AGENT_HOST = os.getenv("MEM_AGENT_HOST", app_settings.MEM_AGENT_VLLM_HOST)
-    MEM_AGENT_PORT = int(os.getenv("MEM_AGENT_PORT", str(app_settings.MEM_AGENT_VLLM_PORT)))
-
     # Backward-compatible aliases
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")  # kept for backward compatibility
 
 except ImportError:
     # Fallback to environment variables and defaults
     MAX_TOOL_TURNS = int(os.getenv("MEM_AGENT_MAX_TOOL_TURNS", "20"))
-
-    # Unified host/port for local server
-    MEM_AGENT_HOST = os.getenv("MEM_AGENT_HOST", "127.0.0.1")
-    MEM_AGENT_PORT = int(os.getenv("MEM_AGENT_PORT", "8001"))
 
     FILE_SIZE_LIMIT = int(os.getenv("MEM_AGENT_FILE_SIZE_LIMIT", str(1024 * 1024)))  # 1MB
     DIR_SIZE_LIMIT = int(os.getenv("MEM_AGENT_DIR_SIZE_LIMIT", str(1024 * 1024 * 10)))  # 10MB
@@ -69,10 +57,6 @@ except ImportError:
 
 # Memory path - will be set dynamically by the agent based on KB path
 MEMORY_PATH = "memory"
-
-# Backward-compatible aliases for tests/older code
-VLLM_HOST = MEM_AGENT_HOST
-VLLM_PORT = MEM_AGENT_PORT
 
 # Path settings
 SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent / "system_prompt.txt"
