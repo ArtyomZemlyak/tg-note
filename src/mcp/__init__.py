@@ -46,10 +46,7 @@ def __getattr__(name: str):
         return globals()[name]
 
     if name in {"DynamicMCPTool", "discover_and_create_mcp_tools"}:
-        from .dynamic_mcp_tools import (  # type: ignore
-            DynamicMCPTool,
-            discover_and_create_mcp_tools,
-        )
+        from .dynamic_mcp_tools import DynamicMCPTool, discover_and_create_mcp_tools  # type: ignore
 
         globals().update(
             {

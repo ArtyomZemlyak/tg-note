@@ -36,11 +36,6 @@ if not logger._core.handlers:
         backtrace=True,
         diagnose=True,
     )
-from src.mcp.memory.mem_agent_impl.model import (
-    create_openai_client,
-    get_model_response,
-)
-from src.mcp.memory.mem_agent_impl.schemas import AgentResponse, ChatMessage, Role
 from config.settings import (
     MAX_TOOL_TURNS,
     MEM_AGENT_BASE_URL,
@@ -49,6 +44,8 @@ from config.settings import (
     MEMORY_PATH,
     SAVE_CONVERSATION_PATH,
 )
+from src.mcp.memory.mem_agent_impl.model import create_openai_client, get_model_response
+from src.mcp.memory.mem_agent_impl.schemas import AgentResponse, ChatMessage, Role
 from src.mcp.memory.mem_agent_impl.utils import (
     create_memory_if_not_exists,
     extract_python_code,
@@ -144,7 +141,7 @@ class Agent:
 
         # Use localhost:8001 for local server
         host, port = "127.0.0.1", 8001
-        
+
         # Prefer vLLM on Linux, MLX on macOS
         if system == "linux":
             base_url = f"http://{host}:{port}/v1"

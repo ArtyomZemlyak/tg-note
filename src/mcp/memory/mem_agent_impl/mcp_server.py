@@ -14,8 +14,8 @@ from typing import Any, Dict, Optional
 from fastmcp import Context, FastMCP
 from loguru import logger
 
-from src.mcp.memory.mem_agent_impl.agent import Agent
 from config.settings import get_memory_path
+from src.mcp.memory.mem_agent_impl.agent import Agent
 
 # Configure logging for MCP server
 log_dir = Path("logs")

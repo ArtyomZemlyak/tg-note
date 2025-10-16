@@ -29,8 +29,8 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from loguru import logger
-from starlette.responses import JSONResponse
 from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 try:
     from fastmcp import FastMCP
@@ -150,6 +150,7 @@ def get_storage(user_id: int) -> MemoryStorage:
     # Get settings from config.yaml (preferred) or environment variables (fallback)
     try:
         from config import settings as app_settings
+
         storage_type = app_settings.MEM_AGENT_STORAGE_TYPE
         model_name = app_settings.MEM_AGENT_MODEL
         backend = app_settings.MEM_AGENT_BACKEND
@@ -160,7 +161,7 @@ def get_storage(user_id: int) -> MemoryStorage:
         model_name = os.getenv("MEM_AGENT_MODEL", None)
         backend = os.getenv("MEM_AGENT_BACKEND", "auto")
         logger.info("📋 Using configuration from environment variables")
-    
+
     logger.info(f"💾 Storage type: {storage_type}")
     logger.info("")
     logger.info("📋 Configuration:")
@@ -215,12 +216,12 @@ def get_storage(user_id: int) -> MemoryStorage:
 @mcp.custom_route("/health", methods=["GET"])
 async def health_check(request):
     """Health check endpoint for container orchestration
-    
+
     Returns comprehensive health information including:
     - Built-in MCP tools (provided by hub itself)
     - External MCP servers (registered by users)
     - Active storage sessions
-    
+
     This allows proper distinction between:
     1. Hub's own tools (memory, server management) - always available
     2. User-registered MCP servers - optional external integrations
@@ -610,7 +611,6 @@ async def http_get_client_config(request: Request):
     except Exception as e:
         logger.error(f"❌ Error in http_get_client_config: {e}", exc_info=True)
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
-
 
 
 # ============================================================================

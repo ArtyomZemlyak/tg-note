@@ -1,0 +1,696 @@
+Defaulting to user installation because normal site-packages is not writeable
+Obtaining file:///workspace
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Checking if build backend supports build_editable: started
+  Checking if build backend supports build_editable: finished with status 'done'
+  Getting requirements to build editable: started
+  Getting requirements to build editable: finished with status 'done'
+  Preparing editable metadata (pyproject.toml): started
+  Preparing editable metadata (pyproject.toml): finished with status 'done'
+Collecting GitPython<3.2.0,>=3.1.40 (from tg-note==0.1.0)
+  Downloading gitpython-3.1.45-py3-none-any.whl.metadata (13 kB)
+Collecting PyYAML==6.0.1 (from tg-note==0.1.0)
+  Downloading PyYAML-6.0.1.tar.gz (125 kB)
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Collecting aiohttp<4.0.0,>=3.9.1 (from tg-note==0.1.0)
+  Downloading aiohttp-3.13.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (8.1 kB)
+Collecting docling<3.0.0,>=2.0.0 (from tg-note==0.1.0)
+  Downloading docling-2.57.0-py3-none-any.whl.metadata (11 kB)
+Collecting filelock<4.0.0,>=3.13.1 (from tg-note==0.1.0)
+  Downloading filelock-3.20.0-py3-none-any.whl.metadata (2.1 kB)
+Collecting huggingface-hub<1.0.0,>=0.23.0 (from tg-note==0.1.0)
+  Downloading huggingface_hub-0.35.3-py3-none-any.whl.metadata (14 kB)
+Collecting loguru<0.8.0,>=0.7.2 (from tg-note==0.1.0)
+  Downloading loguru-0.7.3-py3-none-any.whl.metadata (22 kB)
+Collecting openai<2.0.0,>=1.0.0 (from tg-note==0.1.0)
+  Downloading openai-1.109.1-py3-none-any.whl.metadata (29 kB)
+Collecting pyTelegramBotAPI==4.14.0 (from tg-note==0.1.0)
+  Downloading pyTelegramBotAPI-4.14.0.tar.gz (243 kB)
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Collecting pydantic==2.10.4 (from tg-note==0.1.0)
+  Downloading pydantic-2.10.4-py3-none-any.whl.metadata (29 kB)
+Collecting pydantic-settings==2.7.0 (from tg-note==0.1.0)
+  Downloading pydantic_settings-2.7.0-py3-none-any.whl.metadata (3.5 kB)
+Collecting qwen-agent<0.1.0,>=0.0.31 (from tg-note==0.1.0)
+  Downloading qwen_agent-0.0.31-py3-none-any.whl.metadata (16 kB)
+Collecting requests<3.0.0,>=2.32.2 (from tg-note==0.1.0)
+  Downloading requests-2.32.5-py3-none-any.whl.metadata (4.9 kB)
+Collecting annotated-types>=0.6.0 (from pydantic==2.10.4->tg-note==0.1.0)
+  Downloading annotated_types-0.7.0-py3-none-any.whl.metadata (15 kB)
+Collecting pydantic-core==2.27.2 (from pydantic==2.10.4->tg-note==0.1.0)
+  Downloading pydantic_core-2.27.2-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (6.6 kB)
+Collecting typing-extensions>=4.12.2 (from pydantic==2.10.4->tg-note==0.1.0)
+  Downloading typing_extensions-4.15.0-py3-none-any.whl.metadata (3.3 kB)
+Collecting python-dotenv>=0.21.0 (from pydantic-settings==2.7.0->tg-note==0.1.0)
+  Downloading python_dotenv-1.1.1-py3-none-any.whl.metadata (24 kB)
+Collecting black<25.0.0,>=23.12.1 (from tg-note==0.1.0)
+  Downloading black-24.10.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_28_x86_64.whl.metadata (79 kB)
+Collecting flake8<8.0.0,>=6.1.0 (from tg-note==0.1.0)
+  Downloading flake8-7.3.0-py2.py3-none-any.whl.metadata (3.8 kB)
+Collecting mypy<2.0.0,>=1.7.1 (from tg-note==0.1.0)
+  Downloading mypy-1.18.2-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (2.2 kB)
+Collecting pre-commit<4.0.0,>=3.5.0 (from tg-note==0.1.0)
+  Downloading pre_commit-3.8.0-py2.py3-none-any.whl.metadata (1.3 kB)
+Collecting pytest<8.0.0,>=7.4.3 (from tg-note==0.1.0)
+  Downloading pytest-7.4.4-py3-none-any.whl.metadata (7.9 kB)
+Collecting pytest-asyncio<0.24.0,>=0.21.1 (from tg-note==0.1.0)
+  Downloading pytest_asyncio-0.23.8-py3-none-any.whl.metadata (3.9 kB)
+Collecting pytest-cov<5.0.0,>=4.1.0 (from tg-note==0.1.0)
+  Downloading pytest_cov-4.1.0-py3-none-any.whl.metadata (26 kB)
+Collecting aiohappyeyeballs>=2.5.0 (from aiohttp<4.0.0,>=3.9.1->tg-note==0.1.0)
+  Downloading aiohappyeyeballs-2.6.1-py3-none-any.whl.metadata (5.9 kB)
+Collecting aiosignal>=1.4.0 (from aiohttp<4.0.0,>=3.9.1->tg-note==0.1.0)
+  Downloading aiosignal-1.4.0-py3-none-any.whl.metadata (3.7 kB)
+Collecting attrs>=17.3.0 (from aiohttp<4.0.0,>=3.9.1->tg-note==0.1.0)
+  Downloading attrs-25.4.0-py3-none-any.whl.metadata (10 kB)
+Collecting frozenlist>=1.1.1 (from aiohttp<4.0.0,>=3.9.1->tg-note==0.1.0)
+  Downloading frozenlist-1.8.0-cp313-cp313-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl.metadata (20 kB)
+Collecting multidict<7.0,>=4.5 (from aiohttp<4.0.0,>=3.9.1->tg-note==0.1.0)
+  Downloading multidict-6.7.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (5.3 kB)
+Collecting propcache>=0.2.0 (from aiohttp<4.0.0,>=3.9.1->tg-note==0.1.0)
+  Downloading propcache-0.4.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (13 kB)
+Collecting yarl<2.0,>=1.17.0 (from aiohttp<4.0.0,>=3.9.1->tg-note==0.1.0)
+  Downloading yarl-1.22.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (75 kB)
+Collecting click>=8.0.0 (from black<25.0.0,>=23.12.1->tg-note==0.1.0)
+  Downloading click-8.3.0-py3-none-any.whl.metadata (2.6 kB)
+Collecting mypy-extensions>=0.4.3 (from black<25.0.0,>=23.12.1->tg-note==0.1.0)
+  Downloading mypy_extensions-1.1.0-py3-none-any.whl.metadata (1.1 kB)
+Collecting packaging>=22.0 (from black<25.0.0,>=23.12.1->tg-note==0.1.0)
+  Downloading packaging-25.0-py3-none-any.whl.metadata (3.3 kB)
+Collecting pathspec>=0.9.0 (from black<25.0.0,>=23.12.1->tg-note==0.1.0)
+  Downloading pathspec-0.12.1-py3-none-any.whl.metadata (21 kB)
+Collecting platformdirs>=2 (from black<25.0.0,>=23.12.1->tg-note==0.1.0)
+  Downloading platformdirs-4.5.0-py3-none-any.whl.metadata (12 kB)
+Collecting docling-core<3.0.0,>=2.48.2 (from docling-core[chunking]<3.0.0,>=2.48.2->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading docling_core-2.48.4-py3-none-any.whl.metadata (6.5 kB)
+Collecting docling-parse<5.0.0,>=4.4.0 (from docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading docling_parse-4.5.1-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (9.8 kB)
+Collecting docling-ibm-models<4,>=3.9.1 (from docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading docling_ibm_models-3.9.1-py3-none-any.whl.metadata (6.7 kB)
+Collecting filetype<2.0.0,>=1.2.0 (from docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading filetype-1.2.0-py2.py3-none-any.whl.metadata (6.5 kB)
+Collecting pypdfium2!=4.30.1,<5.0.0,>=4.30.0 (from docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading pypdfium2-4.30.0-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (48 kB)
+Collecting rapidocr<4.0.0,>=3.3 (from docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading rapidocr-3.4.2-py3-none-any.whl.metadata (1.2 kB)
+Collecting certifi>=2024.7.4 (from docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading certifi-2025.10.5-py3-none-any.whl.metadata (2.5 kB)
+Collecting rtree<2.0.0,>=1.3.0 (from docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading rtree-1.4.1-py3-none-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl.metadata (2.1 kB)
+Collecting typer<0.20.0,>=0.12.5 (from docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading typer-0.19.2-py3-none-any.whl.metadata (16 kB)
+Collecting python-docx<2.0.0,>=1.1.2 (from docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading python_docx-1.2.0-py3-none-any.whl.metadata (2.0 kB)
+Collecting python-pptx<2.0.0,>=1.0.2 (from docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading python_pptx-1.0.2-py3-none-any.whl.metadata (2.5 kB)
+Collecting beautifulsoup4<5.0.0,>=4.12.3 (from docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading beautifulsoup4-4.14.2-py3-none-any.whl.metadata (3.8 kB)
+Collecting pandas<3.0.0,>=2.1.4 (from docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading pandas-2.3.3-cp313-cp313-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl.metadata (91 kB)
+Collecting marko<3.0.0,>=2.1.2 (from docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading marko-2.2.1-py3-none-any.whl.metadata (4.5 kB)
+Collecting openpyxl<4.0.0,>=3.1.5 (from docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading openpyxl-3.1.5-py2.py3-none-any.whl.metadata (2.5 kB)
+Collecting lxml<6.0.0,>=4.0.0 (from docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading lxml-5.4.0-cp313-cp313-manylinux_2_28_x86_64.whl.metadata (3.5 kB)
+Collecting pillow<12.0.0,>=10.0.0 (from docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading pillow-11.3.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (9.0 kB)
+Collecting tqdm<5.0.0,>=4.65.0 (from docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading tqdm-4.67.1-py3-none-any.whl.metadata (57 kB)
+Collecting pluggy<2.0.0,>=1.0.0 (from docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading pluggy-1.6.0-py3-none-any.whl.metadata (4.8 kB)
+Collecting pylatexenc<3.0,>=2.10 (from docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading pylatexenc-2.10.tar.gz (162 kB)
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Collecting scipy<2.0.0,>=1.6.0 (from docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading scipy-1.16.2-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (62 kB)
+Collecting accelerate<2,>=1.0.0 (from docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading accelerate-1.10.1-py3-none-any.whl.metadata (19 kB)
+Collecting polyfactory>=2.22.2 (from docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading polyfactory-2.22.2-py3-none-any.whl.metadata (27 kB)
+Collecting mccabe<0.8.0,>=0.7.0 (from flake8<8.0.0,>=6.1.0->tg-note==0.1.0)
+  Downloading mccabe-0.7.0-py2.py3-none-any.whl.metadata (5.0 kB)
+Collecting pycodestyle<2.15.0,>=2.14.0 (from flake8<8.0.0,>=6.1.0->tg-note==0.1.0)
+  Downloading pycodestyle-2.14.0-py2.py3-none-any.whl.metadata (4.5 kB)
+Collecting pyflakes<3.5.0,>=3.4.0 (from flake8<8.0.0,>=6.1.0->tg-note==0.1.0)
+  Downloading pyflakes-3.4.0-py2.py3-none-any.whl.metadata (3.5 kB)
+Collecting gitdb<5,>=4.0.1 (from GitPython<3.2.0,>=3.1.40->tg-note==0.1.0)
+  Downloading gitdb-4.0.12-py3-none-any.whl.metadata (1.2 kB)
+Collecting fsspec>=2023.5.0 (from huggingface-hub<1.0.0,>=0.23.0->tg-note==0.1.0)
+  Downloading fsspec-2025.9.0-py3-none-any.whl.metadata (10 kB)
+Collecting hf-xet<2.0.0,>=1.1.3 (from huggingface-hub<1.0.0,>=0.23.0->tg-note==0.1.0)
+  Downloading hf_xet-1.1.10-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (4.7 kB)
+Collecting anyio<5,>=3.5.0 (from openai<2.0.0,>=1.0.0->tg-note==0.1.0)
+  Downloading anyio-4.11.0-py3-none-any.whl.metadata (4.1 kB)
+Collecting distro<2,>=1.7.0 (from openai<2.0.0,>=1.0.0->tg-note==0.1.0)
+  Downloading distro-1.9.0-py3-none-any.whl.metadata (6.8 kB)
+Collecting httpx<1,>=0.23.0 (from openai<2.0.0,>=1.0.0->tg-note==0.1.0)
+  Downloading httpx-0.28.1-py3-none-any.whl.metadata (7.1 kB)
+Collecting jiter<1,>=0.4.0 (from openai<2.0.0,>=1.0.0->tg-note==0.1.0)
+  Downloading jiter-0.11.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (5.2 kB)
+Collecting sniffio (from openai<2.0.0,>=1.0.0->tg-note==0.1.0)
+  Downloading sniffio-1.3.1-py3-none-any.whl.metadata (3.9 kB)
+Collecting cfgv>=2.0.0 (from pre-commit<4.0.0,>=3.5.0->tg-note==0.1.0)
+  Downloading cfgv-3.4.0-py2.py3-none-any.whl.metadata (8.5 kB)
+Collecting identify>=1.0.0 (from pre-commit<4.0.0,>=3.5.0->tg-note==0.1.0)
+  Downloading identify-2.6.15-py2.py3-none-any.whl.metadata (4.4 kB)
+Collecting nodeenv>=0.11.1 (from pre-commit<4.0.0,>=3.5.0->tg-note==0.1.0)
+  Downloading nodeenv-1.9.1-py2.py3-none-any.whl.metadata (21 kB)
+Collecting virtualenv>=20.10.0 (from pre-commit<4.0.0,>=3.5.0->tg-note==0.1.0)
+  Downloading virtualenv-20.35.3-py3-none-any.whl.metadata (4.6 kB)
+Collecting iniconfig (from pytest<8.0.0,>=7.4.3->tg-note==0.1.0)
+  Downloading iniconfig-2.1.0-py3-none-any.whl.metadata (2.7 kB)
+Collecting coverage>=5.2.1 (from coverage[toml]>=5.2.1->pytest-cov<5.0.0,>=4.1.0->tg-note==0.1.0)
+  Downloading coverage-7.11.0-cp313-cp313-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl.metadata (9.0 kB)
+Collecting dashscope>=1.11.0 (from qwen-agent<0.1.0,>=0.0.31->tg-note==0.1.0)
+  Downloading dashscope-1.24.6-py3-none-any.whl.metadata (7.1 kB)
+Collecting eval_type_backport (from qwen-agent<0.1.0,>=0.0.31->tg-note==0.1.0)
+  Downloading eval_type_backport-0.2.2-py3-none-any.whl.metadata (2.2 kB)
+Collecting json5 (from qwen-agent<0.1.0,>=0.0.31->tg-note==0.1.0)
+  Downloading json5-0.12.1-py3-none-any.whl.metadata (36 kB)
+Collecting jsonlines (from qwen-agent<0.1.0,>=0.0.31->tg-note==0.1.0)
+  Downloading jsonlines-4.0.0-py3-none-any.whl.metadata (1.6 kB)
+Collecting jsonschema (from qwen-agent<0.1.0,>=0.0.31->tg-note==0.1.0)
+  Downloading jsonschema-4.25.1-py3-none-any.whl.metadata (7.6 kB)
+Collecting tiktoken (from qwen-agent<0.1.0,>=0.0.31->tg-note==0.1.0)
+  Downloading tiktoken-0.12.0-cp313-cp313-manylinux_2_28_x86_64.whl.metadata (6.7 kB)
+Collecting dotenv (from qwen-agent<0.1.0,>=0.0.31->tg-note==0.1.0)
+  Downloading dotenv-0.9.9-py2.py3-none-any.whl.metadata (279 bytes)
+Collecting charset_normalizer<4,>=2 (from requests<3.0.0,>=2.32.2->tg-note==0.1.0)
+  Downloading charset_normalizer-3.4.4-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (37 kB)
+Collecting idna<4,>=2.5 (from requests<3.0.0,>=2.32.2->tg-note==0.1.0)
+  Downloading idna-3.11-py3-none-any.whl.metadata (8.4 kB)
+Collecting urllib3<3,>=1.21.1 (from requests<3.0.0,>=2.32.2->tg-note==0.1.0)
+  Downloading urllib3-2.5.0-py3-none-any.whl.metadata (6.5 kB)
+Collecting numpy<3.0.0,>=1.17 (from accelerate<2,>=1.0.0->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading numpy-2.3.4-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (62 kB)
+Collecting psutil (from accelerate<2,>=1.0.0->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading psutil-7.1.0-cp36-abi3-manylinux_2_12_x86_64.manylinux2010_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (23 kB)
+Collecting torch>=2.0.0 (from accelerate<2,>=1.0.0->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading torch-2.9.0-cp313-cp313-manylinux_2_28_x86_64.whl.metadata (30 kB)
+Collecting safetensors>=0.4.3 (from accelerate<2,>=1.0.0->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading safetensors-0.6.2-cp38-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (4.1 kB)
+Collecting soupsieve>1.2 (from beautifulsoup4<5.0.0,>=4.12.3->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading soupsieve-2.8-py3-none-any.whl.metadata (4.6 kB)
+Collecting websocket-client (from dashscope>=1.11.0->qwen-agent<0.1.0,>=0.0.31->tg-note==0.1.0)
+  Downloading websocket_client-1.9.0-py3-none-any.whl.metadata (8.3 kB)
+Collecting cryptography (from dashscope>=1.11.0->qwen-agent<0.1.0,>=0.0.31->tg-note==0.1.0)
+  Downloading cryptography-46.0.3-cp311-abi3-manylinux_2_34_x86_64.whl.metadata (5.7 kB)
+Collecting jsonref<2.0.0,>=1.1.0 (from docling-core<3.0.0,>=2.48.2->docling-core[chunking]<3.0.0,>=2.48.2->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading jsonref-1.1.0-py3-none-any.whl.metadata (2.7 kB)
+Collecting tabulate<0.10.0,>=0.9.0 (from docling-core<3.0.0,>=2.48.2->docling-core[chunking]<3.0.0,>=2.48.2->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading tabulate-0.9.0-py3-none-any.whl.metadata (34 kB)
+Collecting latex2mathml<4.0.0,>=3.77.0 (from docling-core<3.0.0,>=2.48.2->docling-core[chunking]<3.0.0,>=2.48.2->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading latex2mathml-3.78.1-py3-none-any.whl.metadata (15 kB)
+Collecting semchunk<3.0.0,>=2.2.0 (from docling-core[chunking]<3.0.0,>=2.48.2->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading semchunk-2.2.2-py3-none-any.whl.metadata (10 kB)
+Collecting transformers<5.0.0,>=4.34.0 (from docling-core[chunking]<3.0.0,>=2.48.2->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading transformers-4.57.1-py3-none-any.whl.metadata (43 kB)
+Collecting torchvision<1,>=0 (from docling-ibm-models<4,>=3.9.1->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading torchvision-0.24.0-cp313-cp313-manylinux_2_28_x86_64.whl.metadata (5.9 kB)
+Collecting jsonlines (from qwen-agent<0.1.0,>=0.0.31->tg-note==0.1.0)
+  Downloading jsonlines-3.1.0-py3-none-any.whl.metadata (1.7 kB)
+Collecting opencv-python-headless<5.0.0.0,>=4.6.0.66 (from docling-ibm-models<4,>=3.9.1->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading opencv_python_headless-4.12.0.88-cp37-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (19 kB)
+Collecting smmap<6,>=3.0.1 (from gitdb<5,>=4.0.1->GitPython<3.2.0,>=3.1.40->tg-note==0.1.0)
+  Downloading smmap-5.0.2-py3-none-any.whl.metadata (4.3 kB)
+Collecting httpcore==1.* (from httpx<1,>=0.23.0->openai<2.0.0,>=1.0.0->tg-note==0.1.0)
+  Downloading httpcore-1.0.9-py3-none-any.whl.metadata (21 kB)
+Collecting h11>=0.16 (from httpcore==1.*->httpx<1,>=0.23.0->openai<2.0.0,>=1.0.0->tg-note==0.1.0)
+  Downloading h11-0.16.0-py3-none-any.whl.metadata (8.3 kB)
+Collecting jsonschema-specifications>=2023.03.6 (from jsonschema->qwen-agent<0.1.0,>=0.0.31->tg-note==0.1.0)
+  Downloading jsonschema_specifications-2025.9.1-py3-none-any.whl.metadata (2.9 kB)
+Collecting referencing>=0.28.4 (from jsonschema->qwen-agent<0.1.0,>=0.0.31->tg-note==0.1.0)
+  Downloading referencing-0.37.0-py3-none-any.whl.metadata (2.8 kB)
+Collecting rpds-py>=0.7.1 (from jsonschema->qwen-agent<0.1.0,>=0.0.31->tg-note==0.1.0)
+  Downloading rpds_py-0.27.1-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (4.2 kB)
+Collecting et-xmlfile (from openpyxl<4.0.0,>=3.1.5->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading et_xmlfile-2.0.0-py3-none-any.whl.metadata (2.7 kB)
+Collecting python-dateutil>=2.8.2 (from pandas<3.0.0,>=2.1.4->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading python_dateutil-2.9.0.post0-py2.py3-none-any.whl.metadata (8.4 kB)
+Collecting pytz>=2020.1 (from pandas<3.0.0,>=2.1.4->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading pytz-2025.2-py2.py3-none-any.whl.metadata (22 kB)
+Collecting tzdata>=2022.7 (from pandas<3.0.0,>=2.1.4->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading tzdata-2025.2-py2.py3-none-any.whl.metadata (1.4 kB)
+Collecting faker>=5.0.0 (from polyfactory>=2.22.2->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading faker-37.11.0-py3-none-any.whl.metadata (15 kB)
+Collecting XlsxWriter>=0.5.7 (from python-pptx<2.0.0,>=1.0.2->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading xlsxwriter-3.2.9-py3-none-any.whl.metadata (2.7 kB)
+Collecting pyclipper>=1.2.0 (from rapidocr<4.0.0,>=3.3->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading pyclipper-1.3.0.post6-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (9.0 kB)
+Collecting opencv-python>=4.5.1.48 (from rapidocr<4.0.0,>=3.3->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading opencv_python-4.12.0.88-cp37-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (19 kB)
+Collecting six>=1.15.0 (from rapidocr<4.0.0,>=3.3->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading six-1.17.0-py2.py3-none-any.whl.metadata (1.7 kB)
+Collecting Shapely!=2.0.4,>=1.7.1 (from rapidocr<4.0.0,>=3.3->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading shapely-2.1.2-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (6.8 kB)
+Collecting omegaconf (from rapidocr<4.0.0,>=3.3->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading omegaconf-2.3.0-py3-none-any.whl.metadata (3.9 kB)
+Collecting colorlog (from rapidocr<4.0.0,>=3.3->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading colorlog-6.9.0-py3-none-any.whl.metadata (10 kB)
+Collecting shellingham>=1.3.0 (from typer<0.20.0,>=0.12.5->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading shellingham-1.5.4-py2.py3-none-any.whl.metadata (3.5 kB)
+Collecting rich>=10.11.0 (from typer<0.20.0,>=0.12.5->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading rich-14.2.0-py3-none-any.whl.metadata (18 kB)
+Collecting distlib<1,>=0.3.7 (from virtualenv>=20.10.0->pre-commit<4.0.0,>=3.5.0->tg-note==0.1.0)
+  Downloading distlib-0.4.0-py2.py3-none-any.whl.metadata (5.2 kB)
+Collecting regex>=2022.1.18 (from tiktoken->qwen-agent<0.1.0,>=0.0.31->tg-note==0.1.0)
+  Downloading regex-2025.9.18-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (40 kB)
+Collecting numpy<3.0.0,>=1.17 (from accelerate<2,>=1.0.0->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading numpy-2.2.6-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (62 kB)
+Collecting markdown-it-py>=2.2.0 (from rich>=10.11.0->typer<0.20.0,>=0.12.5->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading markdown_it_py-4.0.0-py3-none-any.whl.metadata (7.3 kB)
+Requirement already satisfied: pygments<3.0.0,>=2.13.0 in /usr/lib/python3/dist-packages (from rich>=10.11.0->typer<0.20.0,>=0.12.5->docling<3.0.0,>=2.0.0->tg-note==0.1.0) (2.18.0)
+Collecting mpire[dill] (from semchunk<3.0.0,>=2.2.0->docling-core[chunking]<3.0.0,>=2.48.2->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading mpire-2.10.2-py3-none-any.whl.metadata (14 kB)
+Collecting setuptools (from torch>=2.0.0->accelerate<2,>=1.0.0->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Using cached setuptools-80.9.0-py3-none-any.whl.metadata (6.6 kB)
+Collecting sympy>=1.13.3 (from torch>=2.0.0->accelerate<2,>=1.0.0->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading sympy-1.14.0-py3-none-any.whl.metadata (12 kB)
+Collecting networkx>=2.5.1 (from torch>=2.0.0->accelerate<2,>=1.0.0->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading networkx-3.5-py3-none-any.whl.metadata (6.3 kB)
+Collecting jinja2 (from torch>=2.0.0->accelerate<2,>=1.0.0->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading jinja2-3.1.6-py3-none-any.whl.metadata (2.9 kB)
+Collecting nvidia-cuda-nvrtc-cu12==12.8.93 (from torch>=2.0.0->accelerate<2,>=1.0.0->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading nvidia_cuda_nvrtc_cu12-12.8.93-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl.metadata (1.7 kB)
+Collecting nvidia-cuda-runtime-cu12==12.8.90 (from torch>=2.0.0->accelerate<2,>=1.0.0->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading nvidia_cuda_runtime_cu12-12.8.90-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (1.7 kB)
+Collecting nvidia-cuda-cupti-cu12==12.8.90 (from torch>=2.0.0->accelerate<2,>=1.0.0->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading nvidia_cuda_cupti_cu12-12.8.90-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (1.7 kB)
+Collecting nvidia-cudnn-cu12==9.10.2.21 (from torch>=2.0.0->accelerate<2,>=1.0.0->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading nvidia_cudnn_cu12-9.10.2.21-py3-none-manylinux_2_27_x86_64.whl.metadata (1.8 kB)
+Collecting nvidia-cublas-cu12==12.8.4.1 (from torch>=2.0.0->accelerate<2,>=1.0.0->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading nvidia_cublas_cu12-12.8.4.1-py3-none-manylinux_2_27_x86_64.whl.metadata (1.7 kB)
+Collecting nvidia-cufft-cu12==11.3.3.83 (from torch>=2.0.0->accelerate<2,>=1.0.0->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading nvidia_cufft_cu12-11.3.3.83-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (1.7 kB)
+Collecting nvidia-curand-cu12==10.3.9.90 (from torch>=2.0.0->accelerate<2,>=1.0.0->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading nvidia_curand_cu12-10.3.9.90-py3-none-manylinux_2_27_x86_64.whl.metadata (1.7 kB)
+Collecting nvidia-cusolver-cu12==11.7.3.90 (from torch>=2.0.0->accelerate<2,>=1.0.0->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading nvidia_cusolver_cu12-11.7.3.90-py3-none-manylinux_2_27_x86_64.whl.metadata (1.8 kB)
+Collecting nvidia-cusparse-cu12==12.5.8.93 (from torch>=2.0.0->accelerate<2,>=1.0.0->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading nvidia_cusparse_cu12-12.5.8.93-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (1.8 kB)
+Collecting nvidia-cusparselt-cu12==0.7.1 (from torch>=2.0.0->accelerate<2,>=1.0.0->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading nvidia_cusparselt_cu12-0.7.1-py3-none-manylinux2014_x86_64.whl.metadata (7.0 kB)
+Collecting nvidia-nccl-cu12==2.27.5 (from torch>=2.0.0->accelerate<2,>=1.0.0->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading nvidia_nccl_cu12-2.27.5-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (2.0 kB)
+Collecting nvidia-nvshmem-cu12==3.3.20 (from torch>=2.0.0->accelerate<2,>=1.0.0->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading nvidia_nvshmem_cu12-3.3.20-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (2.1 kB)
+Collecting nvidia-nvtx-cu12==12.8.90 (from torch>=2.0.0->accelerate<2,>=1.0.0->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading nvidia_nvtx_cu12-12.8.90-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (1.8 kB)
+Collecting nvidia-nvjitlink-cu12==12.8.93 (from torch>=2.0.0->accelerate<2,>=1.0.0->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading nvidia_nvjitlink_cu12-12.8.93-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl.metadata (1.7 kB)
+Collecting nvidia-cufile-cu12==1.13.1.3 (from torch>=2.0.0->accelerate<2,>=1.0.0->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading nvidia_cufile_cu12-1.13.1.3-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (1.7 kB)
+Collecting triton==3.5.0 (from torch>=2.0.0->accelerate<2,>=1.0.0->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading triton-3.5.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (1.7 kB)
+Collecting tokenizers<=0.23.0,>=0.22.0 (from transformers<5.0.0,>=4.34.0->docling-core[chunking]<3.0.0,>=2.48.2->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading tokenizers-0.22.1-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (6.8 kB)
+Collecting cffi>=2.0.0 (from cryptography->dashscope>=1.11.0->qwen-agent<0.1.0,>=0.0.31->tg-note==0.1.0)
+  Downloading cffi-2.0.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (2.6 kB)
+Collecting antlr4-python3-runtime==4.9.* (from omegaconf->rapidocr<4.0.0,>=3.3->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading antlr4-python3-runtime-4.9.3.tar.gz (117 kB)
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Collecting pycparser (from cffi>=2.0.0->cryptography->dashscope>=1.11.0->qwen-agent<0.1.0,>=0.0.31->tg-note==0.1.0)
+  Downloading pycparser-2.23-py3-none-any.whl.metadata (993 bytes)
+Collecting mdurl~=0.1 (from markdown-it-py>=2.2.0->rich>=10.11.0->typer<0.20.0,>=0.12.5->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading mdurl-0.1.2-py3-none-any.whl.metadata (1.6 kB)
+Collecting mpmath<1.4,>=1.1.0 (from sympy>=1.13.3->torch>=2.0.0->accelerate<2,>=1.0.0->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading mpmath-1.3.0-py3-none-any.whl.metadata (8.6 kB)
+Collecting MarkupSafe>=2.0 (from jinja2->torch>=2.0.0->accelerate<2,>=1.0.0->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading markupsafe-3.0.3-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (2.7 kB)
+Collecting multiprocess>=0.70.15 (from mpire[dill]->semchunk<3.0.0,>=2.2.0->docling-core[chunking]<3.0.0,>=2.48.2->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading multiprocess-0.70.18-py313-none-any.whl.metadata (7.2 kB)
+Collecting dill>=0.4.0 (from multiprocess>=0.70.15->mpire[dill]->semchunk<3.0.0,>=2.2.0->docling-core[chunking]<3.0.0,>=2.48.2->docling<3.0.0,>=2.0.0->tg-note==0.1.0)
+  Downloading dill-0.4.0-py3-none-any.whl.metadata (10 kB)
+Downloading pydantic-2.10.4-py3-none-any.whl (431 kB)
+Downloading pydantic_settings-2.7.0-py3-none-any.whl (29 kB)
+Downloading pydantic_core-2.27.2-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.0 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.0/2.0 MB 68.8 MB/s eta 0:00:00
+
+Downloading aiohttp-3.13.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (1.7 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.7/1.7 MB 86.3 MB/s eta 0:00:00
+
+Downloading black-24.10.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_28_x86_64.whl (1.8 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.8/1.8 MB 85.5 MB/s eta 0:00:00
+
+Downloading docling-2.57.0-py3-none-any.whl (245 kB)
+Downloading filelock-3.20.0-py3-none-any.whl (16 kB)
+Downloading flake8-7.3.0-py2.py3-none-any.whl (57 kB)
+Downloading gitpython-3.1.45-py3-none-any.whl (208 kB)
+Downloading huggingface_hub-0.35.3-py3-none-any.whl (564 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 564.3/564.3 kB 49.8 MB/s eta 0:00:00
+
+Downloading loguru-0.7.3-py3-none-any.whl (61 kB)
+Downloading mypy-1.18.2-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (13.3 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 13.3/13.3 MB 149.7 MB/s eta 0:00:00
+
+Downloading openai-1.109.1-py3-none-any.whl (948 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 948.6/948.6 kB 85.5 MB/s eta 0:00:00
+
+Downloading pre_commit-3.8.0-py2.py3-none-any.whl (204 kB)
+Downloading pytest-7.4.4-py3-none-any.whl (325 kB)
+Downloading pytest_asyncio-0.23.8-py3-none-any.whl (17 kB)
+Downloading pytest_cov-4.1.0-py3-none-any.whl (21 kB)
+Downloading qwen_agent-0.0.31-py3-none-any.whl (7.1 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 7.1/7.1 MB 44.7 MB/s eta 0:00:00
+
+Downloading requests-2.32.5-py3-none-any.whl (64 kB)
+Downloading accelerate-1.10.1-py3-none-any.whl (374 kB)
+Downloading aiohappyeyeballs-2.6.1-py3-none-any.whl (15 kB)
+Downloading aiosignal-1.4.0-py3-none-any.whl (7.5 kB)
+Downloading annotated_types-0.7.0-py3-none-any.whl (13 kB)
+Downloading anyio-4.11.0-py3-none-any.whl (109 kB)
+Downloading attrs-25.4.0-py3-none-any.whl (67 kB)
+Downloading beautifulsoup4-4.14.2-py3-none-any.whl (106 kB)
+Downloading certifi-2025.10.5-py3-none-any.whl (163 kB)
+Downloading cfgv-3.4.0-py2.py3-none-any.whl (7.2 kB)
+Downloading charset_normalizer-3.4.4-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (153 kB)
+Downloading click-8.3.0-py3-none-any.whl (107 kB)
+Downloading coverage-7.11.0-cp313-cp313-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (249 kB)
+Downloading dashscope-1.24.6-py3-none-any.whl (1.3 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.3/1.3 MB 115.4 MB/s eta 0:00:00
+
+Downloading distro-1.9.0-py3-none-any.whl (20 kB)
+Downloading docling_core-2.48.4-py3-none-any.whl (164 kB)
+Downloading docling_ibm_models-3.9.1-py3-none-any.whl (86 kB)
+Downloading docling_parse-4.5.1-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (15.1 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 15.1/15.1 MB 24.2 MB/s eta 0:00:00
+
+Downloading filetype-1.2.0-py2.py3-none-any.whl (19 kB)
+Downloading frozenlist-1.8.0-cp313-cp313-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (234 kB)
+Downloading fsspec-2025.9.0-py3-none-any.whl (199 kB)
+Downloading gitdb-4.0.12-py3-none-any.whl (62 kB)
+Downloading hf_xet-1.1.10-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (3.2 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.2/3.2 MB 100.3 MB/s eta 0:00:00
+
+Downloading httpx-0.28.1-py3-none-any.whl (73 kB)
+Downloading httpcore-1.0.9-py3-none-any.whl (78 kB)
+Downloading identify-2.6.15-py2.py3-none-any.whl (99 kB)
+Downloading idna-3.11-py3-none-any.whl (71 kB)
+Downloading jiter-0.11.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (347 kB)
+Downloading jsonlines-3.1.0-py3-none-any.whl (8.6 kB)
+Downloading jsonschema-4.25.1-py3-none-any.whl (90 kB)
+Downloading lxml-5.4.0-cp313-cp313-manylinux_2_28_x86_64.whl (4.9 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.9/4.9 MB 99.6 MB/s eta 0:00:00
+
+Downloading marko-2.2.1-py3-none-any.whl (42 kB)
+Downloading mccabe-0.7.0-py2.py3-none-any.whl (7.3 kB)
+Downloading multidict-6.7.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (254 kB)
+Downloading mypy_extensions-1.1.0-py3-none-any.whl (5.0 kB)
+Downloading nodeenv-1.9.1-py2.py3-none-any.whl (22 kB)
+Downloading openpyxl-3.1.5-py2.py3-none-any.whl (250 kB)
+Downloading packaging-25.0-py3-none-any.whl (66 kB)
+Downloading pandas-2.3.3-cp313-cp313-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (12.3 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 12.3/12.3 MB 107.3 MB/s eta 0:00:00
+
+Downloading pathspec-0.12.1-py3-none-any.whl (31 kB)
+Downloading pillow-11.3.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (6.6 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.6/6.6 MB 70.9 MB/s eta 0:00:00
+
+Downloading platformdirs-4.5.0-py3-none-any.whl (18 kB)
+Downloading pluggy-1.6.0-py3-none-any.whl (20 kB)
+Downloading polyfactory-2.22.2-py3-none-any.whl (63 kB)
+Downloading propcache-0.4.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (204 kB)
+Downloading pycodestyle-2.14.0-py2.py3-none-any.whl (31 kB)
+Downloading pyflakes-3.4.0-py2.py3-none-any.whl (63 kB)
+Downloading pypdfium2-4.30.0-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.8 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.8/2.8 MB 114.7 MB/s eta 0:00:00
+
+Downloading python_docx-1.2.0-py3-none-any.whl (252 kB)
+Downloading python_dotenv-1.1.1-py3-none-any.whl (20 kB)
+Downloading python_pptx-1.0.2-py3-none-any.whl (472 kB)
+Downloading rapidocr-3.4.2-py3-none-any.whl (15.1 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 15.1/15.1 MB 105.1 MB/s eta 0:00:00
+
+Downloading rtree-1.4.1-py3-none-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (507 kB)
+Downloading scipy-1.16.2-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (35.7 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 35.7/35.7 MB 76.3 MB/s eta 0:00:00
+
+Downloading sniffio-1.3.1-py3-none-any.whl (10 kB)
+Downloading tqdm-4.67.1-py3-none-any.whl (78 kB)
+Downloading typer-0.19.2-py3-none-any.whl (46 kB)
+Downloading typing_extensions-4.15.0-py3-none-any.whl (44 kB)
+Downloading urllib3-2.5.0-py3-none-any.whl (129 kB)
+Downloading virtualenv-20.35.3-py3-none-any.whl (6.0 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.0/6.0 MB 164.9 MB/s eta 0:00:00
+
+Downloading yarl-1.22.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (377 kB)
+Downloading dotenv-0.9.9-py2.py3-none-any.whl (1.9 kB)
+Downloading eval_type_backport-0.2.2-py3-none-any.whl (5.8 kB)
+Downloading iniconfig-2.1.0-py3-none-any.whl (6.0 kB)
+Downloading json5-0.12.1-py3-none-any.whl (36 kB)
+Downloading tiktoken-0.12.0-cp313-cp313-manylinux_2_28_x86_64.whl (1.2 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.2/1.2 MB 74.2 MB/s eta 0:00:00
+
+Downloading distlib-0.4.0-py2.py3-none-any.whl (469 kB)
+Downloading faker-37.11.0-py3-none-any.whl (2.0 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.0/2.0 MB 125.3 MB/s eta 0:00:00
+
+Downloading jsonref-1.1.0-py3-none-any.whl (9.4 kB)
+Downloading jsonschema_specifications-2025.9.1-py3-none-any.whl (18 kB)
+Downloading latex2mathml-3.78.1-py3-none-any.whl (73 kB)
+Downloading opencv_python-4.12.0.88-cp37-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (67.0 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 67.0/67.0 MB 65.5 MB/s eta 0:00:00
+
+Downloading numpy-2.2.6-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (16.5 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 16.5/16.5 MB 45.8 MB/s eta 0:00:00
+
+Downloading opencv_python_headless-4.12.0.88-cp37-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (54.0 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 54.0/54.0 MB 68.5 MB/s eta 0:00:00
+
+Downloading pyclipper-1.3.0.post6-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (962 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 962.5/962.5 kB 88.1 MB/s eta 0:00:00
+
+Downloading python_dateutil-2.9.0.post0-py2.py3-none-any.whl (229 kB)
+Downloading pytz-2025.2-py2.py3-none-any.whl (509 kB)
+Downloading referencing-0.37.0-py3-none-any.whl (26 kB)
+Downloading regex-2025.9.18-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (802 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 802.1/802.1 kB 82.9 MB/s eta 0:00:00
+
+Downloading rich-14.2.0-py3-none-any.whl (243 kB)
+Downloading rpds_py-0.27.1-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (386 kB)
+Downloading safetensors-0.6.2-cp38-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (485 kB)
+Downloading semchunk-2.2.2-py3-none-any.whl (10 kB)
+Downloading shapely-2.1.2-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (3.1 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.1/3.1 MB 87.1 MB/s eta 0:00:00
+
+Downloading shellingham-1.5.4-py2.py3-none-any.whl (9.8 kB)
+Downloading six-1.17.0-py2.py3-none-any.whl (11 kB)
+Downloading smmap-5.0.2-py3-none-any.whl (24 kB)
+Downloading soupsieve-2.8-py3-none-any.whl (36 kB)
+Downloading tabulate-0.9.0-py3-none-any.whl (35 kB)
+Downloading torch-2.9.0-cp313-cp313-manylinux_2_28_x86_64.whl (899.8 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 899.8/899.8 MB 31.6 MB/s eta 0:00:00
+
+Downloading nvidia_cublas_cu12-12.8.4.1-py3-none-manylinux_2_27_x86_64.whl (594.3 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 594.3/594.3 MB 61.1 MB/s eta 0:00:00
+
+Downloading nvidia_cuda_cupti_cu12-12.8.90-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (10.2 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 10.2/10.2 MB 87.9 MB/s eta 0:00:00
+
+Downloading nvidia_cuda_nvrtc_cu12-12.8.93-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl (88.0 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 88.0/88.0 MB 96.5 MB/s eta 0:00:00
+
+Downloading nvidia_cuda_runtime_cu12-12.8.90-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (954 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 954.8/954.8 kB 86.2 MB/s eta 0:00:00
+
+Downloading nvidia_cudnn_cu12-9.10.2.21-py3-none-manylinux_2_27_x86_64.whl (706.8 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 706.8/706.8 MB 44.7 MB/s eta 0:00:00
+
+Downloading nvidia_cufft_cu12-11.3.3.83-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (193.1 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 193.1/193.1 MB 65.5 MB/s eta 0:00:00
+
+Downloading nvidia_cufile_cu12-1.13.1.3-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (1.2 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.2/1.2 MB 108.4 MB/s eta 0:00:00
+
+Downloading nvidia_curand_cu12-10.3.9.90-py3-none-manylinux_2_27_x86_64.whl (63.6 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 63.6/63.6 MB 68.1 MB/s eta 0:00:00
+
+Downloading nvidia_cusolver_cu12-11.7.3.90-py3-none-manylinux_2_27_x86_64.whl (267.5 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 267.5/267.5 MB 108.0 MB/s eta 0:00:00
+
+Downloading nvidia_cusparse_cu12-12.5.8.93-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (288.2 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 288.2/288.2 MB 99.0 MB/s eta 0:00:00
+
+Downloading nvidia_cusparselt_cu12-0.7.1-py3-none-manylinux2014_x86_64.whl (287.2 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 287.2/287.2 MB 95.6 MB/s eta 0:00:00
+
+Downloading nvidia_nccl_cu12-2.27.5-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (322.3 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 322.3/322.3 MB 76.0 MB/s eta 0:00:00
+
+Downloading nvidia_nvjitlink_cu12-12.8.93-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl (39.3 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 39.3/39.3 MB 92.2 MB/s eta 0:00:00
+
+Downloading nvidia_nvshmem_cu12-3.3.20-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (124.7 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 124.7/124.7 MB 119.7 MB/s eta 0:00:00
+
+Downloading nvidia_nvtx_cu12-12.8.90-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (89 kB)
+Downloading triton-3.5.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (170.5 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 170.5/170.5 MB 108.8 MB/s eta 0:00:00
+
+Downloading torchvision-0.24.0-cp313-cp313-manylinux_2_28_x86_64.whl (8.1 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 8.1/8.1 MB 123.2 MB/s eta 0:00:00
+
+Downloading transformers-4.57.1-py3-none-any.whl (12.0 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 12.0/12.0 MB 146.8 MB/s eta 0:00:00
+
+Downloading tzdata-2025.2-py2.py3-none-any.whl (347 kB)
+Downloading xlsxwriter-3.2.9-py3-none-any.whl (175 kB)
+Downloading colorlog-6.9.0-py3-none-any.whl (11 kB)
+Downloading cryptography-46.0.3-cp311-abi3-manylinux_2_34_x86_64.whl (4.5 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.5/4.5 MB 16.7 MB/s eta 0:00:00
+
+Downloading et_xmlfile-2.0.0-py3-none-any.whl (18 kB)
+Downloading omegaconf-2.3.0-py3-none-any.whl (79 kB)
+Downloading psutil-7.1.0-cp36-abi3-manylinux_2_12_x86_64.manylinux2010_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl (291 kB)
+Downloading websocket_client-1.9.0-py3-none-any.whl (82 kB)
+Downloading cffi-2.0.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (219 kB)
+Downloading h11-0.16.0-py3-none-any.whl (37 kB)
+Downloading markdown_it_py-4.0.0-py3-none-any.whl (87 kB)
+Downloading networkx-3.5-py3-none-any.whl (2.0 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.0/2.0 MB 147.3 MB/s eta 0:00:00
+
+Downloading sympy-1.14.0-py3-none-any.whl (6.3 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.3/6.3 MB 137.5 MB/s eta 0:00:00
+
+Downloading tokenizers-0.22.1-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (3.3 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.3/3.3 MB 159.2 MB/s eta 0:00:00
+
+Downloading jinja2-3.1.6-py3-none-any.whl (134 kB)
+Using cached setuptools-80.9.0-py3-none-any.whl (1.2 MB)
+Downloading markupsafe-3.0.3-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (22 kB)
+Downloading mdurl-0.1.2-py3-none-any.whl (10.0 kB)
+Downloading mpmath-1.3.0-py3-none-any.whl (536 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 536.2/536.2 kB 57.4 MB/s eta 0:00:00
+
+Downloading multiprocess-0.70.18-py313-none-any.whl (151 kB)
+Downloading mpire-2.10.2-py3-none-any.whl (272 kB)
+Downloading pycparser-2.23-py3-none-any.whl (118 kB)
+Downloading dill-0.4.0-py3-none-any.whl (119 kB)
+Building wheels for collected packages: tg-note, pyTelegramBotAPI, PyYAML, pylatexenc, antlr4-python3-runtime
+  Building editable for tg-note (pyproject.toml): started
+  Building editable for tg-note (pyproject.toml): finished with status 'done'
+  Created wheel for tg-note: filename=tg_note-0.1.0-py3-none-any.whl size=11842 sha256=6e67241f8253a89593192ace0a29d4ff8794b4bfa0bc3af46db97a7b432f51a3
+  Stored in directory: /tmp/pip-ephem-wheel-cache-qfjl19h8/wheels/bc/5e/68/a9184942e18dc0c23a13f0a1bb35f37a2e66637956a4dbcbff
+  Building wheel for pyTelegramBotAPI (pyproject.toml): started
+  Building wheel for pyTelegramBotAPI (pyproject.toml): finished with status 'done'
+  Created wheel for pyTelegramBotAPI: filename=pytelegrambotapi-4.14.0-py3-none-any.whl size=215341 sha256=996d7ca86a4a74d623a80a7b9038268ef8d2fd416261901919eaf372a8222ca8
+  Stored in directory: /home/ubuntu/.cache/pip/wheels/b2/b0/06/966e44371d2a88bba02247797c6529e58589032c57fc2e7977
+  Building wheel for PyYAML (pyproject.toml): started
+  Building wheel for PyYAML (pyproject.toml): finished with status 'done'
+  Created wheel for PyYAML: filename=pyyaml-6.0.1-cp313-cp313-linux_x86_64.whl size=45459 sha256=3f9132b5db48bd5dfb7229ae2fe9c2061608d4a92a5049ef8a2b3c621eca62cf
+  Stored in directory: /home/ubuntu/.cache/pip/wheels/9c/9e/34/1e1548811b63a9d001469f21797e8b7d5c216d8eb928e7d6ad
+  Building wheel for pylatexenc (pyproject.toml): started
+  Building wheel for pylatexenc (pyproject.toml): finished with status 'done'
+  Created wheel for pylatexenc: filename=pylatexenc-2.10-py3-none-any.whl size=136897 sha256=46c4ad2dd6d341e4fb4a1f4633c844f7df22b9f9d645b056ab32be411d4c654d
+  Stored in directory: /home/ubuntu/.cache/pip/wheels/3c/d9/c1/bb2a15d13c742b9035ef7ae6ebe236af270b1d1d9b386dcd5e
+  Building wheel for antlr4-python3-runtime (pyproject.toml): started
+  Building wheel for antlr4-python3-runtime (pyproject.toml): finished with status 'done'
+  Created wheel for antlr4-python3-runtime: filename=antlr4_python3_runtime-4.9.3-py3-none-any.whl size=144591 sha256=05e9db9a626904f4d88ae4ae83a0432d43a9732e5e0c0015b44343e1d324e867
+  Stored in directory: /home/ubuntu/.cache/pip/wheels/d5/b3/74/a35b66048c9de6631cd74cbc9475e6feb3e69a467983446bd8
+Successfully built tg-note pyTelegramBotAPI PyYAML pylatexenc antlr4-python3-runtime
+Installing collected packages: pytz, pylatexenc, pyclipper, nvidia-cusparselt-cu12, mpmath, filetype, distlib, antlr4-python3-runtime, XlsxWriter, websocket-client, urllib3, tzdata, typing-extensions, triton, tqdm, tabulate, sympy, soupsieve, sniffio, smmap, six, shellingham, setuptools, safetensors, rtree, rpds-py, regex, PyYAML, python-dotenv, pypdfium2, pyflakes, pycparser, pycodestyle, psutil, propcache, pluggy, platformdirs, pillow, pathspec, packaging, nvidia-nvtx-cu12, nvidia-nvshmem-cu12, nvidia-nvjitlink-cu12, nvidia-nccl-cu12, nvidia-curand-cu12, nvidia-cufile-cu12, nvidia-cuda-runtime-cu12, nvidia-cuda-nvrtc-cu12, nvidia-cuda-cupti-cu12, nvidia-cublas-cu12, numpy, nodeenv, networkx, mypy-extensions, multidict, mdurl, mccabe, MarkupSafe, marko, lxml, loguru, latex2mathml, jsonref, json5, jiter, iniconfig, idna, identify, hf-xet, h11, fsspec, frozenlist, filelock, eval_type_backport, et-xmlfile, distro, dill, coverage, colorlog, click, charset_normalizer, cfgv, certifi, attrs, annotated-types, aiohappyeyeballs, yarl, virtualenv, Shapely, scipy, requests, referencing, python-pptx, python-docx, python-dateutil, pytest, pydantic-core, openpyxl, opencv-python-headless, opencv-python, omegaconf, nvidia-cusparse-cu12, nvidia-cufft-cu12, nvidia-cudnn-cu12, mypy, multiprocess, mpire, markdown-it-py, jsonlines, jinja2, httpcore, gitdb, flake8, faker, dotenv, cffi, black, beautifulsoup4, anyio, aiosignal, tiktoken, rich, rapidocr, pytest-cov, pytest-asyncio, pyTelegramBotAPI, pydantic, pre-commit, polyfactory, pandas, nvidia-cusolver-cu12, jsonschema-specifications, huggingface-hub, httpx, GitPython, cryptography, aiohttp, typer, torch, tokenizers, semchunk, pydantic-settings, openai, jsonschema, dashscope, transformers, torchvision, qwen-agent, docling-core, accelerate, docling-parse, docling-ibm-models, docling, tg-note
+  WARNING: The scripts latex2text, latexencode and latexwalker are installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script filetype is installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script wsdump is installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The scripts proton and proton-viewer are installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script tqdm is installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script tabulate is installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script isympy is installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script dotenv is installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script pypdfium2 is installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script pyflakes is installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script pycodestyle is installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The scripts f2py and numpy-config are installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script nodeenv is installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script marko is installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The scripts l2m and latex2mathml are installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script pyjson5 is installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script identify-cli is installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script distro is installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The scripts coverage, coverage-3.13 and coverage3 are installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script normalizer is installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script virtualenv is installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The scripts py.test and pytest are installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The scripts dmypy, mypy, mypyc, stubgen and stubtest are installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script markdown-it is installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script flake8 is installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script faker is installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The scripts black and blackd are installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script rapidocr is installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script pre-commit is installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The scripts hf, huggingface-cli and tiny-agents are installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script httpx is installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script typer is installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The scripts torchfrtrace and torchrun are installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script openai is installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script jsonschema is installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script dashscope is installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The scripts transformers and transformers-cli are installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script docling-view is installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The scripts accelerate, accelerate-config, accelerate-estimate-memory, accelerate-launch and accelerate-merge-weights are installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The scripts docling and docling-tools are installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script tg-note is installed in '/home/ubuntu/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+Successfully installed GitPython-3.1.45 MarkupSafe-3.0.3 PyYAML-6.0.1 Shapely-2.1.2 XlsxWriter-3.2.9 accelerate-1.10.1 aiohappyeyeballs-2.6.1 aiohttp-3.13.0 aiosignal-1.4.0 annotated-types-0.7.0 antlr4-python3-runtime-4.9.3 anyio-4.11.0 attrs-25.4.0 beautifulsoup4-4.14.2 black-24.10.0 certifi-2025.10.5 cffi-2.0.0 cfgv-3.4.0 charset_normalizer-3.4.4 click-8.3.0 colorlog-6.9.0 coverage-7.11.0 cryptography-46.0.3 dashscope-1.24.6 dill-0.4.0 distlib-0.4.0 distro-1.9.0 docling-2.57.0 docling-core-2.48.4 docling-ibm-models-3.9.1 docling-parse-4.5.1 dotenv-0.9.9 et-xmlfile-2.0.0 eval_type_backport-0.2.2 faker-37.11.0 filelock-3.20.0 filetype-1.2.0 flake8-7.3.0 frozenlist-1.8.0 fsspec-2025.9.0 gitdb-4.0.12 h11-0.16.0 hf-xet-1.1.10 httpcore-1.0.9 httpx-0.28.1 huggingface-hub-0.35.3 identify-2.6.15 idna-3.11 iniconfig-2.1.0 jinja2-3.1.6 jiter-0.11.0 json5-0.12.1 jsonlines-3.1.0 jsonref-1.1.0 jsonschema-4.25.1 jsonschema-specifications-2025.9.1 latex2mathml-3.78.1 loguru-0.7.3 lxml-5.4.0 markdown-it-py-4.0.0 marko-2.2.1 mccabe-0.7.0 mdurl-0.1.2 mpire-2.10.2 mpmath-1.3.0 multidict-6.7.0 multiprocess-0.70.18 mypy-1.18.2 mypy-extensions-1.1.0 networkx-3.5 nodeenv-1.9.1 numpy-2.2.6 nvidia-cublas-cu12-12.8.4.1 nvidia-cuda-cupti-cu12-12.8.90 nvidia-cuda-nvrtc-cu12-12.8.93 nvidia-cuda-runtime-cu12-12.8.90 nvidia-cudnn-cu12-9.10.2.21 nvidia-cufft-cu12-11.3.3.83 nvidia-cufile-cu12-1.13.1.3 nvidia-curand-cu12-10.3.9.90 nvidia-cusolver-cu12-11.7.3.90 nvidia-cusparse-cu12-12.5.8.93 nvidia-cusparselt-cu12-0.7.1 nvidia-nccl-cu12-2.27.5 nvidia-nvjitlink-cu12-12.8.93 nvidia-nvshmem-cu12-3.3.20 nvidia-nvtx-cu12-12.8.90 omegaconf-2.3.0 openai-1.109.1 opencv-python-4.12.0.88 opencv-python-headless-4.12.0.88 openpyxl-3.1.5 packaging-25.0 pandas-2.3.3 pathspec-0.12.1 pillow-11.3.0 platformdirs-4.5.0 pluggy-1.6.0 polyfactory-2.22.2 pre-commit-3.8.0 propcache-0.4.1 psutil-7.1.0 pyTelegramBotAPI-4.14.0 pyclipper-1.3.0.post6 pycodestyle-2.14.0 pycparser-2.23 pydantic-2.10.4 pydantic-core-2.27.2 pydantic-settings-2.7.0 pyflakes-3.4.0 pylatexenc-2.10 pypdfium2-4.30.0 pytest-7.4.4 pytest-asyncio-0.23.8 pytest-cov-4.1.0 python-dateutil-2.9.0.post0 python-docx-1.2.0 python-dotenv-1.1.1 python-pptx-1.0.2 pytz-2025.2 qwen-agent-0.0.31 rapidocr-3.4.2 referencing-0.37.0 regex-2025.9.18 requests-2.32.5 rich-14.2.0 rpds-py-0.27.1 rtree-1.4.1 safetensors-0.6.2 scipy-1.16.2 semchunk-2.2.2 setuptools-80.9.0 shellingham-1.5.4 six-1.17.0 smmap-5.0.2 sniffio-1.3.1 soupsieve-2.8 sympy-1.14.0 tabulate-0.9.0 tg-note-0.1.0 tiktoken-0.12.0 tokenizers-0.22.1 torch-2.9.0 torchvision-0.24.0 tqdm-4.67.1 transformers-4.57.1 triton-3.5.0 typer-0.19.2 typing-extensions-4.15.0 tzdata-2025.2 urllib3-2.5.0 virtualenv-20.35.3 websocket-client-1.9.0 yarl-1.22.0

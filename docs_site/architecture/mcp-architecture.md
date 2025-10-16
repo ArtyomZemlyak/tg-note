@@ -64,7 +64,7 @@ services:
     # MCP Hub runs as standalone service
     # Generates configs on startup
     # Owns all MCP logic
-    
+
   bot:
     # Bot is pure client
     # Connects via MCP_HUB_URL
@@ -141,14 +141,14 @@ python -m src.mcp.mcp_hub_server --skip-config-gen
 class MCPServerManager:
     """
     Subprocess Lifecycle Manager (Standalone Mode Only)
-    
+
     Docker mode: Does nothing (bot is pure client)
     Standalone mode: Launches MCP Hub subprocess
     """
-    
+
     def setup_default_servers(self):
         mcp_hub_url = os.getenv("MCP_HUB_URL")
-        
+
         if mcp_hub_url:
             # Docker mode: pure client, no action needed
             logger.info(f"Docker mode: connecting to {mcp_hub_url}")
@@ -346,7 +346,7 @@ curl http://localhost:8765/config/client/standard | jq
 
 **Cause:** Old code running (pre-refactor)
 
-**Solution:** 
+**Solution:**
 1. Verify you're on latest code
 2. Check `MCPServerManager.setup_default_servers()` doesn't call `_create_qwen_config()`
 3. Rebuild Docker images

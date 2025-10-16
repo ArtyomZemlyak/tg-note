@@ -4,13 +4,13 @@ from loguru import logger
 from openai import OpenAI
 from pydantic import BaseModel
 
-from src.mcp.memory.mem_agent_impl.schemas import ChatMessage, Role
 from config.settings import (
     MEM_AGENT_BASE_URL,
     MEM_AGENT_MODEL,
     MEM_AGENT_OPENAI_API_KEY,
     OPENROUTER_API_KEY,
 )
+from src.mcp.memory.mem_agent_impl.schemas import ChatMessage, Role
 
 
 def create_openai_client() -> OpenAI:
