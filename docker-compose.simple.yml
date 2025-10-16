@@ -17,13 +17,6 @@ services:
     env_file: .env
     ports:
       - "${MCP_PORT:-8765}:8765"
-    environment:
-      # Force JSON storage (no vLLM needed)
-      - MEM_AGENT_STORAGE_TYPE=json
-
-      # Agent settings
-      - MEM_AGENT_MAX_TOOL_TURNS=20
-      - MEM_AGENT_TIMEOUT=20
     volumes:
       # Persistent storage for memory data
       - ./data/memory:/app/data/memory
@@ -51,18 +44,6 @@ services:
     image: tg-note-bot:latest
     restart: unless-stopped
     env_file: .env
-    environment:
-      # Credentials only (from .env)
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - ALLOWED_USER_IDS=${ALLOWED_USER_IDS:-}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-      - QWEN_API_KEY=${QWEN_API_KEY:-}
-      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
-      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
-
-      # MCP Hub connection (Docker internal)
-      - MCP_HUB_URL=http://mcp-hub:8765/sse
     volumes:
       # Persistent storage for knowledge base
       - ./knowledge_base:/app/knowledge_base
