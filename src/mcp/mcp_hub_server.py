@@ -98,11 +98,6 @@ BUILTIN_TOOLS = [
     "store_memory",
     "retrieve_memory",
     "list_categories",
-    "list_mcp_servers",
-    "get_mcp_server",
-    "register_mcp_server",
-    "enable_mcp_server",
-    "disable_mcp_server",
 ]
 
 
@@ -152,19 +147,26 @@ def get_storage(user_id: int) -> MemoryStorage:
     data_dir = Path(f"data/memory/user_{user_id}")
     logger.info(f"📁 Data directory: {data_dir.absolute()}")
 
-    # Get storage type from environment (default: json)
-    # Can be "json", "vector", or "mem-agent"
-    storage_type = os.getenv("MEM_AGENT_STORAGE_TYPE", "json")
+    # Get settings from config.yaml (preferred) or environment variables (fallback)
+    try:
+        from config import settings as app_settings
+        storage_type = app_settings.MEM_AGENT_STORAGE_TYPE
+        model_name = app_settings.MEM_AGENT_MODEL
+        backend = app_settings.MEM_AGENT_BACKEND
+        logger.info("📋 Using configuration from config.yaml")
+    except Exception:
+        # Fallback to environment variables
+        storage_type = os.getenv("MEM_AGENT_STORAGE_TYPE", "json")
+        model_name = os.getenv("MEM_AGENT_MODEL", None)
+        backend = os.getenv("MEM_AGENT_BACKEND", "auto")
+        logger.info("📋 Using configuration from environment variables")
+    
     logger.info(f"💾 Storage type: {storage_type}")
-
-    # Log all relevant environment variables
     logger.info("")
     logger.info("📋 Configuration:")
-    logger.info(
-        f"  - MEM_AGENT_STORAGE_TYPE: {os.getenv('MEM_AGENT_STORAGE_TYPE', 'json (default)')}"
-    )
-    logger.info(f"  - MEM_AGENT_MODEL: {os.getenv('MEM_AGENT_MODEL', 'not set')}")
-    logger.info(f"  - MEM_AGENT_BACKEND: {os.getenv('MEM_AGENT_BACKEND', 'auto (default)')}")
+    logger.info(f"  - MEM_AGENT_STORAGE_TYPE: {storage_type}")
+    logger.info(f"  - MEM_AGENT_MODEL: {model_name or 'default'}")
+    logger.info(f"  - MEM_AGENT_BACKEND: {backend}")
     logger.info("")
 
     # Create storage using factory or legacy wrapper
@@ -172,9 +174,6 @@ def get_storage(user_id: int) -> MemoryStorage:
         # Use factory for non-default storage types
         logger.info(f"🔧 Creating {storage_type} storage via factory...")
         try:
-            model_name = os.getenv("MEM_AGENT_MODEL", None)
-            backend = os.getenv("MEM_AGENT_BACKEND", "auto")
-
             if model_name:
                 logger.info(f"  📦 Model: {model_name}")
                 logger.info(f"  🎮 Backend: {backend}")
@@ -389,46 +388,9 @@ def list_categories(user_id: int) -> dict:
 # ============================================================================
 # Registry Tools - MCP Server Management
 # ============================================================================
-
-
-@mcp.tool()
-def list_mcp_servers(user_id: int = None) -> dict:
-    """
-    List all registered MCP servers
-
-    Args:
-        user_id: Optional user ID for user-specific servers
-
-    Returns:
-        List of registered servers with their status
-    """
-    logger.info("📋 LIST_MCP_SERVERS called")
-    logger.info(f"  User: {user_id or 'global'}")
-
-    try:
-        registry = get_registry()
-        servers = registry.get_all_servers()
-
-        result = {
-            "success": True,
-            "total": len(servers),
-            "servers": [
-                {
-                    "name": spec.name,
-                    "description": spec.description,
-                    "enabled": spec.enabled,
-                    "command": spec.command,
-                }
-                for spec in servers
-            ],
-        }
-
-        logger.info(f"✅ Listed {len(servers)} servers")
-        return result
-
-    except Exception as e:
-        logger.error(f"❌ Error listing servers: {e}", exc_info=True)
-        return {"success": False, "error": str(e)}
+# AICODE-NOTE: MCP server management tools removed from MCP tools interface.
+# These tools are only for managing the MCP hub itself and should not be
+# exposed as MCP tools. They remain available via HTTP API for administration.
 
 
 # ============================================================================
@@ -649,152 +611,6 @@ async def http_get_client_config(request: Request):
         logger.error(f"❌ Error in http_get_client_config: {e}", exc_info=True)
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
-@mcp.tool()
-def get_mcp_server(name: str) -> dict:
-    """
-    Get details of a specific MCP server
-
-    Args:
-        name: Server name
-
-    Returns:
-        Server details
-    """
-    logger.info(f"🔍 GET_MCP_SERVER called: {name}")
-
-    try:
-        registry = get_registry()
-        spec = registry.get_server(name)
-
-        if not spec:
-            return {"success": False, "error": f"Server '{name}' not found"}
-
-        result = {
-            "success": True,
-            "server": {
-                "name": spec.name,
-                "description": spec.description,
-                "enabled": spec.enabled,
-                "command": spec.command,
-                "args": spec.args,
-                "env": spec.env or {},
-                "working_dir": spec.working_dir,
-            },
-        }
-
-        logger.info(f"✅ Retrieved server: {name}")
-        return result
-
-    except Exception as e:
-        logger.error(f"❌ Error getting server: {e}", exc_info=True)
-        return {"success": False, "error": str(e)}
-
-
-@mcp.tool()
-def register_mcp_server(
-    name: str,
-    description: str,
-    command: str,
-    args: list[str],
-    env: dict = None,
-    working_dir: str = None,
-    enabled: bool = True,
-) -> dict:
-    """
-    Register a new MCP server
-
-    Args:
-        name: Server name (unique identifier)
-        description: Human-readable description
-        command: Command to execute
-        args: Command-line arguments
-        env: Environment variables (optional)
-        working_dir: Working directory (optional)
-        enabled: Whether to enable the server
-
-    Returns:
-        Success status
-    """
-    logger.info(f"➕ REGISTER_MCP_SERVER called: {name}")
-
-    try:
-        registry = get_registry()
-
-        spec = MCPServerSpec(
-            name=name,
-            description=description,
-            command=command,
-            args=args,
-            env=env,
-            working_dir=working_dir,
-            enabled=enabled,
-        )
-
-        success = registry.add_server(spec)
-
-        if success:
-            logger.info(f"✅ Registered server: {name}")
-            return {"success": True, "message": f"Server '{name}' registered successfully"}
-        else:
-            return {"success": False, "error": f"Server '{name}' already exists"}
-
-    except Exception as e:
-        logger.error(f"❌ Error registering server: {e}", exc_info=True)
-        return {"success": False, "error": str(e)}
-
-
-@mcp.tool()
-def enable_mcp_server(name: str) -> dict:
-    """
-    Enable an MCP server
-
-    Args:
-        name: Server name
-
-    Returns:
-        Success status
-    """
-    logger.info(f"✅ ENABLE_MCP_SERVER called: {name}")
-
-    try:
-        registry = get_registry()
-        success = registry.enable_server(name)
-
-        if success:
-            return {"success": True, "message": f"Server '{name}' enabled"}
-        else:
-            return {"success": False, "error": f"Server '{name}' not found"}
-
-    except Exception as e:
-        logger.error(f"❌ Error enabling server: {e}", exc_info=True)
-        return {"success": False, "error": str(e)}
-
-
-@mcp.tool()
-def disable_mcp_server(name: str) -> dict:
-    """
-    Disable an MCP server
-
-    Args:
-        name: Server name
-
-    Returns:
-        Success status
-    """
-    logger.info(f"❌ DISABLE_MCP_SERVER called: {name}")
-
-    try:
-        registry = get_registry()
-        success = registry.disable_server(name)
-
-        if success:
-            return {"success": True, "message": f"Server '{name}' disabled"}
-        else:
-            return {"success": False, "error": f"Server '{name}' not found"}
-
-    except Exception as e:
-        logger.error(f"❌ Error disabling server: {e}", exc_info=True)
-        return {"success": False, "error": str(e)}
 
 
 # ============================================================================

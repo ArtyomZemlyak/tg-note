@@ -63,16 +63,11 @@ async def test_mcp_hub_health_includes_builtin_tools():
         "service": "mcp-hub",
         "version": "1.0.0",
         "builtin_tools": {
-            "total": 8,
+            "total": 3,
             "names": [
                 "store_memory",
                 "retrieve_memory",
                 "list_categories",
-                "list_mcp_servers",
-                "get_mcp_server",
-                "register_mcp_server",
-                "enable_mcp_server",
-                "disable_mcp_server",
             ],
         },
         "registry": {

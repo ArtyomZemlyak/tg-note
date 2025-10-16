@@ -17,8 +17,6 @@ services:
       --tensor-parallel-size ${TENSOR_PARALLEL_SIZE:-1}
     ports:
       - "${VLLM_PORT:-8001}:8001"
-    environment:
-      - HF_HOME=/root/.cache/huggingface
     volumes:
       - ~/.cache/huggingface:/root/.cache/huggingface
     deploy:
@@ -53,11 +51,6 @@ services:
     env_file: .env
     ports:
       - "${MCP_PORT:-8765}:8765"
-    environment:
-      # vLLM/SGLang/MLX connection (Docker internal)
-      # Prefer config.yaml; keep host/port for service discovery
-      - MEM_AGENT_HOST=vllm-server
-      - MEM_AGENT_PORT=8001
     volumes:
       # Persistent storage for memory data
       - ./data/memory:/app/data/memory
@@ -90,17 +83,6 @@ services:
     image: tg-note-bot:latest
     restart: unless-stopped
     env_file: .env
-    environment:
-      # Credentials only (from .env); all other settings via config.yaml
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - ALLOWED_USER_IDS=${ALLOWED_USER_IDS:-}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-      - QWEN_API_KEY=${QWEN_API_KEY:-}
-      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
-      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
-      # MCP Hub connection (Docker internal)
-      - MCP_HUB_URL=http://mcp-hub:8765/sse
     volumes:
       # Persistent storage for knowledge base
       - ./knowledge_base:/app/knowledge_base
