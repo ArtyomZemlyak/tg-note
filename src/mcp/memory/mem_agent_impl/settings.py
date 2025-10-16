@@ -26,9 +26,13 @@ try:
     SANDBOX_TIMEOUT = app_settings.MEM_AGENT_TIMEOUT
 
     # Model/API settings (mem-agent specific; do NOT read global OPENAI_* to avoid conflicts)
-    # Use only environment variables for these to keep isolation.
-    MEM_AGENT_OPENAI_API_KEY: Optional[str] = os.getenv("MEM_AGENT_OPENAI_API_KEY")
-    MEM_AGENT_BASE_URL: Optional[str] = os.getenv("MEM_AGENT_BASE_URL")
+    # Priority: environment variables > config settings
+    MEM_AGENT_OPENAI_API_KEY: Optional[str] = os.getenv(
+        "MEM_AGENT_OPENAI_API_KEY", app_settings.MEM_AGENT_OPENAI_API_KEY
+    )
+    MEM_AGENT_BASE_URL: Optional[str] = os.getenv(
+        "MEM_AGENT_BASE_URL", app_settings.MEM_AGENT_BASE_URL
+    )
 
     # Backward-compatible aliases
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")  # kept for backward compatibility

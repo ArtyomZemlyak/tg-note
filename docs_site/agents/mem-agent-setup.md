@@ -177,7 +177,11 @@ python scripts/install_mem_agent.py --skip-model-download
 # Install vLLM
 pip install vllm
 
-# Configure to use vLLM with OpenAI-compatible endpoint
+# Configure in config.yaml (recommended):
+# MEM_AGENT_BASE_URL: http://127.0.0.1:8001/v1
+# MEM_AGENT_OPENAI_API_KEY: lm-studio
+
+# Or use environment variables:
 export MEM_AGENT_BASE_URL=http://127.0.0.1:8001/v1
 export MEM_AGENT_OPENAI_API_KEY=lm-studio
 ```
@@ -400,8 +404,8 @@ huggingface-cli delete-cache
 | `MEM_AGENT_BACKEND` | `auto` | Backend (auto, vllm, mlx, transformers) |
 | `MEM_AGENT_MAX_TOOL_TURNS` | `20` | Max tool execution iterations (mem-agent only) |
 | `MEM_AGENT_TIMEOUT` | `20` | Timeout for code execution (mem-agent only) |
-| `MEM_AGENT_BASE_URL` | - | OpenAI-compatible endpoint URL (e.g., http://localhost:8001/v1) |
-| `MEM_AGENT_OPENAI_API_KEY` | - | API key for the endpoint (use any value like "lm-studio" for local) |
+| `MEM_AGENT_BASE_URL` | `null` | OpenAI-compatible endpoint URL (e.g., http://localhost:8001/v1) - configure in config.yaml or env |
+| `MEM_AGENT_OPENAI_API_KEY` | `null` | API key for the endpoint (use "lm-studio" for local) - configure in config.yaml or env |
 | `MEM_AGENT_FILE_SIZE_LIMIT` | `1048576` | Max file size - 1MB (mem-agent only) |
 | `MEM_AGENT_DIR_SIZE_LIMIT` | `10485760` | Max directory size - 10MB (mem-agent only) |
 | `MEM_AGENT_MEMORY_SIZE_LIMIT` | `104857600` | Max total memory - 100MB (mem-agent only) |

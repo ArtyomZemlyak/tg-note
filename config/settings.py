@@ -205,6 +205,12 @@ class Settings(BaseSettings):
     MEM_AGENT_BACKEND: str = Field(
         default="auto", description="Backend to use: auto, vllm, mlx, or transformers"
     )
+    MEM_AGENT_BASE_URL: Optional[str] = Field(
+        default=None, description="OpenAI-compatible endpoint URL (e.g., http://localhost:8001/v1)"
+    )
+    MEM_AGENT_OPENAI_API_KEY: Optional[str] = Field(
+        default=None, description="API key for mem-agent endpoint (use 'lm-studio' for local servers)"
+    )
     MEM_AGENT_MAX_TOOL_TURNS: int = Field(
         default=20, description="Maximum number of tool execution turns"
     )

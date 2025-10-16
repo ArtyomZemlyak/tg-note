@@ -109,6 +109,11 @@ export MEM_AGENT_MODEL=driaforall/mem-agent
 export MEM_AGENT_BACKEND=auto
 
 # OpenAI-compatible endpoint configuration
+# Recommended: configure in config.yaml:
+# MEM_AGENT_BASE_URL: http://127.0.0.1:8001/v1
+# MEM_AGENT_OPENAI_API_KEY: lm-studio
+
+# Or use environment variables:
 export MEM_AGENT_BASE_URL=http://127.0.0.1:8001/v1
 export MEM_AGENT_OPENAI_API_KEY=lm-studio
 

@@ -196,6 +196,8 @@ export MEM_AGENT_BACKEND=vllm  # Options: auto, vllm, mlx, transformers
 export MEM_AGENT_MAX_TOOL_TURNS=20
 
 # OpenAI-compatible endpoint configuration
+# Recommended: configure in config.yaml
+# Or use environment variables:
 export MEM_AGENT_BASE_URL=http://127.0.0.1:8001/v1
 export MEM_AGENT_OPENAI_API_KEY=lm-studio
 ```
