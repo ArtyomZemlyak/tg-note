@@ -97,17 +97,18 @@ MEM_AGENT_TIMEOUT: 20
 MEM_AGENT_FILE_SIZE_LIMIT: 1048576  # 1MB
 MEM_AGENT_DIR_SIZE_LIMIT: 10485760  # 10MB
 MEM_AGENT_MEMORY_SIZE_LIMIT: 104857600  # 100MB
-MEM_AGENT_VLLM_HOST: 127.0.0.1
-MEM_AGENT_VLLM_PORT: 8000
+# OpenAI-compatible endpoint (configure in config.yaml)
+MEM_AGENT_BASE_URL: http://127.0.0.1:8001/v1
+MEM_AGENT_OPENAI_API_KEY: lm-studio
 ```
 
-Or use environment variables:
+Or use environment variables (they override config.yaml):
 
 ```bash
 export MEM_AGENT_MAX_TOOL_TURNS=20
 export MEM_AGENT_TIMEOUT=20
-export VLLM_HOST=127.0.0.1
-export VLLM_PORT=8000
+export MEM_AGENT_BASE_URL=http://127.0.0.1:8001/v1
+export MEM_AGENT_OPENAI_API_KEY=lm-studio
 ```
 
 ## Model Backends

@@ -46,6 +46,6 @@ services:
   # Update mcp-hub environment to use SGLang
   mcp-hub:
     environment:
-      # Backend selection is controlled at deploy level; only host/port here
-      - MEM_AGENT_HOST=vllm-server
-      - MEM_AGENT_PORT=8001
+      # OpenAI-compatible endpoint for mem-agent
+      - MEM_AGENT_BASE_URL=http://vllm-server:8001/v1
+      - MEM_AGENT_OPENAI_API_KEY=lm-studio

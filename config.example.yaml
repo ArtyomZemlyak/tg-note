@@ -402,11 +402,23 @@ MEM_AGENT_MODEL_PRECISION: 4bit
 # Default: auto
 MEM_AGENT_BACKEND: auto
 
-# MEM_AGENT_VLLM_HOST: vLLM server host (only used if backend is vllm)
-MEM_AGENT_VLLM_HOST: 127.0.0.1
+# MEM_AGENT_BASE_URL: OpenAI-compatible endpoint URL for mem-agent
+#
+# Examples:
+# - http://localhost:8001/v1 (local vLLM/SGLang server)
+# - http://host.docker.internal:8001/v1 (for Docker)
+# - https://api.openai.com/v1 (OpenAI)
+#
+# Default: null (will use auto-detection for local servers)
+# MEM_AGENT_BASE_URL: http://localhost:8001/v1
 
-# MEM_AGENT_VLLM_PORT: vLLM server port (only used if backend is vllm)
-MEM_AGENT_VLLM_PORT: 8001
+# MEM_AGENT_OPENAI_API_KEY: API key for the mem-agent endpoint
+#
+# Use any value (e.g., "lm-studio") for local servers that don't require authentication
+# For OpenAI/OpenRouter, use your actual API key
+#
+# Default: null
+# MEM_AGENT_OPENAI_API_KEY: lm-studio
 
 # MEM_AGENT_MAX_TOOL_TURNS: Maximum number of tool execution turns (for "mem-agent" type)
 #

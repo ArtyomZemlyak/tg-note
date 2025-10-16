@@ -205,8 +205,12 @@ class Settings(BaseSettings):
     MEM_AGENT_BACKEND: str = Field(
         default="auto", description="Backend to use: auto, vllm, mlx, or transformers"
     )
-    MEM_AGENT_VLLM_HOST: str = Field(default="127.0.0.1", description="vLLM server host")
-    MEM_AGENT_VLLM_PORT: int = Field(default=8001, description="vLLM server port")
+    MEM_AGENT_BASE_URL: Optional[str] = Field(
+        default=None, description="OpenAI-compatible endpoint URL (e.g., http://localhost:8001/v1)"
+    )
+    MEM_AGENT_OPENAI_API_KEY: Optional[str] = Field(
+        default=None, description="API key for mem-agent endpoint (use 'lm-studio' for local servers)"
+    )
     MEM_AGENT_MAX_TOOL_TURNS: int = Field(
         default=20, description="Maximum number of tool execution turns"
     )
@@ -221,6 +225,11 @@ class Settings(BaseSettings):
     )
     MEM_AGENT_MEMORY_SIZE_LIMIT: int = Field(
         default=1024 * 1024 * 100, description="Maximum total memory size in bytes"  # 100MB
+    )
+    
+    # OpenRouter API Key (for backward compatibility)
+    OPENROUTER_API_KEY: Optional[str] = Field(
+        default=None, description="OpenRouter API key (for backward compatibility)"
     )
 
     # Vector Search Settings (can be in YAML)
@@ -466,3 +475,45 @@ class Settings(BaseSettings):
 
 # Global settings instance
 settings = Settings()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Mem-Agent Helper Functions and Constants
+# ═══════════════════════════════════════════════════════════════════════════════
+
+import os
+
+# Environment variable overrides for mem-agent (have priority over config)
+MEM_AGENT_BASE_URL = os.getenv("MEM_AGENT_BASE_URL", settings.MEM_AGENT_BASE_URL)
+MEM_AGENT_OPENAI_API_KEY = os.getenv("MEM_AGENT_OPENAI_API_KEY", settings.MEM_AGENT_OPENAI_API_KEY)
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", settings.OPENROUTER_API_KEY)
+
+# Mem-agent constants with environment variable overrides
+MAX_TOOL_TURNS = int(os.getenv("MEM_AGENT_MAX_TOOL_TURNS", str(settings.MEM_AGENT_MAX_TOOL_TURNS)))
+FILE_SIZE_LIMIT = int(os.getenv("MEM_AGENT_FILE_SIZE_LIMIT", str(settings.MEM_AGENT_FILE_SIZE_LIMIT)))
+DIR_SIZE_LIMIT = int(os.getenv("MEM_AGENT_DIR_SIZE_LIMIT", str(settings.MEM_AGENT_DIR_SIZE_LIMIT)))
+MEMORY_SIZE_LIMIT = int(os.getenv("MEM_AGENT_MEMORY_SIZE_LIMIT", str(settings.MEM_AGENT_MEMORY_SIZE_LIMIT)))
+SANDBOX_TIMEOUT = int(os.getenv("MEM_AGENT_TIMEOUT", str(settings.MEM_AGENT_TIMEOUT)))
+MEM_AGENT_MODEL = settings.MEM_AGENT_MODEL
+
+# Memory path - will be set dynamically by the agent based on KB path
+MEMORY_PATH = "memory"
+
+# Path settings
+SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent.parent / "src" / "mcp" / "memory" / "mem_agent_impl" / "system_prompt.txt"
+SAVE_CONVERSATION_PATH = Path("output/conversations/")
+
+
+def get_memory_path(kb_path: Optional[Path] = None) -> Path:
+    """
+    Get the memory path for a specific knowledge base.
+
+    Args:
+        kb_path: Path to knowledge base. If None, uses default.
+
+    Returns:
+        Path to memory directory
+    """
+    if kb_path is None:
+        return Path(MEMORY_PATH)
+    return kb_path / MEMORY_PATH

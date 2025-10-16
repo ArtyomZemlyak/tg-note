@@ -195,9 +195,11 @@ export MEM_AGENT_MODEL=driaforall/mem-agent
 export MEM_AGENT_BACKEND=vllm  # Options: auto, vllm, mlx, transformers
 export MEM_AGENT_MAX_TOOL_TURNS=20
 
-# vLLM configuration (when backend is vllm)
-export MEM_AGENT_VLLM_HOST=127.0.0.1
-export MEM_AGENT_VLLM_PORT=8001
+# OpenAI-compatible endpoint configuration
+# Recommended: configure in config.yaml
+# Or use environment variables:
+export MEM_AGENT_BASE_URL=http://127.0.0.1:8001/v1
+export MEM_AGENT_OPENAI_API_KEY=lm-studio
 ```
 
 ## Extending with New Storage Types

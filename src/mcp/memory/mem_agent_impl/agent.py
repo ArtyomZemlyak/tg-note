@@ -38,17 +38,14 @@ if not logger._core.handlers:
     )
 from src.mcp.memory.mem_agent_impl.model import (
     create_openai_client,
-    create_vllm_client,
     get_model_response,
 )
 from src.mcp.memory.mem_agent_impl.schemas import AgentResponse, ChatMessage, Role
-from src.mcp.memory.mem_agent_impl.settings import (
+from config.settings import (
     MAX_TOOL_TURNS,
     MEM_AGENT_BASE_URL,
-    MEM_AGENT_HOST,
     MEM_AGENT_MODEL,
     MEM_AGENT_OPENAI_API_KEY,
-    MEM_AGENT_PORT,
     MEMORY_PATH,
     SAVE_CONVERSATION_PATH,
 )
@@ -67,7 +64,6 @@ class Agent:
         self,
         max_tool_turns: int = MAX_TOOL_TURNS,
         memory_path: Optional[str] = None,
-        use_vllm: bool = False,
         model: Optional[str] = None,
         predetermined_memory_path: bool = False,
     ):
@@ -83,11 +79,9 @@ class Agent:
         ]
         logger.info(f"  System prompt loaded: {len(self.system_prompt)} chars")
 
-        # Set the maximum number of tool turns and use_vllm flag
+        # Set the maximum number of tool turns
         self.max_tool_turns = max_tool_turns
-        self.use_vllm = use_vllm
         logger.info(f"🔧 Max tool turns: {max_tool_turns}")
-        logger.info(f"🎮 Backend mode: {'vLLM' if use_vllm else 'OpenAI-compatible/auto'}")
 
         # Set model: use provided model, or fallback to MEM_AGENT_MODEL
         if model:
@@ -99,20 +93,15 @@ class Agent:
 
         # Each Agent instance gets its own clients to avoid bottlenecks
         logger.info("🔌 Setting up model client...")
-        if use_vllm:
-            logger.info(f"  Creating vLLM client at {MEM_AGENT_HOST}:{MEM_AGENT_PORT}")
-            self._client = create_vllm_client(host=MEM_AGENT_HOST, port=MEM_AGENT_PORT)
-            logger.info("✅ vLLM client created")
+        # If no explicit API endpoint/key are provided, try to autostart a local server
+        # based on platform: vLLM on Linux, MLX on macOS.
+        if not MEM_AGENT_BASE_URL and not MEM_AGENT_OPENAI_API_KEY:
+            logger.info("⚠️  No explicit endpoint/key provided, ensuring local server...")
+            self._ensure_local_server()
         else:
-            # If no explicit API endpoint/key are provided, try to autostart a local server
-            # based on platform: vLLM on Linux, MLX on macOS.
-            if not MEM_AGENT_BASE_URL and not MEM_AGENT_OPENAI_API_KEY:
-                logger.info("⚠️  No explicit endpoint/key provided, ensuring local server...")
-                self._ensure_local_server()
-            else:
-                logger.info(f"  Using endpoint: {MEM_AGENT_BASE_URL or 'OpenRouter'}")
-            self._client = create_openai_client()
-            logger.info("✅ OpenAI-compatible client created")
+            logger.info(f"  Using endpoint: {MEM_AGENT_BASE_URL or 'OpenRouter'}")
+        self._client = create_openai_client()
+        logger.info("✅ OpenAI-compatible client created")
 
         # Set memory_path: use provided path or fall back to default MEMORY_PATH
         logger.info("📁 Setting up memory path...")
@@ -139,8 +128,8 @@ class Agent:
     def _ensure_local_server(self) -> None:
         """Ensure a local OpenAI-compatible server is running and export MEM_AGENT_BASE_URL.
 
-        - Linux: start vLLM if not reachable at configured host/port
-        - macOS: start MLX if not reachable at configured host/port
+        - Linux: start vLLM if not reachable at localhost:8001
+        - macOS: start MLX if not reachable at localhost:8001
         """
         import platform
         import subprocess
@@ -153,9 +142,11 @@ class Agent:
         logger.info(f"🔍 ENSURING LOCAL SERVER (system={system})")
         logger.info("=" * 60)
 
+        # Use localhost:8001 for local server
+        host, port = "127.0.0.1", 8001
+        
         # Prefer vLLM on Linux, MLX on macOS
         if system == "linux":
-            host, port = MEM_AGENT_HOST, MEM_AGENT_PORT
             base_url = f"http://{host}:{port}/v1"
             logger.debug(f"Checking vLLM server at {base_url}")
 
@@ -227,8 +218,7 @@ class Agent:
                 logger.info("Will attempt to use OpenRouter or configured OpenAI endpoint instead")
 
         elif system == "darwin":
-            # MLX-backed OpenAI-compatible server; use unified host/port
-            host, port = MEM_AGENT_HOST, MEM_AGENT_PORT
+            # MLX-backed OpenAI-compatible server
             base_url = f"http://{host}:{port}/v1"
             logger.debug(f"Checking MLX server at {base_url}")
 
@@ -346,12 +336,11 @@ class Agent:
             self._add_message(ChatMessage(role=Role.USER, content=message))
 
             # Get the response from the agent using this instance's clients
-            logger.info(f"🧠 Getting model response (model={self.model}, use_vllm={self.use_vllm})")
+            logger.info(f"🧠 Getting model response (model={self.model})")
             response = get_model_response(
                 messages=self.messages,
                 model=self.model,  # Pass the model if specified
                 client=self._client,
-                use_vllm=self.use_vllm,
             )
             logger.info(f"✅ Model response received: {len(response)} chars")
         except Exception as e:
@@ -411,7 +400,6 @@ class Agent:
                 messages=self.messages,
                 model=self.model,  # Pass the model if specified
                 client=self._client,
-                use_vllm=self.use_vllm,
             )
 
             # Extract the thoughts, reply and python code from the response

@@ -265,7 +265,10 @@ def main():
     else:
         print("2. Start the containerized backend (vLLM) as per docker-compose setup")
         print(
-            "   - Ensure the server is reachable on MEM_AGENT_HOST:MEM_AGENT_PORT or set MEM_AGENT_BASE_URL"
+            "   - Configure MEM_AGENT_BASE_URL to point to your OpenAI-compatible endpoint"
+        )
+        print(
+            "   - Example: MEM_AGENT_BASE_URL=http://vllm-server:8001/v1"
         )
     print("3. Start the bot - MCP server will be auto-configured and started")
     print("4. Agent's notes are stored per-user inside your KB path (memory/)")

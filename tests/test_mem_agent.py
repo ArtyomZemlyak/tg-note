@@ -29,18 +29,15 @@ def test_mem_agent_imports():
 def test_mem_agent_settings():
     """Test that mem-agent settings can be loaded"""
     try:
-        from src.mcp.memory.mem_agent_impl.settings import (
+        from config.settings import (
             FILE_SIZE_LIMIT,
             MAX_TOOL_TURNS,
             SANDBOX_TIMEOUT,
-            VLLM_HOST,
-            VLLM_PORT,
             get_memory_path,
         )
 
         assert isinstance(MAX_TOOL_TURNS, int)
         assert MAX_TOOL_TURNS > 0
-        assert isinstance(VLLM_PORT, int)
         assert isinstance(FILE_SIZE_LIMIT, int)
         assert isinstance(SANDBOX_TIMEOUT, int)
 
@@ -195,7 +192,7 @@ def test_static_memory_schema():
 
 def test_sandbox_safety():
     """Test that sandbox environment is configured for safety"""
-    from src.mcp.memory.mem_agent_impl.settings import FILE_SIZE_LIMIT, SANDBOX_TIMEOUT
+    from config.settings import FILE_SIZE_LIMIT, SANDBOX_TIMEOUT
 
     # Verify safety limits are reasonable
     assert SANDBOX_TIMEOUT > 0 and SANDBOX_TIMEOUT <= 60, "Timeout should be reasonable"

@@ -3,7 +3,7 @@ import shutil
 
 import black
 
-from src.mcp.memory.mem_agent_impl.settings import (
+from config.settings import (
     DIR_SIZE_LIMIT,
     FILE_SIZE_LIMIT,
     MEMORY_PATH,

@@ -13,7 +13,7 @@ from typing import Optional
 
 from loguru import logger as loguru_logger
 
-from src.mcp.memory.mem_agent_impl.settings import SANDBOX_TIMEOUT
+from config.settings import SANDBOX_TIMEOUT
 
 # Configure logging for sandboxed code execution
 log_dir = Path("logs")

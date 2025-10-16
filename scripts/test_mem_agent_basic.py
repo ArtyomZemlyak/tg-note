@@ -28,7 +28,7 @@ def test_imports():
 
         print("✓ Main imports successful")
 
-        from src.mcp.memory.mem_agent_impl.settings import MAX_TOOL_TURNS, get_memory_path
+        from config.settings import MAX_TOOL_TURNS, get_memory_path
 
         print("✓ Settings import successful")
 
@@ -168,18 +168,15 @@ def test_settings():
     print("\nTesting settings...")
 
     try:
-        from src.mcp.memory.mem_agent_impl.settings import (
+        from config.settings import (
             FILE_SIZE_LIMIT,
             MAX_TOOL_TURNS,
             SANDBOX_TIMEOUT,
-            VLLM_HOST,
-            VLLM_PORT,
             get_memory_path,
         )
 
         # Check basic types
         assert isinstance(MAX_TOOL_TURNS, int)
-        assert isinstance(VLLM_PORT, int)
         assert isinstance(FILE_SIZE_LIMIT, int)
         print("✓ Settings values are correct types")
 
