@@ -1,0 +1,436 @@
+trim trailing whitespace.................................................Failed
+- hook id: trailing-whitespace
+- exit code: 1
+- files were modified by this hook
+
+Fixing .cursor/.agent-tools/2158d651-9edb-4733-977e-eb2481956ad6.txt
+
+fix end of files.........................................................Passed
+check yaml...............................................................Passed
+check json...............................................................Passed
+check toml...............................................................Passed
+check for added large files..............................................Passed
+check for merge conflicts................................................Passed
+check for case conflicts.................................................Passed
+mixed line ending........................................................Passed
+black....................................................................Passed
+isort....................................................................Passed
+pre-commit hook(s) made changes.
+If you are seeing this message in CI, reproduce locally with: `pre-commit run --all-files`.
+To run `pre-commit` as part of git workflow, use `pre-commit install`.
+All changes made by hooks:
+diff --git a/.cursor/.agent-tools/2158d651-9edb-4733-977e-eb2481956ad6.txt b/.cursor/.agent-tools/2158d651-9edb-4733-977e-eb2481956ad6.txt
+index 4521a81..700155a 100644
+--- a/.cursor/.agent-tools/2158d651-9edb-4733-977e-eb2481956ad6.txt
++++ b/.cursor/.agent-tools/2158d651-9edb-4733-977e-eb2481956ad6.txt
+@@ -93,7 +93,7 @@ index 8f1dc01..09bf4a1 100644
+     ```bash
+     # Docker mode
+     docker-compose up
+--   
++-
+ +
+     # Standalone mode
+     python -m main
+@@ -106,7 +106,7 @@ index 969af0d..5f93236 100644
+  class MCPServerManager:
+      """
+      MCP Server Manager - Subprocess Lifecycle Manager
+--    
++-
+ +
+      IMPORTANT: This manager is ONLY responsible for managing MCP Hub subprocess
+      lifecycle in standalone mode. It does NOT create any configurations.
+@@ -115,7 +115,7 @@ index 969af0d..5f93236 100644
+  def _generate_client_configs(host: str, port: int) -> None:
+      """
+      Generate MCP client configurations for various clients
+--    
++-
+ +
+      This is the MCP Hub's responsibility - it knows its URL and should
+      generate configs for clients to connect to it.
+@@ -124,7 +124,7 @@ index 969af0d..5f93236 100644
+  async def http_get_client_config(request: Request):
+      """
+      HTTP: Get client configuration for a specific client type
+--    
++-
+ +
+      Supported client types:
+      - standard: Standard MCP format (Cursor, Claude Desktop, Qwen CLI)
+@@ -133,7 +133,7 @@ index 969af0d..5f93236 100644
+     ```bash
+     # Check Qwen CLI config
+     cat ~/.qwen/settings.json | jq '.mcpServers["mcp-hub"]'
+--   
++-
+ +
+     # Check universal config (standalone only)
+     cat data/mcp_servers/mcp-hub.json | jq
+@@ -169,13 +169,13 @@ index 523733b..28ae851 100644
+      MEM_AGENT_MEMORY_SIZE_LIMIT: int = Field(
+          default=1024 * 1024 * 100, description="Maximum total memory size in bytes"  # 100MB
+      )
+--    
++-
+ +
+      # OpenRouter API Key (for backward compatibility)
+      OPENROUTER_API_KEY: Optional[str] = Field(
+          default=None, description="OpenRouter API key (for backward compatibility)"
+ @@ -490,9 +495,13 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", settings.OPENROUTER_API_KEY
+- 
++
+  # Mem-agent constants with environment variable overrides
+  MAX_TOOL_TURNS = int(os.getenv("MEM_AGENT_MAX_TOOL_TURNS", str(settings.MEM_AGENT_MAX_TOOL_TURNS)))
+ -FILE_SIZE_LIMIT = int(os.getenv("MEM_AGENT_FILE_SIZE_LIMIT", str(settings.MEM_AGENT_FILE_SIZE_LIMIT)))
+@@ -189,10 +189,10 @@ index 523733b..28ae851 100644
+ +)
+  SANDBOX_TIMEOUT = int(os.getenv("MEM_AGENT_TIMEOUT", str(settings.MEM_AGENT_TIMEOUT)))
+  MEM_AGENT_MODEL = settings.MEM_AGENT_MODEL
+- 
++
+ @@ -500,7 +509,14 @@ MEM_AGENT_MODEL = settings.MEM_AGENT_MODEL
+  MEMORY_PATH = "memory"
+- 
++
+  # Path settings
+ -SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent.parent / "src" / "mcp" / "memory" / "mem_agent_impl" / "system_prompt.txt"
+ +SYSTEM_PROMPT_PATH = (
+@@ -204,8 +204,8 @@ index 523733b..28ae851 100644
+ +    / "system_prompt.txt"
+ +)
+  SAVE_CONVERSATION_PATH = Path("output/conversations/")
+- 
+- 
++
++
+ diff --git a/docs_site/architecture/mcp-architecture.md b/docs_site/architecture/mcp-architecture.md
+ index 66e8a3c..ba16ab7 100644
+ --- a/docs_site/architecture/mcp-architecture.md
+@@ -214,7 +214,7 @@ index 66e8a3c..ba16ab7 100644
+      # MCP Hub runs as standalone service
+      # Generates configs on startup
+      # Owns all MCP logic
+--    
++-
+ +
+    bot:
+      # Bot is pure client
+@@ -223,25 +223,25 @@ index 66e8a3c..ba16ab7 100644
+  class MCPServerManager:
+      """
+      Subprocess Lifecycle Manager (Standalone Mode Only)
+--    
++-
+ +
+      Docker mode: Does nothing (bot is pure client)
+      Standalone mode: Launches MCP Hub subprocess
+      """
+--    
++-
+ +
+      def setup_default_servers(self):
+          mcp_hub_url = os.getenv("MCP_HUB_URL")
+--        
++-
+ +
+          if mcp_hub_url:
+              # Docker mode: pure client, no action needed
+              logger.info(f"Docker mode: connecting to {mcp_hub_url}")
+ @@ -346,7 +346,7 @@ curl http://localhost:8765/config/client/standard | jq
+- 
++
+  **Cause:** Old code running (pre-refactor)
+- 
+--**Solution:** 
++
++-**Solution:**
+ +**Solution:**
+  1. Verify you're on latest code
+  2. Check `MCPServerManager.setup_default_servers()` doesn't call `_create_qwen_config()`
+@@ -252,21 +252,21 @@ index a643e87..26ca4cc 100644
+ +++ b/main.py
+ @@ -4,8 +4,8 @@ Main entry point for the Telegram bot application
+  """
+- 
++
+  import asyncio
+ -import sys
+  import os
+ +import sys
+- 
++
+  from loguru import logger
+- 
++
+ @@ -183,9 +183,10 @@ async def _wait_for_mcp_hub_ready_and_log_servers(mcp_hub_sse_url: str, timeout_
+          mcp_hub_sse_url: SSE URL (e.g., http://mcp-hub:8765/sse)
+          timeout_seconds: Max time to wait
+      """
+ -    import aiohttp
+      from urllib.parse import urlsplit, urlunsplit
+- 
++
+ +    import aiohttp
+ +
+      parts = urlsplit(mcp_hub_sse_url)
+@@ -298,7 +298,7 @@ index a643e87..26ca4cc 100644
+                      logger.warning(f"Failed to fetch MCP servers list: HTTP {resp.status}")
+          except Exception as e:
+              logger.warning(f"Error fetching MCP servers list: {e}")
+--        
++-
+ +
+          # Log built-in tools
+          try:
+@@ -345,26 +345,26 @@ index bf918d8..f257dc0 100644
+ @@ -3,19 +3,19 @@ MCP Server Configuration Handlers for Telegram Bot
+  Allows users to manage MCP server configurations through Telegram
+  """
+- 
++
+ +import json
+ +import os
+  from pathlib import Path
+  from typing import Dict, Optional
+ +from urllib.parse import urlsplit, urlunsplit
+- 
++
+ +import aiohttp
+  from loguru import logger
+  from telebot.async_telebot import AsyncTeleBot
+  from telebot.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
+- 
++
+  from src.bot.utils import escape_markdown
+  from src.mcp.registry.manager import MCPServersManager
+ -import os
+ -import json
+ -import aiohttp
+ -from urllib.parse import urlsplit, urlunsplit
+- 
+- 
++
++
+  class MCPHandlers:
+ @@ -304,13 +304,18 @@ class MCPHandlers:
+              try:
+@@ -393,14 +393,14 @@ index 0c9d9bf..3ebb814 100644
+ +++ b/src/mcp/__init__.py
+ @@ -46,10 +46,7 @@ def __getattr__(name: str):
+          return globals()[name]
+- 
++
+      if name in {"DynamicMCPTool", "discover_and_create_mcp_tools"}:
+ -        from .dynamic_mcp_tools import (  # type: ignore
+ -            DynamicMCPTool,
+ -            discover_and_create_mcp_tools,
+ -        )
+ +        from .dynamic_mcp_tools import DynamicMCPTool, discover_and_create_mcp_tools  # type: ignore
+- 
++
+          globals().update(
+              {
+ diff --git a/src/mcp/client.py b/src/mcp/client.py
+@@ -410,12 +410,12 @@ index 1608e80..d297cfb 100644
+ @@ -26,8 +26,8 @@ from dataclasses import dataclass
+  from pathlib import Path
+  from typing import Any, Dict, List, Optional
+- 
++
+ -from loguru import logger
+  import aiohttp
+ +from loguru import logger
+- 
+- 
++
++
+  @dataclass
+ diff --git a/src/mcp/mcp_hub_server.py b/src/mcp/mcp_hub_server.py
+ index aacedb2..26e8cfd 100644
+@@ -423,12 +423,12 @@ index aacedb2..26e8cfd 100644
+ +++ b/src/mcp/mcp_hub_server.py
+ @@ -29,8 +29,8 @@ from pathlib import Path
+  from typing import Dict, List, Optional
+- 
++
+  from loguru import logger
+ -from starlette.responses import JSONResponse
+  from starlette.requests import Request
+ +from starlette.responses import JSONResponse
+- 
++
+  try:
+      from fastmcp import FastMCP
+ @@ -150,6 +150,7 @@ def get_storage(user_id: int) -> MemoryStorage:
+@@ -443,7 +443,7 @@ index aacedb2..26e8cfd 100644
+          model_name = os.getenv("MEM_AGENT_MODEL", None)
+          backend = os.getenv("MEM_AGENT_BACKEND", "auto")
+          logger.info("📋 Using configuration from environment variables")
+--    
++-
+ +
+      logger.info(f"💾 Storage type: {storage_type}")
+      logger.info("")
+@@ -452,21 +452,21 @@ index aacedb2..26e8cfd 100644
+  @mcp.custom_route("/health", methods=["GET"])
+  async def health_check(request):
+      """Health check endpoint for container orchestration
+--    
++-
+ +
+      Returns comprehensive health information including:
+      - Built-in MCP tools (provided by hub itself)
+      - External MCP servers (registered by users)
+      - Active storage sessions
+--    
++-
+ +
+      This allows proper distinction between:
+      1. Hub's own tools (memory, server management) - always available
+      2. User-registered MCP servers - optional external integrations
+ @@ -612,7 +613,6 @@ async def http_get_client_config(request: Request):
+          return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+- 
+- 
++
++
+ -
+  # ============================================================================
+  # Client Configuration Generation
+@@ -497,10 +497,10 @@ index d5dd2d4..a767af2 100644
+      create_memory_if_not_exists,
+      extract_python_code,
+ @@ -144,7 +141,7 @@ class Agent:
+- 
++
+          # Use localhost:8001 for local server
+          host, port = "127.0.0.1", 8001
+--        
++-
+ +
+          # Prefer vLLM on Linux, MLX on macOS
+          if system == "linux":
+@@ -512,11 +512,11 @@ index c32dee0..a336343 100644
+ @@ -14,8 +14,8 @@ from typing import Any, Dict, Optional
+  from fastmcp import Context, FastMCP
+  from loguru import logger
+- 
++
+ -from src.mcp.memory.mem_agent_impl.agent import Agent
+  from config.settings import get_memory_path
+ +from src.mcp.memory.mem_agent_impl.agent import Agent
+- 
++
+  # Configure logging for MCP server
+  log_dir = Path("logs")
+ diff --git a/src/mcp/memory/mem_agent_impl/model.py b/src/mcp/memory/mem_agent_impl/model.py
+@@ -526,7 +526,7 @@ index df32299..17f8085 100644
+ @@ -4,13 +4,13 @@ from loguru import logger
+  from openai import OpenAI
+  from pydantic import BaseModel
+- 
++
+ -from src.mcp.memory.mem_agent_impl.schemas import ChatMessage, Role
+  from config.settings import (
+      MEM_AGENT_BASE_URL,
+@@ -535,8 +535,8 @@ index df32299..17f8085 100644
+      OPENROUTER_API_KEY,
+  )
+ +from src.mcp.memory.mem_agent_impl.schemas import ChatMessage, Role
+- 
+- 
++
++
+  def create_openai_client() -> OpenAI:
+ diff --git a/src/mcp/memory/memory_server.py b/src/mcp/memory/memory_server.py
+ index 00cd9b7..fc7c69f 100644
+@@ -554,7 +554,7 @@ index 00cd9b7..fc7c69f 100644
+              model_name = os.getenv("MEM_AGENT_MODEL", None)
+              backend = os.getenv("MEM_AGENT_BACKEND", "auto")
+              logger.info("📋 Using configuration from environment variables")
+--        
++-
+ +
+          logger.info(f"💾 Storage type: {storage_type}")
+          logger.info("")
+@@ -592,7 +592,7 @@ index f3e36dc..b1d9529 100644
+ -                )
+ +                logger.info("[MCPServerManager] Standalone mode: Will launch MCP Hub as subprocess")
+                  self._setup_memory_subprocess()
+- 
++
+      # REMOVED: _setup_mcp_hub_connection method
+ @@ -352,7 +350,9 @@ class MCPServerManager:
+              env=server_env,
+@@ -602,7 +602,7 @@ index f3e36dc..b1d9529 100644
+ +        logger.info(
+ +            "[MCPServerManager] MCP Hub subprocess registered (will generate configs on startup)"
+ +        )
+- 
++
+      # REMOVED: _create_qwen_config method
+      # Config generation is now the responsibility of MCP Hub service.
+ diff --git a/src/mcp/tools_description.py b/src/mcp/tools_description.py
+@@ -610,14 +610,14 @@ index 9b267ee..0b37a70 100644
+ --- a/src/mcp/tools_description.py
+ +++ b/src/mcp/tools_description.py
+ @@ -11,8 +11,8 @@ from typing import Dict, List, Optional
+- 
++
+  from loguru import logger
+- 
++
+ -from .registry_client import MCPRegistryClient
+  from .client import MCPClient, MCPServerConfig
+ +from .registry_client import MCPRegistryClient
+- 
+- 
++
++
+  async def get_mcp_tools_description(
+ diff --git a/tests/test_mcp_docker_integration.py b/tests/test_mcp_docker_integration.py
+ index 70d8cd8..926626e 100644
+@@ -625,24 +625,24 @@ index 70d8cd8..926626e 100644
+ +++ b/tests/test_mcp_docker_integration.py
+ @@ -10,8 +10,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
+  import pytest
+- 
++
+  from config.settings import Settings
+ -from src.mcp.server_manager import MCPServerManager
+  from src.mcp.memory.memory_tool import MemoryMCPTool
+ +from src.mcp.server_manager import MCPServerManager
+- 
+- 
++
++
+  def test_mcp_docker_mode_uses_hub_and_no_subprocess(tmp_path, monkeypatch):
+ @@ -36,7 +36,9 @@ def test_mcp_docker_mode_uses_hub_and_no_subprocess(tmp_path, monkeypatch):
+- 
++
+      # Assert: bot container does NOT create local client-style configs in Docker mode
+      config_file = Path("data/mcp_servers/mcp-hub.json")
+ -    assert not config_file.exists(), "Bot must not create mcp-hub.json in Docker mode (hub owns configs)"
+ +    assert (
+ +        not config_file.exists()
+ +    ), "Bot must not create mcp-hub.json in Docker mode (hub owns configs)"
+- 
+- 
++
++
+  def test_memory_mcp_tool_uses_env_url_in_docker(tmp_path, monkeypatch):
+ trim trailing whitespace.................................................Passed
+ fix end of files.........................................................Passed
+trim trailing whitespace.................................................Passed
+fix end of files.........................................................Passed
+check yaml...............................................................Passed
+check json...............................................................Passed
+check toml...............................................................Passed
+check for added large files..............................................Passed
+check for merge conflicts................................................Passed
+check for case conflicts.................................................Passed
+mixed line ending........................................................Passed
+black....................................................................Passed
+isort....................................................................Passed
