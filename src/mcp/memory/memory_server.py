@@ -102,22 +102,26 @@ class MemoryMCPServer:
             data_dir = Path(f"data/memory/user_{user_id}")
         logger.info(f"📁 Data directory: {data_dir.absolute()}")
 
-        # Get storage type from environment (default: json)
-        # Can be "json", "vector", or "mem-agent"
-        storage_type = os.getenv("MEM_AGENT_STORAGE_TYPE", "json")
+        # Get settings from config.yaml (preferred) or environment variables (fallback)
+        try:
+            from config import settings as app_settings
+            storage_type = app_settings.MEM_AGENT_STORAGE_TYPE
+            model_name = app_settings.MEM_AGENT_MODEL
+            backend = app_settings.MEM_AGENT_BACKEND
+            logger.info("📋 Using configuration from config.yaml")
+        except Exception:
+            # Fallback to environment variables
+            storage_type = os.getenv("MEM_AGENT_STORAGE_TYPE", "json")
+            model_name = os.getenv("MEM_AGENT_MODEL", None)
+            backend = os.getenv("MEM_AGENT_BACKEND", "auto")
+            logger.info("📋 Using configuration from environment variables")
+        
         logger.info(f"💾 Storage type: {storage_type}")
-
-        # Log all relevant environment variables
         logger.info("")
         logger.info("📋 Configuration:")
-        logger.info(
-            f"  - MEM_AGENT_STORAGE_TYPE: {os.getenv('MEM_AGENT_STORAGE_TYPE', 'json (default)')}"
-        )
-        logger.info(f"  - MEM_AGENT_MODEL: {os.getenv('MEM_AGENT_MODEL', 'not set')}")
-        logger.info(f"  - MEM_AGENT_BACKEND: {os.getenv('MEM_AGENT_BACKEND', 'auto (default)')}")
-        logger.info(
-            f"  - MEM_AGENT_MAX_TOOL_TURNS: {os.getenv('MEM_AGENT_MAX_TOOL_TURNS', '20 (default)')}"
-        )
+        logger.info(f"  - MEM_AGENT_STORAGE_TYPE: {storage_type}")
+        logger.info(f"  - MEM_AGENT_MODEL: {model_name or 'default'}")
+        logger.info(f"  - MEM_AGENT_BACKEND: {backend}")
         logger.info("")
 
         # Create storage using factory or legacy wrapper
@@ -125,8 +129,6 @@ class MemoryMCPServer:
             # Use factory for non-default storage types
             logger.info(f"🔧 Creating {storage_type} storage via factory...")
             try:
-                model_name = os.getenv("MEM_AGENT_MODEL", None)
-                backend = os.getenv("MEM_AGENT_BACKEND", "auto")
 
                 if model_name:
                     logger.info(f"  📦 Model: {model_name}")

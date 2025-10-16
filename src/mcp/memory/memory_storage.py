@@ -82,8 +82,8 @@ class MemoryStorage(BaseMemoryStorage):
         Get storage type from configuration
 
         Priority:
-        1. Environment variable MEM_AGENT_STORAGE_TYPE
-        2. Settings module (if available)
+        1. Settings module (config.yaml) - preferred
+        2. Environment variable MEM_AGENT_STORAGE_TYPE - fallback
         3. Default to "json"
 
         Returns:
@@ -91,18 +91,17 @@ class MemoryStorage(BaseMemoryStorage):
         """
         import os
 
-        # Try environment variable first
-        storage_type = os.getenv("MEM_AGENT_STORAGE_TYPE")
-        if storage_type:
-            return storage_type.lower()
-
-        # Try settings module
+        # Try settings module first (preferred)
         try:
             from config.settings import settings
-
             return settings.MEM_AGENT_STORAGE_TYPE.lower()
         except (ImportError, AttributeError):
             pass
+
+        # Fallback to environment variable
+        storage_type = os.getenv("MEM_AGENT_STORAGE_TYPE")
+        if storage_type:
+            return storage_type.lower()
 
         # Default to json
         return "json"
@@ -112,8 +111,8 @@ class MemoryStorage(BaseMemoryStorage):
         Get model name from configuration
 
         Priority:
-        1. Environment variable MEM_AGENT_MODEL
-        2. Settings module (if available)
+        1. Settings module (config.yaml) - preferred
+        2. Environment variable MEM_AGENT_MODEL - fallback
         3. Default to "BAAI/bge-m3"
 
         Returns:
@@ -121,18 +120,17 @@ class MemoryStorage(BaseMemoryStorage):
         """
         import os
 
-        # Try environment variable first
-        model_name = os.getenv("MEM_AGENT_MODEL")
-        if model_name:
-            return model_name
-
-        # Try settings module
+        # Try settings module first (preferred)
         try:
             from config.settings import settings
-
             return settings.MEM_AGENT_MODEL
         except (ImportError, AttributeError):
             pass
+
+        # Fallback to environment variable
+        model_name = os.getenv("MEM_AGENT_MODEL")
+        if model_name:
+            return model_name
 
         # Default model
         return "BAAI/bge-m3"

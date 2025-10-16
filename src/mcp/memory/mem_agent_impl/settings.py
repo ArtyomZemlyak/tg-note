@@ -63,9 +63,9 @@ except ImportError:
 
     # Backward-compatible aliases for legacy OpenRouter-based default
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
-
-# Model setting for mem-agent
-MEM_AGENT_MODEL = os.getenv("MEM_AGENT_MODEL", "driaforall/mem-agent")
+    
+    # Model setting for mem-agent
+    MEM_AGENT_MODEL = app_settings.MEM_AGENT_MODEL
 
 # Memory path - will be set dynamically by the agent based on KB path
 MEMORY_PATH = "memory"
