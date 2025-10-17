@@ -111,6 +111,20 @@ LOG_FILE: ./logs/bot.log
 # Configuration for file format recognition and content extraction.
 # Controls which file formats are processed by different media processing frameworks.
 
+# MEDIA_PROCESSING_ENABLED: Master switch for media file processing
+#
+# - true: Enable media file processing (default)
+#         Files sent to the bot will be processed according to enabled formats
+#         Content extraction works with Docling and other configured frameworks
+#
+# - false: Disable all media file processing
+#          Files sent to the bot will be ignored
+#          Useful if you want to temporarily disable this feature
+#          or reduce resource usage
+#
+# NOTE: When disabled, MEDIA_PROCESSING_*_FORMATS settings are ignored
+MEDIA_PROCESSING_ENABLED: true
+
 # MEDIA_PROCESSING_DOCLING_FORMATS: File formats to process with Docling
 #
 # Docling is a powerful document processing library that extracts text and structure

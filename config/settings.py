@@ -322,6 +322,9 @@ class Settings(BaseSettings):
     LOG_FILE: Optional[Path] = Field(default=Path("./logs/bot.log"), description="Log file path")
 
     # Media Processing Settings (can be in YAML)
+    MEDIA_PROCESSING_ENABLED: bool = Field(
+        default=True, description="Enable media file processing (master switch)"
+    )
     MEDIA_PROCESSING_DOCLING_FORMATS: List[str] = Field(
         default_factory=lambda: [
             "pdf",
@@ -457,6 +460,15 @@ class Settings(BaseSettings):
         """
         return Path(f"data/memory/user_{user_id}")
 
+    def is_media_processing_enabled(self) -> bool:
+        """
+        Check if media processing is enabled globally
+
+        Returns:
+            True if media processing is enabled, False otherwise
+        """
+        return self.MEDIA_PROCESSING_ENABLED
+
     def get_media_processing_formats(self, processor: str = "docling") -> List[str]:
         """
         Get enabled file formats for a specific media processor
@@ -465,8 +477,12 @@ class Settings(BaseSettings):
             processor: Name of the processor (e.g., "docling")
 
         Returns:
-            List of enabled file format extensions
+            List of enabled file format extensions (empty list if processing is disabled)
         """
+        # Check if media processing is enabled globally
+        if not self.is_media_processing_enabled():
+            return []
+
         if processor == "docling":
             return self.MEDIA_PROCESSING_DOCLING_FORMATS
         # AICODE-NOTE: Add other processors here in the future
@@ -481,8 +497,12 @@ class Settings(BaseSettings):
             processor: Name of the processor (default: "docling")
 
         Returns:
-            True if the format is enabled, False otherwise
+            True if the format is enabled and media processing is active, False otherwise
         """
+        # Check if media processing is enabled globally
+        if not self.is_media_processing_enabled():
+            return False
+
         formats = self.get_media_processing_formats(processor)
         return file_format.lower() in [fmt.lower() for fmt in formats]
 

@@ -169,7 +169,23 @@ else:
 
 ## Settings
 
-File format recognition works out of the box. You can customize which formats are enabled:
+File format recognition works out of the box. You can customize whether it's enabled and which formats are processed:
+
+### Enabling/Disabling media processing
+
+You can completely enable or disable media file processing using the master switch:
+
+```yaml
+# config.yaml
+
+# Enable media processing (default)
+MEDIA_PROCESSING_ENABLED: true
+
+# Disable all media processing
+MEDIA_PROCESSING_ENABLED: false
+```
+
+When `MEDIA_PROCESSING_ENABLED` is set to `false`, all file processing is disabled regardless of other settings.
 
 ### Enabling/Disabling specific formats
 
@@ -217,10 +233,13 @@ MESSAGE_GROUP_TIMEOUT: 30  # seconds
 
 ### Media processing configuration structure
 
-The media processing configuration allows for multiple frameworks:
+The media processing configuration has a hierarchical structure:
 
 ```yaml
-# Current framework
+# Master switch - controls all media processing
+MEDIA_PROCESSING_ENABLED: true
+
+# Per-framework format configuration
 MEDIA_PROCESSING_DOCLING_FORMATS:
   - pdf
   - jpg
@@ -231,6 +250,35 @@ MEDIA_PROCESSING_DOCLING_FORMATS:
 #   - mp3
 #   - mp4
 #   - ...
+```
+
+### Configuration examples
+
+```yaml
+# Example 1: Completely disable media processing
+MEDIA_PROCESSING_ENABLED: false
+# When disabled, format lists are ignored
+
+# Example 2: Enable only PDF processing
+MEDIA_PROCESSING_ENABLED: true
+MEDIA_PROCESSING_DOCLING_FORMATS:
+  - pdf
+
+# Example 3: Enable documents but not images
+MEDIA_PROCESSING_ENABLED: true
+MEDIA_PROCESSING_DOCLING_FORMATS:
+  - pdf
+  - docx
+  - pptx
+  - xlsx
+
+# Example 4: Enable only images (OCR)
+MEDIA_PROCESSING_ENABLED: true
+MEDIA_PROCESSING_DOCLING_FORMATS:
+  - jpg
+  - jpeg
+  - png
+  - tiff
 ```
 
 ## Advanced usage

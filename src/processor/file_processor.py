@@ -40,8 +40,17 @@ class FileProcessor:
             self.converter = None
 
     def is_available(self) -> bool:
-        """Check if docling is available and properly initialized"""
-        return DOCLING_AVAILABLE and self.converter is not None
+        """
+        Check if docling is available and media processing is enabled
+
+        Returns:
+            True if docling is available, initialized, and media processing is enabled
+        """
+        return (
+            self.settings.is_media_processing_enabled()
+            and DOCLING_AVAILABLE
+            and self.converter is not None
+        )
 
     def get_supported_formats(self) -> List[str]:
         """
@@ -84,6 +93,10 @@ class FileProcessor:
         Returns:
             Dictionary with extracted content and metadata, or None on failure
         """
+        if not self.settings.is_media_processing_enabled():
+            self.logger.info("Media processing is disabled in settings")
+            return None
+
         if not self.is_available():
             self.logger.warning("Docling not available, cannot process file")
             return None
