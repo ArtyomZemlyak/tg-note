@@ -13,6 +13,7 @@ from config.agent_prompts import AGENT_MODE_INSTRUCTION
 from src.bot.bot_port import BotPort
 from src.bot.utils import escape_markdown, split_long_message
 from src.knowledge_base.repository import RepositoryManager
+from src.knowledge_base.sync_manager import get_sync_manager
 from src.processor.content_parser import ContentParser
 from src.processor.message_aggregator import MessageGroup
 from src.services.interfaces import IAgentTaskService, IUserContextManager
@@ -84,57 +85,88 @@ class AgentTaskService(IAgentTaskService):
                     await self.bot.send_message(chat_id=chat_id, text=error_text)
                 return
 
-            # Parse task
-            content = await self.content_parser.parse_group_with_files(group, bot=self.bot)
-            task_text = content.get("text", "")
-
-            if not task_text:
-                error_text = (
-                    "❌ Не могу определить задачу\n\n"
-                    "Пожалуйста, отправьте текстовое сообщение с описанием задачи."
+            # AICODE-NOTE: Use sync manager to serialize KB operations and prevent conflicts
+            # when multiple users work with the same knowledge base in agent mode
+            sync_manager = get_sync_manager()
+            
+            # Acquire lock for this KB to ensure operations are serialized
+            async with sync_manager.with_kb_lock(str(kb_path), f"agent_task_user_{user_id}"):
+                await self._execute_task_locked(
+                    group, processing_msg_id, chat_id, user_id, user_kb, kb_path
                 )
-                edit_succeeded = await self._safe_edit_message(
-                    error_text, chat_id=chat_id, message_id=processing_msg_id
-                )
-                if not edit_succeeded:
-                    await self.bot.send_message(chat_id=chat_id, text=error_text)
-                return
-
-            # Save user message to context (get first message from group for ID)
-            first_message = group.messages[0] if group.messages else {}
-            message_id = first_message.get("message_id", 0)
-            timestamp = first_message.get("date", 0)
-            self.user_context_manager.add_user_message_to_context(
-                user_id, message_id, task_text, timestamp
-            )
-
-            # Execute task with agent
-            # Try to update status message (but don't fail if it times out)
-            self.logger.info(
-                f"[AGENT_SERVICE] Executing task for user {user_id}: {task_text[:50]}..."
-            )
-            await self._safe_edit_message(
-                "🤖 Выполняю задачу...", chat_id=chat_id, message_id=processing_msg_id
-            )
-
-            result = await self._execute_with_agent(kb_path, content, user_id)
-
-            # Save assistant response to context
-            import time
-
-            response_timestamp = int(time.time())
-            # Build a simple summary of the response for context
-            response_text = result.get("answer") or result.get("summary", "Задача выполнена")
-            self.user_context_manager.add_assistant_message_to_context(
-                user_id, processing_msg_id, response_text, response_timestamp
-            )
-
-            # Send result to user
-            await self._send_result(processing_msg_id, chat_id, result)
 
         except Exception as e:
             self.logger.error(f"Error in agent task execution: {e}", exc_info=True)
             await self._send_error_notification(processing_msg_id, chat_id, str(e))
+
+    async def _execute_task_locked(
+        self,
+        group: MessageGroup,
+        processing_msg_id: int,
+        chat_id: int,
+        user_id: int,
+        user_kb: dict,
+        kb_path: Path,
+    ) -> None:
+        """
+        Execute task with KB lock already acquired.
+        This method performs the actual task execution work.
+
+        Args:
+            group: Message group containing the task
+            processing_msg_id: ID of the processing status message
+            chat_id: Chat ID where task was requested
+            user_id: User ID
+            user_kb: User's knowledge base configuration
+            kb_path: Path to knowledge base
+        """
+        # Parse task
+        content = await self.content_parser.parse_group_with_files(group, bot=self.bot)
+        task_text = content.get("text", "")
+
+        if not task_text:
+            error_text = (
+                "❌ Не могу определить задачу\n\n"
+                "Пожалуйста, отправьте текстовое сообщение с описанием задачи."
+            )
+            edit_succeeded = await self._safe_edit_message(
+                error_text, chat_id=chat_id, message_id=processing_msg_id
+            )
+            if not edit_succeeded:
+                await self.bot.send_message(chat_id=chat_id, text=error_text)
+            return
+
+        # Save user message to context (get first message from group for ID)
+        first_message = group.messages[0] if group.messages else {}
+        message_id = first_message.get("message_id", 0)
+        timestamp = first_message.get("date", 0)
+        self.user_context_manager.add_user_message_to_context(
+            user_id, message_id, task_text, timestamp
+        )
+
+        # Execute task with agent
+        # Try to update status message (but don't fail if it times out)
+        self.logger.info(
+            f"[AGENT_SERVICE] Executing task for user {user_id}: {task_text[:50]}..."
+        )
+        await self._safe_edit_message(
+            "🤖 Выполняю задачу...", chat_id=chat_id, message_id=processing_msg_id
+        )
+
+        result = await self._execute_with_agent(kb_path, content, user_id)
+
+        # Save assistant response to context
+        import time
+
+        response_timestamp = int(time.time())
+        # Build a simple summary of the response for context
+        response_text = result.get("answer") or result.get("summary", "Задача выполнена")
+        self.user_context_manager.add_assistant_message_to_context(
+            user_id, processing_msg_id, response_text, response_timestamp
+        )
+
+        # Send result to user
+        await self._send_result(processing_msg_id, chat_id, result)
 
     async def _execute_with_agent(self, kb_path: Path, content: dict, user_id: int) -> dict:
         """
