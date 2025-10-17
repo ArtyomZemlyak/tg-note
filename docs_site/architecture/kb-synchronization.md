@@ -238,11 +238,28 @@ Action: Automatically creates branch locally and pushes to remote
 ```
 Error: "Failed to push (authentication error): could not read Username"
 Action: Configure git credentials or switch to SSH
-Suggestions:
+Automatic solution: Set GITHUB_USERNAME and GITHUB_TOKEN in .env file
+Manual solutions:
   1. Use SSH instead of HTTPS: git remote set-url origin git@github.com:user/repo.git
   2. Configure git credential helper: git config credential.helper store
   3. Use a personal access token: https://github.com/settings/tokens
 ```
+
+**Automatic HTTPS Authentication**:
+
+The system automatically configures HTTPS authentication if credentials are provided in environment variables:
+
+```bash
+# .env file
+GITHUB_USERNAME=your_github_username
+GITHUB_TOKEN=ghp_your_personal_access_token
+```
+
+When `GitOperations` is initialized with these credentials:
+- It automatically updates HTTPS remote URLs to include authentication
+- Only GitHub HTTPS remotes without existing credentials are modified
+- SSH remotes remain unchanged
+- This enables push operations without manual credential configuration
 
 ### Lock Timeout
 
@@ -267,6 +284,7 @@ async with sync_manager.with_kb_lock(kb_path):
 
 ### Settings
 
+**config.yaml**:
 ```yaml
 # Enable Git operations
 KB_GIT_ENABLED: true
@@ -278,6 +296,19 @@ KB_GIT_AUTO_PUSH: true
 KB_GIT_REMOTE: origin
 KB_GIT_BRANCH: main
 ```
+
+**.env file** (for HTTPS authentication):
+```bash
+# GitHub credentials for automatic HTTPS authentication
+GITHUB_USERNAME=your_github_username
+GITHUB_TOKEN=ghp_your_personal_access_token
+```
+
+**How to get GitHub token**:
+1. Go to https://github.com/settings/tokens
+2. Click "Generate new token" → "Generate new token (classic)"
+3. Set expiration and select scopes: `repo` (full control of private repositories)
+4. Copy token and add to `.env` file
 
 ### Lock Timeout
 

@@ -158,6 +158,9 @@ class Settings(BaseSettings):
     GITHUB_TOKEN: Optional[str] = Field(
         default=None, description="GitHub personal access token (from .env or env vars only)"
     )
+    GITHUB_USERNAME: Optional[str] = Field(
+        default=None, description="GitHub username for HTTPS authentication (from .env or env vars only)"
+    )
 
     # Agent Configuration (can be in YAML)
     AGENT_TYPE: str = Field(

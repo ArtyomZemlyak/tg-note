@@ -56,6 +56,7 @@ class SettingsInspector:
         "ANTHROPIC_API_KEY",
         "QWEN_API_KEY",
         "GITHUB_TOKEN",
+        "GITHUB_USERNAME",
     }
 
     READONLY_FIELDS = {

@@ -22,13 +22,24 @@ except ImportError:
 class GitOperations:
     """Manages git operations for knowledge base"""
 
-    def __init__(self, repo_path: str, enabled: bool = True):
+    def __init__(
+        self,
+        repo_path: str,
+        enabled: bool = True,
+        github_username: Optional[str] = None,
+        github_token: Optional[str] = None,
+    ):
         self.repo_path = Path(repo_path)
         self.enabled = enabled and GIT_AVAILABLE
         self.repo: Optional[Repo] = None
+        self.github_username = github_username
+        self.github_token = github_token
 
         if self.enabled:
             self._initialize_repo()
+            # Configure credentials for HTTPS remotes if provided
+            if self.github_username and self.github_token:
+                self._configure_https_credentials()
 
     def _initialize_repo(self) -> None:
         """Initialize git repository"""
@@ -43,6 +54,41 @@ class GitOperations:
         except InvalidGitRepositoryError:
             logger.warning(f"Not a git repository: {self.repo_path}")
             self.enabled = False
+
+    def _configure_https_credentials(self) -> None:
+        """
+        Configure HTTPS credentials for git remotes
+        
+        This updates the remote URL to include credentials if:
+        - Remote uses HTTPS
+        - Credentials are provided
+        - URL doesn't already contain credentials
+        """
+        if not self.repo or not self.github_username or not self.github_token:
+            return
+
+        try:
+            # Check all remotes
+            for remote in self.repo.remotes:
+                for url in remote.urls:
+                    # Only process HTTPS GitHub URLs without existing credentials
+                    if (
+                        url.startswith("https://github.com/")
+                        and "@" not in url
+                    ):
+                        # Inject credentials into URL
+                        new_url = url.replace(
+                            "https://github.com/",
+                            f"https://{self.github_username}:{self.github_token}@github.com/"
+                        )
+                        # Update remote URL
+                        remote.set_url(new_url)
+                        logger.info(
+                            f"Configured HTTPS credentials for remote '{remote.name}' "
+                            f"(user: {self.github_username})"
+                        )
+        except Exception as e:
+            logger.warning(f"Failed to configure HTTPS credentials: {e}")
 
     def add(self, file_path: str) -> bool:
         """

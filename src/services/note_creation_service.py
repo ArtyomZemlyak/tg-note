@@ -124,7 +124,17 @@ class NoteCreationService(INoteCreationService):
         # Create KB manager and Git operations
         kb_manager = KnowledgeBaseManager(str(kb_path))
         kb_git_enabled = self.settings_manager.get_setting(user_id, "KB_GIT_ENABLED")
-        git_ops = GitOperations(str(kb_path), enabled=kb_git_enabled)
+        
+        # Get GitHub credentials for HTTPS authentication
+        github_username = self.settings_manager.get_setting(user_id, "GITHUB_USERNAME")
+        github_token = self.settings_manager.get_setting(user_id, "GITHUB_TOKEN")
+        
+        git_ops = GitOperations(
+            str(kb_path),
+            enabled=kb_git_enabled,
+            github_username=github_username,
+            github_token=github_token,
+        )
 
         # AICODE-NOTE: Pull latest changes from remote before working with KB
         # This prevents conflicts when multiple users work with the same KB
