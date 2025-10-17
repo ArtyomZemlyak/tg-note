@@ -59,7 +59,7 @@ Perfect for:
 - **📝 Automatic Markdown Generation**: Converts any content into well-formatted Markdown files
 - **🗂️ Smart Organization**: Automatic categorization by topics (AI, biology, physics, tech, etc.)
 - **🔄 GitHub Integration**: Direct commits to your knowledge base repository
-- **👥 Multi-User Support**: Each user can have their own knowledge base
+- **👥 Multi-User Support**: Each user can have their own knowledge base, or multiple users can collaborate on a shared KB with automatic synchronization
 - **📦 Message Grouping**: Intelligently combines related messages into single notes
 - **🔍 Deduplication**: Tracks processed messages to avoid duplicates
 - **🎯 Flexible Agents**: Choose between stub or Qwen Code CLI agents
