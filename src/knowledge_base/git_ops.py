@@ -336,6 +336,7 @@ class GitOperations:
 
         # Check tracking configuration
         has_tracking = False
+        tracking_remote_head = None
         if active_branch_name:
             try:
                 tracking = self.repo.active_branch.tracking_branch()  # type: ignore[attr-defined]
@@ -344,14 +345,19 @@ class GitOperations:
                     and tracking.remote_name == remote
                     and tracking.remote_head == target_branch
                 )
+                if tracking and tracking.remote_name == remote:
+                    tracking_remote_head = tracking.remote_head
             except Exception:
                 has_tracking = False
 
         # Perform push
         try:
+            # AICODE-NOTE: Always use explicit refspec to avoid branch name mismatch issues
+            # when upstream branch name differs from local branch name
             if has_tracking:
-                # Tracking set correctly, simple push
-                self.repo.git.push(remote)
+                # Tracking set correctly, use explicit refspec to avoid Git's branch name mismatch warning
+                # Push current HEAD to the tracking branch explicitly
+                self.repo.git.push(remote, f"HEAD:{tracking_remote_head}")
             else:
                 # First push or remote/branch mismatch: set upstream while pushing
                 self.repo.git.push("--set-upstream", remote, f"{local_ref}:{target_branch}")
