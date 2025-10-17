@@ -369,6 +369,131 @@ docker logs mcp-hub | grep "Generating client configurations"
 curl http://localhost:8765/config/client/standard
 ```
 
+## FastMCP SSE Protocol
+
+The MCP Hub uses FastMCP library which implements the MCP protocol over HTTP Server-Sent Events (SSE). Understanding this protocol is crucial for proper client implementation.
+
+### Connection Flow
+
+**Correct Connection Sequence:**
+
+1. **Establish SSE Connection** (GET request)
+   ```
+   GET /sse/ HTTP/1.1
+   Host: mcp-hub:8765
+   Accept: text/event-stream
+   ```
+
+2. **Receive Session ID** (SSE event)
+   ```
+   event: endpoint
+   data: {"uri": "http://mcp-hub:8765/messages/?session_id=abc123"}
+   ```
+
+3. **Send JSON-RPC Requests** (POST with session_id)
+   ```
+   POST /messages/?session_id=abc123 HTTP/1.1
+   Content-Type: application/json
+   
+   {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {...}}
+   ```
+
+### Common Connection Errors
+
+#### Error: 307 Temporary Redirect
+**Symptom:**
+```
+INFO: 172.24.0.3:51288 - "POST /sse HTTP/1.1" 307 Temporary Redirect
+INFO: 172.24.0.3:51288 - "POST /sse/ HTTP/1.1" 405 Method Not Allowed
+```
+
+**Cause:** Missing trailing slash in URL
+
+**Solution:** Always use trailing slashes for FastMCP endpoints:
+- ✅ `http://mcp-hub:8765/sse/`
+- ✅ `http://mcp-hub:8765/messages/`
+- ❌ `http://mcp-hub:8765/sse`
+- ❌ `http://mcp-hub:8765/messages`
+
+#### Error: 400 Bad Request - "Received request without session_id"
+**Symptom:**
+```
+INFO: 172.24.0.3:51288 - "POST /messages/ HTTP/1.1" 400 Bad Request
+Received request without session_id
+```
+
+**Cause:** Client didn't establish SSE connection first or didn't include session_id in POST requests
+
+**Solution:** Follow the correct connection flow:
+1. GET `/sse/` to establish connection
+2. Parse SSE events to extract `session_id`
+3. Include `session_id` as query parameter in all POST requests
+
+### Client Implementation
+
+The `MCPClient` class in `src/mcp/client.py` implements the FastMCP SSE protocol correctly:
+
+**Key Components:**
+
+1. **Session Establishment** (`_connect_sse()`):
+   - Opens GET connection to `/sse/`
+   - Parses SSE events to extract `session_id`
+   - Stores `session_id` for future requests
+   - Derives JSON-RPC endpoint URL (`/messages/`)
+
+2. **Request Sending** (`_send_request_http()`):
+   - Adds `session_id` as query parameter
+   - POSTs to `/messages/?session_id=<id>`
+   - Accepts both 200 OK and 202 Accepted status codes
+
+3. **URL Normalization**:
+   - Ensures trailing slashes to avoid redirects
+   - Handles various URL formats automatically
+
+**Example Usage:**
+```python
+from src.mcp.client import MCPClient, MCPServerConfig
+
+# Configure SSE transport
+config = MCPServerConfig(
+    transport="sse",
+    url="http://mcp-hub:8765/sse"  # Trailing slash added automatically
+)
+
+# Connect and use
+client = MCPClient(config)
+await client.connect()  # Establishes SSE session
+result = await client.call_tool("store_memory", {...})  # Uses session_id
+```
+
+### Debugging Connection Issues
+
+**Enable Debug Logging:**
+```python
+import logging
+logging.getLogger("src.mcp.client").setLevel(logging.DEBUG)
+```
+
+**Check Server Logs:**
+```bash
+# Docker mode
+docker logs mcp-hub | grep -E "sse|messages|session"
+
+# Standalone mode
+tail -f logs/mcp_hub.log | grep -E "sse|messages|session"
+```
+
+**Expected Successful Flow:**
+```
+[MCPClient] Connecting to MCP server (SSE): http://mcp-hub:8765/sse
+[MCPClient] Opening SSE connection to http://mcp-hub:8765/sse/
+[MCPClient] SSE event: endpoint
+[MCPClient] SSE endpoint data: {'uri': '...?session_id=abc123'}
+[MCPClient] ✓ SSE session established: abc123
+[MCPClient] Using RPC endpoint: http://mcp-hub:8765/messages/
+[MCPClient] ✓ Connected. Available tools: [...]
+```
+
 ## Related Documentation
 
 - [MCP Docker Setup](../deployment/mcp-docker-setup.md)
