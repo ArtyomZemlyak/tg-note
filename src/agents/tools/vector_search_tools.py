@@ -1,6 +1,12 @@
 """
 Vector search tools for autonomous agent.
 
+DEPRECATED: These tools have been moved to MCP tools.
+Use src.mcp.vector_search.vector_search_tool instead.
+
+This file is kept for backward compatibility and will be removed in a future version.
+Vector search is now provided via the MCP hub server for better integration.
+
 Tools for semantic search and reindexing in the knowledge base.
 Each tool is self-contained with its own metadata and implementation.
 """

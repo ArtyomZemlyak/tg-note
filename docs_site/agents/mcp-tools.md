@@ -33,6 +33,28 @@ This tool is specifically designed for the main agent to:
 - `memory_store` - Record a note
 - `memory_search` - Search through recorded notes
 
+#### Vector Search Tool
+
+Semantic vector search in knowledge base using AI-powered embeddings.
+
+**Purpose:**
+This tool provides semantic search capabilities for the knowledge base:
+
+- **Vector Search**: Find relevant information using natural language queries
+- **Semantic Understanding**: Search by meaning, not just keywords
+- **Reindexing**: Update the vector index when knowledge base changes
+
+**Use Cases:**
+
+- Finding relevant documentation using natural language questions
+- Semantic search that understands context and meaning
+- Searching for similar concepts even without exact keyword matches
+
+**Tools:**
+
+- `kb_vector_search` - Semantic search in knowledge base
+- `kb_reindex_vector` - Reindex knowledge base for vector search
+
 ## Configuration
 
 ### Enable MCP Tools
@@ -45,6 +67,11 @@ AGENT_ENABLE_MCP: true
 AGENT_ENABLE_MCP_MEMORY: true
 MCP_MEMORY_PROVIDER: "openai"
 MCP_MEMORY_MODEL: "gpt-4"
+
+# Vector Search Settings
+VECTOR_SEARCH_ENABLED: true
+VECTOR_SEARCH_MODEL: "sentence-transformers/all-MiniLM-L6-v2"
+VECTOR_SEARCH_BACKEND: "auto"
 ```
 
 Or set environment variables:
@@ -54,6 +81,11 @@ export AGENT_ENABLE_MCP=true
 export AGENT_ENABLE_MCP_MEMORY=true
 export MCP_MEMORY_PROVIDER=openai
 export MCP_MEMORY_MODEL=gpt-4
+
+# Vector Search
+export VECTOR_SEARCH_ENABLED=true
+export VECTOR_SEARCH_MODEL=sentence-transformers/all-MiniLM-L6-v2
+export VECTOR_SEARCH_BACKEND=auto
 ```
 
 ### Install MCP Server
@@ -92,6 +124,7 @@ agent = AutonomousAgent(
     llm_connector=OpenAIConnector(api_key="your_key"),
     enable_mcp=True,
     enable_mcp_memory=True,
+    enable_vector_search=True,
     max_iterations=10
 )
 ```
@@ -149,6 +182,27 @@ await agent.tool_manager.execute(
     "mcp_memory_agent",
     {
         "action": "list"
+    }
+)
+```
+
+### Vector Search in Knowledge Base
+
+```python
+# Semantic search in knowledge base
+result = await agent.tool_manager.execute(
+    "kb_vector_search",
+    {
+        "query": "How do I configure authentication?",
+        "top_k": 5
+    }
+)
+
+# Reindex knowledge base after updates
+result = await agent.tool_manager.execute(
+    "kb_reindex_vector",
+    {
+        "force": False  # Set to True to force reindexing
     }
 )
 ```
