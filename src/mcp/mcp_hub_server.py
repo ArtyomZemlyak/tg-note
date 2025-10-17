@@ -824,10 +824,8 @@ def _generate_client_configs(host: str, port: int) -> None:
 
         # Generate Qwen CLI config
         logger.info("   Creating Qwen CLI config...")
-        saved_paths = setup_qwen_mcp_config(
+        saved_path = setup_qwen_mcp_config(
             user_id=None,
-            kb_path=None,
-            global_config=True,
             use_http=True,
             http_port=port,
             mcp_hub_url=mcp_hub_url,

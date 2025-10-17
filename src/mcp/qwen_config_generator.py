@@ -204,20 +204,6 @@ class QwenMCPConfigGenerator:
 
         return settings_file
 
-    def save_to_kb_dir(self, kb_path: Path) -> Path:
-        """
-        Save configuration to KB directory (.qwen/settings.json)
-
-        This creates a project-specific configuration in the knowledge base directory.
-
-        Args:
-            kb_path: Path to knowledge base directory
-
-        Returns:
-            Path to saved configuration file
-        """
-        qwen_dir = kb_path / ".qwen"
-        return self.save_to_qwen_dir(qwen_dir)
 
     def get_config_json(self) -> str:
         """
@@ -232,47 +218,32 @@ class QwenMCPConfigGenerator:
 
 def setup_qwen_mcp_config(
     user_id: Optional[int] = None,
-    kb_path: Optional[Path] = None,
-    global_config: bool = True,
     use_http: bool = True,
     http_port: int = 8765,
     mcp_hub_url: Optional[str] = None,
-) -> List[Path]:
+) -> Path:
     """
     Setup qwen MCP configuration
 
     This is a convenience function that:
     1. Generates MCP server configuration
-    2. Saves to global ~/.qwen/settings.json (if global_config=True)
-    3. Saves to KB-specific .qwen/settings.json (if kb_path provided)
+    2. Saves to global ~/.qwen/settings.json
 
     Args:
         user_id: Optional user ID for per-user MCP servers
-        kb_path: Optional path to knowledge base directory
-        global_config: Whether to save to global ~/.qwen/settings.json
         use_http: Use HTTP/SSE transport instead of stdio (default: True)
         http_port: Port for HTTP server (default: 8765)
         mcp_hub_url: Custom MCP Hub URL (for Docker environments). If not provided, auto-detected.
 
     Returns:
-        List of paths where configuration was saved
+        Path to saved configuration file
     """
     generator = QwenMCPConfigGenerator(
         user_id=user_id, use_http=use_http, http_port=http_port, mcp_hub_url=mcp_hub_url
     )
-    saved_paths = []
 
-    # Save to global config
-    if global_config:
-        path = generator.save_to_qwen_dir()
-        saved_paths.append(path)
-
-    # Save to KB-specific config
-    if kb_path:
-        path = generator.save_to_kb_dir(kb_path)
-        saved_paths.append(path)
-
-    return saved_paths
+    # Always save to global ~/.qwen/settings.json
+    return generator.save_to_qwen_dir()
 
 
 def main():
@@ -281,9 +252,6 @@ def main():
 
     parser = argparse.ArgumentParser(description="Generate qwen CLI MCP configuration")
     parser.add_argument("--user-id", type=int, help="User ID for per-user MCP servers")
-    parser.add_argument(
-        "--kb-path", type=Path, help="Knowledge base path for project-specific config"
-    )
     parser.add_argument(
         "--output", type=Path, help="Output file path (default: ~/.qwen/settings.json)"
     )
@@ -312,8 +280,6 @@ def main():
         if args.output:
             qwen_dir = args.output.parent
             generator.save_to_qwen_dir(qwen_dir)
-        elif args.kb_path:
-            generator.save_to_kb_dir(args.kb_path)
         else:
             generator.save_to_qwen_dir()
 

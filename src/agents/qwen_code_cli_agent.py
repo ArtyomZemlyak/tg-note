@@ -127,17 +127,12 @@ class QwenCodeCLIAgent(BaseAgent):
         try:
             from src.mcp.qwen_config_generator import setup_qwen_mcp_config
 
-            # Determine where to save config
-            kb_path = Path(self.working_directory) if self.working_directory else None
-
-            # Generate and save configuration (HTTP/SSE mode by default)
-            saved_paths = setup_qwen_mcp_config(
+            # Generate and save configuration to global ~/.qwen/settings.json (HTTP/SSE mode by default)
+            saved_path = setup_qwen_mcp_config(
                 user_id=self.user_id,
-                kb_path=kb_path,
-                global_config=True,  # Always save to global ~/.qwen/settings.json
             )
 
-            logger.info(f"[QwenCodeCLIAgent] MCP configuration saved to: {saved_paths}")
+            logger.info(f"[QwenCodeCLIAgent] MCP configuration saved to: {saved_path}")
             logger.info(
                 "[QwenCodeCLIAgent] MCP servers configured: memory (memory storage/retrieval) [HTTP/SSE mode]"
             )
