@@ -69,7 +69,7 @@ if not success:
 
 Location: `src/services/note_creation_service.py`
 
-**Flow**:
+**Flow** (Note mode - `/note`):
 ```
 1. User sends message
 2. Acquire KB lock (wait if another user is working)
@@ -79,6 +79,22 @@ Location: `src/services/note_creation_service.py`
 6. Commit and push changes
 7. Release KB lock
 ```
+
+#### 4. AgentTaskService Integration
+
+Location: `src/services/agent_task_service.py`
+
+**Flow** (Agent mode - `/agent`):
+```
+1. User sends task request
+2. Acquire KB lock (wait if another user is working)
+3. Parse task and prepare context
+4. Execute task with agent (may read/write KB files)
+5. Return results to user
+6. Release KB lock
+```
+
+**Note**: Agent mode uses the same KB locking mechanism as note mode to ensure safe concurrent access when multiple users interact with the same KB in agent mode.
 
 ---
 
@@ -308,6 +324,7 @@ FileLock(str(lock_file), timeout=300)  # 5 minutes
 ### Unit Tests
 
 - `tests/test_kb_sync_manager.py`: Sync manager tests
+- `tests/test_agent_task_service_kb_lock.py`: Agent mode KB locking tests
 - `tests/test_git_ops.py`: Git operations tests
 
 ### Integration Tests
@@ -319,6 +336,15 @@ async def test_concurrent_users():
     # Both try to create notes simultaneously
     # Verify operations are serialized
     # Verify both notes are saved
+```
+
+**Agent Mode Locking Tests**:
+```python
+async def test_agent_tasks_serialized_for_same_kb():
+    # Create two users with agent mode
+    # Both try to execute tasks simultaneously on same KB
+    # Verify operations are serialized
+    # Verify both tasks complete successfully
 ```
 
 ---
