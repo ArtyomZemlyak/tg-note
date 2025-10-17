@@ -29,16 +29,16 @@ class TestGitOperations:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_path = Path(tmpdir) / "test_repo"
             repo_path.mkdir(parents=True)
-            
+
             # Initialize git repo
             repo = Repo.init(repo_path)
-            
+
             # Create initial commit
             test_file = repo_path / "README.md"
             test_file.write_text("# Test Repo")
             repo.index.add(["README.md"])
             repo.index.commit("Initial commit")
-            
+
             yield str(repo_path)
 
     @pytest.fixture
@@ -57,7 +57,7 @@ class TestGitOperations:
         with tempfile.TemporaryDirectory() as tmpdir:
             non_repo_path = Path(tmpdir) / "not_a_repo"
             non_repo_path.mkdir(parents=True)
-            
+
             git_ops = GitOperations(str(non_repo_path), enabled=True)
             # Should disable git operations if not a valid repo
             assert git_ops.enabled is False
@@ -67,7 +67,7 @@ class TestGitOperations:
         # Create a new file
         test_file = Path(temp_repo_path) / "test.txt"
         test_file.write_text("test content")
-        
+
         # Add file
         result = git_ops.add(str(test_file))
         assert result is True
@@ -83,7 +83,7 @@ class TestGitOperations:
         test_file = Path(temp_repo_path) / "test.txt"
         test_file.write_text("test content")
         git_ops.add(str(test_file))
-        
+
         # Commit
         result = git_ops.commit("Test commit")
         assert result is True
@@ -99,7 +99,7 @@ class TestGitOperations:
         # Create uncommitted change
         test_file = Path(temp_repo_path) / "README.md"
         test_file.write_text("# Modified")
-        
+
         success, message = git_ops.pull()
         assert success is False
         assert "uncommitted" in message.lower()
@@ -111,25 +111,25 @@ class TestGitOperations:
         mock_repo = MagicMock()
         mock_remote = MagicMock()
         mock_pull_info = MagicMock()
-        
+
         # Configure mocks
         mock_pull_info.flags = 64  # FAST_FORWARD flag
         mock_remote.pull.return_value = [mock_pull_info]
         mock_repo.remote.return_value = mock_remote
         mock_repo.is_dirty.return_value = False
         mock_repo.active_branch.name = "main"
-        
+
         # Mock tracking branch
         mock_tracking = MagicMock()
         mock_tracking.remote_head = "main"
         mock_repo.active_branch.tracking_branch.return_value = mock_tracking
-        
+
         mock_repo_class.return_value = mock_repo
-        
+
         # Create GitOperations with mocked repo
         git_ops = GitOperations(temp_repo_path, enabled=True)
         git_ops.repo = mock_repo
-        
+
         # Test pull
         success, message = git_ops.pull()
         assert success is True
@@ -141,23 +141,23 @@ class TestGitOperations:
         mock_repo = MagicMock()
         mock_remote = MagicMock()
         mock_pull_info = MagicMock()
-        
+
         # Configure mocks for up-to-date status
         mock_pull_info.flags = 4  # HEAD_UPTODATE flag
         mock_remote.pull.return_value = [mock_pull_info]
         mock_repo.remote.return_value = mock_remote
         mock_repo.is_dirty.return_value = False
         mock_repo.active_branch.name = "main"
-        
+
         mock_tracking = MagicMock()
         mock_tracking.remote_head = "main"
         mock_repo.active_branch.tracking_branch.return_value = mock_tracking
-        
+
         mock_repo_class.return_value = mock_repo
-        
+
         git_ops = GitOperations(temp_repo_path, enabled=True)
         git_ops.repo = mock_repo
-        
+
         success, message = git_ops.pull()
         assert success is True
         assert "up to date" in message.lower()
@@ -175,7 +175,7 @@ class TestGitOperations:
         # Create a new file
         test_file = Path(temp_repo_path) / "test.txt"
         test_file.write_text("test content")
-        
+
         # This will fail because there's no remote, but it tests the flow
         result = git_ops.add_commit_push(str(test_file), "Test commit")
         assert result is False  # No remote configured
@@ -184,10 +184,56 @@ class TestGitOperations:
         """Test that operations return False when disabled"""
         with tempfile.TemporaryDirectory() as tmpdir:
             git_ops = GitOperations(tmpdir, enabled=False)
-            
+
             assert git_ops.add("test.txt") is False
             assert git_ops.commit("test") is False
             assert git_ops.push() is False
-            
+
             success, _ = git_ops.pull()
             assert success is False
+
+    @patch("src.knowledge_base.git_ops.Repo")
+    def test_pull_missing_remote_branch(self, mock_repo_class, temp_repo_path):
+        """Test pull when remote branch doesn't exist - should create and push"""
+        from git import GitCommandError
+
+        # Create mock repo
+        mock_repo = MagicMock()
+        mock_remote = MagicMock()
+
+        # Configure mock to raise error on pull (remote branch not found)
+        mock_remote.pull.side_effect = GitCommandError(
+            "git pull", 128, stderr="fatal: couldn't find remote ref test"
+        )
+        mock_repo.remote.return_value = mock_remote
+        mock_repo.is_dirty.return_value = False
+        mock_repo.active_branch.name = "test"
+        mock_repo.branches = []
+
+        # Mock tracking branch (no tracking initially)
+        mock_repo.active_branch.tracking_branch.return_value = None
+
+        # Mock branch creation
+        mock_head = MagicMock()
+        mock_repo.create_head.return_value = mock_head
+        mock_repo.heads = {"test": mock_head}
+
+        # Mock git.push (should succeed after creating branch)
+        mock_git = MagicMock()
+        mock_repo.git = mock_git
+
+        mock_repo_class.return_value = mock_repo
+
+        # Create GitOperations with mocked repo
+        git_ops = GitOperations(temp_repo_path, enabled=True)
+        git_ops.repo = mock_repo
+
+        # Test pull with missing remote branch
+        success, message = git_ops.pull(remote="origin", branch="test")
+
+        # Should succeed by creating and pushing the branch
+        assert success is True
+        assert "created" in message.lower() or "pushed" in message.lower()
+
+        # Verify push was called
+        mock_git.push.assert_called()
