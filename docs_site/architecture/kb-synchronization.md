@@ -122,18 +122,18 @@ sequenceDiagram
     U1->>S: Create note
     S->>L: Acquire lock (User 1)
     L-->>S: Lock acquired
-    
+
     U2->>S: Create note
     S->>L: Acquire lock (User 2)
     Note over L: User 2 waits...
-    
+
     S->>G: Pull latest (User 1)
     G->>GH: git pull
     S->>S: Process & save (User 1)
     S->>G: Commit & push (User 1)
     G->>GH: git push
     S->>L: Release lock (User 1)
-    
+
     L-->>S: Lock acquired (User 2)
     S->>G: Pull latest (User 2)
     G->>GH: git pull
@@ -210,6 +210,12 @@ Action: User must resolve conflicts manually
 ```
 Error: "Remote 'origin' not found"
 Action: Configure remote or work locally
+```
+
+**Remote branch doesn't exist**:
+```
+Warning: "Remote branch 'branch_name' doesn't exist on origin"
+Action: Automatically creates branch locally and pushes to remote
 ```
 
 ### Lock Timeout

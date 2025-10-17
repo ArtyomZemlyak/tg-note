@@ -163,7 +163,7 @@ class GitOperations:
         # Perform pull
         try:
             pull_info = remote_obj.pull(target_branch)
-            
+
             # Check if there were any changes
             if pull_info and len(pull_info) > 0:
                 flags = pull_info[0].flags
@@ -179,21 +179,49 @@ class GitOperations:
             else:
                 logger.info(f"Pull completed from {remote}/{target_branch}")
                 return True, "Pull completed"
-                
+
         except GitCommandError as gce:  # type: ignore[misc]
             error_msg = str(gce)
             # Check for merge conflicts
             if "conflict" in error_msg.lower() or "merge" in error_msg.lower():
                 logger.error(f"Merge conflict during pull: {gce}")
                 return False, f"Merge conflict during pull. Please resolve manually."
+            # Check if remote branch doesn't exist
+            elif "couldn't find remote ref" in error_msg or "unknown revision" in error_msg.lower():
+                logger.warning(
+                    f"Remote branch '{target_branch}' doesn't exist on {remote}. Creating and pushing it."
+                )
+                # AICODE-NOTE: When remote branch doesn't exist, create it locally and push to remote
+                try:
+                    # Check if local branch exists
+                    if active_branch_name != target_branch:
+                        # Create local branch if it doesn't exist
+                        if target_branch not in [b.name for b in self.repo.branches]:
+                            self.repo.create_head(target_branch)
+                            logger.info(f"Created local branch '{target_branch}'")
+                        # Checkout to the target branch
+                        self.repo.heads[target_branch].checkout()
+                        logger.info(f"Checked out to branch '{target_branch}'")
+
+                    # Push the branch to remote (this will create it on remote)
+                    push_success = self.push(remote, target_branch)
+                    if push_success:
+                        logger.info(
+                            f"Successfully created and pushed branch '{target_branch}' to {remote}"
+                        )
+                        return True, f"Created branch '{target_branch}' on remote and pushed"
+                    else:
+                        logger.error(f"Failed to push newly created branch '{target_branch}'")
+                        return False, f"Failed to push newly created branch '{target_branch}'"
+                except Exception as e:
+                    logger.error(f"Failed to create and push branch '{target_branch}': {e}")
+                    return False, f"Failed to create and push branch: {str(e)}"
             else:
                 logger.error(f"Failed to pull (git): {gce}")
                 return False, f"Git error during pull: {error_msg}"
         except Exception as e:
             error_msg = f"{type(e).__name__}: {e}"
-            logger.error(
-                f"Failed to pull from {remote}/{target_branch}: {error_msg}"
-            )
+            logger.error(f"Failed to pull from {remote}/{target_branch}: {error_msg}")
             return False, f"Error during pull: {error_msg}"
 
     def push(self, remote: str = "origin", branch: Optional[str] = None) -> bool:
