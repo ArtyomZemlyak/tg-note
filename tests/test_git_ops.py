@@ -237,3 +237,192 @@ class TestGitOperations:
 
         # Verify push was called
         mock_git.push.assert_called()
+
+    @patch("src.knowledge_base.git_ops.Repo")
+    def test_push_authentication_error_https(self, mock_repo_class, temp_repo_path):
+        """Test push with authentication error on HTTPS remote"""
+        from git import GitCommandError
+
+        # Create mock repo
+        mock_repo = MagicMock()
+        mock_remote = MagicMock()
+        mock_remote.urls = ["https://github.com/user/repo.git"]
+
+        mock_repo.remote.return_value = mock_remote
+        mock_repo.active_branch.name = "main"
+        mock_repo.active_branch.tracking_branch.return_value = None
+
+        # Mock git.push to raise authentication error
+        mock_git = MagicMock()
+        mock_git.push.side_effect = GitCommandError(
+            "git push",
+            128,
+            stderr="fatal: could not read Username for 'https://github.com': No such device or address",
+        )
+        mock_repo.git = mock_git
+
+        mock_repo_class.return_value = mock_repo
+
+        # Create GitOperations with mocked repo
+        git_ops = GitOperations(temp_repo_path, enabled=True)
+        git_ops.repo = mock_repo
+
+        # Test push with authentication error
+        result = git_ops.push(remote="origin", branch="main")
+
+        # Should fail and log helpful message
+        assert result is False
+        mock_git.push.assert_called()
+
+    @patch("src.knowledge_base.git_ops.Repo")
+    def test_push_authentication_error_password(self, mock_repo_class, temp_repo_path):
+        """Test push with password authentication error"""
+        from git import GitCommandError
+
+        # Create mock repo
+        mock_repo = MagicMock()
+        mock_remote = MagicMock()
+        mock_remote.urls = ["https://github.com/user/repo.git"]
+
+        mock_repo.remote.return_value = mock_remote
+        mock_repo.active_branch.name = "test"
+        mock_repo.active_branch.tracking_branch.return_value = None
+
+        # Mock git.push to raise password authentication error
+        mock_git = MagicMock()
+        mock_git.push.side_effect = GitCommandError(
+            "git push", 128, stderr="fatal: could not read Password: authentication failed"
+        )
+        mock_repo.git = mock_git
+
+        mock_repo_class.return_value = mock_repo
+
+        # Create GitOperations with mocked repo
+        git_ops = GitOperations(temp_repo_path, enabled=True)
+        git_ops.repo = mock_repo
+
+        # Test push with authentication error
+        result = git_ops.push(remote="origin", branch="test")
+
+        # Should fail
+        assert result is False
+        mock_git.push.assert_called()
+
+    @patch("src.knowledge_base.git_ops.Repo")
+    def test_is_https_remote(self, mock_repo_class, temp_repo_path):
+        """Test _is_https_remote helper method"""
+        # Create mock repo with HTTPS remote
+        mock_repo = MagicMock()
+        mock_remote = MagicMock()
+        mock_remote.urls = ["https://github.com/user/repo.git"]
+        mock_repo.remote.return_value = mock_remote
+
+        mock_repo_class.return_value = mock_repo
+
+        # Create GitOperations with mocked repo
+        git_ops = GitOperations(temp_repo_path, enabled=True)
+        git_ops.repo = mock_repo
+
+        # Test HTTPS detection
+        assert git_ops._is_https_remote("origin") is True
+
+    @patch("src.knowledge_base.git_ops.Repo")
+    def test_is_https_remote_ssh(self, mock_repo_class, temp_repo_path):
+        """Test _is_https_remote with SSH remote"""
+        # Create mock repo with SSH remote
+        mock_repo = MagicMock()
+        mock_remote = MagicMock()
+        mock_remote.urls = ["git@github.com:user/repo.git"]
+        mock_repo.remote.return_value = mock_remote
+
+        mock_repo_class.return_value = mock_repo
+
+        # Create GitOperations with mocked repo
+        git_ops = GitOperations(temp_repo_path, enabled=True)
+        git_ops.repo = mock_repo
+
+        # Test SSH (should return False)
+        assert git_ops._is_https_remote("origin") is False
+
+    @patch("src.knowledge_base.git_ops.Repo")
+    def test_configure_https_credentials(self, mock_repo_class, temp_repo_path):
+        """Test automatic configuration of HTTPS credentials"""
+        # Create mock repo with HTTPS remote
+        mock_repo = MagicMock()
+        mock_remote = MagicMock()
+        mock_remote.name = "origin"
+        mock_remote.urls = ["https://github.com/user/repo.git"]
+        mock_repo.remotes = [mock_remote]
+
+        mock_repo_class.return_value = mock_repo
+
+        # Create GitOperations with credentials
+        git_ops = GitOperations(
+            temp_repo_path,
+            enabled=True,
+            github_username="testuser",
+            github_token="testtoken123",
+        )
+        git_ops.repo = mock_repo
+
+        # Manually call _configure_https_credentials (it should be called in __init__)
+        git_ops._configure_https_credentials()
+
+        # Verify that set_url was called with credentials injected
+        mock_remote.set_url.assert_called_once_with(
+            "https://testuser:testtoken123@github.com/user/repo.git"
+        )
+
+    @patch("src.knowledge_base.git_ops.Repo")
+    def test_configure_https_credentials_already_has_auth(self, mock_repo_class, temp_repo_path):
+        """Test that credentials are not added if URL already has authentication"""
+        # Create mock repo with HTTPS remote that already has credentials
+        mock_repo = MagicMock()
+        mock_remote = MagicMock()
+        mock_remote.name = "origin"
+        mock_remote.urls = ["https://user:token@github.com/user/repo.git"]
+        mock_repo.remotes = [mock_remote]
+
+        mock_repo_class.return_value = mock_repo
+
+        # Create GitOperations with credentials
+        git_ops = GitOperations(
+            temp_repo_path,
+            enabled=True,
+            github_username="testuser",
+            github_token="testtoken123",
+        )
+        git_ops.repo = mock_repo
+
+        # Manually call _configure_https_credentials
+        git_ops._configure_https_credentials()
+
+        # Verify that set_url was NOT called (URL already has credentials)
+        mock_remote.set_url.assert_not_called()
+
+    @patch("src.knowledge_base.git_ops.Repo")
+    def test_configure_https_credentials_ssh_remote(self, mock_repo_class, temp_repo_path):
+        """Test that SSH remotes are not modified"""
+        # Create mock repo with SSH remote
+        mock_repo = MagicMock()
+        mock_remote = MagicMock()
+        mock_remote.name = "origin"
+        mock_remote.urls = ["git@github.com:user/repo.git"]
+        mock_repo.remotes = [mock_remote]
+
+        mock_repo_class.return_value = mock_repo
+
+        # Create GitOperations with credentials
+        git_ops = GitOperations(
+            temp_repo_path,
+            enabled=True,
+            github_username="testuser",
+            github_token="testtoken123",
+        )
+        git_ops.repo = mock_repo
+
+        # Manually call _configure_https_credentials
+        git_ops._configure_https_credentials()
+
+        # Verify that set_url was NOT called (SSH remote should not be modified)
+        mock_remote.set_url.assert_not_called()
