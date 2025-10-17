@@ -426,3 +426,102 @@ class TestGitOperations:
 
         # Verify that set_url was NOT called (SSH remote should not be modified)
         mock_remote.set_url.assert_not_called()
+
+    def test_has_remote_true(self, git_ops, temp_repo_path):
+        """Test has_remote when remote exists"""
+        from git import Repo
+
+        repo = Repo(temp_repo_path)
+        # Add a dummy remote
+        repo.create_remote("origin", "https://github.com/test/repo.git")
+
+        # Recreate git_ops to pick up the new remote
+        git_ops = GitOperations(temp_repo_path, enabled=True)
+
+        assert git_ops.has_remote("origin") is True
+
+    def test_has_remote_false(self, git_ops):
+        """Test has_remote when remote doesn't exist"""
+        assert git_ops.has_remote("origin") is False
+        assert git_ops.has_remote("nonexistent") is False
+
+    def test_has_remote_disabled(self):
+        """Test has_remote when git operations are disabled"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            git_ops = GitOperations(tmpdir, enabled=False)
+            assert git_ops.has_remote("origin") is False
+
+    def test_has_changes_true(self, git_ops, temp_repo_path):
+        """Test has_changes when there are uncommitted changes"""
+        # Create a new file (untracked)
+        test_file = Path(temp_repo_path) / "new_file.txt"
+        test_file.write_text("new content")
+
+        assert git_ops.has_changes() is True
+
+    def test_has_changes_false(self, git_ops):
+        """Test has_changes when there are no changes"""
+        assert git_ops.has_changes() is False
+
+    def test_has_changes_disabled(self):
+        """Test has_changes when git operations are disabled"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            git_ops = GitOperations(tmpdir, enabled=False)
+            assert git_ops.has_changes() is False
+
+    def test_auto_commit_and_push_no_changes(self, git_ops):
+        """Test auto_commit_and_push when there are no changes"""
+        success, message = git_ops.auto_commit_and_push()
+        assert success is True
+        assert "no changes" in message.lower()
+
+    def test_auto_commit_and_push_with_changes_no_remote(self, git_ops, temp_repo_path):
+        """Test auto_commit_and_push with changes but no remote"""
+        # Create a new file
+        test_file = Path(temp_repo_path) / "test.txt"
+        test_file.write_text("test content")
+
+        success, message = git_ops.auto_commit_and_push("Test commit")
+        assert success is True
+        assert "no remote" in message.lower()
+
+    @patch("src.knowledge_base.git_ops.Repo")
+    def test_auto_commit_and_push_with_remote(self, mock_repo_class, temp_repo_path):
+        """Test auto_commit_and_push with changes and remote"""
+        # Create mock repo
+        mock_repo = MagicMock()
+        mock_remote = MagicMock()
+        mock_git = MagicMock()
+
+        # Configure mocks
+        mock_repo.is_dirty.return_value = True
+        mock_repo.remote.return_value = mock_remote
+        mock_repo.git = mock_git
+        mock_repo.active_branch.name = "main"
+        mock_repo.active_branch.tracking_branch.return_value = None
+
+        mock_repo_class.return_value = mock_repo
+
+        # Create GitOperations with mocked repo
+        git_ops = GitOperations(temp_repo_path, enabled=True)
+        git_ops.repo = mock_repo
+
+        # Test auto_commit_and_push
+        success, message = git_ops.auto_commit_and_push("Test commit")
+
+        # Should succeed and push
+        assert success is True
+        assert "pushed" in message.lower()
+
+        # Verify git operations were called
+        mock_git.add.assert_called_once_with("-A")
+        mock_repo.index.commit.assert_called_once()
+        mock_git.push.assert_called()
+
+    def test_auto_commit_and_push_disabled(self):
+        """Test auto_commit_and_push when git operations are disabled"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            git_ops = GitOperations(tmpdir, enabled=False)
+            success, message = git_ops.auto_commit_and_push()
+            assert success is False
+            assert "disabled" in message.lower()

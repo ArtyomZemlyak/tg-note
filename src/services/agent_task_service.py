@@ -12,6 +12,7 @@ from loguru import logger
 from config.agent_prompts import AGENT_MODE_INSTRUCTION
 from src.bot.bot_port import BotPort
 from src.bot.utils import escape_markdown, split_long_message
+from src.knowledge_base.git_ops import GitOperations
 from src.knowledge_base.repository import RepositoryManager
 from src.knowledge_base.sync_manager import get_sync_manager
 from src.processor.content_parser import ContentParser
@@ -120,6 +121,20 @@ class AgentTaskService(IAgentTaskService):
             user_kb: User's knowledge base configuration
             kb_path: Path to knowledge base
         """
+        # Create Git operations handler
+        kb_git_enabled = self.settings_manager.get_setting(user_id, "KB_GIT_ENABLED")
+        
+        # Get GitHub credentials for HTTPS authentication
+        github_username = self.settings_manager.get_setting(user_id, "GITHUB_USERNAME")
+        github_token = self.settings_manager.get_setting(user_id, "GITHUB_TOKEN")
+        
+        git_ops = GitOperations(
+            str(kb_path),
+            enabled=kb_git_enabled,
+            github_username=github_username,
+            github_token=github_token,
+        )
+        
         # Parse task
         content = await self.content_parser.parse_group_with_files(group, bot=self.bot)
         task_text = content.get("text", "")
@@ -164,6 +179,30 @@ class AgentTaskService(IAgentTaskService):
         self.user_context_manager.add_assistant_message_to_context(
             user_id, processing_msg_id, response_text, response_timestamp
         )
+
+        # AICODE-NOTE: Auto-commit and push changes before releasing KB lock
+        # This ensures that all KB changes are committed and pushed to remote (if configured)
+        # before another user can start working with the same KB
+        if git_ops.enabled:
+            # Get git settings
+            kb_git_remote = self.settings_manager.get_setting(user_id, "KB_GIT_REMOTE")
+            kb_git_branch = self.settings_manager.get_setting(user_id, "KB_GIT_BRANCH")
+            
+            # Create commit message from task text
+            task_summary = task_text[:50] + "..." if len(task_text) > 50 else task_text
+            commit_message = f"Agent task: {task_summary}"
+            
+            # Auto-commit and push
+            success, message = git_ops.auto_commit_and_push(
+                message=commit_message,
+                remote=kb_git_remote,
+                branch=kb_git_branch,
+            )
+            
+            if not success:
+                self.logger.warning(f"Auto-commit/push failed: {message}")
+            else:
+                self.logger.info(f"Auto-commit/push successful: {message}")
 
         # Send result to user
         await self._send_result(processing_msg_id, chat_id, result)
