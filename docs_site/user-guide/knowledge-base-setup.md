@@ -85,9 +85,36 @@ Every note is automatically:
 - Committed with message
 - Pushed to remote (if enabled)
 
+### Multi-User Synchronization
+
+When multiple users work with the same knowledge base (shared GitHub repository), the system automatically:
+
+1. **Serializes operations**: Only one user can modify the KB at a time using file-based locks
+2. **Pulls latest changes**: Before creating a note, the system pulls the latest changes from GitHub
+3. **Prevents conflicts**: Operations are queued and executed sequentially
+
+This ensures that:
+- No merge conflicts occur
+- All users see the latest version of the KB
+- Changes are properly synchronized across users
+
+**Example scenario:**
+- User A starts creating a note → KB is locked
+- User B tries to create a note → Waits for User A to finish
+- User A's note is saved and pushed → Lock is released
+- User B's note creation starts → Pulls latest changes (including User A's note)
+- User B's note is saved and pushed
+
+**Technical details:**
+- Uses `filelock` for cross-process synchronization
+- Lock file: `.kb_operations.lock` in KB directory
+- Async locks prevent race conditions within the same process
+- Default timeout: 300 seconds (5 minutes)
+
 ---
 
 ## See Also
 
 - [Bot Commands](bot-commands.md)
 - [Working with Content](working-with-content.md)
+- [KB Synchronization Architecture](../architecture/kb-synchronization.md)

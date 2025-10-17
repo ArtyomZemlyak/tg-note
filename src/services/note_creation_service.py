@@ -14,6 +14,7 @@ from src.bot.settings_manager import SettingsManager
 from src.knowledge_base.git_ops import GitOperations
 from src.knowledge_base.manager import KnowledgeBaseManager
 from src.knowledge_base.repository import RepositoryManager
+from src.knowledge_base.sync_manager import get_sync_manager
 from src.processor.content_parser import ContentParser
 from src.processor.message_aggregator import MessageGroup
 from src.services.interfaces import INoteCreationService, IUserContextManager
@@ -85,10 +86,66 @@ class NoteCreationService(INoteCreationService):
                 )
                 return
 
-            # Create KB manager and Git operations
-            kb_manager = KnowledgeBaseManager(str(kb_path))
-            kb_git_enabled = self.settings_manager.get_setting(user_id, "KB_GIT_ENABLED")
-            git_ops = GitOperations(str(kb_path), enabled=kb_git_enabled)
+            # AICODE-NOTE: Use sync manager to serialize KB operations and prevent conflicts
+            # when multiple users work with the same knowledge base
+            sync_manager = get_sync_manager()
+            
+            # Acquire lock for this KB to ensure operations are serialized
+            async with sync_manager.with_kb_lock(str(kb_path), f"create_note_user_{user_id}"):
+                await self._create_note_locked(
+                    group, processing_msg_id, chat_id, user_id, user_kb, kb_path
+                )
+
+        except Exception as e:
+            self.logger.error(f"Error in note creation: {e}", exc_info=True)
+            await self._send_error_notification(processing_msg_id, chat_id, str(e))
+
+    async def _create_note_locked(
+        self,
+        group: MessageGroup,
+        processing_msg_id: int,
+        chat_id: int,
+        user_id: int,
+        user_kb: dict,
+        kb_path: Path,
+    ) -> None:
+        """
+        Create note with KB lock already acquired.
+        This method performs the actual note creation work.
+
+        Args:
+            group: Message group to process
+            processing_msg_id: ID of the processing status message
+            chat_id: Chat ID where message group was sent
+            user_id: User ID
+            user_kb: User's knowledge base configuration
+            kb_path: Path to knowledge base
+        """
+        # Create KB manager and Git operations
+        kb_manager = KnowledgeBaseManager(str(kb_path))
+        kb_git_enabled = self.settings_manager.get_setting(user_id, "KB_GIT_ENABLED")
+        git_ops = GitOperations(str(kb_path), enabled=kb_git_enabled)
+
+        # AICODE-NOTE: Pull latest changes from remote before working with KB
+        # This prevents conflicts when multiple users work with the same KB
+        if git_ops.enabled and user_kb.get("kb_type") == "github":
+            await self.bot.edit_message_text(
+                "🔄 Синхронизация с GitHub...", chat_id=chat_id, message_id=processing_msg_id
+            )
+            
+            kb_git_remote = self.settings_manager.get_setting(user_id, "KB_GIT_REMOTE")
+            kb_git_branch = self.settings_manager.get_setting(user_id, "KB_GIT_BRANCH")
+            
+            success, message = git_ops.pull(kb_git_remote, kb_git_branch)
+            if not success:
+                # If pull failed due to conflicts or other issues, notify user
+                await self.bot.edit_message_text(
+                    f"❌ Ошибка при синхронизации с GitHub:\n{message}\n\n"
+                    f"Возможно, есть конфликты. Проверьте репозиторий вручную.",
+                    chat_id=chat_id,
+                    message_id=processing_msg_id,
+                )
+                return
 
             # Parse content
             content = await self.content_parser.parse_group_with_files(group, bot=self.bot)
@@ -160,10 +217,6 @@ class NoteCreationService(INoteCreationService):
             await self._send_success_notification(
                 processing_msg_id, chat_id, kb_path, processed_content
             )
-
-        except Exception as e:
-            self.logger.error(f"Error in note creation: {e}", exc_info=True)
-            await self._send_error_notification(processing_msg_id, chat_id, str(e))
 
     async def _save_to_kb(
         self,
