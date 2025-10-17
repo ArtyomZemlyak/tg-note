@@ -326,46 +326,41 @@ class GitOperations:
             # Detached HEAD or no branch
             active_branch_name = None
 
-        local_ref = active_branch_name or "HEAD"
-
-        # Determine if explicit target branch was provided
-        explicit_branch = branch if branch not in (None, "", "auto", "current", "HEAD") else None
+        # Determine target branch
+        # AICODE-NOTE: Since auto_commit_and_push now ensures we're on the correct branch,
+        # when branch is explicitly specified, it should match the current branch
+        if branch and branch not in (None, "", "auto", "current", "HEAD"):
+            target_branch = branch
+        else:
+            target_branch = active_branch_name or "main"
 
         # Perform push
         try:
-            # AICODE-NOTE: If explicit branch is specified (e.g., from KB_GIT_BRANCH config),
-            # always push directly to it without modifying upstream tracking configuration.
-            # This prevents the "upstream branch name mismatch" error when local branch name
-            # differs from the configured target branch.
-            if explicit_branch:
-                # Explicit target branch - push directly without setting upstream
-                self.repo.git.push(remote, f"HEAD:{explicit_branch}")
-                logger.info(f"Pushed to {remote}/{explicit_branch}")
-                return True
-            else:
-                # Auto mode - determine target from tracking or current branch
-                target_branch = active_branch_name or "main"
-                
-                # Check if tracking is configured
-                tracking_branch = None
-                if active_branch_name:
-                    try:
-                        tracking = self.repo.active_branch.tracking_branch()  # type: ignore[attr-defined]
-                        if tracking and tracking.remote_name == remote:
-                            tracking_branch = tracking.remote_head
-                    except Exception:
-                        pass
+            # Check if upstream tracking is configured
+            tracking_configured = False
+            if active_branch_name:
+                try:
+                    tracking = self.repo.active_branch.tracking_branch()  # type: ignore[attr-defined]
+                    tracking_configured = bool(
+                        tracking 
+                        and tracking.remote_name == remote
+                        and tracking.remote_head == target_branch
+                    )
+                except Exception:
+                    pass
 
-                if tracking_branch:
-                    # Has tracking - push to tracking branch explicitly
-                    self.repo.git.push(remote, f"HEAD:{tracking_branch}")
-                    logger.info(f"Pushed to {remote}/{tracking_branch} (tracking branch)")
-                else:
-                    # First push - set upstream
-                    self.repo.git.push("--set-upstream", remote, f"{local_ref}:{target_branch}")
-                    logger.info(f"Pushed to {remote}/{target_branch} and set upstream")
-                
-                return True
+            # AICODE-NOTE: Always use explicit refspec to avoid "upstream branch name mismatch" error
+            if tracking_configured:
+                # Upstream is correctly configured, push to it
+                self.repo.git.push(remote, f"{active_branch_name}:{target_branch}")
+                logger.info(f"Pushed {active_branch_name} to {remote}/{target_branch}")
+            else:
+                # Set upstream while pushing
+                local_ref = active_branch_name or "HEAD"
+                self.repo.git.push("--set-upstream", remote, f"{local_ref}:{target_branch}")
+                logger.info(f"Pushed {local_ref} to {remote}/{target_branch} and set upstream")
+            
+            return True
         except GitCommandError as gce:  # type: ignore[misc]
             error_msg = str(gce)
             # AICODE-NOTE: Handle authentication errors specifically to provide helpful guidance
@@ -468,16 +463,17 @@ class GitOperations:
         Automatically commit all changes and push to remote if configured.
 
         This method:
-        1. Checks if there are any changes
-        2. Adds all changes to staging
-        3. Commits with the provided message
-        4. Checks if remote repository exists
-        5. Pushes to remote if it exists
+        1. Switches to target branch (creates if doesn't exist)
+        2. Checks if there are any changes
+        3. Adds all changes to staging
+        4. Commits with the provided message
+        5. Checks if remote repository exists
+        6. Pushes to remote if it exists
 
         Args:
             message: Commit message
             remote: Remote name (default: "origin")
-            branch: Branch name (default: current branch)
+            branch: Branch name to commit and push to (default: current branch)
 
         Returns:
             Tuple of (success, message)
@@ -486,6 +482,61 @@ class GitOperations:
             return False, "Git operations disabled"
 
         try:
+            # AICODE-NOTE: If explicit branch is specified, switch to it first
+            # This ensures we commit and push on the correct branch
+            if branch and branch not in ("auto", "current", "HEAD"):
+                try:
+                    current_branch = self.repo.active_branch.name  # type: ignore[attr-defined]
+                except Exception:
+                    current_branch = None
+
+                # Only switch if we're not already on target branch
+                if current_branch != branch:
+                    # Stash any uncommitted changes before switching branches
+                    has_uncommitted = self.repo.is_dirty(untracked_files=True)
+                    stash_created = False
+                    if has_uncommitted:
+                        try:
+                            self.repo.git.stash("push", "-u", "-m", "Auto-stash before branch switch")
+                            stash_created = True
+                            logger.info("Stashed uncommitted changes before branch switch")
+                        except Exception as e:
+                            logger.warning(f"Failed to stash changes: {e}")
+
+                    try:
+                        # Check if target branch exists locally
+                        if branch not in [b.name for b in self.repo.branches]:
+                            # Check if branch exists on remote
+                            try:
+                                self.repo.git.fetch(remote, branch)
+                                # Create local branch tracking remote
+                                self.repo.git.checkout("-b", branch, f"{remote}/{branch}")
+                                logger.info(f"Created and checked out branch '{branch}' tracking {remote}/{branch}")
+                            except Exception:
+                                # Remote branch doesn't exist, create new local branch
+                                self.repo.git.checkout("-b", branch)
+                                logger.info(f"Created and checked out new branch '{branch}'")
+                        else:
+                            # Branch exists locally, just checkout
+                            self.repo.git.checkout(branch)
+                            logger.info(f"Checked out existing branch '{branch}'")
+
+                        # Apply stashed changes back if we stashed them
+                        if stash_created:
+                            try:
+                                self.repo.git.stash("pop")
+                                logger.info("Applied stashed changes to new branch")
+                            except Exception as e:
+                                logger.warning(f"Failed to apply stash (may have conflicts): {e}")
+                    except Exception as e:
+                        # If checkout failed and we stashed, try to restore the stash
+                        if stash_created:
+                            try:
+                                self.repo.git.stash("pop")
+                            except Exception:
+                                pass
+                        raise e
+
             # Check if there are any changes
             if not self.has_changes():
                 logger.debug("No changes to commit")
