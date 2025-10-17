@@ -8,7 +8,13 @@ MCP is a protocol for connecting AI agents to external tools and data sources. T
 
 ### Built-in MCP Tools
 
-Currently, the following built-in MCP tools are available:
+The MCP Hub provides built-in tools that are dynamically available based on configuration and dependencies:
+
+**Always Available:**
+- Memory tools (store_memory, retrieve_memory, list_categories) - use basic JSON storage with no dependencies
+
+**Conditionally Available:**
+- Vector search tools (vector_search, reindex_vector) - require `VECTOR_SEARCH_ENABLED: true` and vector search dependencies
 
 #### Memory Agent Tool
 
@@ -35,7 +41,16 @@ This tool is specifically designed for the main agent to:
 
 #### Vector Search Tool
 
+⚠️ **Requires Configuration and Dependencies**
+
 Semantic vector search in knowledge base using AI-powered embeddings.
+
+**Availability:**
+These tools are only available when:
+1. **Configuration**: `VECTOR_SEARCH_ENABLED: true` in config.yaml
+2. **Dependencies**: Vector search packages installed (`pip install -e '.[vector-search]'`)
+   - sentence-transformers (for embeddings)
+   - faiss-cpu or qdrant-client (for vector storage)
 
 **Purpose:**
 This tool provides semantic search capabilities for the knowledge base:
@@ -52,8 +67,10 @@ This tool provides semantic search capabilities for the knowledge base:
 
 **Tools:**
 
-- `kb_vector_search` - Semantic search in knowledge base
-- `kb_reindex_vector` - Reindex knowledge base for vector search
+- `vector_search` - Semantic search in knowledge base
+- `reindex_vector` - Reindex knowledge base for vector search
+
+**Note:** If disabled or dependencies missing, these tools will NOT appear in the MCP tools list.
 
 ## Configuration
 

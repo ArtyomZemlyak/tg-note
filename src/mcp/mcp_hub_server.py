@@ -189,14 +189,19 @@ def get_builtin_tools() -> List[str]:
     Returns:
         List of available tool names
     """
-    # Base tools (always available)
+    # Memory tools (always available)
+    # Note: These tools use JSON storage by default, which has no dependencies
+    # and includes automatic fallback from vector/mem-agent storage if needed.
+    # The availability is checked at startup, not at runtime.
     tools = [
         "store_memory",
         "retrieve_memory",
         "list_categories",
     ]
     
-    # Add vector search tools if available
+    # Vector search tools (conditional - checked at tool list generation)
+    # Checks both configuration (VECTOR_SEARCH_ENABLED) and dependencies
+    # (sentence-transformers, faiss-cpu or qdrant-client)
     if check_vector_search_availability():
         tools.extend([
             "vector_search",
