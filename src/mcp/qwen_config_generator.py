@@ -106,7 +106,7 @@ class QwenMCPConfigGenerator:
         if self.use_http:
             return {
                 "url": self.mcp_hub_url,
-                "timeout": 10000,
+                "timeout": 99999,
                 "trust": True,
                 "description": (
                     "MCP Hub - Unified MCP gateway (HTTP/SSE). "
@@ -139,7 +139,7 @@ class QwenMCPConfigGenerator:
             "command": "python3",
             "args": args_list,
             "cwd": str(self.project_root),
-            "timeout": 10000,  # 10 seconds
+            "timeout": 99999,  # ~100 seconds
             "trust": True,  # Trust our own server
             "description": ("MCP Hub - Unified MCP gateway with built-in memory tools"),
             "tools": [

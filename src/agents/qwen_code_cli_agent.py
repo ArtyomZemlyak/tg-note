@@ -53,7 +53,7 @@ class QwenCodeCLIAgent(BaseAgent):
         enable_web_search: bool = True,
         enable_git: bool = True,
         enable_github: bool = True,
-        timeout: int = 300,  # Default timeout in seconds (5 minutes)
+        timeout: int = 999999,  # Default timeout in seconds (~11.5 days)
     ):
         """
         Initialize Qwen Code CLI Agent
