@@ -13,6 +13,8 @@ The MCP Memory system is a local note-taking and search system specifically desi
 
 This is particularly useful for autonomous agents (like qwen code cli) that make many LLM calls within one continuous session.
 
+**Deployment Model**: The mem-agent system is designed for **Docker-first deployment**. LLM model inference is handled by separate containers (vLLM, SGLang, or LM Studio), not by direct Python dependencies. This keeps the main application lightweight and scalable.
+
 ### Storage Types
 
 The system supports three storage backends:
@@ -37,27 +39,44 @@ The system supports three storage backends:
 - **Structured Memory**: Obsidian-style markdown files with wiki-links
 - **Intelligent Organization**: Automatically creates and links entities, maintains relationships
 - **Best for**: Complex scenarios requiring intelligent memory organization
-- **Requires**: LLM model, additional dependencies (fastmcp, transformers)
+- **Requires**: LLM inference container (vLLM/SGLang/LM Studio), lightweight dependencies (fastmcp)
 
 The storage type is configured via `MEM_AGENT_STORAGE_TYPE` setting (default: `json`).
 
 ## Quick Start
 
-### Installation
+### Docker Deployment (Recommended)
 
-Run the installation script:
+The recommended way to deploy mem-agent is using Docker containers:
+
+```bash
+# Start all services (bot, MCP hub, vLLM server)
+docker-compose up -d
+
+# Or with SGLang backend for faster inference
+docker-compose -f docker-compose.yml -f docker-compose.sglang.yml up -d
+
+# Or without GPU (JSON storage mode only)
+docker-compose -f docker-compose.simple.yml up -d
+```
+
+The Docker setup automatically:
+1. Installs lightweight dependencies (fastmcp, etc.)
+2. Runs the LLM model in a separate container (vLLM/SGLang)
+3. Configures MCP hub with memory tools
+4. Sets up proper networking between containers
+
+See [Docker Deployment Guide](../deployment/docker.md) for more details.
+
+### Local Installation (Development Only)
+
+For local development without Docker:
 
 ```bash
 python scripts/install_mem_agent.py
 ```
 
-This will:
-
-1. Install all required dependencies
-2. Download the mem-agent model from HuggingFace
-3. Setup the memory directory structure
-4. Create the MCP server configuration
-5. Register mem-agent as an MCP server
+Note: This will install lightweight dependencies only. You'll need to run a separate LLM server (vLLM, SGLang, or LM Studio) for mem-agent storage type.
 
 ### Configuration
 
@@ -115,25 +134,38 @@ MEM_AGENT_BACKEND=auto
 To enable vector storage:
 
 1. Set `MEM_AGENT_STORAGE_TYPE: vector` in config
-2. Install additional dependencies:
+2. Install embedding model dependencies (development only):
 
    ```bash
    pip install sentence-transformers transformers torch
    ```
 
-3. The model will be downloaded automatically on first use
+3. The embedding model will be downloaded automatically on first use
 
 To enable mem-agent storage:
 
 1. Set `MEM_AGENT_STORAGE_TYPE: mem-agent` in config
 2. Set `MEM_AGENT_MODEL: driaforall/mem-agent` in config
-3. Install additional dependencies:
-
+3. **Docker (Recommended)**: Start vLLM/SGLang container - model downloads automatically:
    ```bash
-   pip install fastmcp transformers torch
+   docker-compose up -d vllm-server  # or use sglang overlay
    ```
 
-4. The model will be downloaded automatically on first use
+4. **Local Development**: Run LLM server separately:
+   ```bash
+   # Option A: vLLM
+   vllm serve driaforall/mem-agent --host 127.0.0.1 --port 8001
+
+   # Option B: LM Studio - load model via UI
+   # Option C: SGLang
+   python -m sglang.launch_server --model driaforall/mem-agent --port 8001
+   ```
+
+5. Configure endpoint in `.env` or `config.yaml`:
+   ```bash
+   MEM_AGENT_BASE_URL=http://127.0.0.1:8001/v1
+   MEM_AGENT_OPENAI_API_KEY=lm-studio
+   ```
 
 ### Verification
 
@@ -171,37 +203,43 @@ python scripts/install_mem_agent.py --skip-model-download
 
 ### Platform-Specific Backends
 
-#### Linux with GPU (vLLM)
+**IMPORTANT**: Direct Python backends (transformers, MLX, vLLM pip packages) are **DEPRECATED** for production use.
+
+Use Docker containers or external LLM servers instead:
+
+#### Docker Deployment (Recommended)
 
 ```bash
-# Install vLLM
-pip install vllm
+# Linux/GPU: vLLM container
+docker-compose up -d vllm-server
 
-# Configure in config.yaml (recommended):
-# MEM_AGENT_BASE_URL: http://127.0.0.1:8001/v1
-# MEM_AGENT_OPENAI_API_KEY: lm-studio
+# Linux/GPU: SGLang container (faster)
+docker-compose -f docker-compose.yml -f docker-compose.sglang.yml up -d
 
-# Or use environment variables:
-export MEM_AGENT_BASE_URL=http://127.0.0.1:8001/v1
+# macOS/No GPU: LM Studio
+# Download and run LM Studio, load driaforall/mem-agent model
+# Configure: MEM_AGENT_BASE_URL=http://host.docker.internal:1234/v1
+```
+
+#### Local Development
+
+```bash
+# Option 1: LM Studio (easiest, works on all platforms)
+# 1. Install LM Studio from https://lmstudio.ai/
+# 2. Load driaforall/mem-agent model
+# 3. Configure:
+export MEM_AGENT_BASE_URL=http://127.0.0.1:1234/v1
 export MEM_AGENT_OPENAI_API_KEY=lm-studio
-```
 
-#### macOS with Apple Silicon (MLX)
+# Option 2: vLLM (Linux with GPU)
+# Install: pip install vllm
+vllm serve driaforall/mem-agent --host 127.0.0.1 --port 8001
+export MEM_AGENT_BASE_URL=http://127.0.0.1:8001/v1
 
-```bash
-# Install MLX
-pip install mlx mlx-lm
-
-# Configure to use MLX
-export MEM_AGENT_BACKEND=mlx
-export MEM_AGENT_MODEL_PRECISION=4bit
-```
-
-#### CPU Fallback (Transformers)
-
-```bash
-# Already installed with base dependencies
-export MEM_AGENT_BACKEND=transformers
+# Option 3: SGLang (Linux with GPU, faster than vLLM)
+# Install: pip install sglang
+python -m sglang.launch_server --model driaforall/mem-agent --port 8001
+export MEM_AGENT_BASE_URL=http://127.0.0.1:8001/v1
 ```
 
 ## Memory Structure
@@ -417,8 +455,8 @@ huggingface-cli delete-cache
 | Search Type | Substring match | Semantic similarity | LLM-powered understanding |
 | Speed | Very fast | Moderate | Slower (LLM inference) |
 | Memory Usage | Minimal | Higher (embedding model) | Highest (LLM model) |
-| Dependencies | None | transformers, sentence-transformers | fastmcp, transformers |
-| Model Download | Not required | Required (~400MB) | Required (~8GB) |
+| Dependencies | None | transformers, sentence-transformers | fastmcp (+ external LLM server) |
+| Model Download | Not required | Required (~400MB) | Required (~8GB, in container/server) |
 | Organization | Simple key-value | Embeddings-based | Structured Obsidian-style |
 | Best Use Case | Simple searches | Semantic queries | Complex reasoning & organization |
 | Example Query | "vulnerability" → exact match | "security issue" → semantic match | Natural language queries with context |
