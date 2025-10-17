@@ -67,19 +67,19 @@ class KBSyncManager:
         
         return self._async_locks[kb_path_normalized]
 
-    async def with_kb_lock(self, kb_path: str, operation_name: str = "operation"):
+    def with_kb_lock(self, kb_path: str, operation_name: str = "operation"):
         """
-        Async context manager for KB operations with both file and async locks
-        
+        Return an async context manager for KB operations with both file and async locks.
+
         Usage:
             async with sync_manager.with_kb_lock(kb_path, "create_note"):
                 # Your KB operations here
                 ...
-        
+
         Args:
             kb_path: Path to knowledge base
             operation_name: Name of the operation (for logging)
-            
+
         Returns:
             Async context manager
         """
