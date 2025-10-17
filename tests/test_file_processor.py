@@ -81,3 +81,53 @@ def test_is_available(file_processor):
     """Test checking if docling is available"""
     available = file_processor.is_available()
     assert isinstance(available, bool)
+
+
+def test_format_enabled_via_settings(file_processor):
+    """Test that format availability respects settings configuration"""
+    if not file_processor.is_available():
+        pytest.skip("Docling not available")
+
+    # Get formats from settings
+    enabled_formats = file_processor.get_supported_formats()
+    assert isinstance(enabled_formats, list)
+
+    # Test that enabled formats are detected correctly
+    for fmt in enabled_formats:
+        test_file = Path(f"test.{fmt}")
+        result = file_processor.detect_file_format(test_file)
+        assert result == fmt, f"Format {fmt} should be enabled"
+
+    # Test that format checking uses settings
+    from config.settings import settings
+
+    # If pdf is in enabled formats, it should be detected
+    if "pdf" in enabled_formats:
+        assert settings.is_format_enabled("pdf", "docling")
+        assert file_processor.detect_file_format(Path("test.pdf")) == "pdf"
+
+
+def test_media_processing_enabled_flag():
+    """Test media processing enabled flag in settings"""
+    from config.settings import settings
+
+    # Test that the flag exists and is accessible
+    assert hasattr(settings, "MEDIA_PROCESSING_ENABLED")
+    assert isinstance(settings.MEDIA_PROCESSING_ENABLED, bool)
+
+    # Test helper methods
+    assert hasattr(settings, "is_media_processing_enabled")
+    assert isinstance(settings.is_media_processing_enabled(), bool)
+
+
+def test_media_processing_disabled_returns_empty_formats():
+    """Test that when media processing is disabled, get_supported_formats returns empty list"""
+    from config.settings import Settings
+
+    # Create settings instance with media processing disabled
+    test_settings = Settings(MEDIA_PROCESSING_ENABLED=False)
+
+    # Should return empty list when disabled
+    assert test_settings.get_media_processing_formats("docling") == []
+    assert not test_settings.is_format_enabled("pdf", "docling")
+    assert not test_settings.is_format_enabled("jpg", "docling")
