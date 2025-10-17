@@ -98,3 +98,6 @@ data/mcp_servers/*
 
 # HuggingFace cache
 .cache/huggingface/
+
+# Qwen CLI config (use global ~/.qwen only)
+.qwen/

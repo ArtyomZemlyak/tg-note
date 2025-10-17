@@ -39,8 +39,7 @@ async def example_basic_usage():
 
     # The agent has automatically:
     # 1. Generated ~/.qwen/settings.json
-    # 2. Generated ./knowledge_bases/test-kb/.qwen/settings.json
-    # 3. Configured mem-agent MCP server
+    # 2. Configured mem-agent MCP server
 
     print("\n✅ Agent initialized with MCP support")
     print(f"Working directory: {agent.working_directory}")
@@ -107,11 +106,8 @@ async def example_manual_config():
     print("\nGenerated configuration (HTTP/SSE):")
     print(config_json)
 
-    # Save to specific location
-    kb_path = Path("./knowledge_bases/my-kb")
-    kb_path.mkdir(parents=True, exist_ok=True)
-
-    saved_path = generator.save_to_kb_dir(kb_path)
+    # Save to global ~/.qwen/settings.json
+    saved_path = generator.save_to_qwen_dir()
     print(f"\n✅ Configuration saved to: {saved_path}")
 
     # Example: Generate STDIO config (backward compatibility)

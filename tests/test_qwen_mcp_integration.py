@@ -360,17 +360,6 @@ class TestQwenMCPConfigGenerator:
             assert "mcpServers" in config
             assert "mcp-hub" in config["mcpServers"]
 
-    def test_save_to_kb_dir(self, generator):
-        """Test saving to KB directory"""
-        with tempfile.TemporaryDirectory() as tmp:
-            kb_path = Path(tmp)
-
-            saved_path = generator.save_to_kb_dir(kb_path)
-
-            assert saved_path.exists()
-            assert saved_path.parent.name == ".qwen"
-            assert saved_path.parent.parent == kb_path
-
     def test_merge_with_existing_config(self, generator):
         """Test merging with existing configuration"""
         with tempfile.TemporaryDirectory() as tmp:
@@ -417,31 +406,8 @@ class TestSetupQwenMCPConfig:
         with tempfile.TemporaryDirectory() as tmp:
             # Mock home directory
             with patch("pathlib.Path.home", return_value=Path(tmp)):
-                paths = setup_qwen_mcp_config(user_id=123, global_config=True)
+                path = setup_qwen_mcp_config(user_id=123)
 
-                assert len(paths) == 1
-                assert paths[0].exists()
-                assert ".qwen" in str(paths[0])
+                assert path.exists()
+                assert ".qwen" in str(path)
 
-    def test_kb_config_only(self):
-        """Test setup with KB config only"""
-        with tempfile.TemporaryDirectory() as tmp:
-            kb_path = Path(tmp)
-
-            paths = setup_qwen_mcp_config(user_id=123, kb_path=kb_path, global_config=False)
-
-            assert len(paths) == 1
-            assert paths[0].exists()
-            assert paths[0].parent.parent == kb_path
-
-    def test_both_configs(self):
-        """Test setup with both global and KB configs"""
-        with tempfile.TemporaryDirectory() as tmp:
-            kb_path = Path(tmp) / "kb"
-            kb_path.mkdir()
-
-            with patch("pathlib.Path.home", return_value=Path(tmp)):
-                paths = setup_qwen_mcp_config(user_id=123, kb_path=kb_path, global_config=True)
-
-                assert len(paths) == 2
-                assert all(p.exists() for p in paths)
