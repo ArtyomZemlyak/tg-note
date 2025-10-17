@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import aiohttp
+from urllib.parse import urlsplit, urlunsplit
 from loguru import logger
 
 
@@ -105,6 +106,8 @@ class MCPClient:
         self.is_connected = False
         self.tools: List[MCPToolSchema] = []
         self._request_id = 0
+        # AICODE-NOTE: Cache discovered HTTP JSON-RPC endpoint when using SSE transport
+        self._rpc_url: Optional[str] = None
 
     async def connect(self) -> bool:
         """
@@ -457,21 +460,58 @@ class MCPClient:
 
         self._request_id += 1
         request = {"jsonrpc": "2.0", "id": self._request_id, "method": method, "params": params}
+        
+        # Build candidate RPC URLs. Some servers expose SSE at /sse (GET only)
+        # but handle JSON-RPC POST at a different path (e.g., /messages or /rpc).
+        candidates: List[str] = []
+        if self._rpc_url:
+            candidates.append(self._rpc_url)
+        if self.config.url not in candidates:
+            candidates.append(self.config.url)
 
+        # Derive common alternatives from an /sse URL
         try:
-            async with self.session.post(
-                self.config.url, json=request, timeout=aiohttp.ClientTimeout(total=30)
-            ) as response:
-                if response.status != 200:
-                    logger.error(f"[MCPClient] HTTP request failed with status {response.status}")
-                    return None
+            parts = urlsplit(self.config.url)
+            path = parts.path or "/"
+            if path.endswith("/sse") or path.endswith("/sse/"):
+                base_path = path[:-4] if path.endswith("/sse") else path[:-5]
 
-                result = await response.json()
-                return result
+                def make_url(p: str) -> str:
+                    return urlunsplit((parts.scheme, parts.netloc, p or "/", "", ""))
 
-        except Exception as e:
-            logger.error(f"[MCPClient] HTTP request failed: {e}", exc_info=True)
-            return None
+                for p in (f"{base_path}/messages", f"{base_path}/rpc", base_path or "/"):
+                    u = make_url(p)
+                    if u not in candidates:
+                        candidates.append(u)
+        except Exception:
+            pass
+
+        errors: List[str] = []
+        for url in candidates:
+            try:
+                async with self.session.post(
+                    url, json=request, timeout=aiohttp.ClientTimeout(total=30)
+                ) as response:
+                    if response.status == 200:
+                        # Cache working RPC endpoint
+                        self._rpc_url = url
+                        result = await response.json()
+                        return result
+                    else:
+                        msg = f"{response.status} at {url}"
+                        errors.append(msg)
+                        # Try next candidate on 404/405; otherwise stop early
+                        if response.status not in (404, 405):
+                            logger.error(f"[MCPClient] HTTP request failed with status {msg}")
+                            return None
+            except Exception as e:
+                errors.append(f"exception {type(e).__name__} at {url}: {e}")
+                continue
+
+        logger.error(
+            f"[MCPClient] HTTP request failed for all endpoints. Tried: {', '.join(errors)}"
+        )
+        return None
 
     async def _send_notification(
         self, method: str, params: Optional[Dict[str, Any]] = None
@@ -513,12 +553,22 @@ class MCPClient:
 
         notification = {"jsonrpc": "2.0", "method": method, "params": params or {}}
 
-        try:
-            await self.session.post(
-                self.config.url, json=notification, timeout=aiohttp.ClientTimeout(total=5)
-            )
-        except Exception as e:
-            logger.error(f"[MCPClient] HTTP notification failed: {e}", exc_info=True)
+        # Prefer discovered RPC URL, fall back to configured URL
+        urls_to_try: List[str] = []
+        if self._rpc_url:
+            urls_to_try.append(self._rpc_url)
+        if self.config.url not in urls_to_try:
+            urls_to_try.append(self.config.url)
+
+        for url in urls_to_try:
+            try:
+                await self.session.post(
+                    url, json=notification, timeout=aiohttp.ClientTimeout(total=5)
+                )
+                return
+            except Exception:
+                continue
+        logger.error("[MCPClient] HTTP notification failed: all endpoints unreachable")
 
     def __del__(self):
         """Cleanup on deletion"""
