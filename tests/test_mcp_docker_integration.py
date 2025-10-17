@@ -60,21 +60,34 @@ def test_memory_mcp_tool_uses_env_url_in_docker(tmp_path, monkeypatch):
 async def test_mcp_hub_health_includes_builtin_tools():
     """Test that MCP Hub health check reports built-in tools"""
     # Arrange: Mock the health response
-    # Note: The number of tools is dynamic based on configuration:
-    # - Base tools (always available): store_memory, retrieve_memory, list_categories (3 tools)
-    # - Vector search tools (conditional): vector_search, reindex_vector (2 tools)
-    # Total: 3 tools (vector search disabled) or 5 tools (vector search enabled)
+    # Note: The number of tools is DYNAMIC based on configuration:
+    # 
+    # Memory tools (3 tools - controlled by AGENT_ENABLE_MCP_MEMORY):
+    #   - store_memory
+    #   - retrieve_memory
+    #   - list_categories
+    # 
+    # Vector search tools (2 tools - controlled by VECTOR_SEARCH_ENABLED + dependencies):
+    #   - vector_search
+    #   - reindex_vector
+    #
+    # Possible totals:
+    #   - 0 tools: both disabled
+    #   - 2 tools: only vector search enabled
+    #   - 3 tools: only memory enabled (default)
+    #   - 5 tools: both enabled
     mock_health_response = {
         "status": "ok",
         "service": "mcp-hub",
         "version": "1.0.0",
         "builtin_tools": {
-            "total": 3,  # Can be 3 or 5 depending on VECTOR_SEARCH_ENABLED
+            "total": 3,  # Can be 0, 2, 3, or 5 depending on config
             "names": [
                 "store_memory",
                 "retrieve_memory",
                 "list_categories",
-                # Conditionally: "vector_search", "reindex_vector"
+                # Conditionally added if VECTOR_SEARCH_ENABLED:
+                # "vector_search", "reindex_vector"
             ],
         },
         "registry": {
@@ -89,16 +102,23 @@ async def test_mcp_hub_health_includes_builtin_tools():
 
     # Act & Assert: Verify the structure
     assert "builtin_tools" in mock_health_response
-    # After refactor, MCP Hub exposes memory tools and optionally vector search tools
+    # After refactor, MCP Hub exposes tools dynamically based on configuration
     # Management endpoints are available via HTTP API, not as MCP tools
     
-    # Base tools should always be present
-    assert mock_health_response["builtin_tools"]["total"] >= 3
-    assert len(mock_health_response["builtin_tools"]["names"]) >= 3
-    assert "store_memory" in mock_health_response["builtin_tools"]["names"]
-    assert "retrieve_memory" in mock_health_response["builtin_tools"]["names"]
-    assert "list_categories" in mock_health_response["builtin_tools"]["names"]
-    
-    # Total should be either 3 (no vector search) or 5 (with vector search)
-    assert mock_health_response["builtin_tools"]["total"] in [3, 5]
+    # Total should be one of the valid combinations
+    assert mock_health_response["builtin_tools"]["total"] in [0, 2, 3, 5]
     assert mock_health_response["builtin_tools"]["total"] == len(mock_health_response["builtin_tools"]["names"])
+    
+    # If memory tools are in the list, verify they are complete
+    memory_tools = ["store_memory", "retrieve_memory", "list_categories"]
+    memory_tools_present = [tool in mock_health_response["builtin_tools"]["names"] for tool in memory_tools]
+    if any(memory_tools_present):
+        # Either all memory tools present or none
+        assert all(memory_tools_present), "Memory tools should be all present or all absent"
+    
+    # If vector search tools are in the list, verify they are complete
+    vector_tools = ["vector_search", "reindex_vector"]
+    vector_tools_present = [tool in mock_health_response["builtin_tools"]["names"] for tool in vector_tools]
+    if any(vector_tools_present):
+        # Either all vector tools present or none
+        assert all(vector_tools_present), "Vector search tools should be all present or all absent"
