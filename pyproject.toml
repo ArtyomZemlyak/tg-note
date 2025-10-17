@@ -69,24 +69,32 @@ mcp = [
     "fastmcp>=0.1.0",
 ]
 mem-agent = [
-    # Memory Agent dependencies - Core (platform-independent)
-    "transformers>=4.51.0,<4.54.0",
-    "huggingface-hub>=0.23.0",
-    "fastmcp>=0.1.0",
-    "aiofiles>=23.0.0",
-    "pydantic>=2.0.0",
-    "python-dotenv>=1.0.0",
-    "jinja2>=3.0.0",
-    "pygments>=2.19.0",
-    "black>=23.0.0",  # For code formatting in agent responses
+    # Memory Agent dependencies - Lightweight (for Docker deployment)
+    # Models are run in separate containers (vLLM/SGLang/LM Studio)
+    # AICODE-NOTE: Heavy ML dependencies (transformers, vllm, mlx) removed
+    # Model inference is handled by separate Docker containers
+    "fastmcp>=0.1.0",  # MCP protocol support
+    "aiofiles>=23.0.0",  # Async file operations
+    "jinja2>=3.0.0",  # Template rendering
+    "pygments>=2.19.0",  # Code syntax highlighting
+    "black>=23.0.0",  # Code formatting in agent responses
 ]
-mem-agent-macos = [
-    # Memory Agent dependencies for macOS (MLX backend)
+mem-agent-local = [
+    # DEPRECATED: Local model inference dependencies
+    # Use Docker containers (vLLM/SGLang/LM Studio) instead
+    # Keep this for backwards compatibility with local development
+    "transformers>=4.51.0,<4.54.0",
+    "torch>=2.0.0",
+]
+mem-agent-local-macos = [
+    # DEPRECATED: macOS MLX backend for local development
+    # Use Docker containers instead (recommended)
     "mlx>=0.0.1",
     "mlx-lm>=0.0.1",
 ]
-mem-agent-linux = [
-    # Memory Agent dependencies for Linux/Windows (vLLM backend)
+mem-agent-local-linux = [
+    # DEPRECATED: Linux vLLM backend for local development
+    # Use Docker containers instead (recommended)
     "vllm>=0.5.5",
 ]
 

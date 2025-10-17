@@ -17,7 +17,9 @@ WORKDIR /app
 COPY pyproject.toml poetry.lock* README.md ./
 
 # Install dependencies with Poetry (no virtualenv)
-# Install base app with extras for mcp and mem-agent
+# Install base app with extras for mcp and mem-agent (lightweight - no ML models)
+# AICODE-NOTE: mem-agent now uses lightweight dependencies
+# Model inference is handled by external containers (vLLM/SGLang/LM Studio)
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir poetry && \
     poetry config virtualenvs.create false && \
