@@ -223,6 +223,33 @@ class NoteCreationService(INoteCreationService):
             # Track processed message
             self._track_processed(group, content_hash, kb_path, processed_content)
 
+            # AICODE-NOTE: Auto-commit and push changes before releasing KB lock
+            # This ensures that all KB changes are committed and pushed to remote (if configured)
+            # before another user can start working with the same KB
+            if git_ops.enabled:
+                await self.bot.edit_message_text(
+                    "📤 Сохраняю изменения в git...", chat_id=chat_id, message_id=processing_msg_id
+                )
+                
+                # Get git settings
+                kb_git_remote = self.settings_manager.get_setting(user_id, "KB_GIT_REMOTE")
+                kb_git_branch = self.settings_manager.get_setting(user_id, "KB_GIT_BRANCH")
+                
+                # Create commit message
+                commit_message = f"Add: {processed_content.get('title', 'Untitled Note')}"
+                
+                # Auto-commit and push
+                success, message = git_ops.auto_commit_and_push(
+                    message=commit_message,
+                    remote=kb_git_remote,
+                    branch=kb_git_branch,
+                )
+                
+                if not success:
+                    logger.warning(f"Auto-commit/push failed: {message}")
+                else:
+                    logger.info(f"Auto-commit/push successful: {message}")
+
             # Send success notification
             await self._send_success_notification(
                 processing_msg_id, chat_id, kb_path, processed_content
@@ -290,47 +317,9 @@ class NoteCreationService(INoteCreationService):
                     file_title = self._extract_title_from_file(abs_path) or title
                     kb_manager.update_index(abs_path, file_title, kb_structure)
 
-        # Git operations
-        if git_ops.enabled and (files_created or files_edited):
-            kb_git_auto_push = self.settings_manager.get_setting(user_id, "KB_GIT_AUTO_PUSH")
-            kb_git_remote = self.settings_manager.get_setting(user_id, "KB_GIT_REMOTE")
-            kb_git_branch = self.settings_manager.get_setting(user_id, "KB_GIT_BRANCH")
-
-            # Add all created and edited files to git
-            all_files = files_created + files_edited
-            files_added = False
-
-            for file_path in all_files:
-                # Convert to absolute path if relative
-                # Agent returns paths relative to its working directory
-                abs_path = Path(file_path)
-                if not abs_path.is_absolute():
-                    # Use agent_working_dir as base for relative paths
-                    abs_path = agent_working_dir / file_path
-                if abs_path.exists():
-                    git_ops.add(str(abs_path))
-                    files_added = True
-
-            # Add index if it was updated
-            index_path = kb_path / "index.md"
-            if index_path.exists() and files_created:
-                git_ops.add(str(index_path))
-                files_added = True
-
-            # Only commit if we actually added files
-            if files_added:
-                # Create commit message
-                if len(files_created) == 1:
-                    commit_msg = f"Add: {title}"
-                elif files_created:
-                    commit_msg = f"Add {len(files_created)} files: {title}"
-                else:
-                    commit_msg = f"Update {len(files_edited)} files: {title}"
-
-                git_ops.commit(commit_msg)
-
-                if kb_git_auto_push:
-                    git_ops.push(kb_git_remote, kb_git_branch)
+        # AICODE-NOTE: Git operations (add/commit/push) are now handled automatically
+        # by auto_commit_and_push() after _save_to_kb completes, before releasing KB lock.
+        # This ensures proper transaction-like behavior with locking.
 
     def _track_processed(
         self, group: MessageGroup, content_hash: str, kb_path: Path, processed_content: dict

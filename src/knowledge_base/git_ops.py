@@ -412,3 +412,106 @@ class GitOperations:
             return False
 
         return self.push(remote, branch)
+
+    def has_remote(self, remote: str = "origin") -> bool:
+        """
+        Check if repository has a remote configured
+
+        Args:
+            remote: Remote name to check
+
+        Returns:
+            True if remote exists, False otherwise
+        """
+        if not self.enabled or not self.repo:
+            return False
+
+        try:
+            self.repo.remote(remote)
+            return True
+        except ValueError:
+            return False
+
+    def has_changes(self) -> bool:
+        """
+        Check if repository has uncommitted changes
+
+        Returns:
+            True if there are uncommitted changes, False otherwise
+        """
+        if not self.enabled or not self.repo:
+            return False
+
+        try:
+            # Check for modified or untracked files
+            return self.repo.is_dirty(untracked_files=True)
+        except Exception as e:
+            logger.error(f"Failed to check for changes: {e}")
+            return False
+
+    def auto_commit_and_push(
+        self,
+        message: str = "Auto-commit: Update knowledge base",
+        remote: str = "origin",
+        branch: Optional[str] = None,
+    ) -> tuple[bool, str]:
+        """
+        Automatically commit all changes and push to remote if configured.
+
+        This method:
+        1. Checks if there are any changes
+        2. Adds all changes to staging
+        3. Commits with the provided message
+        4. Checks if remote repository exists
+        5. Pushes to remote if it exists
+
+        Args:
+            message: Commit message
+            remote: Remote name (default: "origin")
+            branch: Branch name (default: current branch)
+
+        Returns:
+            Tuple of (success, message)
+        """
+        if not self.enabled or not self.repo:
+            return False, "Git operations disabled"
+
+        try:
+            # Check if there are any changes
+            if not self.has_changes():
+                logger.debug("No changes to commit")
+                return True, "No changes to commit"
+
+            # Add all changes (including untracked files)
+            try:
+                self.repo.git.add("-A")
+                logger.info("Added all changes to staging")
+            except Exception as e:
+                logger.error(f"Failed to add changes: {e}")
+                return False, f"Failed to add changes: {e}"
+
+            # Commit changes
+            try:
+                self.repo.index.commit(message)
+                logger.info(f"Committed changes: {message}")
+            except Exception as e:
+                logger.error(f"Failed to commit: {e}")
+                return False, f"Failed to commit: {e}"
+
+            # Check if remote exists
+            if not self.has_remote(remote):
+                logger.info(f"No remote '{remote}' configured, skipping push")
+                return True, f"Changes committed (no remote '{remote}' to push to)"
+
+            # Push to remote
+            push_success = self.push(remote, branch)
+            if push_success:
+                logger.info(f"Successfully pushed to {remote}/{branch or 'current branch'}")
+                return True, f"Changes committed and pushed to {remote}"
+            else:
+                logger.warning(f"Commit succeeded but push to {remote} failed")
+                return True, f"Changes committed but push to {remote} failed"
+
+        except Exception as e:
+            logger.error(f"Error in auto_commit_and_push: {e}", exc_info=True)
+            return False, f"Error: {e}"
