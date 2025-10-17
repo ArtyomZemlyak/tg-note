@@ -326,44 +326,46 @@ class GitOperations:
             # Detached HEAD or no branch
             active_branch_name = None
 
-        # Determine target branch on remote
-        target_branch = branch if branch not in (None, "", "auto", "current", "HEAD") else None
-        if target_branch is None:
-            target_branch = active_branch_name or "main"
-
-        # Determine local refspec (what to push)
         local_ref = active_branch_name or "HEAD"
 
-        # Check tracking configuration
-        has_tracking = False
-        tracking_remote_head = None
-        if active_branch_name:
-            try:
-                tracking = self.repo.active_branch.tracking_branch()  # type: ignore[attr-defined]
-                has_tracking = bool(
-                    tracking
-                    and tracking.remote_name == remote
-                    and tracking.remote_head == target_branch
-                )
-                if tracking and tracking.remote_name == remote:
-                    tracking_remote_head = tracking.remote_head
-            except Exception:
-                has_tracking = False
+        # Determine if explicit target branch was provided
+        explicit_branch = branch if branch not in (None, "", "auto", "current", "HEAD") else None
 
         # Perform push
         try:
-            # AICODE-NOTE: Always use explicit refspec to avoid branch name mismatch issues
-            # when upstream branch name differs from local branch name
-            if has_tracking:
-                # Tracking set correctly, use explicit refspec to avoid Git's branch name mismatch warning
-                # Push current HEAD to the tracking branch explicitly
-                self.repo.git.push(remote, f"HEAD:{tracking_remote_head}")
+            # AICODE-NOTE: If explicit branch is specified (e.g., from KB_GIT_BRANCH config),
+            # always push directly to it without modifying upstream tracking configuration.
+            # This prevents the "upstream branch name mismatch" error when local branch name
+            # differs from the configured target branch.
+            if explicit_branch:
+                # Explicit target branch - push directly without setting upstream
+                self.repo.git.push(remote, f"HEAD:{explicit_branch}")
+                logger.info(f"Pushed to {remote}/{explicit_branch}")
+                return True
             else:
-                # First push or remote/branch mismatch: set upstream while pushing
-                self.repo.git.push("--set-upstream", remote, f"{local_ref}:{target_branch}")
+                # Auto mode - determine target from tracking or current branch
+                target_branch = active_branch_name or "main"
+                
+                # Check if tracking is configured
+                tracking_branch = None
+                if active_branch_name:
+                    try:
+                        tracking = self.repo.active_branch.tracking_branch()  # type: ignore[attr-defined]
+                        if tracking and tracking.remote_name == remote:
+                            tracking_branch = tracking.remote_head
+                    except Exception:
+                        pass
 
-            logger.info(f"Pushed to {remote}/{target_branch}")
-            return True
+                if tracking_branch:
+                    # Has tracking - push to tracking branch explicitly
+                    self.repo.git.push(remote, f"HEAD:{tracking_branch}")
+                    logger.info(f"Pushed to {remote}/{tracking_branch} (tracking branch)")
+                else:
+                    # First push - set upstream
+                    self.repo.git.push("--set-upstream", remote, f"{local_ref}:{target_branch}")
+                    logger.info(f"Pushed to {remote}/{target_branch} and set upstream")
+                
+                return True
         except GitCommandError as gce:  # type: ignore[misc]
             error_msg = str(gce)
             # AICODE-NOTE: Handle authentication errors specifically to provide helpful guidance
@@ -390,9 +392,10 @@ class GitOperations:
                 logger.error(f"Failed to push (git): {gce}")
                 return False
         except Exception as e:
+            target = explicit_branch or "auto"
             logger.error(
                 f"Failed to push: {type(e).__name__}: {e}. "
-                f"Tried pushing {local_ref} -> {remote}/{target_branch}."
+                f"Tried pushing {local_ref} -> {remote}/{target}."
             )
             return False
 
