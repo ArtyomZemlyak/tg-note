@@ -8,11 +8,39 @@ MCP is a protocol for connecting AI agents to external tools and data sources. T
 
 ### Built-in MCP Tools
 
-Currently, the following built-in MCP tools are available:
+The MCP Hub provides built-in tools that are dynamically available based on configuration and dependencies.
 
-#### Memory Agent Tool
+**Tool availability is checked at startup** - disabled tools will NOT appear in the tools list.
 
-Personal note-taking and search system for the agent using embeddings (e.g., [bge-m3](https://huggingface.co/BAAI/bge-m3)).
+**Memory Tools (Conditionally Available):**
+- Tools: `store_memory`, `retrieve_memory`, `list_categories`
+- Requirement: `AGENT_ENABLE_MCP_MEMORY: true` (default: false)
+- Dependencies: None (uses basic JSON storage)
+- Total: 3 tools when enabled
+
+**Vector Search Tools (Conditionally Available):**
+- Tools: `vector_search`, `reindex_vector`
+- Requirements:
+  - Configuration: `VECTOR_SEARCH_ENABLED: true` (default: false)
+  - Dependencies: `pip install -e '.[vector-search]'`
+- Total: 2 tools when enabled
+
+**Possible Configurations:**
+- 0 tools: Both disabled (minimal mode)
+- 3 tools: Only memory enabled (typical setup)
+- 2 tools: Only vector search enabled (rare)
+- 5 tools: Both enabled (full features)
+
+#### Memory Tools
+
+⚙️ **Configurable via AGENT_ENABLE_MCP_MEMORY**
+
+Personal note-taking and search system for the agent using JSON storage (no dependencies required).
+
+**Availability:**
+These tools are available when:
+- **Configuration**: `AGENT_ENABLE_MCP_MEMORY: true` in config.yaml (default: false)
+- **Dependencies**: None (uses basic JSON storage with automatic fallback)
 
 **Purpose:**
 This tool is specifically designed for the main agent to:
@@ -29,13 +57,24 @@ This tool is specifically designed for the main agent to:
 
 **Tools:**
 
-- `mcp_memory_agent` - Unified note management (store, search, list)
-- `memory_store` - Record a note
-- `memory_search` - Search through recorded notes
+- `store_memory` - Store information in memory
+- `retrieve_memory` - Retrieve information from memory
+- `list_categories` - List all memory categories
 
-#### Vector Search Tool
+**Note:** If disabled, these tools will NOT appear in the MCP tools list.
+
+#### Vector Search Tools
+
+⚙️ **Configurable via VECTOR_SEARCH_ENABLED + Dependencies Required**
 
 Semantic vector search in knowledge base using AI-powered embeddings.
+
+**Availability:**
+These tools are available when:
+1. **Configuration**: `VECTOR_SEARCH_ENABLED: true` in config.yaml (default: false)
+2. **Dependencies**: Vector search packages installed (`pip install -e '.[vector-search]'`)
+   - sentence-transformers (for embeddings)
+   - faiss-cpu or qdrant-client (for vector storage)
 
 **Purpose:**
 This tool provides semantic search capabilities for the knowledge base:
@@ -52,8 +91,10 @@ This tool provides semantic search capabilities for the knowledge base:
 
 **Tools:**
 
-- `kb_vector_search` - Semantic search in knowledge base
-- `kb_reindex_vector` - Reindex knowledge base for vector search
+- `vector_search` - Semantic search in knowledge base
+- `reindex_vector` - Reindex knowledge base for vector search
+
+**Note:** If disabled or dependencies missing, these tools will NOT appear in the MCP tools list.
 
 ## Configuration
 

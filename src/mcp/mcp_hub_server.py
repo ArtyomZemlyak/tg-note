@@ -98,20 +98,166 @@ _registry: Optional[MCPServerRegistry] = None
 # Global vector search manager (shared across users)
 _vector_search_manager: Optional[VectorSearchManager] = None
 
-# Built-in tools count (tools provided by MCP Hub itself)
-# These are registered via @mcp.tool() decorator
-BUILTIN_TOOLS = [
-    "store_memory",
-    "retrieve_memory",
-    "list_categories",
-    "vector_search",
-    "reindex_vector",
-]
+# Vector search availability cache
+_vector_search_available: Optional[bool] = None
+
+# Memory tools availability cache
+_memory_tools_available: Optional[bool] = None
+
+
+def check_memory_tools_availability() -> bool:
+    """
+    Check if memory tools are available based on configuration.
+    
+    Memory tools use JSON storage by default (no dependencies required),
+    but can be disabled via AGENT_ENABLE_MCP_MEMORY config.
+    
+    Returns:
+        True if memory tools should be available, False otherwise
+    """
+    global _memory_tools_available
+    
+    # Return cached result if already checked
+    if _memory_tools_available is not None:
+        return _memory_tools_available
+    
+    try:
+        from config import settings as app_settings
+        
+        # Check configuration
+        # Note: Memory tools default to DISABLED (default=False in settings)
+        # They use basic JSON storage with no dependencies when enabled
+        if not app_settings.AGENT_ENABLE_MCP_MEMORY:
+            logger.info("💾 Memory tools are disabled in configuration (AGENT_ENABLE_MCP_MEMORY: false)")
+            _memory_tools_available = False
+            return False
+        
+        logger.info("💾 Memory tools are enabled (using JSON storage)")
+        _memory_tools_available = True
+        return True
+        
+    except Exception as e:
+        logger.error(f"❌ Error checking memory tools availability: {e}", exc_info=True)
+        # Default to DISABLED on error (matches Field default=False)
+        _memory_tools_available = False
+        return False
+
+
+def check_vector_search_availability() -> bool:
+    """
+    Check if vector search is available based on:
+    1. Configuration (VECTOR_SEARCH_ENABLED)
+    2. Dependencies (sentence-transformers, faiss-cpu, etc.)
+    
+    Returns:
+        True if vector search should be available, False otherwise
+    """
+    global _vector_search_available
+    
+    # Return cached result if already checked
+    if _vector_search_available is not None:
+        return _vector_search_available
+    
+    try:
+        from config import settings as app_settings
+        
+        # Check 1: Configuration
+        if not app_settings.VECTOR_SEARCH_ENABLED:
+            logger.info("🔍 Vector search is disabled in configuration (VECTOR_SEARCH_ENABLED: false)")
+            _vector_search_available = False
+            return False
+        
+        # Check 2: Dependencies
+        logger.info("🔍 Checking vector search dependencies...")
+        try:
+            # Try to import required packages
+            import sentence_transformers  # noqa: F401
+            logger.info("  ✓ sentence-transformers is installed")
+            
+            # Check for at least one vector store
+            faiss_available = False
+            qdrant_available = False
+            
+            try:
+                import faiss  # noqa: F401
+                faiss_available = True
+                logger.info("  ✓ faiss-cpu is installed")
+            except ImportError:
+                logger.debug("  ✗ faiss-cpu not available")
+            
+            try:
+                import qdrant_client  # noqa: F401
+                qdrant_available = True
+                logger.info("  ✓ qdrant-client is installed")
+            except ImportError:
+                logger.debug("  ✗ qdrant-client not available")
+            
+            if not (faiss_available or qdrant_available):
+                logger.warning(
+                    "⚠️  Vector search is enabled in config but no vector store backend is available. "
+                    "Install dependencies: pip install -e '.[vector-search]'"
+                )
+                _vector_search_available = False
+                return False
+            
+            # All checks passed
+            logger.info("✓ Vector search dependencies are available")
+            _vector_search_available = True
+            return True
+            
+        except ImportError as e:
+            logger.warning(
+                f"⚠️  Vector search is enabled in config but required dependencies are missing: {e}. "
+                f"Install dependencies: pip install -e '.[vector-search]'"
+            )
+            _vector_search_available = False
+            return False
+            
+    except Exception as e:
+        logger.error(f"❌ Error checking vector search availability: {e}", exc_info=True)
+        _vector_search_available = False
+        return False
+
+
+def get_builtin_tools() -> List[str]:
+    """
+    Get list of available built-in MCP tools provided by the hub.
+    
+    This is dynamic and depends on:
+    - Configuration settings (AGENT_ENABLE_MCP_MEMORY, VECTOR_SEARCH_ENABLED)
+    - Available dependencies (for vector search)
+    
+    Returns:
+        List of available tool names
+    """
+    tools = []
+    
+    # Memory tools (conditional - checked at tool list generation)
+    # Checks configuration (AGENT_ENABLE_MCP_MEMORY)
+    # Note: These tools use JSON storage by default, which has no dependencies
+    # and includes automatic fallback from vector/mem-agent storage if needed.
+    if check_memory_tools_availability():
+        tools.extend([
+            "store_memory",
+            "retrieve_memory",
+            "list_categories",
+        ])
+    
+    # Vector search tools (conditional - checked at tool list generation)
+    # Checks both configuration (VECTOR_SEARCH_ENABLED) and dependencies
+    # (sentence-transformers, faiss-cpu or qdrant-client)
+    if check_vector_search_availability():
+        tools.extend([
+            "vector_search",
+            "reindex_vector",
+        ])
+    
+    return tools
 
 
 def get_builtin_tools_count() -> int:
     """Get count of built-in MCP tools provided by the hub"""
-    return len(BUILTIN_TOOLS)
+    return len(get_builtin_tools())
 
 
 def get_registry() -> MCPServerRegistry:
@@ -243,7 +389,7 @@ async def health_check(request):
                 "version": "1.0.0",
                 "builtin_tools": {
                     "total": get_builtin_tools_count(),
-                    "names": BUILTIN_TOOLS,
+                    "names": get_builtin_tools(),
                 },
                 "registry": {
                     "servers_total": len(registry.get_all_servers()),
@@ -273,6 +419,13 @@ async def health_check(request):
 # ============================================================================
 # Memory Tools - Built-in MCP Tools
 # ============================================================================
+# AICODE-NOTE: Memory tools are always registered with @mcp.tool() decorator,
+# but they check availability dynamically at runtime using check_memory_tools_availability().
+# This ensures:
+# 1. Tools are NOT listed in /health endpoint when disabled via AGENT_ENABLE_MCP_MEMORY
+# 2. Tools return proper error messages when called but disabled
+# 3. Configuration (AGENT_ENABLE_MCP_MEMORY) is respected
+# 4. No dependencies required (JSON storage is always available as fallback)
 
 
 @mcp.tool()
@@ -296,6 +449,13 @@ def store_memory(
     Returns:
         Result with memory ID
     """
+    # Check availability first
+    if not check_memory_tools_availability():
+        return {
+            "success": False,
+            "error": "Memory tools are not available. Check config (AGENT_ENABLE_MCP_MEMORY)."
+        }
+    
     logger.info("💾 STORE_MEMORY called")
     logger.info(f"  User: {user_id}")
     logger.info(f"  Category: {category}")
@@ -338,6 +498,13 @@ def retrieve_memory(
     Returns:
         List of matching memories
     """
+    # Check availability first
+    if not check_memory_tools_availability():
+        return {
+            "success": False,
+            "error": "Memory tools are not available. Check config (AGENT_ENABLE_MCP_MEMORY)."
+        }
+    
     logger.info("🔍 RETRIEVE_MEMORY called")
     logger.info(f"  User: {user_id}")
     logger.info(f"  Query: {query or 'all'}")
@@ -374,6 +541,13 @@ def list_categories(user_id: int) -> dict:
     Returns:
         List of categories with their memory counts
     """
+    # Check availability first
+    if not check_memory_tools_availability():
+        return {
+            "success": False,
+            "error": "Memory tools are not available. Check config (AGENT_ENABLE_MCP_MEMORY)."
+        }
+    
     logger.info("📋 LIST_CATEGORIES called")
     logger.info(f"  User: {user_id}")
 
@@ -397,6 +571,13 @@ def list_categories(user_id: int) -> dict:
 # ============================================================================
 # Vector Search Tools - Built-in MCP Tools
 # ============================================================================
+# AICODE-NOTE: Vector search tools are always registered with @mcp.tool() decorator,
+# but they check availability dynamically at runtime using check_vector_search_availability().
+# This ensures:
+# 1. Tools are NOT listed in /health endpoint when disabled or dependencies missing
+# 2. Tools return proper error messages when called but unavailable
+# 3. Configuration (VECTOR_SEARCH_ENABLED) is respected
+# 4. Dependencies (sentence-transformers, faiss-cpu, etc.) are verified
 
 
 def get_vector_search_manager() -> Optional[VectorSearchManager]:
@@ -463,6 +644,13 @@ def vector_search(query: str, top_k: int = 5, user_id: int = None) -> dict:
     Returns:
         Search results with relevant documents
     """
+    # Check availability first
+    if not check_vector_search_availability():
+        return {
+            "success": False,
+            "error": "Vector search is not available. Check config (VECTOR_SEARCH_ENABLED) and dependencies."
+        }
+    
     logger.info("🔍 VECTOR_SEARCH called")
     logger.info(f"  Query: {query}")
     logger.info(f"  Top K: {top_k}")
@@ -520,6 +708,13 @@ def reindex_vector(force: bool = False, user_id: int = None) -> dict:
     Returns:
         Reindexing statistics
     """
+    # Check availability first
+    if not check_vector_search_availability():
+        return {
+            "success": False,
+            "error": "Vector search is not available. Check config (VECTOR_SEARCH_ENABLED) and dependencies."
+        }
+    
     logger.info("🔄 REINDEX_VECTOR called")
     logger.info(f"  Force: {force}")
     if user_id:
