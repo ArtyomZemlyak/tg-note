@@ -224,6 +224,29 @@ class GitOperations:
             logger.error(f"Failed to pull from {remote}/{target_branch}: {error_msg}")
             return False, f"Error during pull: {error_msg}"
 
+    def _is_https_remote(self, remote_name: str) -> bool:
+        """
+        Check if remote uses HTTPS URL
+
+        Args:
+            remote_name: Name of the remote
+
+        Returns:
+            True if remote uses HTTPS, False otherwise
+        """
+        if not self.repo:
+            return False
+
+        try:
+            remote = self.repo.remote(remote_name)
+            # Check all URLs for this remote
+            for url in remote.urls:
+                if url.startswith("https://"):
+                    return True
+        except Exception:
+            pass
+        return False
+
     def push(self, remote: str = "origin", branch: Optional[str] = None) -> bool:
         """
         Push commits to remote
@@ -290,8 +313,30 @@ class GitOperations:
             logger.info(f"Pushed to {remote}/{target_branch}")
             return True
         except GitCommandError as gce:  # type: ignore[misc]
-            logger.error(f"Failed to push (git): {gce}")
-            return False
+            error_msg = str(gce)
+            # AICODE-NOTE: Handle authentication errors specifically to provide helpful guidance
+            if (
+                "could not read Username" in error_msg
+                or "could not read Password" in error_msg
+                or "authentication failed" in error_msg.lower()
+                or "authentication required" in error_msg.lower()
+            ):
+                is_https = self._is_https_remote(remote)
+                logger.error(
+                    f"Failed to push (authentication error): {gce}. "
+                    f"Remote '{remote}' requires authentication."
+                )
+                if is_https:
+                    logger.info(
+                        "Suggestions to fix authentication issues:\n"
+                        "1. Use SSH instead of HTTPS: git remote set-url origin git@github.com:user/repo.git\n"
+                        "2. Configure git credential helper: git config credential.helper store\n"
+                        "3. Use a personal access token: https://github.com/settings/tokens"
+                    )
+                return False
+            else:
+                logger.error(f"Failed to push (git): {gce}")
+                return False
         except Exception as e:
             logger.error(
                 f"Failed to push: {type(e).__name__}: {e}. "

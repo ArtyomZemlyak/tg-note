@@ -234,6 +234,16 @@ Warning: "Remote branch 'branch_name' doesn't exist on origin"
 Action: Automatically creates branch locally and pushes to remote
 ```
 
+**Authentication errors**:
+```
+Error: "Failed to push (authentication error): could not read Username"
+Action: Configure git credentials or switch to SSH
+Suggestions:
+  1. Use SSH instead of HTTPS: git remote set-url origin git@github.com:user/repo.git
+  2. Configure git credential helper: git config credential.helper store
+  3. Use a personal access token: https://github.com/settings/tokens
+```
+
 ### Lock Timeout
 
 If a user's operation takes > 5 minutes:
