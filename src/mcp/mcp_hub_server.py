@@ -45,6 +45,9 @@ from src.mcp.memory.memory_storage import MemoryStorage
 # Import registry components
 from src.mcp.registry.registry import MCPServerRegistry, MCPServerSpec
 
+# Import vector search components
+from src.vector_search import VectorSearchManager
+
 # Configure logger
 log_dir = Path("logs")
 log_dir.mkdir(parents=True, exist_ok=True)
@@ -92,12 +95,17 @@ _storages: Dict[int, MemoryStorage] = {}
 # Global registry instance
 _registry: Optional[MCPServerRegistry] = None
 
+# Global vector search manager (shared across users)
+_vector_search_manager: Optional[VectorSearchManager] = None
+
 # Built-in tools count (tools provided by MCP Hub itself)
 # These are registered via @mcp.tool() decorator
 BUILTIN_TOOLS = [
     "store_memory",
     "retrieve_memory",
     "list_categories",
+    "vector_search",
+    "reindex_vector",
 ]
 
 
@@ -383,6 +391,178 @@ def list_categories(user_id: int) -> dict:
         return result
     except Exception as e:
         logger.error(f"❌ Error listing categories: {e}", exc_info=True)
+        return {"success": False, "error": str(e), "error_type": type(e).__name__}
+
+
+# ============================================================================
+# Vector Search Tools - Built-in MCP Tools
+# ============================================================================
+
+
+def get_vector_search_manager() -> Optional[VectorSearchManager]:
+    """
+    Get or create global vector search manager
+    
+    Returns:
+        VectorSearchManager instance or None if disabled/failed
+    """
+    global _vector_search_manager
+    
+    if _vector_search_manager is not None:
+        return _vector_search_manager
+    
+    # Get settings from config.yaml or environment
+    try:
+        from config import settings as app_settings
+        
+        if not app_settings.VECTOR_SEARCH_ENABLED:
+            logger.info("🔍 Vector search is disabled in configuration")
+            return None
+        
+        logger.info("=" * 60)
+        logger.info("🚀 INITIALIZING VECTOR SEARCH MANAGER")
+        logger.info("=" * 60)
+        
+        # Get knowledge base path
+        kb_root_path = Path(app_settings.KB_ROOT_PATH)
+        logger.info(f"📁 KB Root: {kb_root_path.absolute()}")
+        
+        # Initialize vector search manager
+        from src.vector_search import VectorSearchFactory
+        
+        _vector_search_manager = VectorSearchFactory.create_from_settings(
+            settings=app_settings,
+            kb_root_path=kb_root_path
+        )
+        
+        if _vector_search_manager:
+            logger.info("✅ Vector search manager initialized successfully")
+            logger.info("=" * 60)
+        else:
+            logger.warning("⚠️  Vector search manager could not be initialized")
+            logger.info("=" * 60)
+        
+        return _vector_search_manager
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize vector search: {e}", exc_info=True)
+        logger.info("=" * 60)
+        return None
+
+
+@mcp.tool()
+def vector_search(query: str, top_k: int = 5, user_id: int = None) -> dict:
+    """
+    Perform semantic vector search in knowledge base
+    
+    Args:
+        query: Search query - describe what you're looking for in natural language
+        top_k: Number of results to return (default: 5)
+        user_id: User ID (optional, for logging purposes)
+    
+    Returns:
+        Search results with relevant documents
+    """
+    logger.info("🔍 VECTOR_SEARCH called")
+    logger.info(f"  Query: {query}")
+    logger.info(f"  Top K: {top_k}")
+    if user_id:
+        logger.info(f"  User: {user_id}")
+    
+    try:
+        manager = get_vector_search_manager()
+        
+        if not manager:
+            return {
+                "success": False,
+                "error": "Vector search is not enabled or not configured"
+            }
+        
+        # Perform search (sync wrapper for async method)
+        import asyncio
+        
+        if asyncio.iscoroutinefunction(manager.search):
+            # Get or create event loop
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            
+            results = loop.run_until_complete(manager.search(query=query, top_k=top_k))
+        else:
+            results = manager.search(query=query, top_k=top_k)
+        
+        logger.info(f"✅ Vector search successful: found {len(results)} results")
+        
+        return {
+            "success": True,
+            "query": query,
+            "top_k": top_k,
+            "results": results,
+            "results_count": len(results)
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Error in vector search: {e}", exc_info=True)
+        return {"success": False, "error": str(e), "error_type": type(e).__name__}
+
+
+@mcp.tool()
+def reindex_vector(force: bool = False, user_id: int = None) -> dict:
+    """
+    Reindex knowledge base for vector search
+    
+    Args:
+        force: Force reindexing even if index exists (default: false)
+        user_id: User ID (optional, for logging purposes)
+    
+    Returns:
+        Reindexing statistics
+    """
+    logger.info("🔄 REINDEX_VECTOR called")
+    logger.info(f"  Force: {force}")
+    if user_id:
+        logger.info(f"  User: {user_id}")
+    
+    try:
+        manager = get_vector_search_manager()
+        
+        if not manager:
+            return {
+                "success": False,
+                "error": "Vector search is not enabled or not configured"
+            }
+        
+        # Perform reindexing (sync wrapper for async method)
+        import asyncio
+        
+        if asyncio.iscoroutinefunction(manager.index_knowledge_base):
+            # Get or create event loop
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            
+            stats = loop.run_until_complete(manager.index_knowledge_base(force=force))
+        else:
+            stats = manager.index_knowledge_base(force=force)
+        
+        logger.info(
+            f"✅ Reindexing complete: "
+            f"{stats['files_processed']} files processed, "
+            f"{stats['chunks_created']} chunks created"
+        )
+        
+        return {
+            "success": True,
+            "stats": stats,
+            "message": f"Successfully indexed {stats['files_processed']} files"
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Error in reindexing: {e}", exc_info=True)
         return {"success": False, "error": str(e), "error_type": type(e).__name__}
 
 

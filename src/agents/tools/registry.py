@@ -220,11 +220,20 @@ def build_default_tool_manager(
 
         manager.register_many(shell_tools.ALL_TOOLS)
 
-    # Vector search tools
+    # MCP Vector Search Tools (when enabled) - Uses MCP hub server
     if enable_vector_search:
-        from . import vector_search_tools
+        try:
+            from ..mcp.vector_search import vector_search_tool
 
-        manager.register_many(vector_search_tools.ALL_TOOLS)
+            # Enable MCP tools before registering
+            for tool in vector_search_tool.ALL_TOOLS:
+                tool.enable()
+            manager.register_many(vector_search_tool.ALL_TOOLS)
+            logger.info("[ToolManager] MCP vector search tools enabled (MCP hub server)")
+        except ImportError as e:
+            logger.warning(f"[ToolManager] Failed to import MCP vector search tools: {e}")
+        except Exception as e:
+            logger.error(f"[ToolManager] Failed to initialize MCP vector search tools: {e}")
 
     # MCP Memory Agent Tools (when enabled) - Uses HTTP server
     if enable_mcp_memory:
