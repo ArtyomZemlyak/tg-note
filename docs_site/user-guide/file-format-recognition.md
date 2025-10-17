@@ -169,12 +169,68 @@ else:
 
 ## Settings
 
-File format recognition works out of the box. You can customize:
+File format recognition works out of the box. You can customize which formats are enabled:
+
+### Enabling/Disabling specific formats
+
+You can control which file formats are processed by configuring `MEDIA_PROCESSING_DOCLING_FORMATS` in `config.yaml`:
+
+```yaml
+# config.yaml
+
+# Enable all formats (default)
+MEDIA_PROCESSING_DOCLING_FORMATS:
+  - pdf
+  - docx
+  - pptx
+  - xlsx
+  - html
+  - md
+  - txt
+  - jpg
+  - jpeg
+  - png
+  - tiff
+
+# Enable only documents (no images)
+MEDIA_PROCESSING_DOCLING_FORMATS:
+  - pdf
+  - docx
+  - pptx
+  - xlsx
+
+# Enable only specific formats
+MEDIA_PROCESSING_DOCLING_FORMATS:
+  - pdf
+  - jpg
+  - png
+
+# Disable all media processing
+MEDIA_PROCESSING_DOCLING_FORMATS: []
+```
 
 ### Message grouping timeout
 ```yaml
 # config.yaml
 MESSAGE_GROUP_TIMEOUT: 30  # seconds
+```
+
+### Media processing configuration structure
+
+The media processing configuration allows for multiple frameworks:
+
+```yaml
+# Current framework
+MEDIA_PROCESSING_DOCLING_FORMATS:
+  - pdf
+  - jpg
+  - ...
+
+# Future frameworks can be added
+# MEDIA_PROCESSING_SOME_OTHER_FRAMEWORK_FORMATS:
+#   - mp3
+#   - mp4
+#   - ...
 ```
 
 ## Advanced usage

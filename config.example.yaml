@@ -106,6 +106,75 @@ LOG_FILE: ./logs/bot.log
 
 
 # ───────────────────────────────────────────────────────────────────────────────
+# Media Processing Settings
+# ───────────────────────────────────────────────────────────────────────────────
+# Configuration for file format recognition and content extraction.
+# Controls which file formats are processed by different media processing frameworks.
+
+# MEDIA_PROCESSING_DOCLING_FORMATS: File formats to process with Docling
+#
+# Docling is a powerful document processing library that extracts text and structure
+# from various file formats including PDFs, Office documents, images, and more.
+#
+# Available formats:
+# - Documents: pdf, docx, pptx, xlsx
+# - Text files: html, md, txt
+# - Images: jpg, jpeg, png, tiff (OCR text extraction)
+#
+# Usage:
+# - To enable all formats (default):
+#   MEDIA_PROCESSING_DOCLING_FORMATS:
+#     - pdf
+#     - docx
+#     - pptx
+#     - xlsx
+#     - html
+#     - md
+#     - txt
+#     - jpg
+#     - jpeg
+#     - png
+#     - tiff
+#
+# - To enable only documents (no images):
+#   MEDIA_PROCESSING_DOCLING_FORMATS:
+#     - pdf
+#     - docx
+#     - pptx
+#     - xlsx
+#
+# - To disable all media processing:
+#   MEDIA_PROCESSING_DOCLING_FORMATS: []
+#
+# - To enable only specific formats:
+#   MEDIA_PROCESSING_DOCLING_FORMATS:
+#     - pdf
+#     - jpg
+#     - png
+#
+# Default: All supported formats enabled
+MEDIA_PROCESSING_DOCLING_FORMATS:
+  - pdf
+  - docx
+  - pptx
+  - xlsx
+  - html
+  - md
+  - txt
+  - jpg
+  - jpeg
+  - png
+  - tiff
+
+# AICODE-NOTE: Future media processing frameworks can be added here
+# Example structure:
+# MEDIA_PROCESSING_SOME_OTHER_FRAMEWORK_FORMATS:
+#   - mp3
+#   - mp4
+#   - wav
+
+
+# ───────────────────────────────────────────────────────────────────────────────
 # User Access Control
 # ───────────────────────────────────────────────────────────────────────────────
 # Security settings to restrict access to the bot.

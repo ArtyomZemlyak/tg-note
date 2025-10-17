@@ -321,6 +321,24 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = Field(default="INFO", description="Logging level")
     LOG_FILE: Optional[Path] = Field(default=Path("./logs/bot.log"), description="Log file path")
 
+    # Media Processing Settings (can be in YAML)
+    MEDIA_PROCESSING_DOCLING_FORMATS: List[str] = Field(
+        default_factory=lambda: [
+            "pdf",
+            "docx",
+            "pptx",
+            "xlsx",
+            "html",
+            "md",
+            "txt",
+            "jpg",
+            "jpeg",
+            "png",
+            "tiff",
+        ],
+        description="List of file formats to process with Docling",
+    )
+
     @classmethod
     def settings_customise_sources(
         cls,
@@ -438,6 +456,35 @@ class Settings(BaseSettings):
             Full path to user's memory directory: data/memory/user_{user_id}
         """
         return Path(f"data/memory/user_{user_id}")
+
+    def get_media_processing_formats(self, processor: str = "docling") -> List[str]:
+        """
+        Get enabled file formats for a specific media processor
+
+        Args:
+            processor: Name of the processor (e.g., "docling")
+
+        Returns:
+            List of enabled file format extensions
+        """
+        if processor == "docling":
+            return self.MEDIA_PROCESSING_DOCLING_FORMATS
+        # AICODE-NOTE: Add other processors here in the future
+        return []
+
+    def is_format_enabled(self, file_format: str, processor: str = "docling") -> bool:
+        """
+        Check if a specific file format is enabled for processing
+
+        Args:
+            file_format: File format/extension (e.g., "pdf", "jpg")
+            processor: Name of the processor (default: "docling")
+
+        Returns:
+            True if the format is enabled, False otherwise
+        """
+        formats = self.get_media_processing_formats(processor)
+        return file_format.lower() in [fmt.lower() for fmt in formats]
 
     def ensure_mem_agent_memory_dir_exists(self, user_id: int) -> None:
         """

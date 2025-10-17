@@ -6,9 +6,11 @@ Handles various file formats using docling for content extraction
 import os
 import tempfile
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from loguru import logger
+
+from config.settings import settings
 
 try:
     from docling.datamodel.base_models import InputFormat
@@ -26,6 +28,7 @@ class FileProcessor:
     def __init__(self):
         """Initialize file processor"""
         self.logger = logger
+        self.settings = settings
         if DOCLING_AVAILABLE:
             try:
                 self.converter = DocumentConverter()
@@ -40,27 +43,33 @@ class FileProcessor:
         """Check if docling is available and properly initialized"""
         return DOCLING_AVAILABLE and self.converter is not None
 
-    def get_supported_formats(self) -> list:
-        """Get list of supported file formats"""
+    def get_supported_formats(self) -> List[str]:
+        """
+        Get list of supported file formats based on configuration
+
+        Returns:
+            List of enabled file format extensions from settings
+        """
         if not self.is_available():
             return []
 
-        # Docling supports various formats
-        return ["pdf", "docx", "pptx", "xlsx", "html", "md", "txt", "jpg", "jpeg", "png", "tiff"]
+        # Get enabled formats from settings
+        return self.settings.get_media_processing_formats("docling")
 
     def detect_file_format(self, file_path: Path) -> Optional[str]:
         """
-        Detect file format from extension
+        Detect file format from extension and check if it's enabled in settings
 
         Args:
             file_path: Path to the file
 
         Returns:
-            File format (extension without dot) or None if not supported
+            File format (extension without dot) or None if not supported/enabled
         """
         extension = file_path.suffix.lower().lstrip(".")
 
-        if extension in self.get_supported_formats():
+        # Check if format is enabled in settings
+        if self.settings.is_format_enabled(extension, "docling"):
             return extension
 
         return None
