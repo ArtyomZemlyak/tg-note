@@ -6,7 +6,7 @@ Follows SOLID principles - uses services for business logic
 
 from loguru import logger
 from telebot.async_telebot import AsyncTeleBot
-from telebot.types import Message
+from telebot.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from src.bot.bot_port import BotPort
 from src.bot.message_mapper import MessageMapper
@@ -87,6 +87,11 @@ class BotHandlers:
         self.async_bot.message_handler(commands=["agent"])(self.handle_agent_mode)
         self.async_bot.message_handler(commands=["resetcontext"])(self.handle_reset_context)
         self.async_bot.message_handler(commands=["setupmkdocs"])(self.handle_setup_mkdocs)
+
+        # Callback query handler for start menu
+        self.async_bot.callback_query_handler(func=lambda call: call.data.startswith("start:"))(
+            self.handle_start_callback
+        )
 
         # All supported content types (decoupled from media processing)
         supported_content_types = [
@@ -174,31 +179,268 @@ class BotHandlers:
     # Command handlers
 
     async def handle_start(self, message: Message) -> None:
-        """Handle /start command - welcome message"""
+        """Handle /start command - show main menu"""
         self.logger.info(f"[HANDLER] Start command from user {message.from_user.id}")
 
-        welcome_text = (
-            "🤖 Добро пожаловать в tg-note!\n\n"
-            "Этот бот автоматически создает заметки в базе знаний из ваших сообщений и репостов.\n\n"
-            "Просто отправьте мне:\n"
-            "• Текстовые сообщения\n"
-            "• Репосты новостей или статей\n"
-            "• Фотографии с подписями\n"
-            "• Документы\n"
-            "• Видео с описанием\n"
-            "• Голосовые сообщения\n"
-            "• Аудио файлы\n\n"
-            "Бот проанализирует контент и сохранит важную информацию в базу знаний.\n\n"
-            "Команды:\n"
-            "/help - показать справку\n"
-            "/status - показать статистику обработки\n\n"
-            "Режимы работы:\n"
-            "/note - режим создания базы знаний (по умолчанию)\n"
-            "/ask - режим вопросов по базе знаний\n"
-            "/agent - режим агента (полный доступ)"
+        user_kb = self.user_settings.get_user_kb(message.from_user.id)
+
+        # Create inline keyboard with main menu
+        keyboard = InlineKeyboardMarkup()
+        keyboard.row_width = 2
+
+        # First row - KB and Mode
+        if user_kb:
+            keyboard.add(
+                InlineKeyboardButton("📚 База знаний", callback_data="start:kb"),
+                InlineKeyboardButton("🔄 Режим работы", callback_data="start:mode"),
+            )
+        else:
+            keyboard.add(
+                InlineKeyboardButton("➕ Создать БЗ", callback_data="start:create_kb"),
+                InlineKeyboardButton("🔄 Режим работы", callback_data="start:mode"),
+            )
+
+        # Second row - Settings and MCP
+        keyboard.add(
+            InlineKeyboardButton("⚙️ Настройки", callback_data="start:settings"),
+            InlineKeyboardButton("🔧 MCP серверы", callback_data="start:mcp"),
         )
 
-        await self.bot.reply_to(message, welcome_text)
+        # Third row - Context and Help
+        keyboard.add(
+            InlineKeyboardButton("💬 Контекст", callback_data="start:context"),
+            InlineKeyboardButton("❓ Помощь", callback_data="start:help"),
+        )
+
+        welcome_text = (
+            "🤖 **Добро пожаловать в tg-note!**\n\n"
+            "Этот бот автоматически создает заметки в базе знаний из ваших сообщений и репостов.\n\n"
+        )
+
+        if user_kb:
+            kb_type_emoji = "🌐" if user_kb["kb_type"] == "github" else "📁"
+            welcome_text += f"{kb_type_emoji} **Текущая БЗ:** {user_kb['kb_name']}\n"
+        else:
+            welcome_text += "⚠️ **База знаний не настроена**\n" "Начните с создания базы знаний!\n\n"
+
+        current_mode = self.user_context_manager.get_user_mode(message.from_user.id)
+        mode_emoji = {"note": "📝", "ask": "🤔", "agent": "🤖"}.get(current_mode, "📝")
+        mode_name = {"note": "Создание БЗ", "ask": "Вопросы", "agent": "Агент"}.get(
+            current_mode, "Создание БЗ"
+        )
+
+        welcome_text += f"{mode_emoji} **Режим:** {mode_name}\n\n"
+        welcome_text += "Выберите действие из меню ниже:"
+
+        await self.bot.send_message(
+            message.chat.id, welcome_text, reply_markup=keyboard, parse_mode="Markdown"
+        )
+
+    async def handle_start_callback(self, call: CallbackQuery) -> None:
+        """Handle callback queries from start menu"""
+        try:
+            # Parse callback data
+            parts = call.data.split(":", 2)
+
+            if len(parts) < 2:
+                await self.bot.answer_callback_query(call.id, "Invalid callback")
+                return
+
+            action = parts[1]
+
+            if action == "kb":
+                # Open KB menu (delegate to kb_handlers)
+                await self.bot.answer_callback_query(call.id)
+                # Simulate /kb command
+                message = call.message
+                message.from_user = call.from_user
+                message.text = "/kb"
+                if hasattr(self, "kb_handlers"):
+                    await self.kb_handlers.handle_kb_menu(message)
+                else:
+                    await self.bot.send_message(call.message.chat.id, "KB handlers not initialized")
+
+            elif action == "create_kb":
+                # Create KB (delegate to kb_handlers)
+                await self.bot.answer_callback_query(call.id)
+                message = call.message
+                message.from_user = call.from_user
+                message.text = "/kb"
+                if hasattr(self, "kb_handlers"):
+                    await self.kb_handlers.handle_kb_menu(message)
+                else:
+                    await self.bot.send_message(call.message.chat.id, "KB handlers not initialized")
+
+            elif action == "mode":
+                # Show mode selection menu
+                await self._show_mode_menu(call)
+
+            elif action == "set_mode":
+                # Set mode
+                mode = parts[2] if len(parts) > 2 else "note"
+                await self._set_mode(call, mode)
+
+            elif action == "settings":
+                # Open settings menu (delegate to settings_handlers)
+                await self.bot.answer_callback_query(call.id)
+                message = call.message
+                message.from_user = call.from_user
+                message.text = "/settings"
+                message.chat = call.message.chat
+                if self.settings_handlers:
+                    await self.settings_handlers.handle_settings_menu(message)
+
+            elif action == "mcp":
+                # Open MCP menu (delegate to mcp_handlers)
+                await self.bot.answer_callback_query(call.id)
+                message = call.message
+                message.from_user = call.from_user
+                message.text = "/listmcpservers"
+                message.chat = call.message.chat
+                # Get mcp_handlers from telegram_bot
+                from src.bot.telegram_bot import TelegramBot
+
+                if hasattr(self, "mcp_handlers"):
+                    await self.mcp_handlers.handle_list_mcp_servers(message)
+
+            elif action == "context":
+                # Show context management menu
+                await self._show_context_menu(call)
+
+            elif action == "reset_context":
+                # Reset context
+                await self._reset_context(call)
+
+            elif action == "help":
+                # Show help
+                await self.bot.answer_callback_query(call.id)
+                message = call.message
+                message.from_user = call.from_user
+                message.text = "/help"
+                await self.handle_help(message)
+
+            else:
+                await self.bot.answer_callback_query(call.id, "Unknown action")
+
+        except Exception as e:
+            self.logger.error(f"Error handling start callback: {e}", exc_info=True)
+            await self.bot.answer_callback_query(call.id, f"Error: {str(e)}")
+
+    async def _show_mode_menu(self, call: CallbackQuery) -> None:
+        """Show mode selection menu"""
+        current_mode = self.user_context_manager.get_user_mode(call.from_user.id)
+
+        keyboard = InlineKeyboardMarkup()
+        keyboard.row_width = 1
+
+        modes = [
+            ("note", "📝 Создание базы знаний", "Сообщения анализируются и сохраняются в БЗ"),
+            ("ask", "🤔 Вопросы по БЗ", "Задавайте вопросы о содержимом БЗ"),
+            ("agent", "🤖 Агент (полный доступ)", "Агент может выполнять любые задачи с БЗ"),
+        ]
+
+        text_lines = ["🔄 **Выбор режима работы**\n"]
+
+        for mode_id, mode_name, mode_desc in modes:
+            if mode_id == current_mode:
+                text_lines.append(f"✅ **{mode_name}** (текущий)")
+                text_lines.append(f"   _{mode_desc}_\n")
+            else:
+                text_lines.append(f"• {mode_name}")
+                text_lines.append(f"   _{mode_desc}_")
+                keyboard.add(
+                    InlineKeyboardButton(
+                        f"➡️ {mode_name}", callback_data=f"start:set_mode:{mode_id}"
+                    )
+                )
+
+        text = "\n".join(text_lines)
+
+        try:
+            await self.bot.edit_message_text(
+                text,
+                call.message.chat.id,
+                call.message.message_id,
+                reply_markup=keyboard,
+                parse_mode="Markdown",
+            )
+        except Exception:
+            await self.bot.send_message(
+                call.message.chat.id, text, reply_markup=keyboard, parse_mode="Markdown"
+            )
+
+        await self.bot.answer_callback_query(call.id)
+
+    async def _set_mode(self, call: CallbackQuery, mode: str) -> None:
+        """Set user mode"""
+        user_kb = self.user_settings.get_user_kb(call.from_user.id)
+
+        # Check if KB is required for this mode
+        if mode in ["ask", "agent"] and not user_kb:
+            await self.bot.answer_callback_query(
+                call.id, "❌ Для этого режима требуется настроенная БЗ", show_alert=True
+            )
+            return
+
+        self.user_context_manager.set_user_mode(call.from_user.id, mode)
+
+        mode_names = {
+            "note": "📝 Создание базы знаний",
+            "ask": "🤔 Вопросы по БЗ",
+            "agent": "🤖 Агент (полный доступ)",
+        }
+
+        await self.bot.answer_callback_query(
+            call.id, f"✅ Режим изменен на: {mode_names.get(mode, mode)}", show_alert=True
+        )
+
+        # Refresh mode menu
+        await self._show_mode_menu(call)
+
+    async def _show_context_menu(self, call: CallbackQuery) -> None:
+        """Show context management menu"""
+        keyboard = InlineKeyboardMarkup()
+        keyboard.row_width = 1
+
+        keyboard.add(
+            InlineKeyboardButton("🔄 Сбросить контекст", callback_data="start:reset_context"),
+        )
+
+        menu_text = (
+            "💬 **Управление контекстом**\n\n"
+            "Бот запоминает предыдущие сообщения для более точных ответов.\n\n"
+            "**Сброс контекста** очищает историю разговора и начинает новый диалог с чистого листа.\n\n"
+            "Настройки контекста доступны в разделе ⚙️ Настройки."
+        )
+
+        try:
+            await self.bot.edit_message_text(
+                menu_text,
+                call.message.chat.id,
+                call.message.message_id,
+                reply_markup=keyboard,
+                parse_mode="Markdown",
+            )
+        except Exception:
+            await self.bot.send_message(
+                call.message.chat.id, menu_text, reply_markup=keyboard, parse_mode="Markdown"
+            )
+
+        await self.bot.answer_callback_query(call.id)
+
+    async def _reset_context(self, call: CallbackQuery) -> None:
+        """Reset conversation context"""
+        # Clear conversation context for this user
+        self.user_context_manager.clear_conversation_context(call.from_user.id)
+
+        # Set reset point to current message ID
+        self.user_context_manager.reset_conversation_context(
+            call.from_user.id, call.message.message_id
+        )
+
+        await self.bot.answer_callback_query(
+            call.id, "🔄 Контекст разговора сброшен!", show_alert=True
+        )
 
     async def handle_help(self, message: Message) -> None:
         """Handle /help command - show help text"""

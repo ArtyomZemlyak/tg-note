@@ -91,15 +91,23 @@ Switch: /note | /ask
 ## Basic Commands
 
 ### /start
-Initialize bot interaction.
+Open the main interactive menu with buttons.
 
 Usage:
 ```
 /start
 ```
 
+Shows main menu with options:
+- **📚 База знаний** - Manage your knowledge base
+- **🔄 Режим работы** - Switch between modes (note/ask/agent)
+- **⚙️ Настройки** - Configure bot settings
+- **🔧 MCP серверы** - Manage MCP integrations
+- **💬 Контекст** - Manage conversation context
+- **❓ Помощь** - Get help
+
 ### /help
-Show help and quick links.
+Show detailed help text with all available commands.
 
 Usage:
 ```
@@ -110,8 +118,30 @@ Usage:
 
 ## Knowledge Base Commands
 
-### /setkb
-Setup or change knowledge base location.
+### /kb
+Open interactive knowledge base management menu.
+
+Usage:
+```
+/kb
+```
+
+**If you have a KB configured:**
+- ℹ️ View KB information
+- 🔄 Switch to another KB
+- ➕ Create new KB
+- 📖 Setup MkDocs (for GitHub repos only)
+
+**If no KB is configured:**
+- 📁 Create local KB
+- 🌐 Connect GitHub repository
+
+All KB operations are now done through buttons - you only need to type when providing new information (KB name, GitHub URL, etc.).
+
+### /setkb (Alternative Command)
+Setup or change knowledge base location using direct command.
+
+> **Note:** Using the `/kb` button interface is now the recommended way to manage knowledge bases.
 
 Usage:
 ```
@@ -129,19 +159,6 @@ Examples:
 # Private repo (configure auth separately)
 /setkb https://github.com/username/private-kb
 ```
-
-### /kb
-Show current knowledge base information.
-
-Usage:
-```
-/kb
-```
-
-Returns:
-- KB path
-- KB type
-- GitHub URL (if used)
 
 ### /setupmkdocs
 Configure MkDocs for GitHub-based knowledge bases to build and deploy static documentation.

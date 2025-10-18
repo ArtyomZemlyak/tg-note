@@ -69,6 +69,19 @@ Perfect for:
 
 ---
 
+## 🎮 New: Button-Based Interface
+
+**All knowledge base management is now done through interactive buttons!**
+
+- **No more typing commands** - Just click buttons in the menu
+- **Guided setup** - Step-by-step KB creation and configuration
+- **Easy switching** - Switch between multiple knowledge bases with one click
+- **Visual feedback** - See your current KB and mode at a glance
+
+Start with `/start` and follow the buttons!
+
+---
+
 ## 🚀 Quick Start
 
 ### Prerequisites
@@ -226,7 +239,16 @@ INFO - Press Ctrl+C to stop
 Open your bot in Telegram and:
 
 ```
-/start                    # Initialize the bot
+/start                    # Open interactive main menu
+```
+
+Then click **➕ Создать БЗ (Create KB)** button and follow the prompts:
+- Choose **📁 Локальная БЗ** for local KB, or
+- Choose **🌐 GitHub репозиторий** for GitHub-based KB
+- Enter the KB name or GitHub URL when prompted
+
+**Alternative (Legacy Command):**
+```
 /setkb my-notes           # Create local knowledge base
 # or
 /setkb https://github.com/username/kb-repo  # Use GitHub repository
@@ -277,10 +299,32 @@ Switch between modes: `/note` | `/ask` | `/agent`
 
 ### Bot Commands
 
+**Main Interactive Menu:**
+
 | Command | Description | Example |
 |---------|-------------|---------|
-| `/start` | Initialize bot interaction | `/start` |
-| `/help` | Display help information | `/help` |
+| `/start` | **Open interactive main menu with buttons** | `/start` |
+| | - 📚 Knowledge Base management | |
+| | - 🔄 Mode switching (note/ask/agent) | |
+| | - ⚙️ Settings configuration | |
+| | - 🔧 MCP server management | |
+| | - 💬 Context management | |
+| | - ❓ Help and documentation | |
+
+**Knowledge Base (Button-Based):**
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `/kb` | **Open KB management menu** | `/kb` |
+| | - Create local or GitHub KB | |
+| | - Switch between multiple KBs | |
+| | - View KB information | |
+| | - Setup MkDocs documentation | |
+
+**Working Modes (via buttons or commands):**
+
+| Command | Description | Example |
+|---------|-------------|---------|
 | `/note` | Switch to note creation mode | `/note` |
 | `/ask` | Switch to question mode | `/ask` |
 | `/agent` | Switch to agent mode (full access) | `/agent` |
