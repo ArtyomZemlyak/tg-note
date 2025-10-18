@@ -143,6 +143,32 @@ Returns:
 - KB type
 - GitHub URL (if used)
 
+### /setupmkdocs
+Configure MkDocs for GitHub-based knowledge bases to build and deploy static documentation.
+
+Usage:
+```
+/setupmkdocs
+```
+
+Requirements:
+- Knowledge base must be GitHub-based (configured via `/setkb <github_url>`)
+- MkDocs must not be already configured
+
+What it does:
+- Creates `mkdocs.yml` configuration file
+- Sets up `docs/` directory with structured content
+- Adds `.github/workflows/docs.yml` for automatic deployment
+- Creates `requirements-docs.txt` with dependencies
+- Updates `.gitignore` to exclude build artifacts
+
+After running:
+1. Commit and push changes to GitHub
+2. Enable GitHub Pages in repo settings (Settings → Pages → Source: GitHub Actions)
+3. Documentation will be automatically built and deployed on every push
+
+Your docs will be available at: `https://<username>.github.io/<repo-name>/`
+
 ---
 
 ## Status
