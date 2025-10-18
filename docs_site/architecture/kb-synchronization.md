@@ -260,6 +260,14 @@ When `GitOperations` is initialized with these credentials:
 - Only GitHub HTTPS remotes without existing credentials are modified
 - SSH remotes remain unchanged
 - This enables push operations without manual credential configuration
+- Configuration is idempotent (safe to call multiple times)
+- If configuration fails for one remote, other remotes are still processed
+
+**Security safeguards**:
+- Files outside the repository cannot be added to git (prevents path traversal)
+- Branch switching requires successful stashing of uncommitted changes (prevents data loss)
+- Detached HEAD state is detected and prevents dangerous operations
+- All file paths are validated and resolved before git operations
 
 ### Lock Timeout
 

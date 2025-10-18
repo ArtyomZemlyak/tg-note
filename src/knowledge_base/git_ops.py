@@ -73,32 +73,44 @@ class GitOperations:
             return
 
         if not self.repo or not self.github_username or not self.github_token:
+            # Mark as configured even if credentials are not provided
+            # to avoid repeated checks
+            self._credentials_configured = True
             return
 
         try:
             # Check all remotes
             changed_any = False
             for remote in self.repo.remotes:
-                for url in remote.urls:
-                    # Only process HTTPS GitHub URLs without existing credentials
-                    if url.startswith("https://github.com/") and "@" not in url:
-                        # Inject credentials into URL
-                        new_url = url.replace(
-                            "https://github.com/",
-                            f"https://{self.github_username}:{self.github_token}@github.com/",
-                        )
-                        # Update remote URL
-                        remote.set_url(new_url)
-                        changed_any = True
-                        logger.info(
-                            f"Configured HTTPS credentials for remote '{remote.name}' "
-                            f"(user: {self.github_username})"
-                        )
+                try:
+                    for url in remote.urls:
+                        # Only process HTTPS GitHub URLs without existing credentials
+                        if url.startswith("https://github.com/") and "@" not in url:
+                            # Inject credentials into URL
+                            new_url = url.replace(
+                                "https://github.com/",
+                                f"https://{self.github_username}:{self.github_token}@github.com/",
+                            )
+                            # Update remote URL
+                            remote.set_url(new_url)
+                            changed_any = True
+                            logger.info(
+                                f"Configured HTTPS credentials for remote '{remote.name}' "
+                                f"(user: {self.github_username})"
+                            )
+                except Exception as remote_error:
+                    logger.warning(
+                        f"Failed to configure credentials for remote '{remote.name}': {remote_error}"
+                    )
+                    # Continue with other remotes
+
             if changed_any:
-                # Mark as configured to avoid repeated set_url calls in subsequent invocations
-                self._credentials_configured = True
+                logger.info("HTTPS credentials configuration completed")
         except Exception as e:
             logger.warning(f"Failed to configure HTTPS credentials: {e}")
+        finally:
+            # Always mark as configured to avoid repeated attempts
+            self._credentials_configured = True
 
     def add(self, file_path: str) -> bool:
         """
@@ -122,11 +134,15 @@ class GitOperations:
         try:
             # Convert to relative path from repo root for better git compatibility
             try:
-                relative_path = file_path_obj.relative_to(self.repo_path)
+                relative_path = file_path_obj.resolve().relative_to(self.repo_path.resolve())
                 path_to_add = str(relative_path)
             except ValueError:
-                # File is outside repo, use absolute path
-                path_to_add = str(file_path_obj.absolute())
+                # File is outside repo - this is a security concern
+                logger.error(
+                    f"Cannot add file to git - file is outside repository: {file_path}. "
+                    f"Repo path: {self.repo_path}"
+                )
+                return False
 
             self.repo.index.add([path_to_add])
             logger.info(f"Added file to git: {path_to_add}")
@@ -249,15 +265,36 @@ class GitOperations:
                 )
                 # AICODE-NOTE: When remote branch doesn't exist, create it locally and push to remote
                 try:
+                    # Store current branch to potentially restore it later
+                    original_branch = active_branch_name
+
                     # Check if local branch exists
                     if active_branch_name != target_branch:
+                        # Check if we're in detached HEAD state
+                        if original_branch is None:
+                            logger.error(
+                                "Cannot create remote branch from detached HEAD state. "
+                                "Please checkout a branch first."
+                            )
+                            return False, "Cannot create remote branch from detached HEAD state"
+
                         # Create local branch if it doesn't exist
                         if target_branch not in [b.name for b in self.repo.branches]:
                             self.repo.create_head(target_branch)
                             logger.info(f"Created local branch '{target_branch}'")
+
                         # Checkout to the target branch
-                        self.repo.heads[target_branch].checkout()
-                        logger.info(f"Checked out to branch '{target_branch}'")
+                        try:
+                            self.repo.heads[target_branch].checkout()
+                            logger.info(f"Checked out to branch '{target_branch}'")
+                        except Exception as checkout_error:
+                            logger.error(
+                                f"Failed to checkout branch '{target_branch}': {checkout_error}"
+                            )
+                            return (
+                                False,
+                                f"Failed to checkout branch '{target_branch}': {checkout_error}",
+                            )
 
                     # Push the branch to remote (this will create it on remote)
                     push_success = self.push(remote, target_branch)
@@ -516,7 +553,11 @@ class GitOperations:
                             stash_created = True
                             logger.info("Stashed uncommitted changes before branch switch")
                         except Exception as e:
-                            logger.warning(f"Failed to stash changes: {e}")
+                            logger.error(f"Failed to stash changes before branch switch: {e}")
+                            return (
+                                False,
+                                f"Cannot switch branches with uncommitted changes. Failed to stash: {e}",
+                            )
 
                     try:
                         # Check if target branch exists locally
@@ -553,6 +594,19 @@ class GitOperations:
                             except Exception:
                                 pass
                         raise e
+
+            # Verify we're on the target branch after switch (if we switched)
+            if branch and branch not in ("auto", "current", "HEAD"):
+                try:
+                    actual_branch = self.repo.active_branch.name  # type: ignore[attr-defined]
+                    if actual_branch != branch:
+                        logger.error(
+                            f"Branch mismatch: expected '{branch}', but on '{actual_branch}'"
+                        )
+                        return False, f"Failed to switch to branch '{branch}'"
+                except Exception as e:
+                    logger.error(f"Failed to verify branch: {e}")
+                    return False, f"Failed to verify branch: {e}"
 
             # Check if there are any changes
             if not self.has_changes():

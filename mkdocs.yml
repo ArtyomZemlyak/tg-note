@@ -115,6 +115,9 @@ nav:
   - Settings System: architecture/settings-architecture.md
   - Data Flow: architecture/data-flow.md
   - Storage Paths: architecture/storage-paths.md
+  - KB Synchronization: architecture/kb-synchronization.md
+  - MCP Architecture: architecture/mcp-architecture.md
+  - Message DTO: architecture/message-dto.md
 
 - Development:
   - Overview: development/overview.md
@@ -134,6 +137,7 @@ nav:
   - Overview: reference/overview.md
   - Configuration Options: reference/configuration.md
   - API Documentation: reference/api.md
+  - Git Operations: reference/git-operations.md
   - Troubleshooting: reference/troubleshooting.md
   - FAQ: reference/faq.md
 
