@@ -159,7 +159,8 @@ class Settings(BaseSettings):
         default=None, description="GitHub personal access token (from .env or env vars only)"
     )
     GITHUB_USERNAME: Optional[str] = Field(
-        default=None, description="GitHub username for HTTPS authentication (from .env or env vars only)"
+        default=None,
+        description="GitHub username for HTTPS authentication (from .env or env vars only)",
     )
 
     # Agent Configuration (can be in YAML)
@@ -380,12 +381,12 @@ class Settings(BaseSettings):
         # highest priority so that direct instantiation like Settings(MEDIA_PROCESSING_ENABLED=False)
         # reliably overrides all other configuration sources.
         return (
-            init_settings,   # Highest priority - explicit constructor args
-            env_overrides,   # Then normalized env overrides
-            env_settings,    # Then standard env vars
-            cli_settings,    # Then CLI (reserved)
-            dotenv_settings, # Then .env file
-            yaml_settings,   # Finally YAML config
+            init_settings,  # Highest priority - explicit constructor args
+            env_overrides,  # Then normalized env overrides
+            env_settings,  # Then standard env vars
+            cli_settings,  # Then CLI (reserved)
+            dotenv_settings,  # Then .env file
+            yaml_settings,  # Finally YAML config
         )
 
     @field_validator("ALLOWED_USER_IDS", mode="before")

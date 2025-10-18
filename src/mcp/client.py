@@ -25,9 +25,9 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlsplit, urlunsplit
 
 import aiohttp
-from urllib.parse import urlsplit, urlunsplit
 from loguru import logger
 
 
@@ -164,75 +164,80 @@ class MCPClient:
 
         # Ensure URL has trailing slash to avoid redirects
         sse_url = self.config.url
-        if not sse_url.endswith('/'):
-            sse_url += '/'
-        
+        if not sse_url.endswith("/"):
+            sse_url += "/"
+
         # Establish SSE connection and get session_id
         try:
             # Make GET request to establish SSE connection
             logger.debug(f"[MCPClient] Opening SSE connection to {sse_url}")
             response = await self.session.get(sse_url, timeout=aiohttp.ClientTimeout(total=10))
-            
+
             if response.status != 200:
                 raise RuntimeError(f"SSE connection failed with status {response.status}")
-            
+
             # Parse SSE events to extract session_id
             # FastMCP sends an 'endpoint' event with the session_id
             # SSE format: "event: <type>\ndata: <json>\n\n"
-            
+
             lines_read = 0
             max_lines = 100  # Safety limit
             event_type = None
-            
+
             async for line in response.content:
                 lines_read += 1
                 if lines_read > max_lines:
                     break
-                    
-                line_str = line.decode('utf-8').strip()
-                
+
+                line_str = line.decode("utf-8").strip()
+
                 # Skip empty lines
                 if not line_str:
                     continue
-                
+
                 # Parse event type
-                if line_str.startswith('event:'):
+                if line_str.startswith("event:"):
                     event_type = line_str[6:].strip()
                     logger.debug(f"[MCPClient] SSE event: {event_type}")
                     continue
-                
+
                 # Parse event data
-                if line_str.startswith('data:') and event_type == 'endpoint':
+                if line_str.startswith("data:") and event_type == "endpoint":
                     data_str = line_str[5:].strip()
                     try:
                         data_json = json.loads(data_str)
                         logger.debug(f"[MCPClient] SSE endpoint data: {data_json}")
-                        
+
                         # Extract session_id from URL query params in 'uri' field
-                        if 'uri' in data_json:
-                            from urllib.parse import urlparse, parse_qs
-                            parsed = urlparse(data_json['uri'])
+                        if "uri" in data_json:
+                            from urllib.parse import parse_qs, urlparse
+
+                            parsed = urlparse(data_json["uri"])
                             qs = parse_qs(parsed.query)
-                            if 'session_id' in qs:
-                                self._session_id = qs['session_id'][0]
-                                logger.info(f"[MCPClient] ✓ SSE session established: {self._session_id}")
+                            if "session_id" in qs:
+                                self._session_id = qs["session_id"][0]
+                                logger.info(
+                                    f"[MCPClient] ✓ SSE session established: {self._session_id}"
+                                )
                                 break
-                        
+
                         # Alternative: session_id might be in the data directly
-                        if 'session_id' in data_json:
-                            self._session_id = data_json['session_id']
-                            logger.info(f"[MCPClient] ✓ SSE session established: {self._session_id}")
+                        if "session_id" in data_json:
+                            self._session_id = data_json["session_id"]
+                            logger.info(
+                                f"[MCPClient] ✓ SSE session established: {self._session_id}"
+                            )
                             break
                     except json.JSONDecodeError as e:
                         logger.warning(f"[MCPClient] Failed to parse SSE data: {e}")
                         continue
-            
+
             # Close the SSE response (we got what we need)
             response.close()
-            
+
             if not self._session_id:
                 raise RuntimeError("Failed to extract session_id from SSE connection")
-            
+
             # Derive the JSON-RPC endpoint URL from SSE URL
             parts = urlsplit(self.config.url)
             path = parts.path or "/"
@@ -243,9 +248,9 @@ class MCPClient:
             else:
                 # Default to /messages/ at same base
                 self._rpc_url = urlunsplit((parts.scheme, parts.netloc, "/messages/", "", ""))
-            
+
             logger.info(f"[MCPClient] Using RPC endpoint: {self._rpc_url}")
-            
+
         except asyncio.TimeoutError:
             logger.error("[MCPClient] SSE connection timeout")
             raise RuntimeError("SSE connection timeout - server did not respond")
@@ -553,13 +558,14 @@ class MCPClient:
 
         self._request_id += 1
         request = {"jsonrpc": "2.0", "id": self._request_id, "method": method, "params": params}
-        
+
         # Use the discovered RPC URL with session_id
         if self._rpc_url and self._session_id:
             # Add session_id as query parameter
             from urllib.parse import urlencode
+
             url_with_session = f"{self._rpc_url}?{urlencode({'session_id': self._session_id})}"
-            
+
             try:
                 async with self.session.post(
                     url_with_session, json=request, timeout=aiohttp.ClientTimeout(total=30)
@@ -568,23 +574,25 @@ class MCPClient:
                         result = await response.json()
                         return result
                     else:
-                        logger.error(f"[MCPClient] HTTP request failed with status {response.status} at {url_with_session}")
+                        logger.error(
+                            f"[MCPClient] HTTP request failed with status {response.status} at {url_with_session}"
+                        )
                         return None
             except Exception as e:
                 logger.error(f"[MCPClient] HTTP request exception: {e}", exc_info=True)
                 return None
-        
+
         # Fallback to old behavior if no session_id (shouldn't happen with FastMCP)
         logger.warning("[MCPClient] No session_id available, falling back to legacy behavior")
-        
+
         # Build candidate RPC URLs. Some servers expose SSE at /sse (GET only)
         # but handle JSON-RPC POST at a different path (e.g., /messages or /rpc).
         candidates: List[str] = []
         if self._rpc_url:
             candidates.append(self._rpc_url)
-        
+
         # Ensure URL has trailing slash
-        url_with_slash = self.config.url if self.config.url.endswith('/') else self.config.url + '/'
+        url_with_slash = self.config.url if self.config.url.endswith("/") else self.config.url + "/"
         if url_with_slash not in candidates:
             candidates.append(url_with_slash)
 
@@ -597,8 +605,8 @@ class MCPClient:
 
                 def make_url(p: str) -> str:
                     # Ensure trailing slash
-                    if not p.endswith('/'):
-                        p += '/'
+                    if not p.endswith("/"):
+                        p += "/"
                     return urlunsplit((parts.scheme, parts.netloc, p, "", ""))
 
                 for p in (f"{base_path}/messages", f"{base_path}/rpc", base_path or "/"):
@@ -678,8 +686,9 @@ class MCPClient:
         # Use the discovered RPC URL with session_id
         if self._rpc_url and self._session_id:
             from urllib.parse import urlencode
+
             url_with_session = f"{self._rpc_url}?{urlencode({'session_id': self._session_id})}"
-            
+
             try:
                 await self.session.post(
                     url_with_session, json=notification, timeout=aiohttp.ClientTimeout(total=5)
@@ -688,13 +697,13 @@ class MCPClient:
             except Exception as e:
                 logger.debug(f"[MCPClient] HTTP notification failed: {e}")
                 return
-        
+
         # Fallback to old behavior
         urls_to_try: List[str] = []
         if self._rpc_url:
             urls_to_try.append(self._rpc_url)
-        
-        url_with_slash = self.config.url if self.config.url.endswith('/') else self.config.url + '/'
+
+        url_with_slash = self.config.url if self.config.url.endswith("/") else self.config.url + "/"
         if url_with_slash not in urls_to_try:
             urls_to_try.append(url_with_slash)
 

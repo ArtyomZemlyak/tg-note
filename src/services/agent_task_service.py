@@ -89,7 +89,7 @@ class AgentTaskService(IAgentTaskService):
             # AICODE-NOTE: Use sync manager to serialize KB operations and prevent conflicts
             # when multiple users work with the same knowledge base in agent mode
             sync_manager = get_sync_manager()
-            
+
             # Acquire lock for this KB to ensure operations are serialized
             async with sync_manager.with_kb_lock(str(kb_path), f"agent_task_user_{user_id}"):
                 await self._execute_task_locked(
@@ -123,18 +123,18 @@ class AgentTaskService(IAgentTaskService):
         """
         # Create Git operations handler
         kb_git_enabled = self.settings_manager.get_setting(user_id, "KB_GIT_ENABLED")
-        
+
         # Get GitHub credentials for HTTPS authentication
         github_username = self.settings_manager.get_setting(user_id, "GITHUB_USERNAME")
         github_token = self.settings_manager.get_setting(user_id, "GITHUB_TOKEN")
-        
+
         git_ops = GitOperations(
             str(kb_path),
             enabled=kb_git_enabled,
             github_username=github_username,
             github_token=github_token,
         )
-        
+
         # Parse task
         content = await self.content_parser.parse_group_with_files(group, bot=self.bot)
         task_text = content.get("text", "")
@@ -161,9 +161,7 @@ class AgentTaskService(IAgentTaskService):
 
         # Execute task with agent
         # Try to update status message (but don't fail if it times out)
-        self.logger.info(
-            f"[AGENT_SERVICE] Executing task for user {user_id}: {task_text[:50]}..."
-        )
+        self.logger.info(f"[AGENT_SERVICE] Executing task for user {user_id}: {task_text[:50]}...")
         await self._safe_edit_message(
             "🤖 Выполняю задачу...", chat_id=chat_id, message_id=processing_msg_id
         )
@@ -187,18 +185,18 @@ class AgentTaskService(IAgentTaskService):
             # Get git settings
             kb_git_remote = self.settings_manager.get_setting(user_id, "KB_GIT_REMOTE")
             kb_git_branch = self.settings_manager.get_setting(user_id, "KB_GIT_BRANCH")
-            
+
             # Create commit message from task text
             task_summary = task_text[:50] + "..." if len(task_text) > 50 else task_text
             commit_message = f"Agent task: {task_summary}"
-            
+
             # Auto-commit and push
             success, message = git_ops.auto_commit_and_push(
                 message=commit_message,
                 remote=kb_git_remote,
                 branch=kb_git_branch,
             )
-            
+
             if not success:
                 self.logger.warning(f"Auto-commit/push failed: {message}")
             else:

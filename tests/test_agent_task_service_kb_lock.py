@@ -41,23 +41,25 @@ class TestAgentTaskServiceKBLock:
         mock_user_context_manager.add_user_message_to_context = MagicMock()
         mock_user_context_manager.add_assistant_message_to_context = MagicMock()
         mock_user_context_manager.get_conversation_context.return_value = None
-        
+
         # Mock agent
         mock_agent = AsyncMock()
-        mock_agent.process = AsyncMock(return_value={
-            "answer": "Test answer",
-            "summary": "Test summary",
-            "metadata": {
-                "files_created": [],
-                "files_edited": [],
-                "files_deleted": [],
-                "folders_created": [],
+        mock_agent.process = AsyncMock(
+            return_value={
+                "answer": "Test answer",
+                "summary": "Test summary",
+                "metadata": {
+                    "files_created": [],
+                    "files_edited": [],
+                    "files_deleted": [],
+                    "folders_created": [],
+                },
             }
-        })
+        )
         mock_agent.set_working_directory = MagicMock()
         mock_agent.get_instruction = MagicMock(return_value="Test instruction")
         mock_agent.set_instruction = MagicMock()
-        
+
         mock_user_context_manager.get_or_create_agent.return_value = mock_agent
 
         mock_settings_manager = MagicMock()
@@ -95,21 +97,22 @@ class TestAgentTaskServiceKBLock:
         )
 
         user_kb = {"kb_name": "test_kb", "kb_type": "github"}
-        
+
         # Track if lock was acquired
         lock_acquired = False
         original_with_kb_lock = None
-        
+
         # Mock the sync manager to verify lock is acquired
         from src.knowledge_base.sync_manager import get_sync_manager
+
         sync_manager = get_sync_manager()
         original_with_kb_lock = sync_manager.with_kb_lock
-        
+
         class MockLockContext:
             def __init__(self, kb_path, operation_name):
                 self.kb_path = kb_path
                 self.operation_name = operation_name
-                
+
             async def __aenter__(self):
                 nonlocal lock_acquired
                 lock_acquired = True
@@ -118,13 +121,13 @@ class TestAgentTaskServiceKBLock:
                 # Verify that operation name includes user_id
                 assert "agent_task_user_" in self.operation_name
                 return self
-                
+
             async def __aexit__(self, exc_type, exc_val, exc_tb):
                 return False
-        
+
         # Replace with_kb_lock with our mock
         sync_manager.with_kb_lock = lambda kb_path, op_name: MockLockContext(kb_path, op_name)
-        
+
         try:
             # Execute task
             await agent_service.execute_task(
@@ -134,10 +137,10 @@ class TestAgentTaskServiceKBLock:
                 user_id=456,
                 user_kb=user_kb,
             )
-            
+
             # Verify that lock was acquired
             assert lock_acquired, "KB lock was not acquired for agent task"
-            
+
         finally:
             # Restore original with_kb_lock
             sync_manager.with_kb_lock = original_with_kb_lock
@@ -147,7 +150,7 @@ class TestAgentTaskServiceKBLock:
         """Test that multiple agent tasks on same KB are serialized"""
         # Track execution order
         execution_order = []
-        
+
         # Create two message groups
         group1 = MessageGroup()
         group1.add_message(
@@ -158,7 +161,7 @@ class TestAgentTaskServiceKBLock:
                 "chat_id": 123,
             }
         )
-        
+
         group2 = MessageGroup()
         group2.add_message(
             {
@@ -168,33 +171,42 @@ class TestAgentTaskServiceKBLock:
                 "chat_id": 124,
             }
         )
-        
+
         user_kb = {"kb_name": "test_kb", "kb_type": "github"}
-        
+
         # Patch _execute_task_locked to track execution order
         original_execute_task_locked = agent_service._execute_task_locked
-        
-        async def mock_execute_task_locked(group, processing_msg_id, chat_id, user_id, user_kb, kb_path):
+
+        async def mock_execute_task_locked(
+            group, processing_msg_id, chat_id, user_id, user_kb, kb_path
+        ):
             execution_order.append(f"start_task_{processing_msg_id}")
             await asyncio.sleep(0.05)  # Simulate work
             execution_order.append(f"end_task_{processing_msg_id}")
-        
+
         agent_service._execute_task_locked = mock_execute_task_locked
-        
+
         try:
             # Run two tasks concurrently
             await asyncio.gather(
                 agent_service.execute_task(group1, 1, 123, 456, user_kb),
                 agent_service.execute_task(group2, 2, 124, 457, user_kb),
             )
-            
+
             # Check that tasks were serialized (one completed before other started)
             assert len(execution_order) == 4
-            assert (
-                execution_order == ["start_task_1", "end_task_1", "start_task_2", "end_task_2"]
-                or execution_order == ["start_task_2", "end_task_2", "start_task_1", "end_task_1"]
-            ), f"Tasks were not serialized. Execution order: {execution_order}"
-            
+            assert execution_order == [
+                "start_task_1",
+                "end_task_1",
+                "start_task_2",
+                "end_task_2",
+            ] or execution_order == [
+                "start_task_2",
+                "end_task_2",
+                "start_task_1",
+                "end_task_1",
+            ], f"Tasks were not serialized. Execution order: {execution_order}"
+
         finally:
             # Restore original method
             agent_service._execute_task_locked = original_execute_task_locked
@@ -214,36 +226,37 @@ class TestAgentTaskServiceKBLock:
         )
 
         user_kb = {"kb_name": "test_kb", "kb_type": "github"}
-        
+
         # Track lock state
         lock_released = False
-        
+
         # Mock the sync manager to verify lock is released
         from src.knowledge_base.sync_manager import get_sync_manager
+
         sync_manager = get_sync_manager()
         original_with_kb_lock = sync_manager.with_kb_lock
-        
+
         class MockLockContext:
             def __init__(self, kb_path, operation_name):
                 pass
-                
+
             async def __aenter__(self):
                 return self
-                
+
             async def __aexit__(self, exc_type, exc_val, exc_tb):
                 nonlocal lock_released
                 lock_released = True
                 return False
-        
+
         # Replace with_kb_lock with our mock
         sync_manager.with_kb_lock = lambda kb_path, op_name: MockLockContext(kb_path, op_name)
-        
+
         # Make _execute_task_locked raise an exception
         async def failing_execute_task_locked(*args, **kwargs):
             raise RuntimeError("Simulated task failure")
-        
+
         agent_service._execute_task_locked = failing_execute_task_locked
-        
+
         try:
             # Execute task (should fail but release lock)
             await agent_service.execute_task(
@@ -253,10 +266,10 @@ class TestAgentTaskServiceKBLock:
                 user_id=456,
                 user_kb=user_kb,
             )
-            
+
             # Verify that lock was released
             assert lock_released, "KB lock was not released after exception"
-            
+
         finally:
             # Restore original with_kb_lock
             sync_manager.with_kb_lock = original_with_kb_lock
