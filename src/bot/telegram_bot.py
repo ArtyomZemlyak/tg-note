@@ -12,6 +12,7 @@ from telebot.async_telebot import AsyncTeleBot
 
 from src.bot.bot_port import BotPort
 from src.bot.handlers import BotHandlers
+from src.bot.kb_handlers import KBHandlers
 from src.bot.mcp_handlers import MCPHandlers
 from src.bot.settings_handlers import SettingsHandlers
 from src.bot.settings_manager import SettingsManager
@@ -68,6 +69,17 @@ class TelegramBot:
         self.mcp_manager = MCPServersManager()
         self.mcp_handlers = MCPHandlers(self.bot, self.mcp_manager)
 
+        # Initialize KB handlers
+        self.kb_handlers = KBHandlers(
+            bot=self.bot,
+            repo_manager=repo_manager,
+            user_settings=user_settings,
+        )
+
+        # Update cross-references in handlers
+        self.handlers.kb_handlers = self.kb_handlers
+        self.handlers.mcp_handlers = self.mcp_handlers
+
         # Bot state
         self.is_running = False
         self._polling_task: Optional[asyncio.Task] = None
@@ -95,8 +107,9 @@ class TelegramBot:
             # Start background tasks for message aggregator
             self.handlers.start_background_tasks()
 
-            # Register handlers - settings handlers first for proper priority
+            # Register handlers - settings and KB handlers first for proper priority
             await self.settings_handlers.register_handlers_async()
+            await self.kb_handlers.register_handlers_async()
             await self.mcp_handlers.register_handlers_async()
             await self.handlers.register_handlers_async()
 

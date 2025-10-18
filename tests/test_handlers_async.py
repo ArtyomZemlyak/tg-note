@@ -125,14 +125,16 @@ class TestHandlersAsync:
 
     @pytest.mark.asyncio
     async def test_handle_start_async(self, handlers, test_message, mock_bot):
-        """Test that /start command works with async"""
+        """Test that /start command works with async and shows menu"""
         await handlers.handle_start(test_message)
 
-        # Verify reply_to was called
-        mock_bot.reply_to.assert_called_once()
-        call_args = mock_bot.reply_to.call_args
-        assert call_args[0][0] == test_message
+        # Verify send_message was called (now it's send_message with keyboard)
+        mock_bot.send_message.assert_called_once()
+        call_args = mock_bot.send_message.call_args
+        assert call_args[0][0] == test_message.chat.id
         assert "Добро пожаловать" in call_args[0][1]
+        # Verify keyboard was sent
+        assert "reply_markup" in call_args[1]
 
     @pytest.mark.asyncio
     async def test_handle_help_async(self, handlers, test_message, mock_bot):

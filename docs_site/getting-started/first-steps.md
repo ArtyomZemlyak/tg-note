@@ -120,23 +120,42 @@ Open Telegram, find your bot, and send:
 /start
 ```
 
-Bot should reply with a welcome message!
+Bot will greet you with an interactive menu showing:
+
+- **📚 База знаний (Knowledge Base)** - Create or manage your KB
+- **🔄 Режим работы (Work Mode)** - Switch between note-taking, Q&A, and agent modes
+- **⚙️ Настройки (Settings)** - Configure bot behavior
+- **🔧 MCP серверы (MCP Servers)** - Manage MCP integrations
+- **💬 Контекст (Context)** - Manage conversation context
+- **❓ Помощь (Help)** - Get help and documentation
 
 ---
 
-## 6. Configure Knowledge Base in Telegram
+## 6. Configure Knowledge Base via Interactive Menu
 
-Tell the bot where to save notes:
+### Quick Setup: Click the Button
+
+1. In the `/start` menu, click **➕ Создать БЗ (Create KB)**
+2. Choose your KB type:
+   - **📁 Локальная БЗ** - Create a local knowledge base
+   - **🌐 GitHub репозиторий** - Connect a GitHub repository
+3. Follow the prompts:
+   - For local KB: Enter a name (e.g., `my-notes`)
+   - For GitHub: Enter repository URL (e.g., `https://github.com/yourusername/my-kb`)
+
+### Alternative: Use Commands
+
+You can still use traditional commands:
 
 ```
-/setkb my-notes
+/kb
 ```
 
-Or use a GitHub repo:
-
-```
-/setkb https://github.com/yourusername/my-kb
-```
+This opens the KB management menu where you can:
+- Create a new KB
+- Switch between multiple KBs
+- View KB information
+- Setup MkDocs documentation (for GitHub repos)
 
 ---
 
