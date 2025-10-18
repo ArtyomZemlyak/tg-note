@@ -11,6 +11,7 @@ from telebot.types import Message
 from src.bot.bot_port import BotPort
 from src.bot.message_mapper import MessageMapper
 from src.bot.settings_manager import SettingsManager
+from src.knowledge_base.mkdocs_configurator import MkDocsConfigurator
 from src.knowledge_base.repository import RepositoryManager
 from src.knowledge_base.user_settings import UserSettings
 from src.processor.message_aggregator import MessageGroup
@@ -65,6 +66,9 @@ class BotHandlers:
         self.settings_handlers = settings_handlers
         self.logger = logger
 
+        # Initialize MkDocs configurator
+        self.mkdocs_configurator = MkDocsConfigurator()
+
         # Set up timeout callback for message processor
         self.user_context_manager.timeout_callback = self._handle_timeout
 
@@ -82,6 +86,7 @@ class BotHandlers:
         self.async_bot.message_handler(commands=["ask"])(self.handle_ask_mode)
         self.async_bot.message_handler(commands=["agent"])(self.handle_agent_mode)
         self.async_bot.message_handler(commands=["resetcontext"])(self.handle_reset_context)
+        self.async_bot.message_handler(commands=["setupmkdocs"])(self.handle_setup_mkdocs)
 
         # All supported content types (decoupled from media processing)
         supported_content_types = [
@@ -223,7 +228,8 @@ class BotHandlers:
             "/help - эта справка\n\n"
             "**База знаний:**\n"
             "/setkb <name|url> - настроить базу знаний\n"
-            "/kb - информация о базе знаний\n\n"
+            "/kb - информация о базе знаний\n"
+            "/setupmkdocs - настроить MkDocs для GitHub репозитория\n\n"
             "**Настройки:**\n"
             "/settings - меню настроек\n"
             "/viewsettings - просмотр всех настроек\n"
@@ -495,6 +501,79 @@ class BotHandlers:
             "• CONTEXT_ENABLED - включить/выключить использование контекста\n"
             "• CONTEXT_MAX_TOKENS - максимальное количество токенов в контексте",
         )
+
+    async def handle_setup_mkdocs(self, message: Message) -> None:
+        """
+        Handle /setupmkdocs command - configure MkDocs for GitHub knowledge base.
+
+        This command checks if the current knowledge base is GitHub-based and,
+        if so, configures MkDocs with all necessary files for building and
+        deploying static documentation to GitHub Pages.
+
+        Args:
+            message: Telegram message containing the /setupmkdocs command
+        """
+        self.logger.info(f"[HANDLER] Setup MkDocs command from user {message.from_user.id}")
+
+        # Get user's knowledge base settings
+        user_kb = self.user_settings.get_user_kb(message.from_user.id)
+
+        if not user_kb:
+            await self.bot.reply_to(
+                message,
+                "❌ База знаний не настроена\n\n"
+                "Используйте /setkb для настройки базы знаний перед настройкой MkDocs.",
+            )
+            return
+
+        # Check if KB is GitHub-based
+        if user_kb["kb_type"] != "github":
+            await self.bot.reply_to(
+                message,
+                "❌ Эта команда работает только с GitHub-репозиториями\n\n"
+                f"Ваша текущая база знаний '{user_kb['kb_name']}' имеет тип: {user_kb['kb_type']}\n\n"
+                "Используйте /setkb <github_url> для настройки GitHub репозитория.",
+            )
+            return
+
+        # Get KB path
+        kb_path = self.repo_manager.get_kb_path(user_kb["kb_name"])
+        if not kb_path:
+            await self.bot.reply_to(
+                message,
+                "❌ Локальная копия базы знаний не найдена\n\n"
+                "Попробуйте заново настроить базу знаний с помощью /setkb",
+            )
+            return
+
+        # Check if MkDocs is already configured
+        if self.mkdocs_configurator.is_mkdocs_configured(kb_path):
+            await self.bot.reply_to(
+                message,
+                "ℹ️ MkDocs уже настроен для этой базы знаний\n\n"
+                f"Найден файл: {kb_path / 'mkdocs.yml'}\n\n"
+                "Если вы хотите перенастроить MkDocs, удалите файл mkdocs.yml и запустите команду снова.",
+            )
+            return
+
+        # Send processing message
+        processing_msg = await self.bot.reply_to(message, "⏳ Настраиваю MkDocs для базы знаний...")
+
+        # Configure MkDocs
+        success, result_message = self.mkdocs_configurator.configure_mkdocs(
+            kb_path=kb_path,
+            kb_name=user_kb["kb_name"],
+            github_url=user_kb.get("github_url", ""),
+        )
+
+        # Delete processing message
+        try:
+            await self.bot.delete_message(message.chat.id, processing_msg.message_id)
+        except Exception:
+            pass
+
+        # Send result
+        await self.bot.reply_to(message, result_message)
 
     # Message handlers
 

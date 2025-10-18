@@ -53,6 +53,46 @@ KB_GIT_REMOTE: origin
 KB_GIT_BRANCH: main
 ```
 
+#### Setting up Static Documentation for GitHub KB
+
+For GitHub-based knowledge bases, you can automatically configure MkDocs to build and deploy static documentation to GitHub Pages:
+
+```
+/setupmkdocs
+```
+
+This command will:
+
+- **Check** if your KB is GitHub-based (command only works with GitHub repos)
+- **Verify** that MkDocs is not already configured
+- **Create** all necessary files:
+  - `mkdocs.yml` - MkDocs configuration with Material theme
+  - `docs/` - Documentation directory with structured content
+  - `.github/workflows/docs.yml` - GitHub Actions workflow for automatic deployment
+  - `requirements-docs.txt` - Python dependencies for building docs
+
+**After running the command:**
+
+1. Commit and push the changes to GitHub
+2. Enable GitHub Pages in repository settings:
+   - Go to: **Settings → Pages → Source: GitHub Actions**
+3. After push, documentation will be automatically built and published
+
+Your documentation will be available at:
+```
+https://<username>.github.io/<repo-name>/
+```
+
+**Features:**
+
+- ✨ Beautiful Material theme with dark/light mode
+- 🔍 Full-text search
+- 📱 Mobile-responsive design
+- 🏷️ Tags and categories
+- 🔗 Automatic navigation from KB structure
+- 📝 Markdown extensions (code highlighting, admonitions, etc.)
+- 🤖 Automatic deployment on every push
+
 ---
 
 ## KB Structure
