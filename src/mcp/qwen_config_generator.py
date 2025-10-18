@@ -204,7 +204,6 @@ class QwenMCPConfigGenerator:
 
         return settings_file
 
-
     def get_config_json(self) -> str:
         """
         Get configuration as JSON string

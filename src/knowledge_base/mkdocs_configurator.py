@@ -398,7 +398,6 @@ Browse the files in this category using the file tree in the left sidebar.
         # https://github.com/username/repo
         # https://github.com/username/repo.git
         # git@github.com:username/repo.git
-
         # Convert git@ format to https
         if github_url.startswith("git@"):
             github_url = github_url.replace("git@github.com:", "https://github.com/")

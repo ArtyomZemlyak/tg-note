@@ -62,7 +62,7 @@ class VectorSearchMCPTool(BaseMCPTool):
     def mcp_server_config(self) -> MCPServerConfig:
         """
         Load MCP server configuration from data/mcp_servers/mcp-hub.json
-        
+
         Uses the same MCP hub as memory tools
         """
         # Prefer explicit MCP_HUB_URL in Docker mode
@@ -136,9 +136,7 @@ class VectorSearchMCPTool(BaseMCPTool):
                     ),
                     env={},
                     cwd=(
-                        Path(hub_config.get("_cwd", Path.cwd()))
-                        if hub_config.get("_cwd")
-                        else None
+                        Path(hub_config.get("_cwd", Path.cwd())) if hub_config.get("_cwd") else None
                     ),
                     transport="sse",
                     url=hub_config["url"],
@@ -179,45 +177,45 @@ class VectorSearchMCPTool(BaseMCPTool):
     async def execute(self, params: Dict[str, Any], context: "ToolContext") -> Dict[str, Any]:
         """
         Execute vector search
-        
+
         Args:
             params: Search parameters (query, top_k)
             context: Tool execution context
-            
+
         Returns:
             Dict with search results
         """
         query = params.get("query", "")
         top_k = params.get("top_k", 5)
-        
+
         if not query:
             return {"success": False, "error": "Query is required"}
-        
+
         # Get user_id from context if available
         user_id = getattr(context, "user_id", None)
-        
+
         # Prepare MCP parameters
         mcp_params = {
             "query": query,
             "top_k": top_k,
         }
-        
+
         if user_id:
             mcp_params["user_id"] = user_id
-        
+
         result = await super().execute(mcp_params, context)
-        
+
         # Add helpful information to the result
         if result.get("success"):
             result["message"] = f"Vector search completed for: {query}"
-        
+
         return result
 
 
 class VectorReindexMCPTool(BaseMCPTool):
     """
     Vector Reindex MCP Tool - Reindex Knowledge Base
-    
+
     This tool reindexes the knowledge base for vector search.
     """
 
@@ -259,33 +257,33 @@ class VectorReindexMCPTool(BaseMCPTool):
     async def execute(self, params: Dict[str, Any], context: "ToolContext") -> Dict[str, Any]:
         """
         Execute vector reindexing
-        
+
         Args:
             params: Reindex parameters (force)
             context: Tool execution context
-            
+
         Returns:
             Dict with reindexing results
         """
         force = params.get("force", False)
-        
+
         # Get user_id from context if available
         user_id = getattr(context, "user_id", None)
-        
+
         # Prepare MCP parameters
         mcp_params = {
             "force": force,
         }
-        
+
         if user_id:
             mcp_params["user_id"] = user_id
-        
+
         result = await super().execute(mcp_params, context)
-        
+
         # Add helpful information to the result
         if result.get("success"):
             result["message"] = "Knowledge base reindexing completed"
-        
+
         return result
 
 

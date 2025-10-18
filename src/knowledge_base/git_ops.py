@@ -34,6 +34,10 @@ class GitOperations:
         self.repo: Optional[Repo] = None
         self.github_username = github_username
         self.github_token = github_token
+        # AICODE-NOTE: Track whether HTTPS credentials have already been configured
+        # to keep the operation idempotent across repeated calls (important for tests
+        # that may invoke _configure_https_credentials() explicitly after __init__).
+        self._credentials_configured: bool = False
 
         if self.enabled:
             self._initialize_repo()
@@ -58,35 +62,41 @@ class GitOperations:
     def _configure_https_credentials(self) -> None:
         """
         Configure HTTPS credentials for git remotes
-        
+
         This updates the remote URL to include credentials if:
         - Remote uses HTTPS
         - Credentials are provided
         - URL doesn't already contain credentials
         """
+        # Prevent double configuration within the same instance
+        if self._credentials_configured:
+            return
+
         if not self.repo or not self.github_username or not self.github_token:
             return
 
         try:
             # Check all remotes
+            changed_any = False
             for remote in self.repo.remotes:
                 for url in remote.urls:
                     # Only process HTTPS GitHub URLs without existing credentials
-                    if (
-                        url.startswith("https://github.com/")
-                        and "@" not in url
-                    ):
+                    if url.startswith("https://github.com/") and "@" not in url:
                         # Inject credentials into URL
                         new_url = url.replace(
                             "https://github.com/",
-                            f"https://{self.github_username}:{self.github_token}@github.com/"
+                            f"https://{self.github_username}:{self.github_token}@github.com/",
                         )
                         # Update remote URL
                         remote.set_url(new_url)
+                        changed_any = True
                         logger.info(
                             f"Configured HTTPS credentials for remote '{remote.name}' "
                             f"(user: {self.github_username})"
                         )
+            if changed_any:
+                # Mark as configured to avoid repeated set_url calls in subsequent invocations
+                self._credentials_configured = True
         except Exception as e:
             logger.warning(f"Failed to configure HTTPS credentials: {e}")
 
@@ -342,7 +352,7 @@ class GitOperations:
                 try:
                     tracking = self.repo.active_branch.tracking_branch()  # type: ignore[attr-defined]
                     tracking_configured = bool(
-                        tracking 
+                        tracking
                         and tracking.remote_name == remote
                         and tracking.remote_head == target_branch
                     )
@@ -359,7 +369,7 @@ class GitOperations:
                 local_ref = active_branch_name or "HEAD"
                 self.repo.git.push("--set-upstream", remote, f"{local_ref}:{target_branch}")
                 logger.info(f"Pushed {local_ref} to {remote}/{target_branch} and set upstream")
-            
+
             return True
         except GitCommandError as gce:  # type: ignore[misc]
             error_msg = str(gce)
@@ -497,7 +507,9 @@ class GitOperations:
                     stash_created = False
                     if has_uncommitted:
                         try:
-                            self.repo.git.stash("push", "-u", "-m", "Auto-stash before branch switch")
+                            self.repo.git.stash(
+                                "push", "-u", "-m", "Auto-stash before branch switch"
+                            )
                             stash_created = True
                             logger.info("Stashed uncommitted changes before branch switch")
                         except Exception as e:
@@ -511,7 +523,9 @@ class GitOperations:
                                 self.repo.git.fetch(remote, branch)
                                 # Create local branch tracking remote
                                 self.repo.git.checkout("-b", branch, f"{remote}/{branch}")
-                                logger.info(f"Created and checked out branch '{branch}' tracking {remote}/{branch}")
+                                logger.info(
+                                    f"Created and checked out branch '{branch}' tracking {remote}/{branch}"
+                                )
                             except Exception:
                                 # Remote branch doesn't exist, create new local branch
                                 self.repo.git.checkout("-b", branch)

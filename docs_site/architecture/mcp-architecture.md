@@ -394,7 +394,7 @@ The MCP Hub uses FastMCP library which implements the MCP protocol over HTTP Ser
    ```
    POST /messages/?session_id=abc123 HTTP/1.1
    Content-Type: application/json
-   
+
    {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {...}}
    ```
 

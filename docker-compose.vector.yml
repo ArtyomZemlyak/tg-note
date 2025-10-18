@@ -149,18 +149,18 @@ networks:
     driver: bridge
 
 # AICODE-NOTE: Configuration guide
-# 
+#
 # 1. Environment Variables (.env file):
 #    # Qdrant settings
 #    QDRANT_PORT=6333
 #    QDRANT_GRPC_PORT=6334
 #    QDRANT_COLLECTION=knowledge_base
-#    
+#
 #    # Infinity settings
 #    INFINITY_PORT=7997
 #    INFINITY_MODEL=BAAI/bge-small-en-v1.5
 #    INFINITY_BATCH_SIZE=32
-#    
+#
 #    # MCP Hub settings
 #    MCP_PORT=8765
 #
@@ -174,13 +174,13 @@ networks:
 # 3. Usage:
 #    # Start all services including vector search
 #    docker-compose -f docker-compose.vector.yml up -d
-#    
+#
 #    # View logs
 #    docker-compose -f docker-compose.vector.yml logs -f
-#    
+#
 #    # Stop all services
 #    docker-compose -f docker-compose.vector.yml down
-#    
+#
 #    # Remove volumes (careful - deletes all data!)
 #    docker-compose -f docker-compose.vector.yml down -v
 #

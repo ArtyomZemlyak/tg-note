@@ -108,34 +108,36 @@ _memory_tools_available: Optional[bool] = None
 def check_memory_tools_availability() -> bool:
     """
     Check if memory tools are available based on configuration.
-    
+
     Memory tools use JSON storage by default (no dependencies required),
     but can be disabled via AGENT_ENABLE_MCP_MEMORY config.
-    
+
     Returns:
         True if memory tools should be available, False otherwise
     """
     global _memory_tools_available
-    
+
     # Return cached result if already checked
     if _memory_tools_available is not None:
         return _memory_tools_available
-    
+
     try:
         from config import settings as app_settings
-        
+
         # Check configuration
         # Note: Memory tools default to DISABLED (default=False in settings)
         # They use basic JSON storage with no dependencies when enabled
         if not app_settings.AGENT_ENABLE_MCP_MEMORY:
-            logger.info("💾 Memory tools are disabled in configuration (AGENT_ENABLE_MCP_MEMORY: false)")
+            logger.info(
+                "💾 Memory tools are disabled in configuration (AGENT_ENABLE_MCP_MEMORY: false)"
+            )
             _memory_tools_available = False
             return False
-        
+
         logger.info("💾 Memory tools are enabled (using JSON storage)")
         _memory_tools_available = True
         return True
-        
+
     except Exception as e:
         logger.error(f"❌ Error checking memory tools availability: {e}", exc_info=True)
         # Default to DISABLED on error (matches Field default=False)
@@ -148,50 +150,55 @@ def check_vector_search_availability() -> bool:
     Check if vector search is available based on:
     1. Configuration (VECTOR_SEARCH_ENABLED)
     2. Dependencies (sentence-transformers, faiss-cpu, etc.)
-    
+
     Returns:
         True if vector search should be available, False otherwise
     """
     global _vector_search_available
-    
+
     # Return cached result if already checked
     if _vector_search_available is not None:
         return _vector_search_available
-    
+
     try:
         from config import settings as app_settings
-        
+
         # Check 1: Configuration
         if not app_settings.VECTOR_SEARCH_ENABLED:
-            logger.info("🔍 Vector search is disabled in configuration (VECTOR_SEARCH_ENABLED: false)")
+            logger.info(
+                "🔍 Vector search is disabled in configuration (VECTOR_SEARCH_ENABLED: false)"
+            )
             _vector_search_available = False
             return False
-        
+
         # Check 2: Dependencies
         logger.info("🔍 Checking vector search dependencies...")
         try:
             # Try to import required packages
             import sentence_transformers  # noqa: F401
+
             logger.info("  ✓ sentence-transformers is installed")
-            
+
             # Check for at least one vector store
             faiss_available = False
             qdrant_available = False
-            
+
             try:
                 import faiss  # noqa: F401
+
                 faiss_available = True
                 logger.info("  ✓ faiss-cpu is installed")
             except ImportError:
                 logger.debug("  ✗ faiss-cpu not available")
-            
+
             try:
                 import qdrant_client  # noqa: F401
+
                 qdrant_available = True
                 logger.info("  ✓ qdrant-client is installed")
             except ImportError:
                 logger.debug("  ✗ qdrant-client not available")
-            
+
             if not (faiss_available or qdrant_available):
                 logger.warning(
                     "⚠️  Vector search is enabled in config but no vector store backend is available. "
@@ -199,12 +206,12 @@ def check_vector_search_availability() -> bool:
                 )
                 _vector_search_available = False
                 return False
-            
+
             # All checks passed
             logger.info("✓ Vector search dependencies are available")
             _vector_search_available = True
             return True
-            
+
         except ImportError as e:
             logger.warning(
                 f"⚠️  Vector search is enabled in config but required dependencies are missing: {e}. "
@@ -212,7 +219,7 @@ def check_vector_search_availability() -> bool:
             )
             _vector_search_available = False
             return False
-            
+
     except Exception as e:
         logger.error(f"❌ Error checking vector search availability: {e}", exc_info=True)
         _vector_search_available = False
@@ -222,36 +229,40 @@ def check_vector_search_availability() -> bool:
 def get_builtin_tools() -> List[str]:
     """
     Get list of available built-in MCP tools provided by the hub.
-    
+
     This is dynamic and depends on:
     - Configuration settings (AGENT_ENABLE_MCP_MEMORY, VECTOR_SEARCH_ENABLED)
     - Available dependencies (for vector search)
-    
+
     Returns:
         List of available tool names
     """
     tools = []
-    
+
     # Memory tools (conditional - checked at tool list generation)
     # Checks configuration (AGENT_ENABLE_MCP_MEMORY)
     # Note: These tools use JSON storage by default, which has no dependencies
     # and includes automatic fallback from vector/mem-agent storage if needed.
     if check_memory_tools_availability():
-        tools.extend([
-            "store_memory",
-            "retrieve_memory",
-            "list_categories",
-        ])
-    
+        tools.extend(
+            [
+                "store_memory",
+                "retrieve_memory",
+                "list_categories",
+            ]
+        )
+
     # Vector search tools (conditional - checked at tool list generation)
     # Checks both configuration (VECTOR_SEARCH_ENABLED) and dependencies
     # (sentence-transformers, faiss-cpu or qdrant-client)
     if check_vector_search_availability():
-        tools.extend([
-            "vector_search",
-            "reindex_vector",
-        ])
-    
+        tools.extend(
+            [
+                "vector_search",
+                "reindex_vector",
+            ]
+        )
+
     return tools
 
 
@@ -453,9 +464,9 @@ def store_memory(
     if not check_memory_tools_availability():
         return {
             "success": False,
-            "error": "Memory tools are not available. Check config (AGENT_ENABLE_MCP_MEMORY)."
+            "error": "Memory tools are not available. Check config (AGENT_ENABLE_MCP_MEMORY).",
         }
-    
+
     logger.info("💾 STORE_MEMORY called")
     logger.info(f"  User: {user_id}")
     logger.info(f"  Category: {category}")
@@ -502,9 +513,9 @@ def retrieve_memory(
     if not check_memory_tools_availability():
         return {
             "success": False,
-            "error": "Memory tools are not available. Check config (AGENT_ENABLE_MCP_MEMORY)."
+            "error": "Memory tools are not available. Check config (AGENT_ENABLE_MCP_MEMORY).",
         }
-    
+
     logger.info("🔍 RETRIEVE_MEMORY called")
     logger.info(f"  User: {user_id}")
     logger.info(f"  Query: {query or 'all'}")
@@ -545,9 +556,9 @@ def list_categories(user_id: int) -> dict:
     if not check_memory_tools_availability():
         return {
             "success": False,
-            "error": "Memory tools are not available. Check config (AGENT_ENABLE_MCP_MEMORY)."
+            "error": "Memory tools are not available. Check config (AGENT_ENABLE_MCP_MEMORY).",
         }
-    
+
     logger.info("📋 LIST_CATEGORIES called")
     logger.info(f"  User: {user_id}")
 
@@ -583,48 +594,47 @@ def list_categories(user_id: int) -> dict:
 def get_vector_search_manager() -> Optional[VectorSearchManager]:
     """
     Get or create global vector search manager
-    
+
     Returns:
         VectorSearchManager instance or None if disabled/failed
     """
     global _vector_search_manager
-    
+
     if _vector_search_manager is not None:
         return _vector_search_manager
-    
+
     # Get settings from config.yaml or environment
     try:
         from config import settings as app_settings
-        
+
         if not app_settings.VECTOR_SEARCH_ENABLED:
             logger.info("🔍 Vector search is disabled in configuration")
             return None
-        
+
         logger.info("=" * 60)
         logger.info("🚀 INITIALIZING VECTOR SEARCH MANAGER")
         logger.info("=" * 60)
-        
+
         # Get knowledge base path
         kb_root_path = Path(app_settings.KB_ROOT_PATH)
         logger.info(f"📁 KB Root: {kb_root_path.absolute()}")
-        
+
         # Initialize vector search manager
         from src.vector_search import VectorSearchFactory
-        
+
         _vector_search_manager = VectorSearchFactory.create_from_settings(
-            settings=app_settings,
-            kb_root_path=kb_root_path
+            settings=app_settings, kb_root_path=kb_root_path
         )
-        
+
         if _vector_search_manager:
             logger.info("✅ Vector search manager initialized successfully")
             logger.info("=" * 60)
         else:
             logger.warning("⚠️  Vector search manager could not be initialized")
             logger.info("=" * 60)
-        
+
         return _vector_search_manager
-        
+
     except Exception as e:
         logger.error(f"❌ Failed to initialize vector search: {e}", exc_info=True)
         logger.info("=" * 60)
@@ -635,12 +645,12 @@ def get_vector_search_manager() -> Optional[VectorSearchManager]:
 def vector_search(query: str, top_k: int = 5, user_id: int = None) -> dict:
     """
     Perform semantic vector search in knowledge base
-    
+
     Args:
         query: Search query - describe what you're looking for in natural language
         top_k: Number of results to return (default: 5)
         user_id: User ID (optional, for logging purposes)
-    
+
     Returns:
         Search results with relevant documents
     """
@@ -648,27 +658,24 @@ def vector_search(query: str, top_k: int = 5, user_id: int = None) -> dict:
     if not check_vector_search_availability():
         return {
             "success": False,
-            "error": "Vector search is not available. Check config (VECTOR_SEARCH_ENABLED) and dependencies."
+            "error": "Vector search is not available. Check config (VECTOR_SEARCH_ENABLED) and dependencies.",
         }
-    
+
     logger.info("🔍 VECTOR_SEARCH called")
     logger.info(f"  Query: {query}")
     logger.info(f"  Top K: {top_k}")
     if user_id:
         logger.info(f"  User: {user_id}")
-    
+
     try:
         manager = get_vector_search_manager()
-        
+
         if not manager:
-            return {
-                "success": False,
-                "error": "Vector search is not enabled or not configured"
-            }
-        
+            return {"success": False, "error": "Vector search is not enabled or not configured"}
+
         # Perform search (sync wrapper for async method)
         import asyncio
-        
+
         if asyncio.iscoroutinefunction(manager.search):
             # Get or create event loop
             try:
@@ -676,21 +683,21 @@ def vector_search(query: str, top_k: int = 5, user_id: int = None) -> dict:
             except RuntimeError:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-            
+
             results = loop.run_until_complete(manager.search(query=query, top_k=top_k))
         else:
             results = manager.search(query=query, top_k=top_k)
-        
+
         logger.info(f"✅ Vector search successful: found {len(results)} results")
-        
+
         return {
             "success": True,
             "query": query,
             "top_k": top_k,
             "results": results,
-            "results_count": len(results)
+            "results_count": len(results),
         }
-        
+
     except Exception as e:
         logger.error(f"❌ Error in vector search: {e}", exc_info=True)
         return {"success": False, "error": str(e), "error_type": type(e).__name__}
@@ -700,11 +707,11 @@ def vector_search(query: str, top_k: int = 5, user_id: int = None) -> dict:
 def reindex_vector(force: bool = False, user_id: int = None) -> dict:
     """
     Reindex knowledge base for vector search
-    
+
     Args:
         force: Force reindexing even if index exists (default: false)
         user_id: User ID (optional, for logging purposes)
-    
+
     Returns:
         Reindexing statistics
     """
@@ -712,26 +719,23 @@ def reindex_vector(force: bool = False, user_id: int = None) -> dict:
     if not check_vector_search_availability():
         return {
             "success": False,
-            "error": "Vector search is not available. Check config (VECTOR_SEARCH_ENABLED) and dependencies."
+            "error": "Vector search is not available. Check config (VECTOR_SEARCH_ENABLED) and dependencies.",
         }
-    
+
     logger.info("🔄 REINDEX_VECTOR called")
     logger.info(f"  Force: {force}")
     if user_id:
         logger.info(f"  User: {user_id}")
-    
+
     try:
         manager = get_vector_search_manager()
-        
+
         if not manager:
-            return {
-                "success": False,
-                "error": "Vector search is not enabled or not configured"
-            }
-        
+            return {"success": False, "error": "Vector search is not enabled or not configured"}
+
         # Perform reindexing (sync wrapper for async method)
         import asyncio
-        
+
         if asyncio.iscoroutinefunction(manager.index_knowledge_base):
             # Get or create event loop
             try:
@@ -739,23 +743,23 @@ def reindex_vector(force: bool = False, user_id: int = None) -> dict:
             except RuntimeError:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-            
+
             stats = loop.run_until_complete(manager.index_knowledge_base(force=force))
         else:
             stats = manager.index_knowledge_base(force=force)
-        
+
         logger.info(
             f"✅ Reindexing complete: "
             f"{stats['files_processed']} files processed, "
             f"{stats['chunks_created']} chunks created"
         )
-        
+
         return {
             "success": True,
             "stats": stats,
-            "message": f"Successfully indexed {stats['files_processed']} files"
+            "message": f"Successfully indexed {stats['files_processed']} files",
         }
-        
+
     except Exception as e:
         logger.error(f"❌ Error in reindexing: {e}", exc_info=True)
         return {"success": False, "error": str(e), "error_type": type(e).__name__}

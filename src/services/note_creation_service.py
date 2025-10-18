@@ -89,7 +89,7 @@ class NoteCreationService(INoteCreationService):
             # AICODE-NOTE: Use sync manager to serialize KB operations and prevent conflicts
             # when multiple users work with the same knowledge base
             sync_manager = get_sync_manager()
-            
+
             # Acquire lock for this KB to ensure operations are serialized
             async with sync_manager.with_kb_lock(str(kb_path), f"create_note_user_{user_id}"):
                 await self._create_note_locked(
@@ -124,11 +124,11 @@ class NoteCreationService(INoteCreationService):
         # Create KB manager and Git operations
         kb_manager = KnowledgeBaseManager(str(kb_path))
         kb_git_enabled = self.settings_manager.get_setting(user_id, "KB_GIT_ENABLED")
-        
+
         # Get GitHub credentials for HTTPS authentication
         github_username = self.settings_manager.get_setting(user_id, "GITHUB_USERNAME")
         github_token = self.settings_manager.get_setting(user_id, "GITHUB_TOKEN")
-        
+
         git_ops = GitOperations(
             str(kb_path),
             enabled=kb_git_enabled,
@@ -142,10 +142,10 @@ class NoteCreationService(INoteCreationService):
             await self.bot.edit_message_text(
                 "🔄 Синхронизация с GitHub...", chat_id=chat_id, message_id=processing_msg_id
             )
-            
+
             kb_git_remote = self.settings_manager.get_setting(user_id, "KB_GIT_REMOTE")
             kb_git_branch = self.settings_manager.get_setting(user_id, "KB_GIT_BRANCH")
-            
+
             success, message = git_ops.pull(kb_git_remote, kb_git_branch)
             if not success:
                 # If pull failed due to conflicts or other issues, notify user
@@ -230,21 +230,21 @@ class NoteCreationService(INoteCreationService):
                 await self.bot.edit_message_text(
                     "📤 Сохраняю изменения в git...", chat_id=chat_id, message_id=processing_msg_id
                 )
-                
+
                 # Get git settings
                 kb_git_remote = self.settings_manager.get_setting(user_id, "KB_GIT_REMOTE")
                 kb_git_branch = self.settings_manager.get_setting(user_id, "KB_GIT_BRANCH")
-                
+
                 # Create commit message
                 commit_message = f"Add: {processed_content.get('title', 'Untitled Note')}"
-                
+
                 # Auto-commit and push
                 success, message = git_ops.auto_commit_and_push(
                     message=commit_message,
                     remote=kb_git_remote,
                     branch=kb_git_branch,
                 )
-                
+
                 if not success:
                     logger.warning(f"Auto-commit/push failed: {message}")
                 else:

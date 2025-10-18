@@ -410,4 +410,3 @@ class TestSetupQwenMCPConfig:
 
                 assert path.exists()
                 assert ".qwen" in str(path)
-

@@ -159,7 +159,8 @@ class Settings(BaseSettings):
         default=None, description="GitHub personal access token (from .env or env vars only)"
     )
     GITHUB_USERNAME: Optional[str] = Field(
-        default=None, description="GitHub username for HTTPS authentication (from .env or env vars only)"
+        default=None,
+        description="GitHub username for HTTPS authentication (from .env or env vars only)",
     )
 
     # Agent Configuration (can be in YAML)
@@ -376,8 +377,12 @@ class Settings(BaseSettings):
         env_overrides = EnvOverridesSource(settings_cls)
 
         # Return sources in priority order (leftmost = highest priority)
+        # AICODE-NOTE: Explicit constructor arguments (init_settings) MUST have the
+        # highest priority so that direct instantiation like Settings(MEDIA_PROCESSING_ENABLED=False)
+        # reliably overrides all other configuration sources.
         return (
-            env_overrides,  # Highest priority - fix/normalize problematic env vars
+            init_settings,  # Highest priority - explicit constructor args
+            env_overrides,  # Then normalized env overrides
             env_settings,  # Then standard env vars
             cli_settings,  # Then CLI (reserved)
             dotenv_settings,  # Then .env file

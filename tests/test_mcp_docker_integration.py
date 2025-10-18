@@ -61,12 +61,12 @@ async def test_mcp_hub_health_includes_builtin_tools():
     """Test that MCP Hub health check reports built-in tools"""
     # Arrange: Mock the health response
     # Note: The number of tools is DYNAMIC based on configuration:
-    # 
+    #
     # Memory tools (3 tools - controlled by AGENT_ENABLE_MCP_MEMORY):
     #   - store_memory
     #   - retrieve_memory
     #   - list_categories
-    # 
+    #
     # Vector search tools (2 tools - controlled by VECTOR_SEARCH_ENABLED + dependencies):
     #   - vector_search
     #   - reindex_vector
@@ -104,21 +104,27 @@ async def test_mcp_hub_health_includes_builtin_tools():
     assert "builtin_tools" in mock_health_response
     # After refactor, MCP Hub exposes tools dynamically based on configuration
     # Management endpoints are available via HTTP API, not as MCP tools
-    
+
     # Total should be one of the valid combinations
     assert mock_health_response["builtin_tools"]["total"] in [0, 2, 3, 5]
-    assert mock_health_response["builtin_tools"]["total"] == len(mock_health_response["builtin_tools"]["names"])
-    
+    assert mock_health_response["builtin_tools"]["total"] == len(
+        mock_health_response["builtin_tools"]["names"]
+    )
+
     # If memory tools are in the list, verify they are complete
     memory_tools = ["store_memory", "retrieve_memory", "list_categories"]
-    memory_tools_present = [tool in mock_health_response["builtin_tools"]["names"] for tool in memory_tools]
+    memory_tools_present = [
+        tool in mock_health_response["builtin_tools"]["names"] for tool in memory_tools
+    ]
     if any(memory_tools_present):
         # Either all memory tools present or none
         assert all(memory_tools_present), "Memory tools should be all present or all absent"
-    
+
     # If vector search tools are in the list, verify they are complete
     vector_tools = ["vector_search", "reindex_vector"]
-    vector_tools_present = [tool in mock_health_response["builtin_tools"]["names"] for tool in vector_tools]
+    vector_tools_present = [
+        tool in mock_health_response["builtin_tools"]["names"] for tool in vector_tools
+    ]
     if any(vector_tools_present):
         # Either all vector tools present or none
         assert all(vector_tools_present), "Vector search tools should be all present or all absent"
