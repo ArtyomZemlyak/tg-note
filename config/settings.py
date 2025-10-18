@@ -376,12 +376,16 @@ class Settings(BaseSettings):
         env_overrides = EnvOverridesSource(settings_cls)
 
         # Return sources in priority order (leftmost = highest priority)
+        # AICODE-NOTE: Explicit constructor arguments (init_settings) MUST have the
+        # highest priority so that direct instantiation like Settings(MEDIA_PROCESSING_ENABLED=False)
+        # reliably overrides all other configuration sources.
         return (
-            env_overrides,  # Highest priority - fix/normalize problematic env vars
-            env_settings,  # Then standard env vars
-            cli_settings,  # Then CLI (reserved)
-            dotenv_settings,  # Then .env file
-            yaml_settings,  # Finally YAML config
+            init_settings,   # Highest priority - explicit constructor args
+            env_overrides,   # Then normalized env overrides
+            env_settings,    # Then standard env vars
+            cli_settings,    # Then CLI (reserved)
+            dotenv_settings, # Then .env file
+            yaml_settings,   # Finally YAML config
         )
 
     @field_validator("ALLOWED_USER_IDS", mode="before")

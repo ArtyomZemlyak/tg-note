@@ -34,6 +34,10 @@ class GitOperations:
         self.repo: Optional[Repo] = None
         self.github_username = github_username
         self.github_token = github_token
+        # AICODE-NOTE: Track whether HTTPS credentials have already been configured
+        # to keep the operation idempotent across repeated calls (important for tests
+        # that may invoke _configure_https_credentials() explicitly after __init__).
+        self._credentials_configured: bool = False
 
         if self.enabled:
             self._initialize_repo()
@@ -64,11 +68,16 @@ class GitOperations:
         - Credentials are provided
         - URL doesn't already contain credentials
         """
+        # Prevent double configuration within the same instance
+        if self._credentials_configured:
+            return
+
         if not self.repo or not self.github_username or not self.github_token:
             return
 
         try:
             # Check all remotes
+            changed_any = False
             for remote in self.repo.remotes:
                 for url in remote.urls:
                     # Only process HTTPS GitHub URLs without existing credentials
@@ -83,10 +92,14 @@ class GitOperations:
                         )
                         # Update remote URL
                         remote.set_url(new_url)
+                        changed_any = True
                         logger.info(
                             f"Configured HTTPS credentials for remote '{remote.name}' "
                             f"(user: {self.github_username})"
                         )
+            if changed_any:
+                # Mark as configured to avoid repeated set_url calls in subsequent invocations
+                self._credentials_configured = True
         except Exception as e:
             logger.warning(f"Failed to configure HTTPS credentials: {e}")
 

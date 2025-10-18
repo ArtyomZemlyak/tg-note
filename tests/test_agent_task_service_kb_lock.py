@@ -84,15 +84,14 @@ class TestAgentTaskServiceKBLock:
     async def test_agent_task_uses_kb_lock(self, agent_service, temp_kb_path):
         """Test that agent task execution acquires KB lock"""
         # Create a message group
-        group = MessageGroup(
-            messages=[
-                {
-                    "message_id": 1,
-                    "date": 1234567890,
-                    "text": "Test task",
-                    "chat_id": 123,
-                }
-            ]
+        group = MessageGroup()
+        group.add_message(
+            {
+                "message_id": 1,
+                "date": 1234567890,
+                "text": "Test task",
+                "chat_id": 123,
+            }
         )
 
         user_kb = {"kb_name": "test_kb", "kb_type": "github"}
@@ -150,26 +149,24 @@ class TestAgentTaskServiceKBLock:
         execution_order = []
         
         # Create two message groups
-        group1 = MessageGroup(
-            messages=[
-                {
-                    "message_id": 1,
-                    "date": 1234567890,
-                    "text": "Task 1",
-                    "chat_id": 123,
-                }
-            ]
+        group1 = MessageGroup()
+        group1.add_message(
+            {
+                "message_id": 1,
+                "date": 1234567890,
+                "text": "Task 1",
+                "chat_id": 123,
+            }
         )
         
-        group2 = MessageGroup(
-            messages=[
-                {
-                    "message_id": 2,
-                    "date": 1234567891,
-                    "text": "Task 2",
-                    "chat_id": 124,
-                }
-            ]
+        group2 = MessageGroup()
+        group2.add_message(
+            {
+                "message_id": 2,
+                "date": 1234567891,
+                "text": "Task 2",
+                "chat_id": 124,
+            }
         )
         
         user_kb = {"kb_name": "test_kb", "kb_type": "github"}
@@ -206,15 +203,14 @@ class TestAgentTaskServiceKBLock:
     async def test_kb_lock_released_on_exception(self, agent_service, temp_kb_path):
         """Test that KB lock is released even when task fails"""
         # Create a message group
-        group = MessageGroup(
-            messages=[
-                {
-                    "message_id": 1,
-                    "date": 1234567890,
-                    "text": "Test task",
-                    "chat_id": 123,
-                }
-            ]
+        group = MessageGroup()
+        group.add_message(
+            {
+                "message_id": 1,
+                "date": 1234567890,
+                "text": "Test task",
+                "chat_id": 123,
+            }
         )
 
         user_kb = {"kb_name": "test_kb", "kb_type": "github"}
