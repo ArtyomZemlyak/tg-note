@@ -344,6 +344,9 @@ class GitOperations:
         else:
             target_branch = active_branch_name or "main"
 
+        # Always define a safe local reference for logging and upstream setup
+        local_ref = active_branch_name or "HEAD"
+
         # Perform push
         try:
             # Check if upstream tracking is configured
@@ -366,7 +369,6 @@ class GitOperations:
                 logger.info(f"Pushed {active_branch_name} to {remote}/{target_branch}")
             else:
                 # Set upstream while pushing
-                local_ref = active_branch_name or "HEAD"
                 self.repo.git.push("--set-upstream", remote, f"{local_ref}:{target_branch}")
                 logger.info(f"Pushed {local_ref} to {remote}/{target_branch} and set upstream")
 
@@ -397,10 +399,11 @@ class GitOperations:
                 logger.error(f"Failed to push (git): {gce}")
                 return False
         except Exception as e:
-            target = explicit_branch or "auto"
+            # Use safe variables to avoid NameError in logging paths
+            safe_target = target_branch or "auto"
             logger.error(
                 f"Failed to push: {type(e).__name__}: {e}. "
-                f"Tried pushing {local_ref} -> {remote}/{target}."
+                f"Tried pushing {local_ref} -> {remote}/{safe_target}."
             )
             return False
 
