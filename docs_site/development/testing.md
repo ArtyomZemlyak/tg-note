@@ -8,11 +8,11 @@ Basic commands:
 # Install dev dependencies
 pip install -e ".[dev]"
 
-# Run all tests
-pytest
+# Run all tests (works even if pytest executable isn't on PATH)
+python -m pytest
 
 # With coverage
-pytest --cov=src --cov=config --cov-report=term-missing
+python -m pytest --cov=src --cov=config --cov-report=term-missing
 ```
 
 ### Notes on settings precedence
