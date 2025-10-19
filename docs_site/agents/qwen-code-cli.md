@@ -134,6 +134,12 @@ Tip: The CLI path is configurable via `AGENT_QWEN_CLI_PATH` and defaults to `qwe
 
 **Important:** The CLI automatically runs inside your knowledge base directory (`knowledge_bases/your-kb-name/`). This ensures that any files created by the agent are saved to the correct location in your knowledge base structure.
 
+### Connection Descriptions (Связи)
+
+- Agent must add links only to EXISTING KB files (not those created in the same run).
+- Each link MUST include a meaningful description (1–2 sentences) explaining the nature of the connection: similarity/difference, dependency, part-whole, alternative, sequence, overlapping concepts.
+- Avoid generic placeholders like “Связанная тема”.
+
 ---
 
 ## Troubleshooting

@@ -396,6 +396,11 @@ AGENT_INSTRUCTION: |
   Use clear, academic language.
 ```
 
+### Connections (Связи)
+
+- When creating relations, link only to existing files from the KB (skip files created in the same run).
+- Provide a short, meaningful description (1–2 sentences) for each relation that explains the connection type (similarity, dependency, part-whole, alternative, sequence, overlapping tags).
+
 ---
 
 ## Troubleshooting
