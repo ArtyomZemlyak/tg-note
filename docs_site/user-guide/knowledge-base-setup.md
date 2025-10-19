@@ -53,6 +53,8 @@ KB_GIT_REMOTE: origin
 KB_GIT_BRANCH: main
 ```
 
+**Note:** When cloning from GitHub, the system automatically creates the required KB structure (topics directory and category folders) if they don't exist in the repository. This ensures compatibility with the default `KB_TOPICS_ONLY=true` setting, which restricts agents to work only in the `topics/` folder for safety.
+
 #### Setting up Static Documentation for GitHub KB
 
 For GitHub-based knowledge bases, you can automatically configure MkDocs to build and deploy static documentation to GitHub Pages:
