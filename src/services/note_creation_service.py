@@ -275,7 +275,7 @@ class NoteCreationService(INoteCreationService):
 
             # Send success notification
             await self._send_success_notification(
-                processing_msg_id, chat_id, kb_path, processed_content
+                processing_msg_id, chat_id, kb_path, processed_content, user_id
             )
 
     async def _save_to_kb(
@@ -365,7 +365,12 @@ class NoteCreationService(INoteCreationService):
             )
 
     async def _send_success_notification(
-        self, processing_msg_id: int, chat_id: int, kb_path: Path, processed_content: dict
+        self,
+        processing_msg_id: int,
+        chat_id: int,
+        kb_path: Path,
+        processed_content: dict,
+        user_id: int,
     ) -> None:
         """Send success notification"""
         kb_structure = processed_content.get("kb_structure")
@@ -386,20 +391,63 @@ class NoteCreationService(INoteCreationService):
         files_created_set = set(files_created)
         files_edited_unique = [f for f in files_edited if f not in files_created_set]
 
+        # Подготовим GitHub base URL, если включен Git и настроен remote
+        def _get_github_base_url() -> str | None:
+            try:
+                from git import Repo  # type: ignore
+
+                repo = Repo(kb_path)
+                remote_name = self.settings_manager.get_setting(user_id, "KB_GIT_REMOTE") or "origin"
+                branch = self.settings_manager.get_setting(user_id, "KB_GIT_BRANCH") or "main"
+
+                try:
+                    remote = repo.remote(remote_name)
+                except Exception:
+                    return None
+
+                url = next(iter(remote.urls), None)
+                if not url:
+                    return None
+
+                # Удаляем креденшлы и .git суффикс
+                url = (
+                    str(url)
+                    .replace("https://github.com/", "https://github.com/")
+                    .replace("git@github.com:", "https://github.com/")
+                )
+                # Вырезаем возможные username:token@
+                import re as _re
+
+                url = _re.sub(r"https://[^:@]+:[^@]+@github.com/", "https://github.com/", url)
+                if url.endswith(".git"):
+                    url = url[:-4]
+
+                return f"{url}/blob/{branch}"
+            except Exception:
+                return None
+
+        github_base = _get_github_base_url()
+
         if files_created or files_edited_unique or folders_created:
             message_parts.append("\n📝 Изменения:")
 
             if files_created:
                 message_parts.append(f"  ✨ Создано файлов: {len(files_created)}")
                 for file in files_created[:5]:  # Показываем первые 5
-                    message_parts.append(f"    • {file}")
+                    if github_base:
+                        message_parts.append(f"    • {file} — {github_base}/{file}")
+                    else:
+                        message_parts.append(f"    • {file}")
                 if len(files_created) > 5:
                     message_parts.append(f"    • ... и ещё {len(files_created) - 5}")
 
             if files_edited_unique:
                 message_parts.append(f"  ✏️ Изменено файлов: {len(files_edited_unique)}")
                 for file in files_edited_unique[:5]:  # Показываем первые 5
-                    message_parts.append(f"    • {file}")
+                    if github_base:
+                        message_parts.append(f"    • {file} — {github_base}/{file}")
+                    else:
+                        message_parts.append(f"    • {file}")
                 if len(files_edited_unique) > 5:
                     message_parts.append(f"    • ... и ещё {len(files_edited_unique) - 5}")
 
@@ -413,22 +461,58 @@ class NoteCreationService(INoteCreationService):
         # Добавляем блок связей
         links = metadata.get("links", []) or metadata.get("relations", [])
         if links:
-            message_parts.append("\n🔗 Связи:")
-            for link in links[:10]:  # Показываем первые 10
+            # Фильтруем шлак: исключаем связи на файлы, созданные в этом же запуске
+            # Нормализуем пути для надёжного сравнения
+            def _normalize_path_str(p: str) -> str:
+                return str(Path(p).as_posix()).lstrip("./")
+
+            files_created_norm = { _normalize_path_str(p) for p in files_created }
+
+            def _is_created_here(target: str) -> bool:
+                return _normalize_path_str(target) in files_created_norm
+
+            filtered_links = []
+            for link in links:
                 if isinstance(link, dict):
-                    # Если связь это dict с полями 'file' и 'description'
-                    file_path = link.get("file", "")
-                    description = link.get("description", "")
-                    if file_path:
-                        if description:
-                            message_parts.append(f"  • {file_path} - {description}")
-                        else:
-                            message_parts.append(f"  • {file_path}")
+                    target_file = link.get("file", "")
+                    if target_file and _is_created_here(target_file):
+                        continue
+                    filtered_links.append(link)
                 else:
-                    # Если связь это просто строка
-                    message_parts.append(f"  • {link}")
-            if len(links) > 10:
-                message_parts.append(f"  • ... и ещё {len(links) - 10}")
+                    # Строковые связи оставить, но отфильтровать если явно указывают на созданный файл
+                    if isinstance(link, str) and _is_created_here(link):
+                        continue
+                    filtered_links.append(link)
+
+            if filtered_links:
+            message_parts.append("\n🔗 Связи:")
+                for link in filtered_links[:10]:  # Показываем первые 10
+                    if isinstance(link, dict):
+                        # Если связь это dict с полями 'file' и 'description'
+                        file_path = link.get("file", "")
+                        description = link.get("description", "")
+                        if file_path:
+                            if not description:
+                                # Попробуем извлечь заголовок из файла как краткое пояснение
+                                try:
+                                    abs_path = Path(file_path)
+                                    if not abs_path.is_absolute():
+                                        abs_path = kb_path / file_path
+                                    title = self._extract_title_from_file(abs_path) or abs_path.stem
+                                    description = f"связь с \"{title}\""
+                                except Exception:
+                                    description = "связанная тема"
+                            if github_base:
+                                message_parts.append(
+                                    f"  • {file_path} - {description} — {github_base}/{file_path}"
+                                )
+                            else:
+                                message_parts.append(f"  • {file_path} - {description}")
+                    else:
+                        # Если связь это просто строка
+                        message_parts.append(f"  • {link}")
+                if len(filtered_links) > 10:
+                    message_parts.append(f"  • ... и ещё {len(filtered_links) - 10}")
 
         await self.bot.edit_message_text(
             "\n".join(message_parts), chat_id=chat_id, message_id=processing_msg_id

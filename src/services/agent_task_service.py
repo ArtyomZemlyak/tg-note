@@ -211,7 +211,7 @@ class AgentTaskService(IAgentTaskService):
                 self.logger.info(f"Auto-commit/push successful: {message}")
 
         # Send result to user
-        await self._send_result(processing_msg_id, chat_id, result)
+        await self._send_result(processing_msg_id, chat_id, result, kb_path, user_id)
 
     async def _execute_with_agent(self, kb_path: Path, content: dict, user_id: int) -> dict:
         """
@@ -371,7 +371,14 @@ class AgentTaskService(IAgentTaskService):
                 self.logger.error(f"Unexpected error editing message: {e}", exc_info=True)
                 return False
 
-    async def _send_result(self, processing_msg_id: int, chat_id: int, result: dict) -> None:
+    async def _send_result(
+        self,
+        processing_msg_id: int,
+        chat_id: int,
+        result: dict,
+        kb_path: Path,
+        user_id: int,
+    ) -> None:
         """
         Send task result to user
 
@@ -399,20 +406,62 @@ class AgentTaskService(IAgentTaskService):
         files_deleted = result.get("files_deleted", [])
         folders_created = result.get("folders_created", [])
 
+        # Prepare GitHub base URL for file links if available
+        def _get_github_base_url() -> str | None:
+            try:
+                from git import Repo  # type: ignore
+
+                repo = Repo(kb_path)
+                remote_name = self.settings_manager.get_setting(user_id, "KB_GIT_REMOTE") or "origin"
+                branch = self.settings_manager.get_setting(user_id, "KB_GIT_BRANCH") or "main"
+
+                try:
+                    remote = repo.remote(remote_name)
+                except Exception:
+                    return None
+
+                url = next(iter(remote.urls), None)
+                if not url:
+                    return None
+
+                # Normalize URL to https without credentials and .git suffix
+                url = (
+                    str(url)
+                    .replace("https://github.com/", "https://github.com/")
+                    .replace("git@github.com:", "https://github.com/")
+                )
+                import re as _re
+
+                url = _re.sub(r"https://[^:@]+:[^@]+@github.com/", "https://github.com/", url)
+                if url.endswith(".git"):
+                    url = url[:-4]
+
+                return f"{url}/blob/{branch}"
+            except Exception:
+                return None
+
+        github_base = _get_github_base_url()
+
         if files_created or files_edited or files_deleted or folders_created:
             message_parts.append("\n📝 **Изменения:**\n")
 
             if files_created:
                 message_parts.append(f"✨ Создано файлов: {len(files_created)}\n")
                 for file in files_created[:5]:
-                    message_parts.append(f"  • {file}\n")
+                    if github_base:
+                        message_parts.append(f"  • {file} — {github_base}/{file}\n")
+                    else:
+                        message_parts.append(f"  • {file}\n")
                 if len(files_created) > 5:
                     message_parts.append(f"  • ... и ещё {len(files_created) - 5}\n")
 
             if files_edited:
                 message_parts.append(f"✏️ Изменено файлов: {len(files_edited)}\n")
                 for file in files_edited[:5]:
-                    message_parts.append(f"  • {file}\n")
+                    if github_base:
+                        message_parts.append(f"  • {file} — {github_base}/{file}\n")
+                    else:
+                        message_parts.append(f"  • {file}\n")
                 if len(files_edited) > 5:
                     message_parts.append(f"  • ... и ещё {len(files_edited) - 5}\n")
 
@@ -429,6 +478,58 @@ class AgentTaskService(IAgentTaskService):
                     message_parts.append(f"  • {folder}\n")
                 if len(folders_created) > 5:
                     message_parts.append(f"  • ... и ещё {len(folders_created) - 5}\n")
+
+        # Add relations block if provided by agent metadata
+        metadata = result.get("metadata", {}) or {}
+        links = metadata.get("links", []) or metadata.get("relations", [])
+        if links:
+            # Filter out relations to files created in this run
+            def _normalize_path_str(p: str) -> str:
+                return str(Path(p).as_posix()).lstrip("./")
+
+            files_created_norm = { _normalize_path_str(p) for p in files_created }
+
+            def _is_created_here(target: str) -> bool:
+                return _normalize_path_str(target) in files_created_norm
+
+            filtered_links = []
+            for link in links:
+                if isinstance(link, dict):
+                    target_file = link.get("file", "")
+                    if target_file and _is_created_here(target_file):
+                        continue
+                    filtered_links.append(link)
+                else:
+                    if isinstance(link, str) and _is_created_here(link):
+                        continue
+                    filtered_links.append(link)
+
+            if filtered_links:
+                message_parts.append("\n🔗 **Связи:**\n")
+                for link in filtered_links[:10]:
+                    if isinstance(link, dict):
+                        file_path = link.get("file", "")
+                        description = link.get("description", "")
+                        if file_path:
+                            if not description:
+                                try:
+                                    abs_path = Path(file_path)
+                                    if not abs_path.is_absolute():
+                                        abs_path = kb_path / file_path
+                                    title = self._extract_title_from_file(abs_path) if hasattr(self, "_extract_title_from_file") else None
+                                    description = f"связь с \"{title or abs_path.stem}\""
+                                except Exception:
+                                    description = "связанная тема"
+                            if github_base:
+                                message_parts.append(
+                                    f"  • {file_path} - {description} — {github_base}/{file_path}\n"
+                                )
+                            else:
+                                message_parts.append(f"  • {file_path} - {description}\n")
+                    else:
+                        message_parts.append(f"  • {link}\n")
+                if len(filtered_links) > 10:
+                    message_parts.append(f"  • ... и ещё {len(filtered_links) - 10}\n")
 
         # Build final message
         full_message = "".join(message_parts)
