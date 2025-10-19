@@ -128,8 +128,9 @@ nav:
 
 - Deployment:
   - Overview: deployment/overview.md
-  - Production Setup: deployment/production.md
+  - Production Checklist: deployment/production.md
   - Docker: deployment/docker.md
+  - Vector Search Stack: deployment/docker-vector-search.md
   - CI/CD: deployment/cicd.md
   - PyPI Trusted Publisher: deployment/pypi-trusted-publisher-setup.md
   - Auto Deploy (Cron): deployment/auto-deploy.md

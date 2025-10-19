@@ -13,7 +13,7 @@ The MCP Hub provides built-in tools that are dynamically available based on conf
 **Tool availability is checked at startup** - disabled tools will NOT appear in the tools list.
 
 **Memory Tools (Conditionally Available):**
-- Tools: `store_memory`, `retrieve_memory`, `list_categories`
+- Tools: `memory_store`, `memory_search`, `mcp_memory` (multi-action)
 - Requirement: `AGENT_ENABLE_MCP_MEMORY: true` (default: false)
 - Dependencies: None (uses basic JSON storage)
 - Total: 3 tools when enabled
@@ -55,11 +55,11 @@ This tool is specifically designed for the main agent to:
 - Autonomous agents (like qwen code cli) making many LLM calls in one session
 - Maintaining context when the agent needs to remember what it discovered earlier
 
-**Tools:**
+**Tools (agent-level):**
 
-- `store_memory` - Store information in memory
-- `retrieve_memory` - Retrieve information from memory
-- `list_categories` - List all memory categories
+- `memory_store` - Store information in memory
+- `memory_search` - Retrieve information from memory
+- `mcp_memory` - Unified multi-action interface (store/search/list)
 
 **Note:** If disabled, these tools will NOT appear in the MCP tools list.
 
@@ -106,13 +106,13 @@ Add to your `config.yaml`:
 # MCP Settings
 AGENT_ENABLE_MCP: true
 AGENT_ENABLE_MCP_MEMORY: true
-MCP_MEMORY_PROVIDER: "openai"
-MCP_MEMORY_MODEL: "gpt-4"
 
 # Vector Search Settings
 VECTOR_SEARCH_ENABLED: true
-VECTOR_SEARCH_MODEL: "sentence-transformers/all-MiniLM-L6-v2"
-VECTOR_SEARCH_BACKEND: "auto"
+VECTOR_EMBEDDING_PROVIDER: sentence_transformers
+VECTOR_EMBEDDING_MODEL: all-MiniLM-L6-v2
+# Optional vector store selection (default: faiss)
+# VECTOR_STORE_PROVIDER: faiss  # or qdrant
 ```
 
 Or set environment variables:
@@ -120,18 +120,18 @@ Or set environment variables:
 ```bash
 export AGENT_ENABLE_MCP=true
 export AGENT_ENABLE_MCP_MEMORY=true
-export MCP_MEMORY_PROVIDER=openai
-export MCP_MEMORY_MODEL=gpt-4
 
 # Vector Search
 export VECTOR_SEARCH_ENABLED=true
-export VECTOR_SEARCH_MODEL=sentence-transformers/all-MiniLM-L6-v2
-export VECTOR_SEARCH_BACKEND=auto
+export VECTOR_EMBEDDING_PROVIDER=sentence_transformers
+export VECTOR_EMBEDDING_MODEL=all-MiniLM-L6-v2
+# Optional:
+# export VECTOR_STORE_PROVIDER=faiss
 ```
 
 ### Install MCP Server
 
-The memory agent tool requires the `mem-agent-mcp` server:
+Most setups do not require an external MCP server for memory — the MCP Hub provides built‑in memory tools with JSON storage. If you plan to use the advanced LLM‑powered "mem-agent" storage type, you may optionally install the Node.js server `mem-agent-mcp`:
 
 ```bash
 # Install globally
@@ -201,7 +201,7 @@ result = await agent.tool_manager.execute(
 ```python
 # Record a note
 await agent.tool_manager.execute(
-    "mcp_memory_agent",
+    "mcp_memory",
     {
         "action": "store",
         "content": "Database uses PostgreSQL 14 with pgvector extension",
@@ -211,7 +211,7 @@ await agent.tool_manager.execute(
 
 # Search notes to recall information
 await agent.tool_manager.execute(
-    "mcp_memory_agent",
+    "mcp_memory",
     {
         "action": "search",
         "content": "What database technology is used?"
@@ -220,7 +220,7 @@ await agent.tool_manager.execute(
 
 # List all recorded notes
 await agent.tool_manager.execute(
-    "mcp_memory_agent",
+    "mcp_memory",
     {
         "action": "list"
     }
@@ -303,7 +303,8 @@ result = await agent.tool_manager.execute(
 You can create custom MCP tools by extending the `BaseMCPTool` class:
 
 ```python
-from src.agents.mcp import BaseMCPTool, MCPServerConfig
+from src.mcp.base_mcp_tool import BaseMCPTool
+from src.mcp.client import MCPServerConfig
 
 class MyCustomMCPTool(BaseMCPTool):
     @property
@@ -347,7 +348,7 @@ To connect any MCP-compatible server:
 4. **Enable the tool** in your configuration
 5. **Register the tool** in the tool manager
 
-See `src/agents/mcp/memory_agent_tool.py` for a complete example.
+See `src/mcp/memory/memory_tool.py` for a complete example.
 
 ## Troubleshooting
 
