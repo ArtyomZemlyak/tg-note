@@ -147,7 +147,7 @@ if (( ${#changed_files[@]} == 0 )); then
   exit 0
 fi
 
-log "Changed files since HEAD..$upstream_ref:" 
+log "Changed files since HEAD..$upstream_ref:"
 for f in "${changed_files[@]}"; do log "  - $f"; done
 
 # Build pattern list

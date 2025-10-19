@@ -89,10 +89,19 @@ Detailed installation instructions for tg-note.
 
 === "Docker Installation"
 
-    !!! info "Coming Soon"
-        Docker support is planned for future releases.
+    Use Docker for a reproducible setup. See detailed guides in the Deployment section.
 
-    For now, please use the local installation method.
+    ```bash
+    # Build and start services
+    docker compose up -d --build
+
+    # (optional) Authenticate Qwen CLI inside the bot container
+    docker exec -it tg-note-bot bash -lc "qwen"
+    docker exec -it tg-note-bot bash -lc "qwen <<<'/approval-mode yolo --project'"
+    ```
+
+    - For service details see: [Docker Deployment](../deployment/docker.md)
+    - For semantic search stack see: [Vector Search](../deployment/docker-vector-search.md)
 
 ---
 

@@ -113,7 +113,7 @@ class BaseKBService:
             # Restrict to topics folder (protects index.md, README.md, etc.)
             agent_working_dir = kb_path / "topics"
             self.logger.debug("KB_TOPICS_ONLY=true, restricting agent to topics folder")
-            
+
             # AICODE-NOTE: Ensure topics directory exists (important for GitHub repos)
             # When cloning from GitHub, the repo might not have a topics/ directory,
             # but we need it for agent operations when KB_TOPICS_ONLY=true
@@ -143,9 +143,7 @@ class BaseKBService:
             agent.set_working_directory(str(working_dir))
             self.logger.debug(f"Set agent working directory to: {working_dir}")
 
-    async def _check_rate_limit(
-        self, user_id: int, chat_id: int, processing_msg_id: int
-    ) -> bool:
+    async def _check_rate_limit(self, user_id: int, chat_id: int, processing_msg_id: int) -> bool:
         """
         Check rate limit before agent API call.
 

@@ -83,7 +83,9 @@ class TestBaseKBServiceTopicsFix:
 
         # Verify topics directory was NOT created
         topics_path = temp_kb_path / "topics"
-        assert not topics_path.exists(), "topics directory should not be created when KB_TOPICS_ONLY=false"
+        assert (
+            not topics_path.exists()
+        ), "topics directory should not be created when KB_TOPICS_ONLY=false"
 
         # Verify returned path is KB root
         assert working_dir == temp_kb_path
