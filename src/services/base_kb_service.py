@@ -113,6 +113,17 @@ class BaseKBService:
             # Restrict to topics folder (protects index.md, README.md, etc.)
             agent_working_dir = kb_path / "topics"
             self.logger.debug("KB_TOPICS_ONLY=true, restricting agent to topics folder")
+            
+            # AICODE-NOTE: Ensure topics directory exists (important for GitHub repos)
+            # When cloning from GitHub, the repo might not have a topics/ directory,
+            # but we need it for agent operations when KB_TOPICS_ONLY=true
+            try:
+                agent_working_dir.mkdir(parents=True, exist_ok=True)
+                self.logger.debug(f"Ensured agent working directory exists: {agent_working_dir}")
+            except Exception as e:
+                self.logger.warning(
+                    f"Could not create agent working directory {agent_working_dir}: {e}"
+                )
         else:
             # Full access to entire knowledge base
             agent_working_dir = kb_path

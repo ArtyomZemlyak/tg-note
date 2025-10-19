@@ -121,6 +121,10 @@ class RepositoryManager:
             logger.info(f"Cloning {github_url} to {kb_path}")
             Repo.clone_from(clone_url, kb_path)
 
+            # AICODE-NOTE: Ensure basic KB structure exists after cloning
+            # GitHub repos might not have topics/ directory, but we need it for KB_TOPICS_ONLY mode
+            self._ensure_kb_structure(kb_path)
+
             return True, f"Successfully cloned '{kb_name}' from GitHub", kb_path
 
         except GitCommandError as e:
@@ -158,6 +162,10 @@ class RepositoryManager:
             # Pull from remote
             origin = repo.remote(name="origin")
             pull_info = origin.pull()
+
+            # AICODE-NOTE: Ensure KB structure exists after pull
+            # New changes from GitHub might require structure updates
+            self._ensure_kb_structure(kb_path)
 
             logger.info(f"Pulled updates for {kb_path}")
             return True, "Successfully pulled latest updates", kb_path
@@ -284,3 +292,35 @@ class RepositoryManager:
         # Create .gitignore using config content
         gitignore_path = kb_path / ".gitignore"
         gitignore_path.write_text(GITIGNORE_CONTENT)
+
+    def _ensure_kb_structure(self, kb_path: Path) -> None:
+        """
+        Ensure minimal KB structure exists (for cloned repos).
+        Only creates missing directories, doesn't overwrite existing files.
+
+        Args:
+            kb_path: Path to knowledge base
+        """
+        # Create topics directory if it doesn't exist
+        topics_path = kb_path / "topics"
+        if not topics_path.exists():
+            logger.info(f"Creating topics directory at {topics_path}")
+            topics_path.mkdir(parents=True, exist_ok=True)
+
+            # Create basic category directories
+            for category in ["general", "ai", "tech", "science", "business"]:
+                category_path = topics_path / category
+                category_path.mkdir(exist_ok=True)
+                logger.debug(f"Created category directory: {category_path}")
+
+        # Create README if it doesn't exist
+        readme_path = kb_path / "README.md"
+        if not readme_path.exists():
+            logger.info(f"Creating README at {readme_path}")
+            readme_path.write_text(README_CONTENT)
+
+        # Create .gitignore if it doesn't exist
+        gitignore_path = kb_path / ".gitignore"
+        if not gitignore_path.exists():
+            logger.info(f"Creating .gitignore at {gitignore_path}")
+            gitignore_path.write_text(GITIGNORE_CONTENT)
