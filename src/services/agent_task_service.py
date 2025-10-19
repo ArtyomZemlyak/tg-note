@@ -5,13 +5,17 @@ Follows Single Responsibility Principle
 """
 
 import asyncio
+from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 from loguru import logger
 
 from config.agent_prompts import AGENT_MODE_INSTRUCTION
 from src.bot.bot_port import BotPort
+from src.bot.settings_manager import SettingsManager
 from src.bot.utils import escape_markdown, split_long_message
+from src.core.rate_limiter import RateLimiter
 from src.knowledge_base.git_ops import GitOperations
 from src.knowledge_base.repository import RepositoryManager
 from src.knowledge_base.sync_manager import get_sync_manager
@@ -30,6 +34,7 @@ class AgentTaskService(IAgentTaskService):
     - Handle any KB-related operations (read, write, restructure)
     - Return results to user (answers, file modifications, etc.)
     - Maintain conversation context for complex multi-turn tasks
+    - Enforce rate limits to prevent abuse
 
     This service is activated when user is in 'agent' mode (/agent command).
     Agent has full access to the knowledge base and can perform any task.
@@ -40,7 +45,8 @@ class AgentTaskService(IAgentTaskService):
         bot: BotPort,
         repo_manager: RepositoryManager,
         user_context_manager: IUserContextManager,
-        settings_manager,
+        settings_manager: SettingsManager,
+        rate_limiter: Optional[RateLimiter] = None,
     ):
         """
         Initialize agent task service
@@ -50,11 +56,13 @@ class AgentTaskService(IAgentTaskService):
             repo_manager: Repository manager
             user_context_manager: User context manager
             settings_manager: Settings manager for user-specific settings
+            rate_limiter: Rate limiter for agent calls (optional)
         """
         self.bot = bot
         self.repo_manager = repo_manager
         self.user_context_manager = user_context_manager
         self.settings_manager = settings_manager
+        self.rate_limiter = rate_limiter
         self.content_parser = ContentParser()
         self.logger = logger
 
@@ -224,8 +232,8 @@ class AgentTaskService(IAgentTaskService):
         Returns:
             Agent execution result with answer, file changes, metadata
         """
-        # Get user agent
-        user_agent = self.user_context_manager.get_or_create_agent(user_id)
+        # Get user agent (thread-safe)
+        user_agent = await self.user_context_manager.get_or_create_agent(user_id)
 
         # Set working directory to user's KB
         # Use KB_TOPICS_ONLY setting to determine if we should restrict to topics/ folder
@@ -268,6 +276,23 @@ class AgentTaskService(IAgentTaskService):
             "urls": content.get("urls", []),
             "prompt": task_prompt,
         }
+
+        # AICODE-NOTE: Rate limit check before expensive agent API call
+        if self.rate_limiter:
+            if not await self.rate_limiter.acquire(user_id):
+                # Rate limited - calculate reset time
+                reset_time = await self.rate_limiter.get_reset_time(user_id)
+                wait_seconds = int((reset_time - datetime.now()).total_seconds())
+                remaining = await self.rate_limiter.get_remaining(user_id)
+
+                await self.bot.edit_message_text(
+                    f"⏱️ Превышен лимит запросов к агенту\n\n"
+                    f"Подождите ~{wait_seconds} секунд перед следующим запросом.\n"
+                    f"Доступно запросов: {remaining}",
+                    chat_id=chat_id,
+                    message_id=processing_msg_id,
+                )
+                return
 
         try:
             # Process task with agent

@@ -12,6 +12,7 @@ from src.bot.telegram_adapter import TelegramBotAdapter
 from src.bot.telegram_bot import TelegramBot
 from src.core.background_task_manager import BackgroundTaskManager
 from src.core.container import Container
+from src.core.rate_limiter import RateLimiter
 from src.knowledge_base.repository import RepositoryManager
 from src.knowledge_base.user_settings import UserSettings
 from src.mcp.server_manager import MCPServerManager
@@ -38,6 +39,18 @@ def configure_services(container: Container) -> None:
 
     # Register background task manager
     container.register("background_task_manager", lambda c: BackgroundTaskManager(), singleton=True)
+
+    # Register rate limiter for agent calls
+    container.register(
+        "rate_limiter",
+        lambda c: RateLimiter(
+            max_requests=c.get("settings").RATE_LIMIT_MAX_REQUESTS,
+            window_seconds=c.get("settings").RATE_LIMIT_WINDOW_SECONDS,
+        )
+        if c.get("settings").RATE_LIMIT_ENABLED
+        else None,
+        singleton=True,
+    )
 
     # Register MCP server manager
     container.register(
@@ -125,6 +138,7 @@ def configure_services(container: Container) -> None:
             repo_manager=c.get("repo_manager"),
             user_context_manager=c.get("user_context_manager"),
             settings_manager=c.get("settings_manager"),
+            rate_limiter=c.get("rate_limiter"),
         ),
         singleton=True,
     )
@@ -136,6 +150,7 @@ def configure_services(container: Container) -> None:
             repo_manager=c.get("repo_manager"),
             user_context_manager=c.get("user_context_manager"),
             settings_manager=c.get("settings_manager"),
+            rate_limiter=c.get("rate_limiter"),
         ),
         singleton=True,
     )
@@ -147,6 +162,7 @@ def configure_services(container: Container) -> None:
             repo_manager=c.get("repo_manager"),
             user_context_manager=c.get("user_context_manager"),
             settings_manager=c.get("settings_manager"),
+            rate_limiter=c.get("rate_limiter"),
         ),
         singleton=True,
     )

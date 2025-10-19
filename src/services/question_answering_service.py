@@ -4,13 +4,17 @@ Handles question answering based on knowledge base
 Follows Single Responsibility Principle
 """
 
+from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 from loguru import logger
 
 from config.agent_prompts import ASK_MODE_AGENT_INSTRUCTION, KB_QUERY_PROMPT_TEMPLATE
 from src.bot.bot_port import BotPort
+from src.bot.settings_manager import SettingsManager
 from src.bot.utils import escape_markdown, split_long_message
+from src.core.rate_limiter import RateLimiter
 from src.knowledge_base.repository import RepositoryManager
 from src.processor.content_parser import ContentParser
 from src.processor.message_aggregator import MessageGroup
@@ -26,6 +30,7 @@ class QuestionAnsweringService(IQuestionAnsweringService):
     - Search knowledge base using agent with KB reading tools
     - Format and return answer to user
     - Maintain conversation context for follow-up questions
+    - Enforce rate limits to prevent abuse
 
     This service is activated when user is in 'ask' mode (/ask command).
     """
@@ -35,7 +40,8 @@ class QuestionAnsweringService(IQuestionAnsweringService):
         bot: BotPort,
         repo_manager: RepositoryManager,
         user_context_manager: IUserContextManager,
-        settings_manager,
+        settings_manager: SettingsManager,
+        rate_limiter: Optional[RateLimiter] = None,
     ):
         """
         Initialize question answering service
@@ -45,11 +51,13 @@ class QuestionAnsweringService(IQuestionAnsweringService):
             repo_manager: Repository manager
             user_context_manager: User context manager
             settings_manager: Settings manager for user-specific settings
+            rate_limiter: Rate limiter for agent calls (optional)
         """
         self.bot = bot
         self.repo_manager = repo_manager
         self.user_context_manager = user_context_manager
         self.settings_manager = settings_manager
+        self.rate_limiter = rate_limiter
         self.content_parser = ContentParser()
         self.logger = logger
 
@@ -194,8 +202,8 @@ class QuestionAnsweringService(IQuestionAnsweringService):
         Returns:
             Answer text formatted for user
         """
-        # Get user agent
-        user_agent = self.user_context_manager.get_or_create_agent(user_id)
+        # Get user agent (thread-safe)
+        user_agent = await self.user_context_manager.get_or_create_agent(user_id)
 
         # Set working directory to user's KB for qwen-code-cli agent
         # Use KB_TOPICS_ONLY setting to determine if we should restrict to topics/ folder
@@ -236,6 +244,23 @@ class QuestionAnsweringService(IQuestionAnsweringService):
 
         # Create query content
         query_content = {"text": query_prompt, "urls": [], "prompt": query_prompt}
+
+        # AICODE-NOTE: Rate limit check before expensive agent API call
+        if self.rate_limiter:
+            if not await self.rate_limiter.acquire(user_id):
+                # Rate limited - calculate reset time
+                reset_time = await self.rate_limiter.get_reset_time(user_id)
+                wait_seconds = int((reset_time - datetime.now()).total_seconds())
+                remaining = await self.rate_limiter.get_remaining(user_id)
+
+                await self.bot.edit_message_text(
+                    f"⏱️ Превышен лимит запросов к агенту\n\n"
+                    f"Подождите ~{wait_seconds} секунд перед следующим запросом.\n"
+                    f"Доступно запросов: {remaining}",
+                    chat_id=chat_id,
+                    message_id=processing_msg_id,
+                )
+                return
 
         try:
             # Process query with agent

@@ -321,6 +321,25 @@ class Settings(BaseSettings):
         default=Path("./data/processed.json"), description="Path to processed messages log"
     )
 
+    # Rate Limiting Settings (can be in YAML)
+    RATE_LIMIT_ENABLED: bool = Field(
+        default=True, description="Enable rate limiting for agent calls"
+    )
+    RATE_LIMIT_MAX_REQUESTS: int = Field(
+        default=20, description="Maximum agent requests per user per time window"
+    )
+    RATE_LIMIT_WINDOW_SECONDS: int = Field(
+        default=60, description="Rate limit time window in seconds"
+    )
+
+    # Health Check Settings (can be in YAML)
+    HEALTH_CHECK_INTERVAL: int = Field(
+        default=30, description="Interval between health checks in seconds"
+    )
+    HEALTH_CHECK_MAX_FAILURES: int = Field(
+        default=5, description="Maximum consecutive health check failures before giving up"
+    )
+
     # Logging Settings (can be in YAML)
     LOG_LEVEL: str = Field(default="INFO", description="Logging level")
     LOG_FILE: Optional[Path] = Field(default=Path("./logs/bot.log"), description="Log file path")
@@ -526,17 +545,111 @@ class Settings(BaseSettings):
 
     def validate(self) -> List[str]:
         """
-        Validate settings
+        Validate settings comprehensively
 
         Returns:
             List of validation errors (empty if valid)
         """
         errors = []
 
+        # Required credentials
         if not self.TELEGRAM_BOT_TOKEN:
             errors.append("TELEGRAM_BOT_TOKEN is required")
 
-        # No user validation required - anyone can use the bot
+        # Timeout validations
+        if self.AGENT_TIMEOUT <= 0:
+            errors.append(f"AGENT_TIMEOUT must be positive, got {self.AGENT_TIMEOUT}")
+
+        if self.MESSAGE_GROUP_TIMEOUT < 0:
+            errors.append(
+                f"MESSAGE_GROUP_TIMEOUT cannot be negative, got {self.MESSAGE_GROUP_TIMEOUT}"
+            )
+
+        if self.MEM_AGENT_TIMEOUT <= 0:
+            errors.append(f"MEM_AGENT_TIMEOUT must be positive, got {self.MEM_AGENT_TIMEOUT}")
+
+        if self.HEALTH_CHECK_INTERVAL <= 0:
+            errors.append(
+                f"HEALTH_CHECK_INTERVAL must be positive, got {self.HEALTH_CHECK_INTERVAL}"
+            )
+
+        # Rate limit validations
+        if self.RATE_LIMIT_ENABLED:
+            if self.RATE_LIMIT_MAX_REQUESTS <= 0:
+                errors.append(
+                    f"RATE_LIMIT_MAX_REQUESTS must be positive, got {self.RATE_LIMIT_MAX_REQUESTS}"
+                )
+            if self.RATE_LIMIT_WINDOW_SECONDS <= 0:
+                errors.append(
+                    f"RATE_LIMIT_WINDOW_SECONDS must be positive, got {self.RATE_LIMIT_WINDOW_SECONDS}"
+                )
+
+        # Path validations
+        if self.KB_PATH:
+            # Check if parent directory exists or can be created
+            try:
+                parent = self.KB_PATH.parent
+                if not parent.exists():
+                    # Try to create it to validate permissions
+                    try:
+                        parent.mkdir(parents=True, exist_ok=True)
+                    except Exception as e:
+                        errors.append(
+                            f"KB_PATH parent directory cannot be created: {parent}. Error: {e}"
+                        )
+            except Exception as e:
+                errors.append(f"KB_PATH validation failed: {e}")
+
+        if self.LOG_FILE:
+            # Check if log directory can be created
+            try:
+                log_dir = self.LOG_FILE.parent
+                if not log_dir.exists():
+                    try:
+                        log_dir.mkdir(parents=True, exist_ok=True)
+                    except Exception as e:
+                        errors.append(f"LOG_FILE directory cannot be created: {log_dir}. Error: {e}")
+            except Exception as e:
+                errors.append(f"LOG_FILE validation failed: {e}")
+
+        # Context validations
+        if self.CONTEXT_MAX_TOKENS <= 0:
+            errors.append(f"CONTEXT_MAX_TOKENS must be positive, got {self.CONTEXT_MAX_TOKENS}")
+
+        # Vector search validations
+        if self.VECTOR_SEARCH_ENABLED:
+            if self.VECTOR_CHUNK_SIZE <= 0:
+                errors.append(f"VECTOR_CHUNK_SIZE must be positive, got {self.VECTOR_CHUNK_SIZE}")
+            if self.VECTOR_CHUNK_OVERLAP < 0:
+                errors.append(f"VECTOR_CHUNK_OVERLAP cannot be negative, got {self.VECTOR_CHUNK_OVERLAP}")
+            if self.VECTOR_CHUNK_OVERLAP >= self.VECTOR_CHUNK_SIZE:
+                errors.append(
+                    f"VECTOR_CHUNK_OVERLAP ({self.VECTOR_CHUNK_OVERLAP}) "
+                    f"must be less than VECTOR_CHUNK_SIZE ({self.VECTOR_CHUNK_SIZE})"
+                )
+            if self.VECTOR_SEARCH_TOP_K <= 0:
+                errors.append(f"VECTOR_SEARCH_TOP_K must be positive, got {self.VECTOR_SEARCH_TOP_K}")
+
+        # File size validations
+        if self.MEM_AGENT_FILE_SIZE_LIMIT <= 0:
+            errors.append(
+                f"MEM_AGENT_FILE_SIZE_LIMIT must be positive, got {self.MEM_AGENT_FILE_SIZE_LIMIT}"
+            )
+        if self.MEM_AGENT_DIR_SIZE_LIMIT <= 0:
+            errors.append(
+                f"MEM_AGENT_DIR_SIZE_LIMIT must be positive, got {self.MEM_AGENT_DIR_SIZE_LIMIT}"
+            )
+        if self.MEM_AGENT_MEMORY_SIZE_LIMIT <= 0:
+            errors.append(
+                f"MEM_AGENT_MEMORY_SIZE_LIMIT must be positive, got {self.MEM_AGENT_MEMORY_SIZE_LIMIT}"
+            )
+
+        # Log level validation
+        valid_log_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+        if self.LOG_LEVEL.upper() not in valid_log_levels:
+            errors.append(
+                f"LOG_LEVEL must be one of {valid_log_levels}, got {self.LOG_LEVEL}"
+            )
 
         return errors
 

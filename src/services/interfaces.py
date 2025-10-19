@@ -14,13 +14,13 @@ class IUserContextManager(ABC):
     """Interface for managing user-specific contexts"""
 
     @abstractmethod
-    def get_or_create_aggregator(self, user_id: int):
-        """Get or create message aggregator for a user"""
+    async def get_or_create_aggregator(self, user_id: int):
+        """Get or create message aggregator for a user (async, thread-safe)"""
         pass
 
     @abstractmethod
-    def get_or_create_agent(self, user_id: int):
-        """Get or create agent for a user"""
+    async def get_or_create_agent(self, user_id: int):
+        """Get or create agent for a user (async, thread-safe)"""
         pass
 
     @abstractmethod

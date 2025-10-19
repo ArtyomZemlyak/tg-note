@@ -293,14 +293,19 @@ class AutonomousAgent(BaseAgent):
         # Knowledge base root path for safe file operations
         self.kb_root_path = kb_root_path or Path("./knowledge_base")
 
-        # Resolve path safely - handle case where cwd doesn't exist
+        # AICODE-NOTE: Resolve path safely - handle case where cwd doesn't exist (e.g., in sandboxes)
+        # Use resolve() first to canonicalize path (resolve symlinks, etc.)
+        # If that fails, fall back to absolute() which doesn't require cwd to exist
         try:
             self.kb_root_path = self.kb_root_path.resolve()
-        except (FileNotFoundError, OSError):
-            # If cwd doesn't exist, use absolute path directly
-            if not self.kb_root_path.is_absolute():
-                self.kb_root_path = Path.home() / self.kb_root_path
-            self.kb_root_path = self.kb_root_path.resolve(strict=False)
+        except (FileNotFoundError, OSError) as e:
+            logger.warning(
+                f"Could not resolve path (cwd may not exist): {e}. "
+                f"Falling back to absolute path."
+            )
+            # Convert to absolute path without resolve() (doesn't need existing cwd)
+            self.kb_root_path = self.kb_root_path.absolute()
+            logger.info(f"Using absolute path: {self.kb_root_path}")
 
         # Ensure KB root path exists
         try:

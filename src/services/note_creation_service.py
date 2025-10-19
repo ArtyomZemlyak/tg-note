@@ -4,6 +4,7 @@ Handles the creation of notes in the knowledge base
 Follows Single Responsibility Principle
 """
 
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -11,6 +12,7 @@ from loguru import logger
 
 from src.bot.bot_port import BotPort
 from src.bot.settings_manager import SettingsManager
+from src.core.rate_limiter import RateLimiter
 from src.knowledge_base.git_ops import GitOperations
 from src.knowledge_base.manager import KnowledgeBaseManager
 from src.knowledge_base.repository import RepositoryManager
@@ -31,6 +33,7 @@ class NoteCreationService(INoteCreationService):
     - Save structured notes to knowledge base
     - Handle git operations (commit, push)
     - Track processed messages to avoid duplicates
+    - Enforce rate limits to prevent abuse
 
     This service is activated when user is in 'note' mode (/note command).
     """
@@ -42,6 +45,7 @@ class NoteCreationService(INoteCreationService):
         repo_manager: RepositoryManager,
         user_context_manager: IUserContextManager,
         settings_manager: SettingsManager,
+        rate_limiter: Optional[RateLimiter] = None,
     ):
         """
         Initialize note creation service
@@ -52,12 +56,14 @@ class NoteCreationService(INoteCreationService):
             repo_manager: Repository manager
             user_context_manager: User context manager
             settings_manager: Settings manager
+            rate_limiter: Rate limiter for agent calls (optional)
         """
         self.bot = bot
         self.tracker = tracker
         self.repo_manager = repo_manager
         self.user_context_manager = user_context_manager
         self.settings_manager = settings_manager
+        self.rate_limiter = rate_limiter
         self.content_parser = ContentParser()
         self.logger = logger
 
@@ -176,7 +182,7 @@ class NoteCreationService(INoteCreationService):
             )
 
             self.logger.debug(f"[NOTE_SERVICE] Getting agent for user {user_id}")
-            user_agent = self.user_context_manager.get_or_create_agent(user_id)
+            user_agent = await self.user_context_manager.get_or_create_agent(user_id)
 
             # Set working directory to user's KB for qwen-code-cli agent
             # Use KB_TOPICS_ONLY setting to determine if we should restrict to topics/ folder
@@ -194,6 +200,23 @@ class NoteCreationService(INoteCreationService):
             if hasattr(user_agent, "set_working_directory"):
                 user_agent.set_working_directory(str(agent_working_dir))
                 self.logger.debug(f"Set agent working directory to: {agent_working_dir}")
+
+            # AICODE-NOTE: Rate limit check before expensive agent API call
+            if self.rate_limiter:
+                if not await self.rate_limiter.acquire(user_id):
+                    # Rate limited - calculate reset time
+                    reset_time = await self.rate_limiter.get_reset_time(user_id)
+                    wait_seconds = int((reset_time - datetime.now()).total_seconds())
+                    remaining = await self.rate_limiter.get_remaining(user_id)
+
+                    await self.bot.edit_message_text(
+                        f"⏱️ Превышен лимит запросов к агенту\n\n"
+                        f"Подождите ~{wait_seconds} секунд перед следующим запросом.\n"
+                        f"Доступно запросов: {remaining}",
+                        chat_id=chat_id,
+                        message_id=processing_msg_id,
+                    )
+                    return
 
             try:
                 self.logger.info(f"[NOTE_SERVICE] Processing content with agent for user {user_id}")
