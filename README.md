@@ -982,9 +982,57 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- [Qwen Code](https://github.com/QwenLM/qwen-code) - AI agent framework
-- [pyTelegramBotAPI](https://github.com/eternnoir/pyTelegramBotAPI) - Telegram bot library
-- [GitPython](https://github.com/gitpython-developers/GitPython) - Git integration
+This project is built on top of amazing open source projects and wouldn't be possible without them. Special thanks to:
+
+### 🤖 AI & Agent Systems
+
+- [Qwen Agent](https://github.com/QwenLM/Qwen-Agent) - AI agent framework powering intelligent content processing
+- [OpenAI Python](https://github.com/openai/openai-python) - Official Python library for OpenAI API (used for LLM integrations)
+- [Sentence Transformers](https://github.com/UKPLab/sentence-transformers) - State-of-the-art embeddings for semantic search
+- [Hugging Face Hub](https://github.com/huggingface/huggingface_hub) - Model management and distribution
+
+### 💬 Telegram Bot Framework
+
+- [pyTelegramBotAPI](https://github.com/eternnoir/pyTelegramBotAPI) - Powerful and simple Telegram Bot API library
+
+### 📄 Document Processing
+
+- [Docling](https://github.com/DS4SD/docling) - Advanced document parsing and content extraction
+- [PyYAML](https://github.com/yaml/pyyaml) - YAML parser for configuration management
+
+### 🔧 Core Infrastructure
+
+- [Pydantic](https://github.com/pydantic/pydantic) - Data validation and settings management
+- [GitPython](https://github.com/gitpython-developers/GitPython) - Git repository automation and version control
+- [Loguru](https://github.com/Delgan/loguru) - Modern and elegant logging solution
+- [Cryptography](https://github.com/pyca/cryptography) - Secure credentials encryption
+
+### 🔍 Vector Search & Memory
+
+- [FAISS](https://github.com/facebookresearch/faiss) - Efficient similarity search and clustering
+- [Qdrant Client](https://github.com/qdrant/qdrant-client) - Vector database client for semantic search
+- [FastMCP](https://github.com/jlowin/fastmcp) - Model Context Protocol implementation
+
+### 🌐 Network & HTTP
+
+- [aiohttp](https://github.com/aio-libs/aiohttp) - Asynchronous HTTP client/server framework
+- [Requests](https://github.com/psf/requests) - HTTP library for Python
+
+### 🧪 Development & Testing
+
+- [pytest](https://github.com/pytest-dev/pytest) - Testing framework
+- [pytest-asyncio](https://github.com/pytest-dev/pytest-asyncio) - Async testing support
+- [Black](https://github.com/psf/black) - Code formatting
+- [pre-commit](https://github.com/pre-commit/pre-commit) - Git hooks framework
+
+### 🐳 Deployment
+
+- [Docker](https://www.docker.com/) - Containerization platform
+- [Docker Compose](https://docs.docker.com/compose/) - Multi-container orchestration
+
+---
+
+**Thank you to all contributors and maintainers of these projects! 🙌**
 
 ---
 
