@@ -13,6 +13,7 @@ from loguru import logger
 from src.bot.bot_port import BotPort
 from src.bot.settings_manager import SettingsManager
 from src.core.rate_limiter import RateLimiter
+from src.knowledge_base.credentials_manager import CredentialsManager
 from src.knowledge_base.git_ops import GitOperations
 from src.knowledge_base.manager import KnowledgeBaseManager
 from src.knowledge_base.repository import RepositoryManager
@@ -45,6 +46,7 @@ class NoteCreationService(INoteCreationService):
         repo_manager: RepositoryManager,
         user_context_manager: IUserContextManager,
         settings_manager: SettingsManager,
+        credentials_manager: Optional[CredentialsManager] = None,
         rate_limiter: Optional[RateLimiter] = None,
     ):
         """
@@ -63,6 +65,7 @@ class NoteCreationService(INoteCreationService):
         self.repo_manager = repo_manager
         self.user_context_manager = user_context_manager
         self.settings_manager = settings_manager
+        self.credentials_manager = credentials_manager
         self.rate_limiter = rate_limiter
         self.content_parser = ContentParser()
         self.logger = logger
@@ -131,15 +134,21 @@ class NoteCreationService(INoteCreationService):
         kb_manager = KnowledgeBaseManager(str(kb_path))
         kb_git_enabled = self.settings_manager.get_setting(user_id, "KB_GIT_ENABLED")
 
-        # Get GitHub credentials for HTTPS authentication
+        # Get global Git credentials for HTTPS authentication (fallback)
         github_username = self.settings_manager.get_setting(user_id, "GITHUB_USERNAME")
         github_token = self.settings_manager.get_setting(user_id, "GITHUB_TOKEN")
+        gitlab_username = self.settings_manager.get_setting(user_id, "GITLAB_USERNAME")
+        gitlab_token = self.settings_manager.get_setting(user_id, "GITLAB_TOKEN")
 
         git_ops = GitOperations(
             str(kb_path),
             enabled=kb_git_enabled,
             github_username=github_username,
             github_token=github_token,
+            gitlab_username=gitlab_username,
+            gitlab_token=gitlab_token,
+            user_id=user_id,
+            credentials_manager=self.credentials_manager,
         )
 
         # AICODE-NOTE: Pull latest changes from remote before working with KB

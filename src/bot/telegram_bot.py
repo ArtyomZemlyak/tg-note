@@ -11,12 +11,14 @@ from telebot.apihelper import ApiTelegramException
 from telebot.async_telebot import AsyncTeleBot
 
 from src.bot.bot_port import BotPort
+from src.bot.credentials_handlers import CredentialsHandlers
 from src.bot.handlers import BotHandlers
 from src.bot.kb_handlers import KBHandlers
 from src.bot.mcp_handlers import MCPHandlers
 from src.bot.settings_handlers import SettingsHandlers
 from src.bot.settings_manager import SettingsManager
 from src.core.background_task_manager import BackgroundTaskManager
+from src.knowledge_base.credentials_manager import CredentialsManager
 from src.knowledge_base.repository import RepositoryManager
 from src.knowledge_base.user_settings import UserSettings
 from src.mcp.registry.manager import MCPServersManager
@@ -35,6 +37,7 @@ class TelegramBot:
         repo_manager: RepositoryManager,
         user_settings: UserSettings,
         settings_manager: SettingsManager,
+        credentials_manager: CredentialsManager,
         user_context_manager: IUserContextManager,
         message_processor: IMessageProcessor,
         background_task_manager: BackgroundTaskManager,
@@ -45,6 +48,7 @@ class TelegramBot:
         self.repo_manager = repo_manager
         self.user_settings = user_settings
         self.settings_manager = settings_manager
+        self.credentials_manager = credentials_manager
         self.user_context_manager = user_context_manager
         self.message_processor = message_processor
         self.background_task_manager = background_task_manager
@@ -76,9 +80,17 @@ class TelegramBot:
             user_settings=user_settings,
         )
 
+        # Initialize Credentials handlers
+        self.credentials_handlers = CredentialsHandlers(
+            bot=self.bot_adapter,
+            async_bot=self.bot,
+            credentials_manager=self.credentials_manager,
+        )
+
         # Update cross-references in handlers
         self.handlers.kb_handlers = self.kb_handlers
         self.handlers.mcp_handlers = self.mcp_handlers
+        self.handlers.credentials_handlers = self.credentials_handlers
 
         # Bot state
         self.is_running = False
@@ -110,6 +122,7 @@ class TelegramBot:
             # Register handlers - settings and KB handlers first for proper priority
             await self.settings_handlers.register_handlers_async()
             await self.kb_handlers.register_handlers_async()
+            await self.credentials_handlers.register_handlers()
             await self.mcp_handlers.register_handlers_async()
             await self.handlers.register_handlers_async()
 

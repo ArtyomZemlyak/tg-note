@@ -60,12 +60,13 @@ Perfect for:
 - **🗂️ Smart Organization**: Automatic categorization by topics (AI, biology, physics, tech, etc.)
 - **🔄 GitHub Integration**: Direct commits to your knowledge base repository
 - **👥 Multi-User Support**: Each user can have their own knowledge base, or multiple users can collaborate on a shared KB with automatic synchronization
+- **🔐 Secure Git Credentials**: Per-user encrypted GitHub/GitLab tokens via Telegram (NEW!)
 - **📦 Message Grouping**: Intelligently combines related messages into single notes
 - **🔍 Deduplication**: Tracks processed messages to avoid duplicates
 - **🎯 Flexible Agents**: Choose between stub or Qwen Code CLI agents
 - **⚡ Async Architecture**: Fast, non-blocking message processing
 - **⚙️ Telegram Settings Management**: Configure bot settings directly via Telegram commands
-- **📄 File Format Recognition**: Automatic content extraction from various file formats using Docling (NEW!)
+- **📄 File Format Recognition**: Automatic content extraction from various file formats using Docling
 
 ---
 
@@ -386,6 +387,26 @@ Each user can customize bot behavior via Telegram commands:
 
 See [Settings Management guide](https://artyomzemlyak.github.io/tg-note/user-guide/settings-management/) for details.
 
+### 🔐 Secure Git Credentials (NEW!)
+
+**Per-User Encrypted Tokens**
+
+Each user can securely add personal GitHub/GitLab tokens directly via Telegram:
+
+```
+/settoken           # Add your personal token
+/listcredentials    # View saved tokens
+/removetoken        # Remove tokens
+```
+
+**Security Features:**
+- 🔐 AES-128 encryption (Fernet)
+- 🗑️ Auto-delete token messages
+- 👤 Per-user credential storage
+- 🌐 Support for GitHub and GitLab
+
+[Read full documentation →](docs_site/user-guide/git-credentials.md)
+
 ### Working with Content
 
 **Supported Content Types:**
@@ -394,7 +415,7 @@ See [Settings Management guide](https://artyomzemlyak.github.io/tg-note/user-gui
 - ✅ Forwarded messages from channels
 - ✅ Photos with captions
 - ✅ Documents (PDF, DOCX, PPTX, XLSX, MD, HTML, TXT)
-- ✅ **NEW: Automatic file format recognition** using Docling
+- ✅ Automatic file format recognition using Docling
 - ✅ Multiple consecutive messages (auto-grouped)
 
 **Processing Workflow:**
