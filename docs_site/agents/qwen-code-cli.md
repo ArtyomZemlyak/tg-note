@@ -134,11 +134,42 @@ Tip: The CLI path is configurable via `AGENT_QWEN_CLI_PATH` and defaults to `qwe
 
 **Important:** The CLI automatically runs inside your knowledge base directory (`knowledge_bases/your-kb-name/`). This ensures that any files created by the agent are saved to the correct location in your knowledge base structure.
 
+### Note Mode: Structure and Quality Gates
+
+Use these rules to maximize the quality of the knowledge base in note mode:
+
+- **Атомарность**: одна заметка = один концепт/определение/процедура/решение. Если тем несколько — разделяйте на несколько файлов.
+- **Дедупликация**: перед созданием ищите существующие файлы по ключевым словам/синонимам; при совпадении — дополняйте существующую заметку, а не создавайте дубликат.
+- **Фронтматтер**: каждый новый файл должен начинаться с YAML-блока.
+
+```yaml
+---
+title: <канонический термин>
+category: <категория>
+subcategory: <подкатегория|опционально>
+tags: [тег1, тег2]
+sources: ["url1", "url2"]
+synonyms: ["синоним1", "синоним2"]
+---
+```
+
+- **Тело заметки**: `# Заголовок` (совпадает с title) → краткий Summary (≤3 предложения) → точные определения/шаги/параметры/ограничения.
+- **Связи**: добавляйте 2–5 ссылок на уже существующие файлы через `[[путь/к/файлу.md]]` и давайте содержательные описания (1–2 предложения).
+- **Источники**: как минимум один источник (URL/локатор).
+- **Ограничения**: не изменяйте `index.md` и корневой `README.md`, если это явно не требуется.
+
 ### Connection Descriptions (Связи)
 
 - Agent must add links only to EXISTING KB files (not those created in the same run).
 - Each link MUST include a meaningful description (1–2 sentences) explaining the nature of the connection: similarity/difference, dependency, part-whole, alternative, sequence, overlapping concepts.
 - Avoid generic placeholders like “Связанная тема”.
+
+### Именование и пути
+- Все новые файлы хранятся в `topics/<category>/<subcategory?>/`.
+- Имя файла: `YYYY-MM-DD-<slug>.md` (slug из заголовка, латиница, `-`).
+
+### Quality Gates (перед возвратом результата)
+1) RU‑язык. 2) Атомарность соблюдена. 3) Есть фронтматтер. 4) ≥1 источник. 5) Внутренние связи ≥2 (если уместно). 6) Дубликатов нет. 7) `agent-result` и `metadata` присутствуют.
 
 ---
 
