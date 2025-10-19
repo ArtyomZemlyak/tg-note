@@ -196,7 +196,7 @@ for f in "${changed_files[@]}"; do
     esac
   done
   [[ -n "$critical_hit" ]] && break
-fi
+done
 
 if [[ -n "$critical_hit" ]]; then
   log "Critical change detected ($critical_hit). Deploy blocked."
