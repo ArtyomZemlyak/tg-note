@@ -87,7 +87,7 @@ except (FileNotFoundError, OSError) as e:
 # src/core/rate_limiter.py (NEW - 170 строк)
 class RateLimiter:
     """Sliding window rate limiter with per-user tracking"""
-    
+
     async def acquire(self, user_id: int) -> bool:
         # Check if user is under limit
         # Clean expired requests
@@ -203,11 +203,11 @@ class UserMode(str, Enum):
     NOTE = "note"
     ASK = "ask"
     AGENT = "agent"
-    
+
     @classmethod
     def get_default(cls) -> "UserMode":
         return cls.NOTE
-    
+
     def get_description(self) -> str:
         descriptions = {
             self.NOTE: "📝 Режим создания заметок",
@@ -248,7 +248,7 @@ def _mask_credentials_in_message(message: str) -> str:
     """Mask credentials in error messages"""
     # Mask tokens in URLs
     message = re.sub(r"https://([^:@]+):([^@]+)@", r"https://\1:***@", message)
-    
+
     # Mask after keywords
     message = re.sub(
         r"(token|password|api[_-]?key)[:=]\s*['\"]?([^\s'\"]+)['\"]?",
@@ -460,7 +460,7 @@ async def get_or_create_agent(self, user_id: int) -> BaseAgent:
    RATE_LIMIT_ENABLED: true
    RATE_LIMIT_MAX_REQUESTS: 20
    RATE_LIMIT_WINDOW_SECONDS: 60
-   
+
    # Health check (опционально)
    HEALTH_CHECK_INTERVAL: 30
    HEALTH_CHECK_MAX_FAILURES: 5

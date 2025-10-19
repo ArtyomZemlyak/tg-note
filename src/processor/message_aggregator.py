@@ -213,7 +213,10 @@ class MessageAggregator:
                 # AICODE-NOTE: Periodic cleanup of completed callback tasks to prevent memory leak
                 # Clean up every N iterations or when task set grows too large (>100 tasks)
                 self._cleanup_counter += 1
-                if self._cleanup_counter >= self._cleanup_interval or len(self._callback_tasks) > 100:
+                if (
+                    self._cleanup_counter >= self._cleanup_interval
+                    or len(self._callback_tasks) > 100
+                ):
                     self._cleanup_counter = 0
                     # Remove all completed tasks
                     completed_tasks = {task for task in self._callback_tasks if task.done()}

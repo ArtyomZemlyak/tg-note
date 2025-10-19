@@ -46,7 +46,7 @@
 ```
 Presentation Layer (Bot Handlers)
     ↓
-Service Layer (Note/Question/Agent Services) 
+Service Layer (Note/Question/Agent Services)
     ↓
 Business Logic Layer (Agents)
     ↓
@@ -153,13 +153,13 @@ class UserContextManager:
     def __init__(self):
         self._user_locks: Dict[int, asyncio.Lock] = {}
         self._global_lock = asyncio.Lock()
-    
+
     async def _get_user_lock(self, user_id: int) -> asyncio.Lock:
         async with self._global_lock:
             if user_id not in self._user_locks:
                 self._user_locks[user_id] = asyncio.Lock()
             return self._user_locks[user_id]
-    
+
     async def get_or_create_aggregator(self, user_id: int):
         user_lock = await self._get_user_lock(user_id)
         async with user_lock:
@@ -361,21 +361,21 @@ def validate(self) -> List[str]:
 ```python
 def validate(self) -> List[str]:
     errors = []
-    
+
     # Token validation
     if not self.TELEGRAM_BOT_TOKEN:
         errors.append("TELEGRAM_BOT_TOKEN is required")
-    
+
     # Timeout validation
     if self.AGENT_TIMEOUT <= 0:
         errors.append("AGENT_TIMEOUT must be positive")
     if self.MESSAGE_GROUP_TIMEOUT < 0:
         errors.append("MESSAGE_GROUP_TIMEOUT cannot be negative")
-    
+
     # Path validation
     if not self.KB_PATH.parent.exists():
         errors.append(f"KB_PATH parent directory does not exist: {self.KB_PATH.parent}")
-    
+
     return errors
 ```
 
@@ -394,18 +394,18 @@ class RateLimiter:
         self._requests: defaultdict = defaultdict(list)
         self._max_requests = max_requests
         self._window = window
-    
+
     async def acquire(self, user_id: int) -> bool:
         now = datetime.now()
         # Clean old requests
         self._requests[user_id] = [
-            t for t in self._requests[user_id] 
+            t for t in self._requests[user_id]
             if now - t < self._window
         ]
-        
+
         if len(self._requests[user_id]) >= self._max_requests:
             return False  # Rate limited
-        
+
         self._requests[user_id].append(now)
         return True
 
@@ -459,7 +459,7 @@ def auto_commit_and_push(
 ) -> tuple[bool, str]:
     """
     Automatically commit all changes and push to remote if configured.
-    
+
     This method:
     1. Switches to target branch (creates if doesn't exist)
     ...
