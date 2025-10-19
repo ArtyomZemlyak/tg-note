@@ -65,36 +65,68 @@ if not success:
     print(f"Pull failed: {message}")
 ```
 
-#### 3. NoteCreationService Integration
+#### 3. BaseKBService (Common Functionality)
+
+Location: `src/services/base_kb_service.py`
+
+**Purpose**: Base class that consolidates common functionality for KB-related services
+
+**Responsibilities**:
+- Git operations setup and management
+- Agent working directory configuration
+- Rate limiting enforcement
+- Auto-commit and push operations
+- GitHub URL generation for file links
+- File change formatting for user notifications
+- Links/relations filtering and display
+- Safe message editing with timeout handling
+
+**Key Methods**:
+- `_setup_git_ops()`: Initialize Git operations with user credentials
+- `_get_agent_working_dir()`: Determine agent working directory based on KB_TOPICS_ONLY setting
+- `_configure_agent_working_dir()`: Set agent working directory
+- `_check_rate_limit()`: Enforce rate limits before agent API calls
+- `_auto_commit_and_push()`: Commit and push changes to remote
+- `_get_github_base_url()`: Generate GitHub URLs for file links
+- `_format_file_changes()`: Format file changes for notifications
+- `_filter_and_format_links()`: Filter and format link relations
+- `_safe_edit_message()`: Safely edit messages with timeout handling
+
+#### 4. NoteCreationService Integration
 
 Location: `src/services/note_creation_service.py`
+
+**Inherits from**: `BaseKBService`, `INoteCreationService`
 
 **Flow** (Note mode - `/note`):
 ```
 1. User sends message
 2. Acquire KB lock (wait if another user is working)
-3. Pull latest changes from GitHub
-4. Process message with agent
+3. Pull latest changes from GitHub (using base class Git operations)
+4. Process message with agent (with rate limiting from base class)
 5. Save note to KB
-6. Commit and push changes
+6. Commit and push changes (using base class auto-commit)
 7. Release KB lock
 ```
 
-#### 4. AgentTaskService Integration
+#### 5. AgentTaskService Integration
 
 Location: `src/services/agent_task_service.py`
+
+**Inherits from**: `BaseKBService`, `IAgentTaskService`
 
 **Flow** (Agent mode - `/agent`):
 ```
 1. User sends task request
 2. Acquire KB lock (wait if another user is working)
 3. Parse task and prepare context
-4. Execute task with agent (may read/write KB files)
-5. Return results to user
-6. Release KB lock
+4. Execute task with agent (may read/write KB files, with rate limiting)
+5. Auto-commit and push changes (using base class auto-commit)
+6. Return results to user
+7. Release KB lock
 ```
 
-**Note**: Agent mode uses the same KB locking mechanism as note mode to ensure safe concurrent access when multiple users interact with the same KB in agent mode.
+**Note**: Both services inherit from `BaseKBService` to minimize code duplication and share common functionality while maintaining their specific responsibilities. This follows the DRY (Don't Repeat Yourself) principle and Single Responsibility Principle.
 
 ---
 

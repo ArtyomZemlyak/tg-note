@@ -74,18 +74,18 @@ class GitOperations:
         self.repo_path = Path(repo_path)
         self.enabled = enabled and GIT_AVAILABLE
         self.repo: Optional[Repo] = None
-        
+
         # AICODE-NOTE: Support both global and per-user credentials
         # Per-user credentials (from CredentialsManager) take precedence over global
         self.user_id = user_id
         self.credentials_manager = credentials_manager
-        
+
         # Global credentials (fallback)
         self.github_username = github_username
         self.github_token = github_token
         self.gitlab_username = gitlab_username
         self.gitlab_token = gitlab_token
-        
+
         # AICODE-NOTE: Track whether HTTPS credentials have already been configured
         # to keep the operation idempotent across repeated calls (important for tests
         # that may invoke _configure_https_credentials() explicitly after __init__).
@@ -113,14 +113,14 @@ class GitOperations:
     def _get_credentials_for_url(self, url: str) -> Optional[tuple[str, str]]:
         """
         Get appropriate credentials for a given URL
-        
+
         Priority:
         1. Per-user credentials from CredentialsManager (if user_id provided)
         2. Global credentials (from settings)
-        
+
         Args:
             url: Git remote URL
-            
+
         Returns:
             Tuple of (username, token) or None
         """
@@ -131,16 +131,20 @@ class GitOperations:
                 _, username, token = creds
                 logger.debug(f"Using per-user credentials for user {self.user_id}")
                 return (username, token)
-        
+
         # Fall back to global credentials
         url_lower = url.lower()
         if "github.com" in url_lower and self.github_username and self.github_token:
             logger.debug("Using global GitHub credentials")
             return (self.github_username, self.github_token)
-        elif ("gitlab.com" in url_lower or "gitlab" in url_lower) and self.gitlab_username and self.gitlab_token:
+        elif (
+            ("gitlab.com" in url_lower or "gitlab" in url_lower)
+            and self.gitlab_username
+            and self.gitlab_token
+        ):
             logger.debug("Using global GitLab credentials")
             return (self.gitlab_username, self.gitlab_token)
-        
+
         return None
 
     def _configure_https_credentials(self) -> None:
@@ -170,10 +174,10 @@ class GitOperations:
                         if url.startswith("https://") and "@" not in url:
                             # Get appropriate credentials for this URL
                             creds = self._get_credentials_for_url(url)
-                            
+
                             if creds:
                                 username, token = creds
-                                
+
                                 # Detect platform and inject credentials
                                 if "github.com" in url:
                                     new_url = url.replace(
@@ -182,11 +186,15 @@ class GitOperations:
                                     )
                                 elif "gitlab.com" in url or "gitlab" in url:
                                     # Support both gitlab.com and self-hosted GitLab
-                                    new_url = url.replace("https://", f"https://{username}:{token}@", 1)
+                                    new_url = url.replace(
+                                        "https://", f"https://{username}:{token}@", 1
+                                    )
                                 else:
                                     # Generic HTTPS URL
-                                    new_url = url.replace("https://", f"https://{username}:{token}@", 1)
-                                
+                                    new_url = url.replace(
+                                        "https://", f"https://{username}:{token}@", 1
+                                    )
+
                                 # Update remote URL
                                 remote.set_url(new_url)
                                 changed_any = True
