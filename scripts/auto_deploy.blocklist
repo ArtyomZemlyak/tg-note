@@ -1,0 +1,19 @@
+# One glob pattern per line. Lines starting with # are comments.
+# If any changed file matches one of these patterns, deployment is blocked.
+
+# Environment/config
+.env*
+config/**
+config.example.yaml
+
+# Containers/build system
+Dockerfile*
+docker-compose*.yml
+
+# Dependency manifests
+pyproject.toml
+poetry.lock
+requirements*.txt
+
+# Deployment scripts themselves
+scripts/auto_deploy*

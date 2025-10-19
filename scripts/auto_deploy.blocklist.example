@@ -1,0 +1,26 @@
+# Lines are glob patterns matched against changed file paths
+# Comments start with '#'. Empty lines are ignored.
+# If any changed file matches a pattern here, the deploy will be skipped.
+
+# Core and configuration files
+config/*
+config/*.py
+config.example.yaml
+.env
+.env.*
+.env.example
+
+# Deployment definitions
+docker-compose*.yml
+Dockerfile*
+
+# Dependency manifests
+pyproject.toml
+poetry.lock
+requirements*.txt
+
+# Docs (review before redeploy)
+docs_site/*
+
+# Scripts (review before redeploy)
+scripts/*.sh
