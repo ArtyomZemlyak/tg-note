@@ -127,3 +127,14 @@ knowledge_base/
 - New files created in the same run are excluded from Connections to reduce noise.
 - Each connection includes a brief explanation (derived from the target file title when available).
 - In the summary of changes, file entries include GitHub links when your KB is linked to a GitHub remote and branch.
+
+---
+
+## Note Mode Best Practices (Качество заметок)
+
+- **Атомарность**: одна заметка — один концепт/определение/процедура/решение; дробите сложные темы.
+- **Дедупликация**: при совпадении по сути — обновляйте существующий файл, а не создавайте новый.
+- **Фронтматтер**: добавляйте YAML с `title, category, subcategory?, tags[], sources[], synonyms[]`.
+- **Связи**: 2–5 внутренних ссылок на уже существующие файлы с кратким объяснением.
+- **Источники**: хотя бы один; указывайте точные URL/локаторы.
+- **Ограничения**: не редактируйте `index.md` и корневой `README.md` без необходимости.
