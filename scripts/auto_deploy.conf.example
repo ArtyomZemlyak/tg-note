@@ -1,0 +1,36 @@
+# Bash-style config sourced by scripts/auto_deploy.sh
+# Copy to scripts/auto_deploy.conf and adjust
+
+# Repository settings
+REPO_DIR="/path/to/your/repo"   # absolute path
+REMOTE="origin"
+BRANCH="main"
+AUTO_CHECKOUT="true"             # auto switch to BRANCH if different
+
+# Docker Compose settings
+# Use one or multiple compose files (colon-separated)
+COMPOSE_FILES="docker-compose.yml:docker-compose.override.yml"
+# Optionally limit to specific services (space-separated); leave empty for all
+SERVICES=""
+# Build flags: e.g., "--pull" or "--pull --no-cache"
+BUILD_FLAGS="--pull"
+# Deploy strategy: up | restart
+DEPLOY_COMMAND="up"
+# Flags for `up` (when DEPLOY_COMMAND=up)
+UP_FLAGS="-d --remove-orphans"
+# If true, prune dangling images after deploy
+PRUNE_AFTER="false"
+
+# Critical change detection (blocks deploy)
+# Either set CRITICAL_PATHS (comma-separated glob patterns) and/or use file below
+CRITICAL_PATHS_FILE="$REPO_DIR/scripts/auto_deploy.blocklist"
+# Example: CRITICAL_PATHS=".env*,config/**,docker-compose*.yml,Dockerfile*"
+CRITICAL_PATHS=""
+
+# Logging and locking
+LOG_FILE="$REPO_DIR/logs/auto_deploy.log"
+LOCK_FILE="$REPO_DIR/logs/auto_deploy.lock"
+
+# Force a specific compose CLI if autodetection fails (optional)
+# For legacy environments set:
+# COMPOSE_CMD_OVERRIDE="docker-compose"
