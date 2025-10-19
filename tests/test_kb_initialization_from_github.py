@@ -27,7 +27,9 @@ class TestKBInitializationFromGitHub:
         return RepositoryManager(base_path=str(temp_base_path))
 
     @patch("src.knowledge_base.repository.Repo")
-    def test_clone_github_kb_creates_topics_directory(self, mock_repo, repo_manager, temp_base_path):
+    def test_clone_github_kb_creates_topics_directory(
+        self, mock_repo, repo_manager, temp_base_path
+    ):
         """Test that cloning from GitHub creates topics directory"""
         # Setup mock
         kb_name = "test-kb"

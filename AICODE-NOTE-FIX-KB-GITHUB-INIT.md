@@ -104,13 +104,13 @@ To test the fix:
 1. Clone a GitHub repository without topics directory:
    ```python
    from src.knowledge_base.repository import RepositoryManager
-   
+
    repo_manager = RepositoryManager()
    success, message, kb_path = repo_manager.clone_github_kb(
        "https://github.com/user/repo.git",
        "my-kb"
    )
-   
+
    # Should succeed and create topics directory
    assert (kb_path / "topics").exists()
    ```
@@ -118,7 +118,7 @@ To test the fix:
 2. Try to process content with the KB:
    ```python
    from src.services.note_creation_service import NoteCreationService
-   
+
    # Should work without FileNotFoundError
    await service.create_note(...)
    ```

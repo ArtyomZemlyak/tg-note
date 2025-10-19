@@ -213,7 +213,7 @@ class QuestionAnsweringService(IQuestionAnsweringService):
             # Restrict to topics folder (protects index.md, README.md, etc.)
             agent_working_dir = kb_path / "topics"
             self.logger.debug(f"KB_TOPICS_ONLY=true, restricting agent to topics folder")
-            
+
             # AICODE-NOTE: Ensure topics directory exists (important for GitHub repos)
             # When cloning from GitHub, the repo might not have a topics/ directory
             try:

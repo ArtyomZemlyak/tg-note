@@ -53,13 +53,13 @@ BaseKBService (base class)
 class BaseKBService:
     def __init__(self, bot, repo_manager, settings_manager, credentials_manager, rate_limiter):
         # Common dependencies
-        
+
     def _setup_git_ops(self, kb_path, user_id) -> GitOperations:
         # Git operations setup with credentials
-        
+
     def _get_agent_working_dir(self, kb_path, user_id) -> Path:
         # Agent working directory based on KB_TOPICS_ONLY
-        
+
     # ... other common methods
 
 # Note creation service
@@ -67,7 +67,7 @@ class NoteCreationService(BaseKBService, INoteCreationService):
     def __init__(self, bot, tracker, repo_manager, user_context_manager, settings_manager, ...):
         super().__init__(bot, repo_manager, settings_manager, credentials_manager, rate_limiter)
         # Note-specific dependencies
-        
+
     async def create_note(self, group, processing_msg_id, chat_id, user_id, user_kb):
         # Uses base class methods for common functionality
         git_ops = self._setup_git_ops(kb_path, user_id)
@@ -78,7 +78,7 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
     def __init__(self, bot, repo_manager, user_context_manager, settings_manager, ...):
         super().__init__(bot, repo_manager, settings_manager, credentials_manager, rate_limiter)
         # Agent-specific dependencies
-        
+
     async def execute_task(self, group, processing_msg_id, chat_id, user_id, user_kb):
         # Uses base class methods for common functionality
         git_ops = self._setup_git_ops(kb_path, user_id)
@@ -228,11 +228,11 @@ def __init__(self, bot, repo_manager, settings_manager, ...):
 async def my_method(self, kb_path, user_id):
     # Instead of duplicating Git setup code:
     git_ops = self._setup_git_ops(kb_path, user_id)
-    
+
     # Instead of duplicating rate limit check:
     if not await self._check_rate_limit(user_id, chat_id, msg_id):
         return
-    
+
     # Instead of duplicating auto-commit:
     await self._auto_commit_and_push(git_ops, user_id, "My change")
 ```
