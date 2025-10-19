@@ -118,3 +118,12 @@ knowledge_base/
 
 - [Bot Commands](bot-commands.md)
 - [Knowledge Base Setup](knowledge-base-setup.md)
+
+---
+
+## Connections and Summaries
+
+- The bot now shows a Connections section (Связи) after processing.
+- New files created in the same run are excluded from Connections to reduce noise.
+- Each connection includes a brief explanation (derived from the target file title when available).
+- In the summary of changes, file entries include GitHub links when your KB is linked to a GitHub remote and branch.
