@@ -409,20 +409,34 @@ class NoteCreationService(INoteCreationService):
                 if not url:
                     return None
 
-                # Удаляем креденшлы и .git суффикс
-                url = (
-                    str(url)
-                    .replace("https://github.com/", "https://github.com/")
-                    .replace("git@github.com:", "https://github.com/")
-                )
-                # Вырезаем возможные username:token@
-                import re as _re
+                url_str = str(url)
+                # Поддержка форматов:
+                # - https://github.com/user/repo(.git)?
+                # - https://user:token@github.com/user/repo(.git)?
+                # - git@github.com:user/repo(.git)?
+                if url_str.startswith("git@github.com:"):
+                    repo_path = url_str.split(":", 1)[1]
+                    if repo_path.endswith(".git"):
+                        repo_path = repo_path[:-4]
+                    return f"https://github.com/{repo_path}/blob/{branch}"
 
-                url = _re.sub(r"https://[^:@]+:[^@]+@github.com/", "https://github.com/", url)
-                if url.endswith(".git"):
-                    url = url[:-4]
+                # HTTP(S) URLs
+                from urllib.parse import urlsplit
 
-                return f"{url}/blob/{branch}"
+                parts = urlsplit(url_str)
+                # Разрешаем только github.com
+                if not parts.netloc.endswith("github.com"):
+                    return None
+
+                # Собираем чистый путь без .git и без кредов
+                path = parts.path or ""
+                if path.endswith(".git"):
+                    path = path[:-4]
+                # Убедимся, что путь начинается с '/'
+                if not path.startswith("/"):
+                    path = "/" + path
+
+                return f"https://github.com{path}/blob/{branch}"
             except Exception:
                 return None
 

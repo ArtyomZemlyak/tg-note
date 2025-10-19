@@ -420,23 +420,29 @@ class AgentTaskService(IAgentTaskService):
                 except Exception:
                     return None
 
-                url = next(iter(remote.urls), None)
-                if not url:
+                url_obj = next(iter(remote.urls), None)
+                if not url_obj:
                     return None
 
-                # Normalize URL to https without credentials and .git suffix
-                url = (
-                    str(url)
-                    .replace("https://github.com/", "https://github.com/")
-                    .replace("git@github.com:", "https://github.com/")
-                )
-                import re as _re
+                url_str = str(url_obj)
+                # Поддержка git@ и https://user:token@github.com/...
+                if url_str.startswith("git@github.com:"):
+                    repo_path = url_str.split(":", 1)[1]
+                    if repo_path.endswith(".git"):
+                        repo_path = repo_path[:-4]
+                    return f"https://github.com/{repo_path}/blob/{branch}"
 
-                url = _re.sub(r"https://[^:@]+:[^@]+@github.com/", "https://github.com/", url)
-                if url.endswith(".git"):
-                    url = url[:-4]
+                from urllib.parse import urlsplit
 
-                return f"{url}/blob/{branch}"
+                parts = urlsplit(url_str)
+                if not parts.netloc.endswith("github.com"):
+                    return None
+                path = parts.path or ""
+                if path.endswith(".git"):
+                    path = path[:-4]
+                if not path.startswith("/"):
+                    path = "/" + path
+                return f"https://github.com{path}/blob/{branch}"
             except Exception:
                 return None
 
