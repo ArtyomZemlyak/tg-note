@@ -167,9 +167,7 @@ class CredentialsManager:
             }
 
             self._save_encrypted_data(data)
-            logger.info(
-                f"Stored {platform} credentials for user {user_id} (username: {username})"
-            )
+            logger.info(f"Stored {platform} credentials for user {user_id} (username: {username})")
             return True
 
         except Exception as e:

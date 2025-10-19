@@ -14,7 +14,9 @@ from src.knowledge_base.credentials_manager import CredentialsManager
 class CredentialsHandlers:
     """Handlers for Git credentials management"""
 
-    def __init__(self, bot: BotPort, async_bot: AsyncTeleBot, credentials_manager: CredentialsManager):
+    def __init__(
+        self, bot: BotPort, async_bot: AsyncTeleBot, credentials_manager: CredentialsManager
+    ):
         """
         Initialize credentials handlers
 
@@ -36,9 +38,7 @@ class CredentialsHandlers:
         # Command handlers
         self.async_bot.message_handler(commands=["settoken"])(self.handle_settoken)
         self.async_bot.message_handler(commands=["removetoken"])(self.handle_removetoken)
-        self.async_bot.message_handler(commands=["listcredentials"])(
-            self.handle_list_credentials
-        )
+        self.async_bot.message_handler(commands=["listcredentials"])(self.handle_list_credentials)
 
         # Callback query handlers
         self.async_bot.callback_query_handler(func=lambda call: call.data.startswith("cred:"))(
@@ -168,7 +168,9 @@ class CredentialsHandlers:
             platform_emoji = "🐙" if platform == "github" else "🦊"
             lines.append(f"<b>{platform_emoji} {platform.upper()}</b>")
             lines.append(f"  • Username: <code>{info['username']}</code>")
-            lines.append(f"  • Token: {'✅ Установлен' if info['token_set'] else '❌ Не установлен'}")
+            lines.append(
+                f"  • Token: {'✅ Установлен' if info['token_set'] else '❌ Не установлен'}"
+            )
             if info.get("remote_url"):
                 lines.append(f"  • Remote: <code>{info['remote_url']}</code>")
             lines.append("")

@@ -4,7 +4,6 @@ Handles the creation of notes in the knowledge base
 Follows Single Responsibility Principle
 """
 
-from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -18,13 +17,13 @@ from src.knowledge_base.git_ops import GitOperations
 from src.knowledge_base.manager import KnowledgeBaseManager
 from src.knowledge_base.repository import RepositoryManager
 from src.knowledge_base.sync_manager import get_sync_manager
-from src.processor.content_parser import ContentParser
 from src.processor.message_aggregator import MessageGroup
+from src.services.base_kb_service import BaseKBService
 from src.services.interfaces import INoteCreationService, IUserContextManager
 from src.tracker.processing_tracker import ProcessingTracker
 
 
-class NoteCreationService(INoteCreationService):
+class NoteCreationService(BaseKBService, INoteCreationService):
     """
     Service for creating notes in the knowledge base (note mode).
 
@@ -58,17 +57,15 @@ class NoteCreationService(INoteCreationService):
             repo_manager: Repository manager
             user_context_manager: User context manager
             settings_manager: Settings manager
+            credentials_manager: Credentials manager (optional)
             rate_limiter: Rate limiter for agent calls (optional)
         """
-        self.bot = bot
+        # AICODE-NOTE: Initialize base class with common dependencies
+        super().__init__(bot, repo_manager, settings_manager, credentials_manager, rate_limiter)
+
+        # Note-specific dependencies
         self.tracker = tracker
-        self.repo_manager = repo_manager
         self.user_context_manager = user_context_manager
-        self.settings_manager = settings_manager
-        self.credentials_manager = credentials_manager
-        self.rate_limiter = rate_limiter
-        self.content_parser = ContentParser()
-        self.logger = logger
 
     async def create_note(
         self, group: MessageGroup, processing_msg_id: int, chat_id: int, user_id: int, user_kb: dict
@@ -132,24 +129,9 @@ class NoteCreationService(INoteCreationService):
         """
         # Create KB manager and Git operations
         kb_manager = KnowledgeBaseManager(str(kb_path))
-        kb_git_enabled = self.settings_manager.get_setting(user_id, "KB_GIT_ENABLED")
 
-        # Get global Git credentials for HTTPS authentication (fallback)
-        github_username = self.settings_manager.get_setting(user_id, "GITHUB_USERNAME")
-        github_token = self.settings_manager.get_setting(user_id, "GITHUB_TOKEN")
-        gitlab_username = self.settings_manager.get_setting(user_id, "GITLAB_USERNAME")
-        gitlab_token = self.settings_manager.get_setting(user_id, "GITLAB_TOKEN")
-
-        git_ops = GitOperations(
-            str(kb_path),
-            enabled=kb_git_enabled,
-            github_username=github_username,
-            github_token=github_token,
-            gitlab_username=gitlab_username,
-            gitlab_token=gitlab_token,
-            user_id=user_id,
-            credentials_manager=self.credentials_manager,
-        )
+        # AICODE-NOTE: Use base class method to setup Git operations
+        git_ops = self._setup_git_ops(kb_path, user_id)
 
         # AICODE-NOTE: Pull latest changes from remote before working with KB
         # This prevents conflicts when multiple users work with the same KB
@@ -193,39 +175,13 @@ class NoteCreationService(INoteCreationService):
             self.logger.debug(f"[NOTE_SERVICE] Getting agent for user {user_id}")
             user_agent = await self.user_context_manager.get_or_create_agent(user_id)
 
-            # Set working directory to user's KB for qwen-code-cli agent
-            # Use KB_TOPICS_ONLY setting to determine if we should restrict to topics/ folder
-            kb_topics_only = self.settings_manager.get_setting(user_id, "KB_TOPICS_ONLY")
+            # AICODE-NOTE: Use base class methods to configure agent working directory
+            agent_working_dir = self._get_agent_working_dir(kb_path, user_id)
+            self._configure_agent_working_dir(user_agent, agent_working_dir)
 
-            if kb_topics_only:
-                # Restrict to topics folder (protects index.md, README.md, etc.)
-                agent_working_dir = kb_path / "topics"
-                self.logger.debug(f"KB_TOPICS_ONLY=true, restricting agent to topics folder")
-            else:
-                # Full access to entire knowledge base
-                agent_working_dir = kb_path
-                self.logger.debug(f"KB_TOPICS_ONLY=false, agent has full KB access")
-
-            if hasattr(user_agent, "set_working_directory"):
-                user_agent.set_working_directory(str(agent_working_dir))
-                self.logger.debug(f"Set agent working directory to: {agent_working_dir}")
-
-            # AICODE-NOTE: Rate limit check before expensive agent API call
-            if self.rate_limiter:
-                if not await self.rate_limiter.acquire(user_id):
-                    # Rate limited - calculate reset time
-                    reset_time = await self.rate_limiter.get_reset_time(user_id)
-                    wait_seconds = int((reset_time - datetime.now()).total_seconds())
-                    remaining = await self.rate_limiter.get_remaining(user_id)
-
-                    await self.bot.edit_message_text(
-                        f"⏱️ Превышен лимит запросов к агенту\n\n"
-                        f"Подождите ~{wait_seconds} секунд перед следующим запросом.\n"
-                        f"Доступно запросов: {remaining}",
-                        chat_id=chat_id,
-                        message_id=processing_msg_id,
-                    )
-                    return
+            # AICODE-NOTE: Use base class method for rate limit check
+            if not await self._check_rate_limit(user_id, chat_id, processing_msg_id):
+                return
 
             try:
                 self.logger.info(f"[NOTE_SERVICE] Processing content with agent for user {user_id}")
@@ -255,32 +211,11 @@ class NoteCreationService(INoteCreationService):
             # Track processed message
             self._track_processed(group, content_hash, kb_path, processed_content)
 
-            # AICODE-NOTE: Auto-commit and push changes before releasing KB lock
-            # This ensures that all KB changes are committed and pushed to remote (if configured)
-            # before another user can start working with the same KB
-            if git_ops.enabled:
-                await self.bot.edit_message_text(
-                    "📤 Сохраняю изменения в git...", chat_id=chat_id, message_id=processing_msg_id
-                )
-
-                # Get git settings
-                kb_git_remote = self.settings_manager.get_setting(user_id, "KB_GIT_REMOTE")
-                kb_git_branch = self.settings_manager.get_setting(user_id, "KB_GIT_BRANCH")
-
-                # Create commit message
-                commit_message = f"Add: {processed_content.get('title', 'Untitled Note')}"
-
-                # Auto-commit and push
-                success, message = git_ops.auto_commit_and_push(
-                    message=commit_message,
-                    remote=kb_git_remote,
-                    branch=kb_git_branch,
-                )
-
-                if not success:
-                    logger.warning(f"Auto-commit/push failed: {message}")
-                else:
-                    logger.info(f"Auto-commit/push successful: {message}")
+            # AICODE-NOTE: Use base class method for auto-commit and push
+            commit_message = f"Add: {processed_content.get('title', 'Untitled Note')}"
+            await self._auto_commit_and_push(
+                git_ops, user_id, commit_message, chat_id, processing_msg_id
+            )
 
             # Send success notification
             await self._send_success_notification(
@@ -396,146 +331,28 @@ class NoteCreationService(INoteCreationService):
         files_edited = metadata.get("files_edited", [])
         folders_created = metadata.get("folders_created", [])
 
-        # Убираем дублирование: если файл создан, не показываем его в изменённых
-        files_created_set = set(files_created)
-        files_edited_unique = [f for f in files_edited if f not in files_created_set]
+        # AICODE-NOTE: Use base class methods for GitHub URL and file change formatting
+        github_base = self._get_github_base_url(kb_path, user_id)
 
-        # Подготовим GitHub base URL, если включен Git и настроен remote
-        def _get_github_base_url() -> str | None:
-            try:
-                from git import Repo  # type: ignore
+        # Normalize created files for duplicate filtering
+        def _normalize_path_str(p: str) -> str:
+            return str(Path(p).as_posix()).lstrip("./")
 
-                repo = Repo(kb_path)
-                remote_name = self.settings_manager.get_setting(user_id, "KB_GIT_REMOTE") or "origin"
-                branch = self.settings_manager.get_setting(user_id, "KB_GIT_BRANCH") or "main"
+        files_created_norm = {_normalize_path_str(p) for p in files_created}
+        files_edited_unique = [
+            f for f in files_edited if _normalize_path_str(f) not in files_created_norm
+        ]
 
-                try:
-                    remote = repo.remote(remote_name)
-                except Exception:
-                    return None
+        # AICODE-NOTE: Use base class method for file change formatting
+        file_change_parts = self._format_file_changes(
+            files_created, files_edited_unique, [], folders_created, github_base, files_created_norm
+        )
+        message_parts.extend(file_change_parts)
 
-                url = next(iter(remote.urls), None)
-                if not url:
-                    return None
-
-                url_str = str(url)
-                # Поддержка форматов:
-                # - https://github.com/user/repo(.git)?
-                # - https://user:token@github.com/user/repo(.git)?
-                # - git@github.com:user/repo(.git)?
-                if url_str.startswith("git@github.com:"):
-                    repo_path = url_str.split(":", 1)[1]
-                    if repo_path.endswith(".git"):
-                        repo_path = repo_path[:-4]
-                    return f"https://github.com/{repo_path}/blob/{branch}"
-
-                # HTTP(S) URLs
-                from urllib.parse import urlsplit
-
-                parts = urlsplit(url_str)
-                # Разрешаем только github.com
-                if not parts.netloc.endswith("github.com"):
-                    return None
-
-                # Собираем чистый путь без .git и без кредов
-                path = parts.path or ""
-                if path.endswith(".git"):
-                    path = path[:-4]
-                # Убедимся, что путь начинается с '/'
-                if not path.startswith("/"):
-                    path = "/" + path
-
-                return f"https://github.com{path}/blob/{branch}"
-            except Exception:
-                return None
-
-        github_base = _get_github_base_url()
-
-        if files_created or files_edited_unique or folders_created:
-            message_parts.append("\n📝 Изменения:")
-
-            if files_created:
-                message_parts.append(f"  ✨ Создано файлов: {len(files_created)}")
-                for file in files_created[:5]:  # Показываем первые 5
-                    if github_base:
-                        message_parts.append(f"    • {file} — {github_base}/{file}")
-                    else:
-                        message_parts.append(f"    • {file}")
-                if len(files_created) > 5:
-                    message_parts.append(f"    • ... и ещё {len(files_created) - 5}")
-
-            if files_edited_unique:
-                message_parts.append(f"  ✏️ Изменено файлов: {len(files_edited_unique)}")
-                for file in files_edited_unique[:5]:  # Показываем первые 5
-                    if github_base:
-                        message_parts.append(f"    • {file} — {github_base}/{file}")
-                    else:
-                        message_parts.append(f"    • {file}")
-                if len(files_edited_unique) > 5:
-                    message_parts.append(f"    • ... и ещё {len(files_edited_unique) - 5}")
-
-            if folders_created:
-                message_parts.append(f"  📁 Создано папок: {len(folders_created)}")
-                for folder in folders_created[:5]:  # Показываем первые 5
-                    message_parts.append(f"    • {folder}")
-                if len(folders_created) > 5:
-                    message_parts.append(f"    • ... и ещё {len(folders_created) - 5}")
-
-        # Добавляем блок связей
+        # AICODE-NOTE: Use base class method for links/relations filtering and formatting
         links = metadata.get("links", []) or metadata.get("relations", [])
-        if links:
-            # Фильтруем шлак: исключаем связи на файлы, созданные в этом же запуске
-            # Нормализуем пути для надёжного сравнения
-            def _normalize_path_str(p: str) -> str:
-                return str(Path(p).as_posix()).lstrip("./")
-
-            files_created_norm = { _normalize_path_str(p) for p in files_created }
-
-            def _is_created_here(target: str) -> bool:
-                return _normalize_path_str(target) in files_created_norm
-
-            filtered_links = []
-            for link in links:
-                if isinstance(link, dict):
-                    target_file = link.get("file", "")
-                    if target_file and _is_created_here(target_file):
-                        continue
-                    filtered_links.append(link)
-                else:
-                    # Строковые связи оставить, но отфильтровать если явно указывают на созданный файл
-                    if isinstance(link, str) and _is_created_here(link):
-                        continue
-                    filtered_links.append(link)
-
-            if filtered_links:
-            message_parts.append("\n🔗 Связи:")
-                for link in filtered_links[:10]:  # Показываем первые 10
-                    if isinstance(link, dict):
-                        # Если связь это dict с полями 'file' и 'description'
-                        file_path = link.get("file", "")
-                        description = link.get("description", "")
-                        if file_path:
-                            if not description:
-                                # Попробуем извлечь заголовок из файла как краткое пояснение
-                                try:
-                                    abs_path = Path(file_path)
-                                    if not abs_path.is_absolute():
-                                        abs_path = kb_path / file_path
-                                    title = self._extract_title_from_file(abs_path) or abs_path.stem
-                                    description = f"связь с \"{title}\""
-                                except Exception:
-                                    description = "связанная тема"
-                            if github_base:
-                                message_parts.append(
-                                    f"  • {file_path} - {description} — {github_base}/{file_path}"
-                                )
-                            else:
-                                message_parts.append(f"  • {file_path} - {description}")
-                    else:
-                        # Если связь это просто строка
-                        message_parts.append(f"  • {link}")
-                if len(filtered_links) > 10:
-                    message_parts.append(f"  • ... и ещё {len(filtered_links) - 10}")
+        link_parts = self._filter_and_format_links(links, files_created, kb_path, github_base)
+        message_parts.extend(link_parts)
 
         await self.bot.edit_message_text(
             "\n".join(message_parts), chat_id=chat_id, message_id=processing_msg_id
@@ -544,43 +361,7 @@ class NoteCreationService(INoteCreationService):
     async def _send_error_notification(
         self, processing_msg_id: int, chat_id: int, error_message: str
     ) -> None:
-        """Send error notification"""
-        try:
-            # Don't use parse_mode for error messages to avoid parsing issues
-            await self.bot.edit_message_text(
-                f"❌ Ошибка обработки сообщения: {error_message}",
-                chat_id=chat_id,
-                message_id=processing_msg_id,
-            )
-        except Exception:
-            pass
-
-    def _extract_title_from_file(self, file_path: Path) -> Optional[str]:
-        """Extract title from markdown file (first # heading)"""
-        try:
-            content = file_path.read_text(encoding="utf-8")
-            lines = content.strip().split("\n")
-
-            for line in lines:
-                line = line.strip()
-                if line.startswith("# "):
-                    return line[2:].strip()
-
-            # Try to extract from frontmatter
-            if content.startswith("---"):
-                import yaml
-
-                try:
-                    # Extract YAML frontmatter
-                    parts = content.split("---", 2)
-                    if len(parts) >= 3:
-                        frontmatter = yaml.safe_load(parts[1])
-                        if isinstance(frontmatter, dict) and "title" in frontmatter:
-                            return frontmatter["title"]
-                except:
-                    pass
-
-            return None
-        except Exception as e:
-            self.logger.debug(f"Failed to extract title from {file_path}: {e}")
-            return None
+        """Send error notification (override base class to add context)"""
+        await super()._send_error_notification(
+            processing_msg_id, chat_id, f"Ошибка обработки сообщения: {error_message}"
+        )

@@ -4,12 +4,8 @@ Handles free-form agent tasks in agent mode
 Follows Single Responsibility Principle
 """
 
-import asyncio
-from datetime import datetime
 from pathlib import Path
 from typing import Optional
-
-from loguru import logger
 
 from config.agent_prompts import AGENT_MODE_INSTRUCTION
 from src.bot.bot_port import BotPort
@@ -17,15 +13,14 @@ from src.bot.settings_manager import SettingsManager
 from src.bot.utils import escape_markdown, split_long_message
 from src.core.rate_limiter import RateLimiter
 from src.knowledge_base.credentials_manager import CredentialsManager
-from src.knowledge_base.git_ops import GitOperations
 from src.knowledge_base.repository import RepositoryManager
 from src.knowledge_base.sync_manager import get_sync_manager
-from src.processor.content_parser import ContentParser
 from src.processor.message_aggregator import MessageGroup
+from src.services.base_kb_service import BaseKBService
 from src.services.interfaces import IAgentTaskService, IUserContextManager
 
 
-class AgentTaskService(IAgentTaskService):
+class AgentTaskService(BaseKBService, IAgentTaskService):
     """
     Service for executing free-form agent tasks (agent mode).
 
@@ -58,16 +53,14 @@ class AgentTaskService(IAgentTaskService):
             repo_manager: Repository manager
             user_context_manager: User context manager
             settings_manager: Settings manager for user-specific settings
+            credentials_manager: Credentials manager (optional)
             rate_limiter: Rate limiter for agent calls (optional)
         """
-        self.bot = bot
-        self.repo_manager = repo_manager
+        # AICODE-NOTE: Initialize base class with common dependencies
+        super().__init__(bot, repo_manager, settings_manager, credentials_manager, rate_limiter)
+
+        # Agent-specific dependencies
         self.user_context_manager = user_context_manager
-        self.settings_manager = settings_manager
-        self.credentials_manager = credentials_manager
-        self.rate_limiter = rate_limiter
-        self.content_parser = ContentParser()
-        self.logger = logger
 
     async def execute_task(
         self, group: MessageGroup, processing_msg_id: int, chat_id: int, user_id: int, user_kb: dict
@@ -132,25 +125,8 @@ class AgentTaskService(IAgentTaskService):
             user_kb: User's knowledge base configuration
             kb_path: Path to knowledge base
         """
-        # Create Git operations handler
-        kb_git_enabled = self.settings_manager.get_setting(user_id, "KB_GIT_ENABLED")
-
-        # Get global Git credentials for HTTPS authentication (fallback)
-        github_username = self.settings_manager.get_setting(user_id, "GITHUB_USERNAME")
-        github_token = self.settings_manager.get_setting(user_id, "GITHUB_TOKEN")
-        gitlab_username = self.settings_manager.get_setting(user_id, "GITLAB_USERNAME")
-        gitlab_token = self.settings_manager.get_setting(user_id, "GITLAB_TOKEN")
-
-        git_ops = GitOperations(
-            str(kb_path),
-            enabled=kb_git_enabled,
-            github_username=github_username,
-            github_token=github_token,
-            gitlab_username=gitlab_username,
-            gitlab_token=gitlab_token,
-            user_id=user_id,
-            credentials_manager=self.credentials_manager,
-        )
+        # AICODE-NOTE: Use base class method to setup Git operations
+        git_ops = self._setup_git_ops(kb_path, user_id)
 
         # Parse task
         content = await self.content_parser.parse_group_with_files(group, bot=self.bot)
@@ -183,7 +159,9 @@ class AgentTaskService(IAgentTaskService):
             "🤖 Выполняю задачу...", chat_id=chat_id, message_id=processing_msg_id
         )
 
-        result = await self._execute_with_agent(kb_path, content, user_id)
+        result = await self._execute_with_agent(
+            kb_path, content, user_id, chat_id, processing_msg_id
+        )
 
         # Save assistant response to context
         import time
@@ -195,34 +173,17 @@ class AgentTaskService(IAgentTaskService):
             user_id, processing_msg_id, response_text, response_timestamp
         )
 
-        # AICODE-NOTE: Auto-commit and push changes before releasing KB lock
-        # This ensures that all KB changes are committed and pushed to remote (if configured)
-        # before another user can start working with the same KB
-        if git_ops.enabled:
-            # Get git settings
-            kb_git_remote = self.settings_manager.get_setting(user_id, "KB_GIT_REMOTE")
-            kb_git_branch = self.settings_manager.get_setting(user_id, "KB_GIT_BRANCH")
-
-            # Create commit message from task text
-            task_summary = task_text[:50] + "..." if len(task_text) > 50 else task_text
-            commit_message = f"Agent task: {task_summary}"
-
-            # Auto-commit and push
-            success, message = git_ops.auto_commit_and_push(
-                message=commit_message,
-                remote=kb_git_remote,
-                branch=kb_git_branch,
-            )
-
-            if not success:
-                self.logger.warning(f"Auto-commit/push failed: {message}")
-            else:
-                self.logger.info(f"Auto-commit/push successful: {message}")
+        # AICODE-NOTE: Use base class method for auto-commit and push
+        task_summary = task_text[:50] + "..." if len(task_text) > 50 else task_text
+        commit_message = f"Agent task: {task_summary}"
+        await self._auto_commit_and_push(git_ops, user_id, commit_message)
 
         # Send result to user
         await self._send_result(processing_msg_id, chat_id, result, kb_path, user_id)
 
-    async def _execute_with_agent(self, kb_path: Path, content: dict, user_id: int) -> dict:
+    async def _execute_with_agent(
+        self, kb_path: Path, content: dict, user_id: int, chat_id: int, processing_msg_id: int
+    ) -> dict:
         """
         Execute task with agent.
 
@@ -237,6 +198,8 @@ class AgentTaskService(IAgentTaskService):
             kb_path: Path to knowledge base
             content: Task content from user
             user_id: User ID
+            chat_id: Chat ID for notifications
+            processing_msg_id: Message ID for status updates
 
         Returns:
             Agent execution result with answer, file changes, metadata
@@ -244,22 +207,9 @@ class AgentTaskService(IAgentTaskService):
         # Get user agent (thread-safe)
         user_agent = await self.user_context_manager.get_or_create_agent(user_id)
 
-        # Set working directory to user's KB
-        # Use KB_TOPICS_ONLY setting to determine if we should restrict to topics/ folder
-        kb_topics_only = self.settings_manager.get_setting(user_id, "KB_TOPICS_ONLY")
-
-        if kb_topics_only:
-            # Restrict to topics folder (protects index.md, README.md, etc.)
-            agent_working_dir = kb_path / "topics"
-            self.logger.debug(f"KB_TOPICS_ONLY=true, restricting agent to topics folder")
-        else:
-            # Full access to entire knowledge base
-            agent_working_dir = kb_path
-            self.logger.debug(f"KB_TOPICS_ONLY=false, agent has full KB access")
-
-        if hasattr(user_agent, "set_working_directory"):
-            user_agent.set_working_directory(str(agent_working_dir))
-            self.logger.debug(f"Set agent working directory to: {agent_working_dir}")
+        # AICODE-NOTE: Use base class methods to configure agent working directory
+        agent_working_dir = self._get_agent_working_dir(kb_path, user_id)
+        self._configure_agent_working_dir(user_agent, agent_working_dir)
 
         # Temporarily change agent instruction to agent mode
         original_instruction = None
@@ -286,22 +236,18 @@ class AgentTaskService(IAgentTaskService):
             "prompt": task_prompt,
         }
 
-        # AICODE-NOTE: Rate limit check before expensive agent API call
-        if self.rate_limiter:
-            if not await self.rate_limiter.acquire(user_id):
-                # Rate limited - calculate reset time
-                reset_time = await self.rate_limiter.get_reset_time(user_id)
-                wait_seconds = int((reset_time - datetime.now()).total_seconds())
-                remaining = await self.rate_limiter.get_remaining(user_id)
-
-                await self.bot.edit_message_text(
-                    f"⏱️ Превышен лимит запросов к агенту\n\n"
-                    f"Подождите ~{wait_seconds} секунд перед следующим запросом.\n"
-                    f"Доступно запросов: {remaining}",
-                    chat_id=chat_id,
-                    message_id=processing_msg_id,
-                )
-                return
+        # AICODE-NOTE: Use base class method for rate limit check
+        if not await self._check_rate_limit(user_id, chat_id, processing_msg_id):
+            # Return empty result if rate limited
+            return {
+                "answer": None,
+                "summary": "",
+                "metadata": {},
+                "files_created": [],
+                "files_edited": [],
+                "files_deleted": [],
+                "folders_created": [],
+            }
 
         try:
             # Process task with agent
@@ -333,52 +279,6 @@ class AgentTaskService(IAgentTaskService):
             if original_instruction is not None and hasattr(user_agent, "set_instruction"):
                 user_agent.set_instruction(original_instruction)
                 self.logger.debug(f"Restored original agent instruction")
-
-    async def _safe_edit_message(
-        self, text: str, chat_id: int, message_id: int, parse_mode: str = None
-    ) -> bool:
-        """
-        Safely edit a message with timeout handling
-
-        Args:
-            text: Message text
-            chat_id: Chat ID
-            message_id: Message ID to edit
-            parse_mode: Parse mode (e.g., 'Markdown')
-
-        Returns:
-            True if edit succeeded, False if we should send a new message instead
-        """
-        try:
-            await self.bot.edit_message_text(
-                text, chat_id=chat_id, message_id=message_id, parse_mode=parse_mode
-            )
-            return True
-        except asyncio.TimeoutError as e:
-            # Handle timeout
-            self.logger.warning(
-                f"Message edit timed out (message may be too old), "
-                f"will send new message instead: {e}"
-            )
-            return False
-        except Exception as e:
-            # Handle all other errors (including platform-specific API errors)
-            error_msg = str(e).lower()
-
-            # Check for common error patterns
-            if "timeout" in error_msg or "timed out" in error_msg:
-                self.logger.warning(f"Message edit timed out, will send new message: {e}")
-                return False
-            elif "message is not modified" in error_msg:
-                self.logger.debug(f"Message not modified, skipping edit: {e}")
-                return True
-            elif "message can't be edited" in error_msg or "message to edit not found" in error_msg:
-                self.logger.warning(f"Cannot edit message (too old or deleted), will send new: {e}")
-                return False
-            else:
-                # Log unexpected errors but try to continue
-                self.logger.error(f"Unexpected error editing message: {e}", exc_info=True)
-                return False
 
     async def _send_result(
         self,
@@ -415,136 +315,26 @@ class AgentTaskService(IAgentTaskService):
         files_deleted = result.get("files_deleted", [])
         folders_created = result.get("folders_created", [])
 
-        # Prepare GitHub base URL for file links if available
-        def _get_github_base_url() -> str | None:
-            try:
-                from git import Repo  # type: ignore
+        # AICODE-NOTE: Use base class method for GitHub URL generation
+        github_base = self._get_github_base_url(kb_path, user_id)
 
-                repo = Repo(kb_path)
-                remote_name = self.settings_manager.get_setting(user_id, "KB_GIT_REMOTE") or "origin"
-                branch = self.settings_manager.get_setting(user_id, "KB_GIT_BRANCH") or "main"
+        # AICODE-NOTE: Use base class method for file change formatting
+        file_change_parts = self._format_file_changes(
+            files_created, files_edited, files_deleted, folders_created, github_base
+        )
+        # Convert to newline-terminated strings for agent service formatting
+        message_parts.extend(
+            [part + "\n" if not part.endswith("\n") else part for part in file_change_parts]
+        )
 
-                try:
-                    remote = repo.remote(remote_name)
-                except Exception:
-                    return None
-
-                url_obj = next(iter(remote.urls), None)
-                if not url_obj:
-                    return None
-
-                url_str = str(url_obj)
-                # Поддержка git@ и https://user:token@github.com/...
-                if url_str.startswith("git@github.com:"):
-                    repo_path = url_str.split(":", 1)[1]
-                    if repo_path.endswith(".git"):
-                        repo_path = repo_path[:-4]
-                    return f"https://github.com/{repo_path}/blob/{branch}"
-
-                from urllib.parse import urlsplit
-
-                parts = urlsplit(url_str)
-                if not parts.netloc.endswith("github.com"):
-                    return None
-                path = parts.path or ""
-                if path.endswith(".git"):
-                    path = path[:-4]
-                if not path.startswith("/"):
-                    path = "/" + path
-                return f"https://github.com{path}/blob/{branch}"
-            except Exception:
-                return None
-
-        github_base = _get_github_base_url()
-
-        if files_created or files_edited or files_deleted or folders_created:
-            message_parts.append("\n📝 **Изменения:**\n")
-
-            if files_created:
-                message_parts.append(f"✨ Создано файлов: {len(files_created)}\n")
-                for file in files_created[:5]:
-                    if github_base:
-                        message_parts.append(f"  • {file} — {github_base}/{file}\n")
-                    else:
-                        message_parts.append(f"  • {file}\n")
-                if len(files_created) > 5:
-                    message_parts.append(f"  • ... и ещё {len(files_created) - 5}\n")
-
-            if files_edited:
-                message_parts.append(f"✏️ Изменено файлов: {len(files_edited)}\n")
-                for file in files_edited[:5]:
-                    if github_base:
-                        message_parts.append(f"  • {file} — {github_base}/{file}\n")
-                    else:
-                        message_parts.append(f"  • {file}\n")
-                if len(files_edited) > 5:
-                    message_parts.append(f"  • ... и ещё {len(files_edited) - 5}\n")
-
-            if files_deleted:
-                message_parts.append(f"🗑️ Удалено файлов: {len(files_deleted)}\n")
-                for file in files_deleted[:5]:
-                    message_parts.append(f"  • {file}\n")
-                if len(files_deleted) > 5:
-                    message_parts.append(f"  • ... и ещё {len(files_deleted) - 5}\n")
-
-            if folders_created:
-                message_parts.append(f"📁 Создано папок: {len(folders_created)}\n")
-                for folder in folders_created[:5]:
-                    message_parts.append(f"  • {folder}\n")
-                if len(folders_created) > 5:
-                    message_parts.append(f"  • ... и ещё {len(folders_created) - 5}\n")
-
-        # Add relations block if provided by agent metadata
+        # AICODE-NOTE: Use base class method for links/relations filtering and formatting
         metadata = result.get("metadata", {}) or {}
         links = metadata.get("links", []) or metadata.get("relations", [])
-        if links:
-            # Filter out relations to files created in this run
-            def _normalize_path_str(p: str) -> str:
-                return str(Path(p).as_posix()).lstrip("./")
-
-            files_created_norm = { _normalize_path_str(p) for p in files_created }
-
-            def _is_created_here(target: str) -> bool:
-                return _normalize_path_str(target) in files_created_norm
-
-            filtered_links = []
-            for link in links:
-                if isinstance(link, dict):
-                    target_file = link.get("file", "")
-                    if target_file and _is_created_here(target_file):
-                        continue
-                    filtered_links.append(link)
-                else:
-                    if isinstance(link, str) and _is_created_here(link):
-                        continue
-                    filtered_links.append(link)
-
-            if filtered_links:
-                message_parts.append("\n🔗 **Связи:**\n")
-                for link in filtered_links[:10]:
-                    if isinstance(link, dict):
-                        file_path = link.get("file", "")
-                        description = link.get("description", "")
-                        if file_path:
-                            if not description:
-                                try:
-                                    abs_path = Path(file_path)
-                                    if not abs_path.is_absolute():
-                                        abs_path = kb_path / file_path
-                                    title = self._extract_title_from_file(abs_path) if hasattr(self, "_extract_title_from_file") else None
-                                    description = f"связь с \"{title or abs_path.stem}\""
-                                except Exception:
-                                    description = "связанная тема"
-                            if github_base:
-                                message_parts.append(
-                                    f"  • {file_path} - {description} — {github_base}/{file_path}\n"
-                                )
-                            else:
-                                message_parts.append(f"  • {file_path} - {description}\n")
-                    else:
-                        message_parts.append(f"  • {link}\n")
-                if len(filtered_links) > 10:
-                    message_parts.append(f"  • ... и ещё {len(filtered_links) - 10}\n")
+        link_parts = self._filter_and_format_links(links, files_created, kb_path, github_base)
+        # Convert to newline-terminated strings for agent service formatting
+        message_parts.extend(
+            [part + "\n" if not part.endswith("\n") else part for part in link_parts]
+        )
 
         # Build final message
         full_message = "".join(message_parts)
@@ -617,17 +407,7 @@ class AgentTaskService(IAgentTaskService):
     async def _send_error_notification(
         self, processing_msg_id: int, chat_id: int, error_message: str
     ) -> None:
-        """Send error notification"""
-        try:
-            error_text = f"❌ Ошибка выполнения задачи: {error_message}"
-
-            # Try to edit the message, fall back to new message if timeout
-            edit_succeeded = await self._safe_edit_message(
-                error_text, chat_id=chat_id, message_id=processing_msg_id
-            )
-
-            # If edit failed due to timeout, send as new message
-            if not edit_succeeded:
-                await self.bot.send_message(chat_id=chat_id, text=error_text)
-        except Exception as e:
-            self.logger.error(f"Failed to send error notification: {e}", exc_info=True)
+        """Send error notification (override base class to add context)"""
+        await super()._send_error_notification(
+            processing_msg_id, chat_id, f"Ошибка выполнения задачи: {error_message}"
+        )
