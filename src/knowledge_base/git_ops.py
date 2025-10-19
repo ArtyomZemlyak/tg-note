@@ -3,6 +3,7 @@ Git Operations
 Handles git operations for knowledge base
 """
 
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -17,6 +18,40 @@ except ImportError:
     Repo = None
     InvalidGitRepositoryError = Exception
     GitCommandError = Exception
+
+
+def _mask_credentials_in_message(message: str) -> str:
+    """
+    Mask credentials (tokens, passwords) in error messages to prevent exposure in logs
+
+    Args:
+        message: Error message that may contain credentials
+
+    Returns:
+        Message with credentials masked
+
+    Examples:
+        >>> _mask_credentials_in_message("https://user:token123@github.com/repo")
+        'https://***:***@github.com/repo'
+        >>> _mask_credentials_in_message("Password: secret123")
+        'Password: ***'
+    """
+    # AICODE-NOTE: Mask tokens in URLs (e.g., https://user:token@github.com/repo)
+    message = re.sub(
+        r"https://([^:@]+):([^@]+)@",
+        r"https://\1:***@",
+        message,
+    )
+
+    # Mask tokens after "token:" or "password:" keywords
+    message = re.sub(
+        r"(token|password|api[_-]?key)[:=]\s*['\"]?([^\s'\"]+)['\"]?",
+        r"\1: ***",
+        message,
+        flags=re.IGNORECASE,
+    )
+
+    return message
 
 
 class GitOperations:
@@ -253,10 +288,10 @@ class GitOperations:
                 return True, "Pull completed"
 
         except GitCommandError as gce:  # type: ignore[misc]
-            error_msg = str(gce)
+            error_msg = _mask_credentials_in_message(str(gce))
             # Check for merge conflicts
             if "conflict" in error_msg.lower() or "merge" in error_msg.lower():
-                logger.error(f"Merge conflict during pull: {gce}")
+                logger.error(f"Merge conflict during pull: {error_msg}")
                 return False, f"Merge conflict during pull. Please resolve manually."
             # Check if remote branch doesn't exist
             elif "couldn't find remote ref" in error_msg or "unknown revision" in error_msg.lower():
@@ -411,7 +446,7 @@ class GitOperations:
 
             return True
         except GitCommandError as gce:  # type: ignore[misc]
-            error_msg = str(gce)
+            error_msg = _mask_credentials_in_message(str(gce))
             # AICODE-NOTE: Handle authentication errors specifically to provide helpful guidance
             if (
                 "could not read Username" in error_msg
@@ -421,7 +456,7 @@ class GitOperations:
             ):
                 is_https = self._is_https_remote(remote)
                 logger.error(
-                    f"Failed to push (authentication error): {gce}. "
+                    f"Failed to push (authentication error): {error_msg}. "
                     f"Remote '{remote}' requires authentication."
                 )
                 if is_https:
@@ -433,13 +468,14 @@ class GitOperations:
                     )
                 return False
             else:
-                logger.error(f"Failed to push (git): {gce}")
+                logger.error(f"Failed to push (git): {error_msg}")
                 return False
         except Exception as e:
             # Use safe variables to avoid NameError in logging paths
             safe_target = target_branch or "auto"
+            error_msg = _mask_credentials_in_message(f"{type(e).__name__}: {e}")
             logger.error(
-                f"Failed to push: {type(e).__name__}: {e}. "
+                f"Failed to push: {error_msg}. "
                 f"Tried pushing {local_ref} -> {remote}/{safe_target}."
             )
             return False

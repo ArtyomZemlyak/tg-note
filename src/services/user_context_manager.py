@@ -4,13 +4,16 @@ Manages user-specific contexts (aggregators, agents, modes, conversation context
 Follows Single Responsibility Principle
 """
 
+import asyncio
 from typing import Any, Dict, Optional
 
 from loguru import logger
 
 from src.agents.agent_factory import AgentFactory
+from src.agents.base_agent import BaseAgent
 from src.bot.settings_manager import SettingsManager
 from src.core.background_task_manager import BackgroundTaskManager
+from src.core.enums import UserMode
 from src.processor.message_aggregator import MessageAggregator
 from src.services.conversation_context import ConversationContextManager
 from src.services.interfaces import IUserContextManager
@@ -26,6 +29,9 @@ class UserContextManager(IUserContextManager):
     - Manage user modes (note/ask)
     - Invalidate user caches when settings change
     - Управление жизненным циклом агрегаторов через BackgroundTaskManager
+
+    Thread-safety:
+    - Uses per-user locks to prevent race conditions when creating aggregators/agents
     """
 
     def __init__(
@@ -51,15 +57,36 @@ class UserContextManager(IUserContextManager):
 
         # User-specific caches
         self.user_aggregators: Dict[int, MessageAggregator] = {}
-        self.user_agents: Dict[int, Any] = {}
+        self.user_agents: Dict[int, BaseAgent] = {}
         self.user_modes: Dict[int, str] = {}
+
+        # AICODE-NOTE: Per-user locks to prevent race conditions when creating contexts
+        # Global lock protects the user_locks dict itself
+        self._user_locks: Dict[int, asyncio.Lock] = {}
+        self._global_lock = asyncio.Lock()
 
         self.logger = logger
         self.logger.info("UserContextManager initialized")
 
-    def get_or_create_aggregator(self, user_id: int) -> MessageAggregator:
+    async def _get_user_lock(self, user_id: int) -> asyncio.Lock:
         """
-        Get or create message aggregator for a user
+        Get or create a lock for a specific user
+
+        Args:
+            user_id: User ID
+
+        Returns:
+            asyncio.Lock for the user
+        """
+        async with self._global_lock:
+            if user_id not in self._user_locks:
+                self._user_locks[user_id] = asyncio.Lock()
+                self.logger.debug(f"Created lock for user {user_id}")
+            return self._user_locks[user_id]
+
+    async def get_or_create_aggregator(self, user_id: int) -> MessageAggregator:
+        """
+        Get or create message aggregator for a user (thread-safe)
 
         Args:
             user_id: User ID
@@ -67,29 +94,33 @@ class UserContextManager(IUserContextManager):
         Returns:
             MessageAggregator instance for the user
         """
-        if user_id not in self.user_aggregators:
-            timeout = self.settings_manager.get_setting(user_id, "MESSAGE_GROUP_TIMEOUT")
-            self.logger.info(
-                f"Creating MessageAggregator for user {user_id} with timeout {timeout}s"
-            )
+        # AICODE-NOTE: Use per-user lock to prevent race condition where
+        # two concurrent requests create duplicate aggregators for the same user
+        user_lock = await self._get_user_lock(user_id)
+        async with user_lock:
+            if user_id not in self.user_aggregators:
+                timeout = self.settings_manager.get_setting(user_id, "MESSAGE_GROUP_TIMEOUT")
+                self.logger.info(
+                    f"Creating MessageAggregator for user {user_id} with timeout {timeout}s"
+                )
 
-            # Создать агрегатор с поддержкой BackgroundTaskManager
-            aggregator = MessageAggregator(
-                timeout=timeout, user_id=user_id, task_manager=self.background_task_manager
-            )
-            if self.timeout_callback:
-                aggregator.set_timeout_callback(self.timeout_callback)
+                # Создать агрегатор с поддержкой BackgroundTaskManager
+                aggregator = MessageAggregator(
+                    timeout=timeout, user_id=user_id, task_manager=self.background_task_manager
+                )
+                if self.timeout_callback:
+                    aggregator.set_timeout_callback(self.timeout_callback)
 
-            # Запустить фоновую задачу (будет управляться через BackgroundTaskManager)
-            aggregator.start_background_task()
+                # Запустить фоновую задачу (будет управляться через BackgroundTaskManager)
+                aggregator.start_background_task()
 
-            self.user_aggregators[user_id] = aggregator
+                self.user_aggregators[user_id] = aggregator
 
-        return self.user_aggregators[user_id]
+            return self.user_aggregators[user_id]
 
-    def get_or_create_agent(self, user_id: int):
+    async def get_or_create_agent(self, user_id: int) -> BaseAgent:
         """
-        Get or create agent for a user
+        Get or create agent for a user (thread-safe)
 
         Args:
             user_id: User ID
@@ -97,39 +128,43 @@ class UserContextManager(IUserContextManager):
         Returns:
             Agent instance for the user
         """
-        if user_id not in self.user_agents:
-            # Get user-specific agent settings
-            config = {
-                "api_key": self.settings_manager.get_setting(user_id, "QWEN_API_KEY"),
-                "openai_api_key": self.settings_manager.get_setting(user_id, "OPENAI_API_KEY"),
-                "openai_base_url": self.settings_manager.get_setting(user_id, "OPENAI_BASE_URL"),
-                "github_token": self.settings_manager.get_setting(user_id, "GITHUB_TOKEN"),
-                "model": self.settings_manager.get_setting(user_id, "AGENT_MODEL"),
-                "instruction": self.settings_manager.get_setting(user_id, "AGENT_INSTRUCTION"),
-                "enable_web_search": self.settings_manager.get_setting(
-                    user_id, "AGENT_ENABLE_WEB_SEARCH"
-                ),
-                "enable_git": self.settings_manager.get_setting(user_id, "AGENT_ENABLE_GIT"),
-                "enable_github": self.settings_manager.get_setting(user_id, "AGENT_ENABLE_GITHUB"),
-                "enable_shell": self.settings_manager.get_setting(user_id, "AGENT_ENABLE_SHELL"),
-                "enable_mcp": self.settings_manager.get_setting(user_id, "AGENT_ENABLE_MCP"),
-                "enable_mcp_memory": self.settings_manager.get_setting(
-                    user_id, "AGENT_ENABLE_MCP_MEMORY"
-                ),
-                "qwen_cli_path": self.settings_manager.get_setting(user_id, "AGENT_QWEN_CLI_PATH"),
-                "timeout": self.settings_manager.get_setting(user_id, "AGENT_TIMEOUT"),
-                "kb_path": self.settings_manager.get_setting(user_id, "KB_PATH"),
-                "kb_topics_only": self.settings_manager.get_setting(user_id, "KB_TOPICS_ONLY"),
-                "user_id": user_id,  # Pass user_id for per-user MCP server discovery
-            }
+        # AICODE-NOTE: Use per-user lock to prevent race condition where
+        # two concurrent requests create duplicate agents for the same user
+        user_lock = await self._get_user_lock(user_id)
+        async with user_lock:
+            if user_id not in self.user_agents:
+                # Get user-specific agent settings
+                config = {
+                    "api_key": self.settings_manager.get_setting(user_id, "QWEN_API_KEY"),
+                    "openai_api_key": self.settings_manager.get_setting(user_id, "OPENAI_API_KEY"),
+                    "openai_base_url": self.settings_manager.get_setting(user_id, "OPENAI_BASE_URL"),
+                    "github_token": self.settings_manager.get_setting(user_id, "GITHUB_TOKEN"),
+                    "model": self.settings_manager.get_setting(user_id, "AGENT_MODEL"),
+                    "instruction": self.settings_manager.get_setting(user_id, "AGENT_INSTRUCTION"),
+                    "enable_web_search": self.settings_manager.get_setting(
+                        user_id, "AGENT_ENABLE_WEB_SEARCH"
+                    ),
+                    "enable_git": self.settings_manager.get_setting(user_id, "AGENT_ENABLE_GIT"),
+                    "enable_github": self.settings_manager.get_setting(user_id, "AGENT_ENABLE_GITHUB"),
+                    "enable_shell": self.settings_manager.get_setting(user_id, "AGENT_ENABLE_SHELL"),
+                    "enable_mcp": self.settings_manager.get_setting(user_id, "AGENT_ENABLE_MCP"),
+                    "enable_mcp_memory": self.settings_manager.get_setting(
+                        user_id, "AGENT_ENABLE_MCP_MEMORY"
+                    ),
+                    "qwen_cli_path": self.settings_manager.get_setting(user_id, "AGENT_QWEN_CLI_PATH"),
+                    "timeout": self.settings_manager.get_setting(user_id, "AGENT_TIMEOUT"),
+                    "kb_path": self.settings_manager.get_setting(user_id, "KB_PATH"),
+                    "kb_topics_only": self.settings_manager.get_setting(user_id, "KB_TOPICS_ONLY"),
+                    "user_id": user_id,  # Pass user_id for per-user MCP server discovery
+                }
 
-            agent_type = self.settings_manager.get_setting(user_id, "AGENT_TYPE")
-            self.logger.info(f"Creating agent for user {user_id}: {agent_type}")
+                agent_type = self.settings_manager.get_setting(user_id, "AGENT_TYPE")
+                self.logger.info(f"Creating agent for user {user_id}: {agent_type}")
 
-            agent = AgentFactory.create_agent(agent_type=agent_type, config=config)
-            self.user_agents[user_id] = agent
+                agent = AgentFactory.create_agent(agent_type=agent_type, config=config)
+                self.user_agents[user_id] = agent
 
-        return self.user_agents[user_id]
+            return self.user_agents[user_id]
 
     def get_user_mode(self, user_id: int) -> str:
         """
@@ -139,9 +174,9 @@ class UserContextManager(IUserContextManager):
             user_id: User ID
 
         Returns:
-            User mode ('note' or 'ask')
+            User mode string (note/ask/agent)
         """
-        return self.user_modes.get(user_id, "note")
+        return self.user_modes.get(user_id, UserMode.NOTE.value)
 
     def set_user_mode(self, user_id: int, mode: str) -> None:
         """
@@ -229,14 +264,23 @@ class UserContextManager(IUserContextManager):
         """
         self.logger.info(f"Invalidating cache for user {user_id}")
 
-        # Stop and remove user's message aggregator
-        if user_id in self.user_aggregators:
-            await self.user_aggregators[user_id].stop_background_task()
-            del self.user_aggregators[user_id]
+        # Get user lock to ensure no concurrent creation during invalidation
+        user_lock = await self._get_user_lock(user_id)
+        async with user_lock:
+            # Stop and remove user's message aggregator
+            if user_id in self.user_aggregators:
+                await self.user_aggregators[user_id].stop_background_task()
+                del self.user_aggregators[user_id]
 
-        # Remove user's agent
-        if user_id in self.user_agents:
-            del self.user_agents[user_id]
+            # Remove user's agent
+            if user_id in self.user_agents:
+                del self.user_agents[user_id]
+
+        # Clean up the lock itself
+        async with self._global_lock:
+            if user_id in self._user_locks:
+                del self._user_locks[user_id]
+                self.logger.debug(f"Removed lock for user {user_id}")
 
     async def cleanup(self) -> None:
         """Cleanup all user contexts"""

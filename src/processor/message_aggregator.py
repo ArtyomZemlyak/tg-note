@@ -59,6 +59,9 @@ class MessageAggregator:
         self._lock = asyncio.Lock()
         self._callback_tasks: set = set()  # Track callback tasks to prevent premature GC
         self._task_id: Optional[str] = None
+        # AICODE-NOTE: Track iterations for periodic cleanup to prevent memory leak
+        self._cleanup_counter = 0
+        self._cleanup_interval = 20  # Clean completed tasks every 20 iterations (~100 seconds)
 
     async def add_message(self, chat_id: int, message: Dict) -> Optional[MessageGroup]:
         """
@@ -206,6 +209,20 @@ class MessageAggregator:
             try:
                 # Check every 5 seconds
                 await asyncio.sleep(5)
+
+                # AICODE-NOTE: Periodic cleanup of completed callback tasks to prevent memory leak
+                # Clean up every N iterations or when task set grows too large (>100 tasks)
+                self._cleanup_counter += 1
+                if self._cleanup_counter >= self._cleanup_interval or len(self._callback_tasks) > 100:
+                    self._cleanup_counter = 0
+                    # Remove all completed tasks
+                    completed_tasks = {task for task in self._callback_tasks if task.done()}
+                    if completed_tasks:
+                        self._callback_tasks -= completed_tasks
+                        self.logger.debug(
+                            f"Cleaned up {len(completed_tasks)} completed callback tasks. "
+                            f"Remaining: {len(self._callback_tasks)}"
+                        )
 
                 # Find timed-out groups (with lock protection)
                 timed_out = []
