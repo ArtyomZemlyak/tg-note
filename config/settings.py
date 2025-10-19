@@ -608,7 +608,9 @@ class Settings(BaseSettings):
                     try:
                         log_dir.mkdir(parents=True, exist_ok=True)
                     except Exception as e:
-                        errors.append(f"LOG_FILE directory cannot be created: {log_dir}. Error: {e}")
+                        errors.append(
+                            f"LOG_FILE directory cannot be created: {log_dir}. Error: {e}"
+                        )
             except Exception as e:
                 errors.append(f"LOG_FILE validation failed: {e}")
 
@@ -621,14 +623,18 @@ class Settings(BaseSettings):
             if self.VECTOR_CHUNK_SIZE <= 0:
                 errors.append(f"VECTOR_CHUNK_SIZE must be positive, got {self.VECTOR_CHUNK_SIZE}")
             if self.VECTOR_CHUNK_OVERLAP < 0:
-                errors.append(f"VECTOR_CHUNK_OVERLAP cannot be negative, got {self.VECTOR_CHUNK_OVERLAP}")
+                errors.append(
+                    f"VECTOR_CHUNK_OVERLAP cannot be negative, got {self.VECTOR_CHUNK_OVERLAP}"
+                )
             if self.VECTOR_CHUNK_OVERLAP >= self.VECTOR_CHUNK_SIZE:
                 errors.append(
                     f"VECTOR_CHUNK_OVERLAP ({self.VECTOR_CHUNK_OVERLAP}) "
                     f"must be less than VECTOR_CHUNK_SIZE ({self.VECTOR_CHUNK_SIZE})"
                 )
             if self.VECTOR_SEARCH_TOP_K <= 0:
-                errors.append(f"VECTOR_SEARCH_TOP_K must be positive, got {self.VECTOR_SEARCH_TOP_K}")
+                errors.append(
+                    f"VECTOR_SEARCH_TOP_K must be positive, got {self.VECTOR_SEARCH_TOP_K}"
+                )
 
         # File size validations
         if self.MEM_AGENT_FILE_SIZE_LIMIT <= 0:
@@ -647,9 +653,7 @@ class Settings(BaseSettings):
         # Log level validation
         valid_log_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
         if self.LOG_LEVEL.upper() not in valid_log_levels:
-            errors.append(
-                f"LOG_LEVEL must be one of {valid_log_levels}, got {self.LOG_LEVEL}"
-            )
+            errors.append(f"LOG_LEVEL must be one of {valid_log_levels}, got {self.LOG_LEVEL}")
 
         return errors
 

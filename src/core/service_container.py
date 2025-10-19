@@ -43,12 +43,14 @@ def configure_services(container: Container) -> None:
     # Register rate limiter for agent calls
     container.register(
         "rate_limiter",
-        lambda c: RateLimiter(
-            max_requests=c.get("settings").RATE_LIMIT_MAX_REQUESTS,
-            window_seconds=c.get("settings").RATE_LIMIT_WINDOW_SECONDS,
-        )
-        if c.get("settings").RATE_LIMIT_ENABLED
-        else None,
+        lambda c: (
+            RateLimiter(
+                max_requests=c.get("settings").RATE_LIMIT_MAX_REQUESTS,
+                window_seconds=c.get("settings").RATE_LIMIT_WINDOW_SECONDS,
+            )
+            if c.get("settings").RATE_LIMIT_ENABLED
+            else None
+        ),
         singleton=True,
     )
 

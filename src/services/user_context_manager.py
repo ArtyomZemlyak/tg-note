@@ -137,7 +137,9 @@ class UserContextManager(IUserContextManager):
                 config = {
                     "api_key": self.settings_manager.get_setting(user_id, "QWEN_API_KEY"),
                     "openai_api_key": self.settings_manager.get_setting(user_id, "OPENAI_API_KEY"),
-                    "openai_base_url": self.settings_manager.get_setting(user_id, "OPENAI_BASE_URL"),
+                    "openai_base_url": self.settings_manager.get_setting(
+                        user_id, "OPENAI_BASE_URL"
+                    ),
                     "github_token": self.settings_manager.get_setting(user_id, "GITHUB_TOKEN"),
                     "model": self.settings_manager.get_setting(user_id, "AGENT_MODEL"),
                     "instruction": self.settings_manager.get_setting(user_id, "AGENT_INSTRUCTION"),
@@ -145,13 +147,19 @@ class UserContextManager(IUserContextManager):
                         user_id, "AGENT_ENABLE_WEB_SEARCH"
                     ),
                     "enable_git": self.settings_manager.get_setting(user_id, "AGENT_ENABLE_GIT"),
-                    "enable_github": self.settings_manager.get_setting(user_id, "AGENT_ENABLE_GITHUB"),
-                    "enable_shell": self.settings_manager.get_setting(user_id, "AGENT_ENABLE_SHELL"),
+                    "enable_github": self.settings_manager.get_setting(
+                        user_id, "AGENT_ENABLE_GITHUB"
+                    ),
+                    "enable_shell": self.settings_manager.get_setting(
+                        user_id, "AGENT_ENABLE_SHELL"
+                    ),
                     "enable_mcp": self.settings_manager.get_setting(user_id, "AGENT_ENABLE_MCP"),
                     "enable_mcp_memory": self.settings_manager.get_setting(
                         user_id, "AGENT_ENABLE_MCP_MEMORY"
                     ),
-                    "qwen_cli_path": self.settings_manager.get_setting(user_id, "AGENT_QWEN_CLI_PATH"),
+                    "qwen_cli_path": self.settings_manager.get_setting(
+                        user_id, "AGENT_QWEN_CLI_PATH"
+                    ),
                     "timeout": self.settings_manager.get_setting(user_id, "AGENT_TIMEOUT"),
                     "kb_path": self.settings_manager.get_setting(user_id, "KB_PATH"),
                     "kb_topics_only": self.settings_manager.get_setting(user_id, "KB_TOPICS_ONLY"),

@@ -123,23 +123,28 @@ def test_mem_agent_tools():
 
     # Create a temporary directory for testing
     with tempfile.TemporaryDirectory() as tmpdir:
-        os.chdir(tmpdir)
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmpdir)
 
-        # Test file creation
-        result = create_file("test.md", "Test content")
-        assert result is True
+            # Test file creation
+            result = create_file("test.md", "Test content")
+            assert result is True
 
-        # Test file existence check
-        exists = check_if_file_exists("test.md")
-        assert exists is True
+            # Test file existence check
+            exists = check_if_file_exists("test.md")
+            assert exists is True
 
-        # Test file reading
-        content = read_file("test.md")
-        assert content == "Test content"
+            # Test file reading
+            content = read_file("test.md")
+            assert content == "Test content"
 
-        # Test list_files
-        file_list = list_files()
-        assert "test.md" in file_list
+            # Test list_files
+            file_list = list_files()
+            assert "test.md" in file_list
+        finally:
+            # Ensure we always restore the original working directory
+            os.chdir(original_cwd)
 
 
 def test_mcp_server_import():
