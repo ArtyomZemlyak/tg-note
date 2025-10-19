@@ -57,6 +57,8 @@ class SettingsInspector:
         "QWEN_API_KEY",
         "GITHUB_TOKEN",
         "GITHUB_USERNAME",
+        "GITLAB_TOKEN",
+        "GITLAB_USERNAME",
     }
 
     READONLY_FIELDS = {

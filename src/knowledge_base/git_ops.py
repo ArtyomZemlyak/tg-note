@@ -5,9 +5,12 @@ Handles git operations for knowledge base
 
 import re
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from loguru import logger
+
+if TYPE_CHECKING:
+    from src.knowledge_base.credentials_manager import CredentialsManager
 
 try:
     from git import GitCommandError, InvalidGitRepositoryError, Repo
@@ -63,12 +66,26 @@ class GitOperations:
         enabled: bool = True,
         github_username: Optional[str] = None,
         github_token: Optional[str] = None,
+        gitlab_username: Optional[str] = None,
+        gitlab_token: Optional[str] = None,
+        user_id: Optional[int] = None,
+        credentials_manager: Optional["CredentialsManager"] = None,
     ):
         self.repo_path = Path(repo_path)
         self.enabled = enabled and GIT_AVAILABLE
         self.repo: Optional[Repo] = None
+        
+        # AICODE-NOTE: Support both global and per-user credentials
+        # Per-user credentials (from CredentialsManager) take precedence over global
+        self.user_id = user_id
+        self.credentials_manager = credentials_manager
+        
+        # Global credentials (fallback)
         self.github_username = github_username
         self.github_token = github_token
+        self.gitlab_username = gitlab_username
+        self.gitlab_token = gitlab_token
+        
         # AICODE-NOTE: Track whether HTTPS credentials have already been configured
         # to keep the operation idempotent across repeated calls (important for tests
         # that may invoke _configure_https_credentials() explicitly after __init__).
@@ -77,8 +94,7 @@ class GitOperations:
         if self.enabled:
             self._initialize_repo()
             # Configure credentials for HTTPS remotes if provided
-            if self.github_username and self.github_token:
-                self._configure_https_credentials()
+            self._configure_https_credentials()
 
     def _initialize_repo(self) -> None:
         """Initialize git repository"""
@@ -94,22 +110,53 @@ class GitOperations:
             logger.warning(f"Not a git repository: {self.repo_path}")
             self.enabled = False
 
+    def _get_credentials_for_url(self, url: str) -> Optional[tuple[str, str]]:
+        """
+        Get appropriate credentials for a given URL
+        
+        Priority:
+        1. Per-user credentials from CredentialsManager (if user_id provided)
+        2. Global credentials (from settings)
+        
+        Args:
+            url: Git remote URL
+            
+        Returns:
+            Tuple of (username, token) or None
+        """
+        # Try per-user credentials first
+        if self.user_id is not None and self.credentials_manager is not None:
+            creds = self.credentials_manager.get_credentials_for_url(self.user_id, url)
+            if creds:
+                _, username, token = creds
+                logger.debug(f"Using per-user credentials for user {self.user_id}")
+                return (username, token)
+        
+        # Fall back to global credentials
+        url_lower = url.lower()
+        if "github.com" in url_lower and self.github_username and self.github_token:
+            logger.debug("Using global GitHub credentials")
+            return (self.github_username, self.github_token)
+        elif ("gitlab.com" in url_lower or "gitlab" in url_lower) and self.gitlab_username and self.gitlab_token:
+            logger.debug("Using global GitLab credentials")
+            return (self.gitlab_username, self.gitlab_token)
+        
+        return None
+
     def _configure_https_credentials(self) -> None:
         """
         Configure HTTPS credentials for git remotes
 
         This updates the remote URL to include credentials if:
         - Remote uses HTTPS
-        - Credentials are provided
+        - Credentials are provided (per-user or global)
         - URL doesn't already contain credentials
         """
         # Prevent double configuration within the same instance
         if self._credentials_configured:
             return
 
-        if not self.repo or not self.github_username or not self.github_token:
-            # Mark as configured even if credentials are not provided
-            # to avoid repeated checks
+        if not self.repo:
             self._credentials_configured = True
             return
 
@@ -119,20 +166,34 @@ class GitOperations:
             for remote in self.repo.remotes:
                 try:
                     for url in remote.urls:
-                        # Only process HTTPS GitHub URLs without existing credentials
-                        if url.startswith("https://github.com/") and "@" not in url:
-                            # Inject credentials into URL
-                            new_url = url.replace(
-                                "https://github.com/",
-                                f"https://{self.github_username}:{self.github_token}@github.com/",
-                            )
-                            # Update remote URL
-                            remote.set_url(new_url)
-                            changed_any = True
-                            logger.info(
-                                f"Configured HTTPS credentials for remote '{remote.name}' "
-                                f"(user: {self.github_username})"
-                            )
+                        # Only process HTTPS URLs without existing credentials
+                        if url.startswith("https://") and "@" not in url:
+                            # Get appropriate credentials for this URL
+                            creds = self._get_credentials_for_url(url)
+                            
+                            if creds:
+                                username, token = creds
+                                
+                                # Detect platform and inject credentials
+                                if "github.com" in url:
+                                    new_url = url.replace(
+                                        "https://github.com/",
+                                        f"https://{username}:{token}@github.com/",
+                                    )
+                                elif "gitlab.com" in url or "gitlab" in url:
+                                    # Support both gitlab.com and self-hosted GitLab
+                                    new_url = url.replace("https://", f"https://{username}:{token}@", 1)
+                                else:
+                                    # Generic HTTPS URL
+                                    new_url = url.replace("https://", f"https://{username}:{token}@", 1)
+                                
+                                # Update remote URL
+                                remote.set_url(new_url)
+                                changed_any = True
+                                logger.info(
+                                    f"Configured HTTPS credentials for remote '{remote.name}' "
+                                    f"(user: {username})"
+                                )
                 except Exception as remote_error:
                     logger.warning(
                         f"Failed to configure credentials for remote '{remote.name}': {remote_error}"
@@ -141,6 +202,8 @@ class GitOperations:
 
             if changed_any:
                 logger.info("HTTPS credentials configuration completed")
+            else:
+                logger.debug("No HTTPS credentials configured (no matching remotes or credentials)")
         except Exception as e:
             logger.warning(f"Failed to configure HTTPS credentials: {e}")
         finally:

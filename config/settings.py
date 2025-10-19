@@ -162,6 +162,13 @@ class Settings(BaseSettings):
         default=None,
         description="GitHub username for HTTPS authentication (from .env or env vars only)",
     )
+    GITLAB_TOKEN: Optional[str] = Field(
+        default=None, description="GitLab personal access token (from .env or env vars only)"
+    )
+    GITLAB_USERNAME: Optional[str] = Field(
+        default=None,
+        description="GitLab username for HTTPS authentication (from .env or env vars only)",
+    )
 
     # Agent Configuration (can be in YAML)
     AGENT_TYPE: str = Field(
@@ -665,6 +672,7 @@ class Settings(BaseSettings):
             f"  ALLOWED_USER_IDS={self.ALLOWED_USER_IDS},\n"
             f"  KB_PATH={self.KB_PATH},\n"
             f"  KB_GIT_ENABLED={self.KB_GIT_ENABLED},\n"
+            f"  KB_GIT_AUTO_PUSH={self.KB_GIT_AUTO_PUSH},\n"
             f"  MESSAGE_GROUP_TIMEOUT={self.MESSAGE_GROUP_TIMEOUT}\n"
             f")"
         )

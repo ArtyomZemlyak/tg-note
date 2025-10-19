@@ -13,6 +13,7 @@ from src.bot.telegram_bot import TelegramBot
 from src.core.background_task_manager import BackgroundTaskManager
 from src.core.container import Container
 from src.core.rate_limiter import RateLimiter
+from src.knowledge_base.credentials_manager import CredentialsManager
 from src.knowledge_base.repository import RepositoryManager
 from src.knowledge_base.user_settings import UserSettings
 from src.mcp.server_manager import MCPServerManager
@@ -85,6 +86,14 @@ def configure_services(container: Container) -> None:
     )
 
     container.register(
+        "credentials_manager",
+        lambda c: CredentialsManager(
+            storage_file="./data/user_credentials.enc", key_file="./data/.credentials_key"
+        ),
+        singleton=True,
+    )
+
+    container.register(
         "settings_manager",
         lambda c: SettingsManager(
             global_settings=c.get("settings"), user_storage=c.get("user_settings_storage")
@@ -140,6 +149,7 @@ def configure_services(container: Container) -> None:
             repo_manager=c.get("repo_manager"),
             user_context_manager=c.get("user_context_manager"),
             settings_manager=c.get("settings_manager"),
+            credentials_manager=c.get("credentials_manager"),
             rate_limiter=c.get("rate_limiter"),
         ),
         singleton=True,
@@ -164,6 +174,7 @@ def configure_services(container: Container) -> None:
             repo_manager=c.get("repo_manager"),
             user_context_manager=c.get("user_context_manager"),
             settings_manager=c.get("settings_manager"),
+            credentials_manager=c.get("credentials_manager"),
             rate_limiter=c.get("rate_limiter"),
         ),
         singleton=True,
@@ -192,6 +203,7 @@ def configure_services(container: Container) -> None:
             repo_manager=c.get("repo_manager"),
             user_settings=c.get("user_settings"),
             settings_manager=c.get("settings_manager"),
+            credentials_manager=c.get("credentials_manager"),
             user_context_manager=c.get("user_context_manager"),
             message_processor=c.get("message_processor"),
             background_task_manager=c.get("background_task_manager"),

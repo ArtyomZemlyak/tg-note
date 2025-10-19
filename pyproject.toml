@@ -44,6 +44,8 @@ dependencies = [
     "docling>=2.0.0,<3.0.0",
     # HuggingFace for model management
     "huggingface-hub>=0.23.0,<1.0.0",
+    # Encryption for secure credentials storage
+    "cryptography>=41.0.0,<44.0.0",
 ]
 
 [project.optional-dependencies]
