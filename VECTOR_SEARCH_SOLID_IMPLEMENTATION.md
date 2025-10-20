@@ -41,7 +41,7 @@ class VectorSearchManager:
 class VectorSearchManager:
     def __init__(self, index_path: Path):  # ✅ Только для хранения индекса
         # НЕТ kb_root_path!
-        
+
     async def add_documents(self, documents: List[Dict[str, Any]]):
         # Принимает ДАННЫЕ, не пути к файлам
 ```
@@ -124,7 +124,7 @@ async def add_vector_documents(
     user_id: int = None
 ) -> dict:
     stats = await manager.add_documents(documents=documents)
-    
+
 # delete_vector_documents - принимает IDs
 @mcp.tool()
 async def delete_vector_documents(
@@ -132,7 +132,7 @@ async def delete_vector_documents(
     user_id: int = None
 ) -> dict:
     stats = await manager.delete_documents(document_ids=document_ids)
-    
+
 # update_vector_documents - принимает данные
 @mcp.tool()
 async def update_vector_documents(
@@ -191,26 +191,26 @@ async def _read_documents_by_paths(self, file_paths: List[str]) -> List[Dict[str
 async def perform_initial_indexing(self, force: bool = False) -> bool:
     # 1. Сканируем файлы (для hashes)
     await self._scan_knowledge_bases()
-    
+
     # 2. ЧИТАЕМ содержимое всех файлов
     documents = await self._read_all_documents()
-    
+
     # 3. Отправляем ДАННЫЕ в MCP HUB
     ok = await self._call_mcp_reindex(documents=documents, force=force)
 
 # check_and_reindex_changes - инкрементальные обновления
 async def check_and_reindex_changes(self) -> bool:
     changes = self._detect_changes(previous, current)
-    
+
     # Удаление - только IDs
     if changes.deleted:
         await self._call_mcp_delete_documents(list(changes.deleted))
-    
+
     # Добавление - читаем файлы и отправляем данные
     if changes.added:
         documents = await self._read_documents_by_paths(list(changes.added))
         await self._call_mcp_add_documents(documents)
-    
+
     # Обновление - читаем файлы и отправляем данные
     if changes.modified:
         documents = await self._read_documents_by_paths(list(changes.modified))
@@ -225,7 +225,7 @@ async def _call_mcp_add_documents(
     self, documents: List[Dict[str, Any]]  # ✅ Данные
 ) -> bool:
     result = await client.call_tool(
-        "add_vector_documents", 
+        "add_vector_documents",
         {"documents": documents}  # ✅ Данные, не пути
     )
 
@@ -234,7 +234,7 @@ async def _call_mcp_delete_documents(
     self, document_ids: List[str]  # ✅ IDs
 ) -> bool:
     result = await client.call_tool(
-        "delete_vector_documents", 
+        "delete_vector_documents",
         {"document_ids": document_ids}  # ✅ IDs, не пути
     )
 
@@ -243,7 +243,7 @@ async def _call_mcp_update_documents(
     self, documents: List[Dict[str, Any]]  # ✅ Данные
 ) -> bool:
     result = await client.call_tool(
-        "update_vector_documents", 
+        "update_vector_documents",
         {"documents": documents}  # ✅ Данные, не пути
     )
 
@@ -252,7 +252,7 @@ async def _call_mcp_reindex(
     self, documents: List[Dict[str, Any]], force: bool = False
 ) -> bool:
     result = await client.call_tool(
-        "reindex_vector", 
+        "reindex_vector",
         {"documents": documents, "force": force}  # ✅ Данные
     )
 ```

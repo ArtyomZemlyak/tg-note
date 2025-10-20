@@ -136,15 +136,15 @@ async def perform_initial_indexing(self, force: bool = False) -> bool:
 # Обновлен метод инкрементальных изменений
 async def check_and_reindex_changes(self) -> bool:
     changes = self._detect_changes(previous, current)
-    
+
     if changes.added:
         documents = await self._read_documents_by_paths(list(changes.added))  # Читает
         await self._call_mcp_add_documents(documents)  # Отправляет данные
-    
+
     if changes.modified:
         documents = await self._read_documents_by_paths(list(changes.modified))  # Читает
         await self._call_mcp_update_documents(documents)  # Отправляет данные
-    
+
     if changes.deleted:
         await self._call_mcp_delete_documents(list(changes.deleted))  # Отправляет IDs
 ```

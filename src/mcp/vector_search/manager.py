@@ -43,7 +43,11 @@ class VectorSearchManager:
         self.chunker = chunker
         self.kb_root_path = Path(kb_root_path) if kb_root_path else None
         self.kb_id = kb_id or "default"
-        self.index_path = index_path or (self.kb_root_path / ".vector_index" if self.kb_root_path else Path(f"data/vector_index/{self.kb_id}"))
+        self.index_path = index_path or (
+            self.kb_root_path / ".vector_index"
+            if self.kb_root_path
+            else Path(f"data/vector_index/{self.kb_id}")
+        )
 
         # Track indexed documents
         self._indexed_documents: Dict[str, str] = {}  # document_id -> content_hash
@@ -73,6 +77,10 @@ class VectorSearchManager:
     def _get_file_hash(self, file_path: Path) -> str:
         """Get hash of file content"""
         content = file_path.read_text(encoding="utf-8", errors="ignore")
+        return hashlib.md5(content.encode()).hexdigest()
+
+    def _get_content_hash(self, content: str) -> str:
+        """Get hash of content string"""
         return hashlib.md5(content.encode()).hexdigest()
 
     async def _save_metadata(self) -> None:
@@ -129,7 +137,9 @@ class VectorSearchManager:
             self._config_hash = saved_config_hash
             self._indexed_documents = metadata.get("indexed_documents", {})
 
-            logger.info(f"Loaded metadata for KB '{self.kb_id}': {len(self._indexed_documents)} indexed documents")
+            logger.info(
+                f"Loaded metadata for KB '{self.kb_id}': {len(self._indexed_documents)} indexed documents"
+            )
             return True
 
         except Exception as e:
@@ -160,7 +170,7 @@ class VectorSearchManager:
     ) -> Dict[str, Any]:
         """
         Index all files in the knowledge base
-        
+
         AICODE-NOTE: DEPRECATED - This method requires file system access.
         Use add_documents() instead for SOLID compliance.
         Kept for backward compatibility with BOT that has KB access.
@@ -177,7 +187,7 @@ class VectorSearchManager:
                 "kb_root_path is required for index_knowledge_base. "
                 "This method is deprecated. Use add_documents() instead."
             )
-        
+
         kb_root_path = Path(kb_root_path)
         logger.info(f"Starting knowledge base indexing (force={force})")
 
@@ -412,7 +422,7 @@ class VectorSearchManager:
     async def add_documents(self, documents: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         Add or update documents to vector index
-        
+
         AICODE-NOTE: SOLID - Dependency Inversion Principle
         Works with DATA, not FILES. Receives document content from caller (BOT),
         not file paths. This allows MCP HUB to run without file system access.
@@ -427,7 +437,7 @@ class VectorSearchManager:
             Operation statistics
         """
         logger.info(f"Adding/updating {len(documents)} documents")
-        
+
         stats = {
             "documents_processed": 0,
             "chunks_created": 0,
@@ -441,7 +451,7 @@ class VectorSearchManager:
                 doc_id = doc.get("id")
                 content = doc.get("content")
                 base_metadata = doc.get("metadata", {})
-                
+
                 if not doc_id or not content:
                     error_msg = f"Invalid document: missing id or content"
                     logger.warning(error_msg)
@@ -520,7 +530,7 @@ class VectorSearchManager:
     async def delete_documents(self, document_ids: List[str]) -> Dict[str, Any]:
         """
         Delete documents from vector index
-        
+
         AICODE-NOTE: Works with document IDs, not file paths
 
         Args:
@@ -530,7 +540,7 @@ class VectorSearchManager:
             Operation statistics
         """
         logger.info(f"Deleting {len(document_ids)} documents")
-        
+
         stats = {
             "documents_deleted": 0,
             "errors": [],
@@ -556,11 +566,11 @@ class VectorSearchManager:
             try:
                 # Delete from vector store by document_id
                 await self.vector_store.delete_by_filter({"document_id": doc_id})
-                
+
                 # Remove from metadata
                 if doc_id in self._indexed_documents:
                     del self._indexed_documents[doc_id]
-                
+
                 stats["documents_deleted"] += 1
                 logger.debug(f"Deleted vectors for: {doc_id}")
 
@@ -584,7 +594,7 @@ class VectorSearchManager:
     async def update_documents(self, documents: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         Update documents in vector index
-        
+
         AICODE-NOTE: Implemented as delete + add for simplicity
 
         Args:
@@ -594,16 +604,16 @@ class VectorSearchManager:
             Operation statistics
         """
         logger.info(f"Updating {len(documents)} documents")
-        
+
         # Extract document IDs
         document_ids = [doc.get("id") for doc in documents if doc.get("id")]
-        
+
         # First, delete existing documents
         delete_stats = await self.delete_documents(document_ids)
-        
+
         # Then add new versions
         add_stats = await self.add_documents(documents)
-        
+
         # Combine stats
         stats = {
             "documents_updated": add_stats["documents_processed"],
@@ -618,7 +628,6 @@ class VectorSearchManager:
         )
 
         return stats
-
 
         logger.info(
             f"Update documents complete: {stats['files_updated']} files updated, "

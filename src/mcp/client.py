@@ -77,7 +77,7 @@ class MCPClient:
     - Client sends JSON-RPC requests via POST to /messages/?session_id=xxx
     - Server sends responses back via SSE stream as 'message' events
     - SSE connection must remain open to receive responses
-    
+
     IMPORTANT: The SSE connection is NOT closed after getting the session_id.
     It must remain open to receive JSON-RPC responses from the server.
     Closing it prematurely causes ClosedResourceError on the server side.
@@ -224,12 +224,12 @@ class MCPClient:
                 # Parse event data
                 if line_str.startswith("data:") and event_type == "endpoint":
                     data_str = line_str[5:].strip()
-                    
+
                     # Check if data is empty before parsing
                     if not data_str:
                         logger.debug("[MCPClient] SSE data field is empty, skipping")
                         continue
-                    
+
                     # Try to parse as JSON first (newer FastMCP format)
                     try:
                         data_json = json.loads(data_str)
@@ -259,9 +259,9 @@ class MCPClient:
                         # FastMCP might send plain text URI instead of JSON
                         # Try to parse as plain URI string (e.g., "/messages/?session_id=...")
                         from urllib.parse import parse_qs, urlparse
-                        
+
                         logger.debug(f"[MCPClient] SSE endpoint data (plain text): {data_str}")
-                        
+
                         try:
                             parsed = urlparse(data_str)
                             qs = parse_qs(parsed.query)
@@ -630,55 +630,59 @@ class MCPClient:
     async def _sse_reader(self) -> None:
         """
         Background task to read responses from SSE stream.
-        
+
         FastMCP sends JSON-RPC responses as SSE 'message' events.
         This task reads those events and matches them to pending requests.
         """
         if not self._sse_response:
             logger.error("[MCPClient] SSE reader started but no response available")
             return
-        
+
         try:
             logger.debug("[MCPClient] SSE reader task started")
             event_type = None
-            
+
             async for line in self._sse_response.content:
                 line_str = line.decode("utf-8").strip()
-                
+
                 # Skip empty lines
                 if not line_str:
                     continue
-                
+
                 # Parse event type
                 if line_str.startswith("event:"):
                     event_type = line_str[6:].strip()
                     continue
-                
+
                 # Parse event data
                 if line_str.startswith("data:"):
                     data_str = line_str[5:].strip()
-                    
+
                     if not data_str:
                         continue
-                    
+
                     # Only process 'message' events (JSON-RPC responses)
                     if event_type == "message":
                         try:
                             response = json.loads(data_str)
-                            
+
                             # Match response to pending request by ID
                             if "id" in response and response["id"] in self._pending_requests:
                                 future = self._pending_requests.pop(response["id"])
                                 if not future.done():
                                     future.set_result(response)
-                                    logger.debug(f"[MCPClient] Matched response for request ID {response['id']}")
+                                    logger.debug(
+                                        f"[MCPClient] Matched response for request ID {response['id']}"
+                                    )
                             else:
-                                logger.debug(f"[MCPClient] Received response with no matching request: {response.get('id')}")
-                                
+                                logger.debug(
+                                    f"[MCPClient] Received response with no matching request: {response.get('id')}"
+                                )
+
                         except json.JSONDecodeError as e:
                             logger.warning(f"[MCPClient] Failed to parse SSE message data: {e}")
                             continue
-                    
+
         except asyncio.CancelledError:
             logger.debug("[MCPClient] SSE reader task cancelled")
             raise
@@ -708,7 +712,7 @@ class MCPClient:
                 # Create a Future to wait for the response from SSE stream
                 future = asyncio.get_event_loop().create_future()
                 self._pending_requests[self._request_id] = future
-                
+
                 # Send the request (server returns 202 Accepted, response comes via SSE)
                 async with self.session.post(
                     url_with_session, json=request, timeout=aiohttp.ClientTimeout(total=30)
@@ -720,16 +724,18 @@ class MCPClient:
                             f"[MCPClient] HTTP request failed with status {response.status} at {url_with_session}"
                         )
                         return None
-                
+
                 # Wait for response from SSE stream (with timeout)
                 try:
                     result = await asyncio.wait_for(future, timeout=30.0)
                     return result
                 except asyncio.TimeoutError:
                     self._pending_requests.pop(self._request_id, None)
-                    logger.error(f"[MCPClient] Timeout waiting for response to request ID {self._request_id}")
+                    logger.error(
+                        f"[MCPClient] Timeout waiting for response to request ID {self._request_id}"
+                    )
                     return None
-                    
+
             except Exception as e:
                 self._pending_requests.pop(self._request_id, None)
                 logger.error(f"[MCPClient] HTTP request exception: {e}", exc_info=True)

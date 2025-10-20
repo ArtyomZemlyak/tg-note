@@ -174,9 +174,7 @@ class OpenAIEmbedder(BaseEmbedder):
         # Set dimension from first embedding if not yet known
         if self._dimension is None and all_embeddings:
             self._dimension = len(all_embeddings[0])
-            logger.info(
-                f"Determined OpenAI embedding dimension from response: {self._dimension}"
-            )
+            logger.info(f"Determined OpenAI embedding dimension from response: {self._dimension}")
 
         return all_embeddings
 
@@ -193,8 +191,8 @@ class OpenAIEmbedder(BaseEmbedder):
 
         # Try to probe synchronously via HTTP (no dependency on openai package)
         try:
-            import urllib.request
             import urllib.error
+            import urllib.request
 
             url_base = self.base_url or "https://api.openai.com/v1"
             url = f"{url_base.rstrip('/')}/embeddings"
@@ -217,14 +215,10 @@ class OpenAIEmbedder(BaseEmbedder):
             embeddings = [item.get("embedding", []) for item in data.get("data", [])]
             if embeddings and isinstance(embeddings[0], list):
                 self._dimension = len(embeddings[0])
-                logger.info(
-                    f"Determined OpenAI embedding dimension dynamically: {self._dimension}"
-                )
+                logger.info(f"Determined OpenAI embedding dimension dynamically: {self._dimension}")
                 return self._dimension
         except Exception as e:
-            logger.warning(
-                f"Failed to determine OpenAI embedding dimension dynamically: {e}"
-            )
+            logger.warning(f"Failed to determine OpenAI embedding dimension dynamically: {e}")
 
         # If we cannot determine dimension, raise to avoid mismatched vector store creation
         raise RuntimeError(
@@ -257,8 +251,8 @@ class InfinityEmbedder(BaseEmbedder):
         Uses a lightweight single-text embedding request to avoid assumptions about
         the /models schema. This keeps factory usage synchronous and avoids event loop issues.
         """
-        import urllib.request
         import urllib.error
+        import urllib.request
 
         url = f"{self.api_url}/embeddings"
         headers = {"Content-Type": "application/json"}
@@ -325,7 +319,5 @@ class InfinityEmbedder(BaseEmbedder):
                     f"Determined Infinity embedding dimension dynamically: {self._dimension}"
                 )
             except Exception as e:
-                raise RuntimeError(
-                    f"Failed to determine Infinity embedding dimension: {e}"
-                )
+                raise RuntimeError(f"Failed to determine Infinity embedding dimension: {e}")
         return self._dimension

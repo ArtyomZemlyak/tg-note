@@ -92,13 +92,9 @@ class BotVectorSearchManager:
             logger.info(f"🔍 Checking vector search availability at {health_url}")
 
             async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    health_url, timeout=aiohttp.ClientTimeout(total=10)
-                ) as resp:
+                async with session.get(health_url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
                     if resp.status != 200:
-                        logger.warning(
-                            f"⚠️  MCP Hub health check failed with status {resp.status}"
-                        )
+                        logger.warning(f"⚠️  MCP Hub health check failed with status {resp.status}")
                         return False
 
                     data = await resp.json()
@@ -113,7 +109,7 @@ class BotVectorSearchManager:
                         "delete_vector_documents",
                         "update_vector_documents",
                     ]
-                    
+
                     has_all_tools = all(tool in available_tools for tool in required_tools)
 
                     if has_all_tools:
@@ -125,7 +121,7 @@ class BotVectorSearchManager:
                         return True
                     else:
                         missing = [t for t in required_tools if t not in available_tools]
-                        available = ', '.join(available_tools) if available_tools else 'none'
+                        available = ", ".join(available_tools) if available_tools else "none"
                         logger.info(
                             f"ℹ️  Vector search tools not fully available. "
                             f"Missing: {', '.join(missing)}. "
@@ -166,7 +162,7 @@ class BotVectorSearchManager:
 
             # Read all files and prepare documents
             documents = await self._read_all_documents()
-            
+
             logger.info(f"📚 Prepared {len(documents)} documents for indexing")
 
             # Trigger reindex via MCP Hub with document data
@@ -264,7 +260,7 @@ class BotVectorSearchManager:
     async def _scan_knowledge_bases(self) -> None:
         """
         Scan all knowledge bases and compute file hashes
-        
+
         AICODE-NOTE: BOT has file system access, computes hashes for change detection
         """
         self._file_hashes.clear()
@@ -296,12 +292,12 @@ class BotVectorSearchManager:
     async def _read_all_documents(self) -> List[Dict[str, Any]]:
         """
         Read all markdown files and prepare documents for MCP HUB
-        
+
         AICODE-NOTE: SOLID - Single Responsibility Principle
         BOT reads files, MCP HUB processes content
         """
         documents = []
-        
+
         if not self.kb_root_path.exists():
             logger.warning(f"⚠️  KB root path does not exist: {self.kb_root_path}")
             return documents
@@ -338,10 +334,10 @@ class BotVectorSearchManager:
     async def _read_documents_by_paths(self, file_paths: List[str]) -> List[Dict[str, Any]]:
         """
         Read specific files by paths and prepare documents
-        
+
         Args:
             file_paths: List of relative file paths
-            
+
         Returns:
             List of document structures
         """
@@ -447,12 +443,10 @@ class BotVectorSearchManager:
 
         logger.info("📡 Subscribed to KB change events for reactive reindexing")
 
-    async def _call_mcp_reindex(
-        self, documents: List[Dict[str, Any]], force: bool = False
-    ) -> bool:
+    async def _call_mcp_reindex(self, documents: List[Dict[str, Any]], force: bool = False) -> bool:
         """
         Call MCP Hub reindex_vector tool via SSE transport.
-        
+
         AICODE-NOTE: SOLID - BOT sends document DATA, not file paths
         """
         try:
@@ -486,7 +480,7 @@ class BotVectorSearchManager:
     async def _call_mcp_add_documents(self, documents: List[Dict[str, Any]]) -> bool:
         """
         Call MCP Hub add_vector_documents tool to add new documents.
-        
+
         AICODE-NOTE: SOLID - BOT sends document DATA (content), not file paths
         """
         try:
@@ -517,7 +511,7 @@ class BotVectorSearchManager:
     async def _call_mcp_delete_documents(self, document_ids: List[str]) -> bool:
         """
         Call MCP Hub delete_vector_documents tool to delete documents.
-        
+
         AICODE-NOTE: Sends document IDs (not file paths), MCP HUB deletes by ID
         """
         try:
@@ -536,7 +530,9 @@ class BotVectorSearchManager:
                     "delete_vector_documents", {"document_ids": document_ids}
                 )
                 if result.get("success"):
-                    logger.info(f"✅ MCP delete_vector_documents completed: {result.get('message')}")
+                    logger.info(
+                        f"✅ MCP delete_vector_documents completed: {result.get('message')}"
+                    )
                     return True
                 else:
                     logger.warning(f"⚠️ MCP delete_vector_documents failed: {result.get('error')}")
@@ -544,13 +540,15 @@ class BotVectorSearchManager:
             finally:
                 await client.disconnect()
         except Exception as e:
-            logger.error(f"❌ Exception while calling MCP delete_vector_documents: {e}", exc_info=True)
+            logger.error(
+                f"❌ Exception while calling MCP delete_vector_documents: {e}", exc_info=True
+            )
             return False
 
     async def _call_mcp_update_documents(self, documents: List[Dict[str, Any]]) -> bool:
         """
         Call MCP Hub update_vector_documents tool to update modified documents.
-        
+
         AICODE-NOTE: SOLID - BOT sends document DATA (content), not file paths
         """
         try:
@@ -567,7 +565,9 @@ class BotVectorSearchManager:
             try:
                 result = await client.call_tool("update_vector_documents", {"documents": documents})
                 if result.get("success"):
-                    logger.info(f"✅ MCP update_vector_documents completed: {result.get('message')}")
+                    logger.info(
+                        f"✅ MCP update_vector_documents completed: {result.get('message')}"
+                    )
                     return True
                 else:
                     logger.warning(f"⚠️ MCP update_vector_documents failed: {result.get('error')}")
@@ -575,7 +575,9 @@ class BotVectorSearchManager:
             finally:
                 await client.disconnect()
         except Exception as e:
-            logger.error(f"❌ Exception while calling MCP update_vector_documents: {e}", exc_info=True)
+            logger.error(
+                f"❌ Exception while calling MCP update_vector_documents: {e}", exc_info=True
+            )
             return False
 
     async def _handle_kb_change_event(self, event: KBChangeEvent) -> None:
@@ -726,9 +728,7 @@ async def initialize_vector_search_for_bot(
     available = await manager.check_vector_search_availability()
 
     if not available:
-        logger.info(
-            "ℹ️  Vector search tools not available in MCP Hub, skipping initialization"
-        )
+        logger.info("ℹ️  Vector search tools not available in MCP Hub, skipping initialization")
         return None
 
     # Perform initial indexing

@@ -161,7 +161,7 @@ class VectorSearchFactory:
     ) -> Optional[VectorSearchManager]:
         """
         Create vector search manager from settings
-        
+
         AICODE-NOTE: SOLID - Dependency Inversion Principle
         MCP HUB does not need file system access anymore.
         It works with data provided by BOT.

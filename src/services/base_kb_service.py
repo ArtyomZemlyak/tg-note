@@ -329,9 +329,7 @@ class BaseKBService:
                         # Add topics/ prefix if KB_TOPICS_ONLY is true
                         github_path = f"topics/{file}" if kb_topics_only else file
                         # Use plain URL so it is always clickable in Telegram
-                        message_parts.append(
-                            f"    • `{file}` - {github_base}/{github_path}"
-                        )
+                        message_parts.append(f"    • `{file}` - {github_base}/{github_path}")
                     else:
                         message_parts.append(f"    • {file}")
                 if len(files_created) > 5:
@@ -344,9 +342,7 @@ class BaseKBService:
                         # Add topics/ prefix if KB_TOPICS_ONLY is true
                         github_path = f"topics/{file}" if kb_topics_only else file
                         # Use plain URL so it is always clickable in Telegram
-                        message_parts.append(
-                            f"    • `{file}` - {github_base}/{github_path}"
-                        )
+                        message_parts.append(f"    • `{file}` - {github_base}/{github_path}")
                     else:
                         message_parts.append(f"    • {file}")
                 if len(files_edited) > 5:
@@ -366,9 +362,7 @@ class BaseKBService:
                         # Add topics/ prefix if KB_TOPICS_ONLY is true
                         github_path = f"topics/{folder}" if kb_topics_only else folder
                         # Use plain URL so it is always clickable in Telegram
-                        message_parts.append(
-                            f"    • `{folder}` - {github_base}/{github_path}"
-                        )
+                        message_parts.append(f"    • `{folder}` - {github_base}/{github_path}")
                     else:
                         message_parts.append(f"    • {folder}")
                 if len(folders_created) > 5:
