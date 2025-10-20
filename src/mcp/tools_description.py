@@ -46,11 +46,16 @@ async def get_mcp_tools_description(
                     connected_clients["mcp-hub"] = client
                 else:
                     logger.warning(
-                        f"[MCPToolsDescription] Failed to connect to MCP Hub at {mcp_hub_url}"
+                        f"[MCPToolsDescription] Failed to connect to MCP Hub at {mcp_hub_url}. "
+                        f"Check if the MCP Hub server is running and accessible."
                     )
             except Exception as e:
                 logger.error(
-                    f"[MCPToolsDescription] Error connecting to MCP Hub at {mcp_hub_url}: {e}",
+                    f"[MCPToolsDescription] Error connecting to MCP Hub at {mcp_hub_url}: {e}. "
+                    f"Verify that:\n"
+                    f"  1. MCP Hub container/service is running\n"
+                    f"  2. Network connectivity is available\n"
+                    f"  3. MCP_HUB_URL environment variable is correct: {mcp_hub_url}",
                     exc_info=True,
                 )
         else:

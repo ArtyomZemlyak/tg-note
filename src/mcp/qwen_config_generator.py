@@ -101,11 +101,20 @@ class QwenMCPConfigGenerator:
             if src_path not in sys.path:
                 sys.path.insert(0, src_path)
 
-            from mcp.mcp_hub_server import get_builtin_tools
+            # Try to import - this may fail if fastmcp/starlette not installed
+            try:
+                from mcp.mcp_hub_server import get_builtin_tools
 
-            tools = get_builtin_tools()
-            logger.info(f"[QwenMCPConfig] Detected {len(tools)} available tools: {tools}")
-            return tools
+                tools = get_builtin_tools()
+                logger.info(f"[QwenMCPConfig] Detected {len(tools)} available tools: {tools}")
+                return tools
+            except ImportError as import_err:
+                logger.warning(
+                    f"[QwenMCPConfig] Cannot import mcp_hub_server (missing dependencies: {import_err}). "
+                    f"Using fallback tool list. Install with: pip install fastmcp"
+                )
+                # Fallback to basic memory tools when mcp_hub_server can't be imported
+                return ["store_memory", "retrieve_memory", "list_categories"]
         except Exception as e:
             logger.warning(f"[QwenMCPConfig] Failed to detect available tools: {e}")
             # Fallback to basic memory tools
