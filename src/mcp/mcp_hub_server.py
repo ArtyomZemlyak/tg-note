@@ -723,7 +723,7 @@ async def vector_search(query: str, top_k: int = 5, user_id: int = None) -> dict
 
 
 @mcp.tool()
-async def reindex_vector(documents: List[Dict[str, str]] = None, force: bool = False, user_id: int = None) -> dict:
+async def reindex_vector(documents: List[Dict[str, Any]] = None, force: bool = False, user_id: int = None) -> dict:
     """
     Reindex knowledge base for vector search
     
@@ -791,7 +791,7 @@ async def reindex_vector(documents: List[Dict[str, str]] = None, force: bool = F
 
 
 @mcp.tool()
-async def add_vector_documents(documents: List[Dict[str, str]], user_id: int = None) -> dict:
+async def add_vector_documents(documents: List[Dict[str, Any]], user_id: int = None) -> dict:
     """
     Add or update documents to vector search index
     
@@ -895,7 +895,7 @@ async def delete_vector_documents(document_ids: List[str], user_id: int = None) 
 
 
 @mcp.tool()
-async def update_vector_documents(documents: List[Dict[str, str]], user_id: int = None) -> dict:
+async def update_vector_documents(documents: List[Dict[str, Any]], user_id: int = None) -> dict:
     """
     Update documents in vector search index
     
