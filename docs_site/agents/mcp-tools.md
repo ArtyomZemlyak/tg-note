@@ -19,7 +19,7 @@ The MCP Hub provides built-in tools that are dynamically available based on conf
 - Total: 3 tools when enabled
 
 **Vector Search Tools (Conditionally Available):**
-- Tools: `vector_search`, `reindex_vector`
+- Tools: `vector_search`
 - Requirements:
   - Configuration: `VECTOR_SEARCH_ENABLED: true` (default: false)
   - Dependencies (зависит от `VECTOR_EMBEDDING_PROVIDER`):
@@ -99,7 +99,7 @@ This tool provides semantic search capabilities for the knowledge base:
 **Tools:**
 
 - `vector_search` - Semantic search in knowledge base
-- `reindex_vector` - Reindex knowledge base for vector search
+Note: Reindexing is triggered by the bot container automatically; agents must not call reindex.
 
 **Note:** If disabled or dependencies missing, these tools will NOT appear in the MCP tools list.
 
@@ -255,7 +255,7 @@ result = await agent.tool_manager.execute(
 
 # Reindex knowledge base after updates
 result = await agent.tool_manager.execute(
-    "kb_reindex_vector",
+    # reindex tool is not exposed to agents
     {
         "force": False  # Set to True to force reindexing
     }
