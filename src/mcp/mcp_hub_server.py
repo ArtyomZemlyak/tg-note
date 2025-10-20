@@ -635,7 +635,7 @@ async def get_vector_search_manager() -> Optional[VectorSearchManager]:
         logger.info("=" * 60)
 
         # Get knowledge base path
-        kb_root_path = Path(app_settings.KB_ROOT_PATH)
+        kb_root_path = Path(app_settings.KB_PATH)
         logger.info(f"📁 KB Root: {kb_root_path.absolute()}")
 
         # Initialize vector search manager
