@@ -179,26 +179,40 @@ class VectorSearchManager:
         # Detect deleted files since last run
         deleted_files = [fp for fp in self._indexed_files.keys() if fp not in current_files_set]
 
-        # If there are deleted files and store supports deletions, remove them
+        # Handle deleted files
         if deleted_files:
-            if hasattr(self.vector_store, "supports_delete_by_filter") and self.vector_store.supports_delete_by_filter():
+            logger.info(f"Found {len(deleted_files)} deleted files: {deleted_files}")
+
+            # Check if vector store supports deletions
+            supports_delete = (
+                hasattr(self.vector_store, "supports_delete_by_filter")
+                and self.vector_store.supports_delete_by_filter()
+            )
+
+            if supports_delete:
+                # Incremental deletion (Qdrant, etc.)
+                logger.info("Vector store supports deletions; removing deleted files incrementally")
                 for rel_path in deleted_files:
                     try:
                         await self.vector_store.delete_by_filter({"file_path": rel_path})
                         stats["deleted_files"] += 1
-                        # Also drop from metadata
+                        # Remove from metadata only after successful deletion
                         self._indexed_files.pop(rel_path, None)
+                        logger.debug(f"Deleted vectors for: {rel_path}")
                     except Exception as e:
                         error_msg = f"Error deleting vectors for removed file {rel_path}: {e}"
                         logger.error(error_msg)
                         stats["errors"].append(error_msg)
+                        # Keep in metadata to retry on next run
             else:
-                # If deletions are not supported, perform a full rebuild when any deletion occurs
-                if deleted_files and not force:
+                # Full reindex required for stores that don't support deletions (FAISS, etc.)
+                if not force:
                     logger.info(
-                        "Vector store does not support deletions; performing full reindex to reflect removals"
+                        f"Vector store does not support deletions; performing full reindex "
+                        f"to remove {len(deleted_files)} deleted files"
                     )
                     force = True
+                    # Deleted files will be handled by full clear below
 
         # If force became True after deletion detection, rebuild files_to_index as ALL files
         if force:
@@ -254,7 +268,6 @@ class VectorSearchManager:
                 stats["errors"].append(error_msg)
 
         # Embed and store chunks
-        saved_metadata = False
         if all_chunks:
             try:
                 logger.info(f"Embedding {len(all_chunks)} chunks")
@@ -278,19 +291,25 @@ class VectorSearchManager:
 
                 logger.info(f"Successfully added {len(all_chunks)} chunks to vector store")
 
-                # Save index and metadata
+                # Save index
                 await self.vector_store.save(self.index_path)
-                await self._save_metadata()
-                saved_metadata = True
 
             except Exception as e:
                 error_msg = f"Error embedding/storing chunks: {e}"
-                logger.error(error_msg)
+                logger.error(error_msg, exc_info=True)
                 stats["errors"].append(error_msg)
+                # Don't save metadata if embedding/storing failed
+                # to ensure retry on next run
+                logger.info(
+                    f"Indexing complete with errors: {stats['files_processed']} files, "
+                    f"{stats['chunks_created']} chunks attempted, "
+                    f"deleted {stats['deleted_files']}, {len(stats['errors'])} errors"
+                )
+                return stats
 
-        # Ensure metadata is saved even when no chunks were embedded (e.g., force clear or deletions only)
-        if not saved_metadata:
-            await self._save_metadata()
+        # Save metadata after successful indexing (or if only deletions occurred)
+        # AICODE-NOTE: This ensures the hash state is persisted to track changes for next run
+        await self._save_metadata()
 
         logger.info(
             f"Indexing complete: {stats['files_processed']} files, "

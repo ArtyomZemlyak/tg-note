@@ -51,7 +51,7 @@ def temp_data_dir():
 def manager(temp_kb, temp_data_dir):
     """Create a BotVectorSearchManager instance"""
     mgr = BotVectorSearchManager(
-        mcp_hub_url="http://localhost:8765", kb_root_path=temp_kb
+        mcp_hub_url="http://localhost:8765", kb_root_path=temp_kb, subscribe_to_events=False
     )
     # Override hash file path to use temp directory
     mgr._hash_file = temp_data_dir / "hashes.json"
@@ -99,9 +99,8 @@ class TestBotVectorSearchManager:
         )
 
         with patch("aiohttp.ClientSession") as mock_session:
-            mock_session.return_value.__aenter__.return_value.get.return_value.__aenter__.return_value = (
-                mock_response
-            )
+            ctx_get = mock_session.return_value.__aenter__.return_value.get
+            ctx_get.return_value.__aenter__.return_value = mock_response
 
             available = await manager.check_vector_search_availability()
 
@@ -125,9 +124,8 @@ class TestBotVectorSearchManager:
         )
 
         with patch("aiohttp.ClientSession") as mock_session:
-            mock_session.return_value.__aenter__.return_value.get.return_value.__aenter__.return_value = (
-                mock_response
-            )
+            ctx_mgr = mock_session.return_value.__aenter__.return_value.get
+            ctx_mgr.return_value.__aenter__.return_value = mock_response
 
             available = await manager.check_vector_search_availability()
 
@@ -236,6 +234,31 @@ class TestBotVectorSearchManager:
 
         assert result is False
 
+    @pytest.mark.asyncio
+    async def test_shutdown(self, manager):
+        """Test shutdown functionality"""
+        # Create a fake reindex task
+        async def fake_task():
+            await asyncio.sleep(10)
+
+        manager._reindex_task = asyncio.create_task(fake_task())
+
+        # Shutdown should cancel the task
+        await manager.shutdown()
+
+        assert manager._shutdown is True
+        assert manager._reindex_task.cancelled()
+
+    @pytest.mark.asyncio
+    async def test_trigger_reindex_when_shutdown(self, manager):
+        """Test that trigger_reindex does nothing when shutdown"""
+        manager.vector_search_available = True
+        manager._shutdown = True
+
+        result = await manager.trigger_reindex()
+
+        assert result is False
+
 
 class TestInitializeVectorSearchForBot:
     """Tests for initialize_vector_search_for_bot function"""
@@ -274,9 +297,8 @@ class TestInitializeVectorSearchForBot:
             )
 
             with patch("aiohttp.ClientSession") as mock_session:
-                mock_session.return_value.__aenter__.return_value.get.return_value.__aenter__.return_value = (
-                    mock_response
-                )
+                ctx_mgr = mock_session.return_value.__aenter__.return_value.get
+                ctx_mgr.return_value.__aenter__.return_value = mock_response
 
                 result = await initialize_vector_search_for_bot(
                     mcp_hub_url="http://localhost:8765",
@@ -306,9 +328,8 @@ class TestInitializeVectorSearchForBot:
             )
 
             with patch("aiohttp.ClientSession") as mock_session:
-                mock_session.return_value.__aenter__.return_value.get.return_value.__aenter__.return_value = (
-                    mock_response
-                )
+                ctx_mgr = mock_session.return_value.__aenter__.return_value.get
+                ctx_mgr.return_value.__aenter__.return_value = mock_response
 
                 result = await initialize_vector_search_for_bot(
                     mcp_hub_url="http://localhost:8765",
