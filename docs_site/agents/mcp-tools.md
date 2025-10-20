@@ -22,7 +22,10 @@ The MCP Hub provides built-in tools that are dynamically available based on conf
 - Tools: `vector_search`, `reindex_vector`
 - Requirements:
   - Configuration: `VECTOR_SEARCH_ENABLED: true` (default: false)
-  - Dependencies: `pip install -e '.[vector-search]'`
+  - Dependencies (зависит от `VECTOR_EMBEDDING_PROVIDER`):
+    - Для `sentence_transformers`: `pip install sentence-transformers`
+    - Для `openai` или `infinity`: локальные зависимости эмбеддинга НЕ требуются
+    - Для всех: хотя бы один vector store: `pip install faiss-cpu` ИЛИ `pip install qdrant-client`
 - Total: 2 tools when enabled
 
 **Possible Configurations:**
@@ -72,9 +75,13 @@ Semantic vector search in knowledge base using AI-powered embeddings.
 **Availability:**
 These tools are available when:
 1. **Configuration**: `VECTOR_SEARCH_ENABLED: true` in config.yaml (default: false)
-2. **Dependencies**: Vector search packages installed (`pip install -e '.[vector-search]'`)
-   - sentence-transformers (for embeddings)
-   - faiss-cpu or qdrant-client (for vector storage)
+2. **Dependencies** (depends on `VECTOR_EMBEDDING_PROVIDER`):
+   - **For `sentence_transformers` provider**:
+     - sentence-transformers package required: `pip install sentence-transformers`
+   - **For `openai` or `infinity` providers**:
+     - sentence-transformers NOT required (embeddings generated externally)
+   - **For all providers**:
+     - At least one vector store backend: `pip install faiss-cpu` OR `pip install qdrant-client`
 
 **Purpose:**
 This tool provides semantic search capabilities for the knowledge base:
@@ -109,8 +116,14 @@ AGENT_ENABLE_MCP_MEMORY: true
 
 # Vector Search Settings
 VECTOR_SEARCH_ENABLED: true
+
+# Embedding provider options:
+# - sentence_transformers: local embeddings (requires sentence-transformers package)
+# - openai: OpenAI API (no local dependencies needed)
+# - infinity: Infinity service (no local dependencies needed, see docker-vector-search.md)
 VECTOR_EMBEDDING_PROVIDER: sentence_transformers
 VECTOR_EMBEDDING_MODEL: all-MiniLM-L6-v2
+
 # Optional vector store selection (default: faiss)
 # VECTOR_STORE_PROVIDER: faiss  # or qdrant
 ```
@@ -123,7 +136,8 @@ export AGENT_ENABLE_MCP_MEMORY=true
 
 # Vector Search
 export VECTOR_SEARCH_ENABLED=true
-export VECTOR_EMBEDDING_PROVIDER=sentence_transformers
+# Choose embedding provider:
+export VECTOR_EMBEDDING_PROVIDER=sentence_transformers  # or 'openai' or 'infinity'
 export VECTOR_EMBEDDING_MODEL=all-MiniLM-L6-v2
 # Optional:
 # export VECTOR_STORE_PROVIDER=faiss

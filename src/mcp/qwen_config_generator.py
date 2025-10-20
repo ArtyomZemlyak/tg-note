@@ -29,6 +29,7 @@ class QwenMCPConfigGenerator:
         use_http: bool = True,
         http_port: int = 8765,
         mcp_hub_url: Optional[str] = None,
+        available_tools: Optional[List[str]] = None,
     ):
         """
         Initialize config generator
@@ -38,11 +39,13 @@ class QwenMCPConfigGenerator:
             use_http: Use HTTP/SSE transport instead of stdio (default: True)
             http_port: Port for HTTP server (default: 8765)
             mcp_hub_url: Custom MCP Hub URL (for Docker environments). If not provided, auto-detected.
+            available_tools: List of available tools (if None, will be auto-detected)
         """
         self.user_id = user_id
         self.use_http = use_http
         self.http_port = http_port
         self.mcp_hub_url = mcp_hub_url
+        self.available_tools = available_tools
         # Project root directory (tg-note repository root)
         # __file__ = src/mcp/qwen_config_generator.py → parent (mcp) → parent (src) → parent (repo root)
         self.project_root = Path(__file__).parent.parent.parent.resolve()
@@ -50,6 +53,10 @@ class QwenMCPConfigGenerator:
         # Auto-detect Docker environment if URL not provided
         if self.use_http and self.mcp_hub_url is None:
             self.mcp_hub_url = self._detect_mcp_hub_url()
+
+        # Auto-detect available tools if not provided
+        if self.available_tools is None:
+            self.available_tools = self._detect_available_tools()
 
     def generate_config(self) -> Dict:
         """
@@ -75,6 +82,34 @@ class QwenMCPConfigGenerator:
             config["allowMCPServers"] = servers
 
         return config
+
+    def _detect_available_tools(self) -> List[str]:
+        """
+        Detect available MCP tools based on current configuration
+
+        Returns:
+            List of available tool names
+        """
+        try:
+            # Try to import and call get_builtin_tools from mcp_hub_server
+            # This ensures we always use the current available tools
+            import sys
+            from pathlib import Path
+
+            # Add src to path if not already there
+            src_path = str(Path(__file__).parent.parent.resolve())
+            if src_path not in sys.path:
+                sys.path.insert(0, src_path)
+
+            from mcp.mcp_hub_server import get_builtin_tools
+
+            tools = get_builtin_tools()
+            logger.info(f"[QwenMCPConfig] Detected {len(tools)} available tools: {tools}")
+            return tools
+        except Exception as e:
+            logger.warning(f"[QwenMCPConfig] Failed to detect available tools: {e}")
+            # Fallback to basic memory tools
+            return ["store_memory", "retrieve_memory", "list_categories"]
 
     def _detect_mcp_hub_url(self) -> str:
         """
@@ -102,6 +137,9 @@ class QwenMCPConfigGenerator:
         Returns:
             Server configuration or None if not available
         """
+        # Build tools description
+        tools_desc = ", ".join(self.available_tools) if self.available_tools else "various tools"
+
         # Use HTTP/SSE transport
         if self.use_http:
             return {
@@ -109,14 +147,10 @@ class QwenMCPConfigGenerator:
                 "timeout": 99999,
                 "trust": True,
                 "description": (
-                    "MCP Hub - Unified MCP gateway (HTTP/SSE). "
-                    "Provides built-in memory tools: store_memory, retrieve_memory, list_categories."
+                    f"MCP Hub - Unified MCP gateway (HTTP/SSE). "
+                    f"Provides built-in tools: {tools_desc}"
                 ),
-                "tools": [
-                    "store_memory",
-                    "retrieve_memory",
-                    "list_categories",
-                ],
+                "tools": self.available_tools or [],
             }
 
         # Use stdio transport (default)
@@ -141,12 +175,8 @@ class QwenMCPConfigGenerator:
             "cwd": str(self.project_root),
             "timeout": 99999,  # ~100 seconds
             "trust": True,  # Trust our own server
-            "description": ("MCP Hub - Unified MCP gateway with built-in memory tools"),
-            "tools": [
-                "store_memory",
-                "retrieve_memory",
-                "list_categories",
-            ],
+            "description": f"MCP Hub - Unified MCP gateway. Provides: {', '.join(self.available_tools) if self.available_tools else 'various tools'}",
+            "tools": self.available_tools or [],
         }
 
         return config
@@ -174,13 +204,16 @@ class QwenMCPConfigGenerator:
         # Path to settings file
         settings_file = qwen_dir / "settings.json"
 
+        # ALWAYS regenerate to ensure tools are up to date
         # Load existing settings if present
         existing_config = {}
         if settings_file.exists():
             try:
                 with open(settings_file, "r", encoding="utf-8") as f:
                     existing_config = json.load(f)
-                logger.info(f"Loaded existing qwen config from {settings_file}")
+                logger.info(
+                    f"Loaded existing qwen config from {settings_file} (will update with current tools)"
+                )
             except Exception as e:
                 logger.warning(f"Failed to load existing config: {e}")
 
@@ -220,6 +253,7 @@ def setup_qwen_mcp_config(
     use_http: bool = True,
     http_port: int = 8765,
     mcp_hub_url: Optional[str] = None,
+    available_tools: Optional[List[str]] = None,
 ) -> Path:
     """
     Setup qwen MCP configuration
@@ -233,12 +267,17 @@ def setup_qwen_mcp_config(
         use_http: Use HTTP/SSE transport instead of stdio (default: True)
         http_port: Port for HTTP server (default: 8765)
         mcp_hub_url: Custom MCP Hub URL (for Docker environments). If not provided, auto-detected.
+        available_tools: List of available tools (if None, will be auto-detected)
 
     Returns:
         Path to saved configuration file
     """
     generator = QwenMCPConfigGenerator(
-        user_id=user_id, use_http=use_http, http_port=http_port, mcp_hub_url=mcp_hub_url
+        user_id=user_id,
+        use_http=use_http,
+        http_port=http_port,
+        mcp_hub_url=mcp_hub_url,
+        available_tools=available_tools,
     )
 
     # Always save to global ~/.qwen/settings.json
