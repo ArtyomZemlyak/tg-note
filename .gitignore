@@ -49,6 +49,9 @@ docker-compose.override.yml
 .env.storage
 backups/
 
+# Documentation build
+site/
+
 # Data files
 data/processed.json
 data/processed.json.lock
