@@ -17,12 +17,13 @@ Examples:
 
 If version is not provided, the registry selects the highest available version.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Iterable, Optional, Tuple, List
+from typing import Iterable, List, Optional, Tuple
 
 
 def _parse_version_string(version_str: str) -> Tuple[int, ...]:
