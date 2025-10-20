@@ -143,8 +143,9 @@ class BotVectorSearchManager:
         """
         Perform initial indexing of all knowledge bases
 
-        AICODE-NOTE: BOT decision - triggers MCP Hub to do the actual work.
-        This calls the MCP Hub reindex_vector tool to index all KBs.
+        AICODE-NOTE: SOLID - Single Responsibility Principle
+        BOT reads files (has file system access) and sends DATA to MCP HUB.
+        MCP HUB creates embeddings and manages vector DB.
 
         Args:
             force: Force reindexing even if index exists
@@ -163,8 +164,13 @@ class BotVectorSearchManager:
             await self._load_file_hashes()
             await self._scan_knowledge_bases()
 
-            # Trigger reindex via MCP Hub (MCP Hub manages actual indexing)
-            ok = await self._call_mcp_reindex(force=force)
+            # Read all files and prepare documents
+            documents = await self._read_all_documents()
+            
+            logger.info(f"📚 Prepared {len(documents)} documents for indexing")
+
+            # Trigger reindex via MCP Hub with document data
+            ok = await self._call_mcp_reindex(documents=documents, force=force)
             if not ok:
                 return False
 
@@ -219,22 +225,26 @@ class BotVectorSearchManager:
             # Call MCP Hub for each type of change
             all_ok = True
 
-            # Delete removed files
+            # Delete removed files (only document IDs needed)
             if changes.deleted:
                 logger.info(f"🗑️  Calling MCP Hub to delete {len(changes.deleted)} documents")
                 ok = await self._call_mcp_delete_documents(list(changes.deleted))
                 all_ok = all_ok and ok
 
-            # Add new files
+            # Add new files (read content and send)
             if changes.added:
-                logger.info(f"➕ Calling MCP Hub to add {len(changes.added)} documents")
-                ok = await self._call_mcp_add_documents(list(changes.added))
+                logger.info(f"➕ Reading {len(changes.added)} new files...")
+                documents = await self._read_documents_by_paths(list(changes.added))
+                logger.info(f"➕ Calling MCP Hub to add {len(documents)} documents")
+                ok = await self._call_mcp_add_documents(documents)
                 all_ok = all_ok and ok
 
-            # Update modified files
+            # Update modified files (read content and send)
             if changes.modified:
-                logger.info(f"🔄 Calling MCP Hub to update {len(changes.modified)} documents")
-                ok = await self._call_mcp_update_documents(list(changes.modified))
+                logger.info(f"🔄 Reading {len(changes.modified)} modified files...")
+                documents = await self._read_documents_by_paths(list(changes.modified))
+                logger.info(f"🔄 Calling MCP Hub to update {len(documents)} documents")
+                ok = await self._call_mcp_update_documents(documents)
                 all_ok = all_ok and ok
 
             # Save updated hashes snapshot regardless of MCP outcome
@@ -252,7 +262,11 @@ class BotVectorSearchManager:
             return False
 
     async def _scan_knowledge_bases(self) -> None:
-        """Scan all knowledge bases and compute file hashes"""
+        """
+        Scan all knowledge bases and compute file hashes
+        
+        AICODE-NOTE: BOT has file system access, computes hashes for change detection
+        """
         self._file_hashes.clear()
 
         if not self.kb_root_path.exists():
@@ -278,6 +292,89 @@ class BotVectorSearchManager:
                 logger.warning(f"⚠️  Failed to hash file {file_path}: {e}")
 
         logger.debug(f"📊 Scanned {len(self._file_hashes)} markdown files")
+
+    async def _read_all_documents(self) -> List[Dict[str, Any]]:
+        """
+        Read all markdown files and prepare documents for MCP HUB
+        
+        AICODE-NOTE: SOLID - Single Responsibility Principle
+        BOT reads files, MCP HUB processes content
+        """
+        documents = []
+        
+        if not self.kb_root_path.exists():
+            logger.warning(f"⚠️  KB root path does not exist: {self.kb_root_path}")
+            return documents
+
+        markdown_files = list(self.kb_root_path.rglob("*.md"))
+
+        for file_path in markdown_files:
+            try:
+                # Compute relative path as document ID
+                doc_id = str(file_path.relative_to(self.kb_root_path))
+
+                # Read file content
+                content = file_path.read_text(encoding="utf-8", errors="ignore")
+
+                # Prepare document structure
+                doc = {
+                    "id": doc_id,
+                    "content": content,
+                    "metadata": {
+                        "file_path": doc_id,
+                        "file_name": file_path.name,
+                        "file_size": len(content),
+                    },
+                }
+
+                documents.append(doc)
+
+            except Exception as e:
+                logger.error(f"❌ Failed to read file {file_path}: {e}")
+
+        logger.info(f"📖 Read {len(documents)} documents")
+        return documents
+
+    async def _read_documents_by_paths(self, file_paths: List[str]) -> List[Dict[str, Any]]:
+        """
+        Read specific files by paths and prepare documents
+        
+        Args:
+            file_paths: List of relative file paths
+            
+        Returns:
+            List of document structures
+        """
+        documents = []
+
+        for rel_path in file_paths:
+            try:
+                file_path = self.kb_root_path / rel_path
+
+                if not file_path.exists():
+                    logger.warning(f"⚠️  File not found: {rel_path}")
+                    continue
+
+                # Read file content
+                content = file_path.read_text(encoding="utf-8", errors="ignore")
+
+                # Prepare document structure
+                doc = {
+                    "id": rel_path,
+                    "content": content,
+                    "metadata": {
+                        "file_path": rel_path,
+                        "file_name": file_path.name,
+                        "file_size": len(content),
+                    },
+                }
+
+                documents.append(doc)
+
+            except Exception as e:
+                logger.error(f"❌ Failed to read file {rel_path}: {e}")
+
+        return documents
 
     def _detect_changes(
         self, previous: Dict[str, str], current: Dict[str, str]
@@ -350,12 +447,13 @@ class BotVectorSearchManager:
 
         logger.info("📡 Subscribed to KB change events for reactive reindexing")
 
-    async def _call_mcp_reindex(self, force: bool = False) -> bool:
+    async def _call_mcp_reindex(
+        self, documents: List[Dict[str, Any]], force: bool = False
+    ) -> bool:
         """
         Call MCP Hub reindex_vector tool via SSE transport.
         
-        AICODE-NOTE: This is for full reindexing (initial or forced).
-        For incremental updates, use _call_mcp_add/delete/update_documents.
+        AICODE-NOTE: SOLID - BOT sends document DATA, not file paths
         """
         try:
             # Ensure SSE URL
@@ -370,7 +468,9 @@ class BotVectorSearchManager:
                 return False
 
             try:
-                result = await client.call_tool("reindex_vector", {"force": bool(force)})
+                result = await client.call_tool(
+                    "reindex_vector", {"documents": documents, "force": bool(force)}
+                )
                 if result.get("success"):
                     logger.info("✅ MCP reindex_vector completed successfully")
                     return True
@@ -383,11 +483,11 @@ class BotVectorSearchManager:
             logger.error(f"❌ Exception while calling MCP reindex_vector: {e}", exc_info=True)
             return False
 
-    async def _call_mcp_add_documents(self, file_paths: List[str]) -> bool:
+    async def _call_mcp_add_documents(self, documents: List[Dict[str, Any]]) -> bool:
         """
         Call MCP Hub add_vector_documents tool to add new documents.
         
-        AICODE-NOTE: BOT decides WHEN to add documents, MCP Hub does the actual work.
+        AICODE-NOTE: SOLID - BOT sends document DATA (content), not file paths
         """
         try:
             sse_url = self.mcp_hub_url
@@ -401,7 +501,7 @@ class BotVectorSearchManager:
                 return False
 
             try:
-                result = await client.call_tool("add_vector_documents", {"file_paths": file_paths})
+                result = await client.call_tool("add_vector_documents", {"documents": documents})
                 if result.get("success"):
                     logger.info(f"✅ MCP add_vector_documents completed: {result.get('message')}")
                     return True
@@ -414,11 +514,11 @@ class BotVectorSearchManager:
             logger.error(f"❌ Exception while calling MCP add_vector_documents: {e}", exc_info=True)
             return False
 
-    async def _call_mcp_delete_documents(self, file_paths: List[str]) -> bool:
+    async def _call_mcp_delete_documents(self, document_ids: List[str]) -> bool:
         """
         Call MCP Hub delete_vector_documents tool to delete documents.
         
-        AICODE-NOTE: BOT decides WHEN to delete documents, MCP Hub does the actual work.
+        AICODE-NOTE: Sends document IDs (not file paths), MCP HUB deletes by ID
         """
         try:
             sse_url = self.mcp_hub_url
@@ -432,7 +532,9 @@ class BotVectorSearchManager:
                 return False
 
             try:
-                result = await client.call_tool("delete_vector_documents", {"file_paths": file_paths})
+                result = await client.call_tool(
+                    "delete_vector_documents", {"document_ids": document_ids}
+                )
                 if result.get("success"):
                     logger.info(f"✅ MCP delete_vector_documents completed: {result.get('message')}")
                     return True
@@ -445,11 +547,11 @@ class BotVectorSearchManager:
             logger.error(f"❌ Exception while calling MCP delete_vector_documents: {e}", exc_info=True)
             return False
 
-    async def _call_mcp_update_documents(self, file_paths: List[str]) -> bool:
+    async def _call_mcp_update_documents(self, documents: List[Dict[str, Any]]) -> bool:
         """
         Call MCP Hub update_vector_documents tool to update modified documents.
         
-        AICODE-NOTE: BOT decides WHEN to update documents, MCP Hub does the actual work.
+        AICODE-NOTE: SOLID - BOT sends document DATA (content), not file paths
         """
         try:
             sse_url = self.mcp_hub_url
@@ -463,7 +565,7 @@ class BotVectorSearchManager:
                 return False
 
             try:
-                result = await client.call_tool("update_vector_documents", {"file_paths": file_paths})
+                result = await client.call_tool("update_vector_documents", {"documents": documents})
                 if result.get("success"):
                     logger.info(f"✅ MCP update_vector_documents completed: {result.get('message')}")
                     return True
