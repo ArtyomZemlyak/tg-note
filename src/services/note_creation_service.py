@@ -356,7 +356,10 @@ class NoteCreationService(BaseKBService, INoteCreationService):
         message_parts.extend(link_parts)
 
         await self.bot.edit_message_text(
-            "\n".join(message_parts), chat_id=chat_id, message_id=processing_msg_id
+            "\n".join(message_parts),
+            chat_id=chat_id,
+            message_id=processing_msg_id,
+            parse_mode="Markdown",
         )
 
     async def _send_error_notification(

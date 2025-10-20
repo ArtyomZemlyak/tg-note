@@ -342,11 +342,8 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
         if not full_message.strip():
             full_message = "✅ Задача выполнена!"
 
-        # Escape markdown to prevent parsing errors
-        escaped_message = escape_markdown(full_message)
-
-        # Handle long messages by splitting them
-        message_chunks = split_long_message(escaped_message)
+        # Handle long messages by splitting them. We avoid pre-escaping here to keep links clickable.
+        message_chunks = split_long_message(full_message)
 
         try:
             # Try to edit the processing message with the first chunk
@@ -361,7 +358,7 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
             if not edit_succeeded:
                 await self.bot.send_message(
                     chat_id=chat_id,
-                    text=f"✅ **Результат:**\n\n{message_chunks[0]}",
+                    text=f"✅ Результат:\n\n{message_chunks[0]}",
                     parse_mode="Markdown",
                 )
 
@@ -369,7 +366,7 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
             for i, chunk in enumerate(message_chunks[1:], start=2):
                 await self.bot.send_message(
                     chat_id=chat_id,
-                    text=f"💡 **(часть {i}/{len(message_chunks)}):**\n\n{chunk}",
+                    text=f"💡 (часть {i}/{len(message_chunks)}):\n\n{chunk}",
                     parse_mode="Markdown",
                 )
 
