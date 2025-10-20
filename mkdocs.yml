@@ -117,6 +117,7 @@ nav:
   - Storage Paths: architecture/storage-paths.md
   - KB Synchronization: architecture/kb-synchronization.md
   - MCP Architecture: architecture/mcp-architecture.md
+  - Vector Search MCP: architecture/vector-search-mcp-integration.md
   - Message DTO: architecture/message-dto.md
   - Prompt System: architecture/prompt-system.md
 

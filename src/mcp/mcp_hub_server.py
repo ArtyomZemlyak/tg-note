@@ -610,7 +610,7 @@ def list_categories(user_id: int) -> dict:
 # 4. Dependencies (sentence-transformers, faiss-cpu, etc.) are verified
 
 
-def get_vector_search_manager() -> Optional[VectorSearchManager]:
+async def get_vector_search_manager() -> Optional[VectorSearchManager]:
     """
     Get or create global vector search manager
 
@@ -646,6 +646,10 @@ def get_vector_search_manager() -> Optional[VectorSearchManager]:
         )
 
         if _vector_search_manager:
+            # AICODE-NOTE: Initialize the vector search manager
+            # This loads existing index or prepares for indexing
+            logger.info("🔄 Initializing vector search manager...")
+            await _vector_search_manager.initialize()
             logger.info("✅ Vector search manager initialized successfully")
             logger.info("=" * 60)
         else:
@@ -687,22 +691,22 @@ def vector_search(query: str, top_k: int = 5, user_id: int = None) -> dict:
         logger.info(f"  User: {user_id}")
 
     try:
-        manager = get_vector_search_manager()
+        # Perform search (sync wrapper for async method)
+        import asyncio
+
+        # Get or create event loop
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        manager = loop.run_until_complete(get_vector_search_manager())
 
         if not manager:
             return {"success": False, "error": "Vector search is not enabled or not configured"}
 
-        # Perform search (sync wrapper for async method)
-        import asyncio
-
         if asyncio.iscoroutinefunction(manager.search):
-            # Get or create event loop
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
             results = loop.run_until_complete(manager.search(query=query, top_k=top_k))
         else:
             results = manager.search(query=query, top_k=top_k)
@@ -747,22 +751,22 @@ def reindex_vector(force: bool = False, user_id: int = None) -> dict:
         logger.info(f"  User: {user_id}")
 
     try:
-        manager = get_vector_search_manager()
+        # Perform reindexing (sync wrapper for async method)
+        import asyncio
+
+        # Get or create event loop
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        manager = loop.run_until_complete(get_vector_search_manager())
 
         if not manager:
             return {"success": False, "error": "Vector search is not enabled or not configured"}
 
-        # Perform reindexing (sync wrapper for async method)
-        import asyncio
-
         if asyncio.iscoroutinefunction(manager.index_knowledge_base):
-            # Get or create event loop
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
             stats = loop.run_until_complete(manager.index_knowledge_base(force=force))
         else:
             stats = manager.index_knowledge_base(force=force)
