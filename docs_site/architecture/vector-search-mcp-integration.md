@@ -4,11 +4,25 @@
 
 ## Обзор
 
-Векторный поиск полностью интегрирован с MCP Hub, что обеспечивает:
+Векторный поиск полностью интегрирован с MCP Hub с четким разделением ответственности:
 
-1. **Централизованное управление** - Все тулзы векторного поиска доступны через MCP Hub
-2. **Автоматическая индексация** - При старте bot контейнера автоматически проверяется доступность и выполняется индексация
-3. **Мониторинг изменений** - Автоматическая реиндексация при изменениях в базах знаний
+### Разделение ответственности
+
+**MCP HUB** предоставляет функциональность (WHAT):
+- **Поиск** - semantic search в базе знаний
+- **CRUD операции** - добавление, удаление, обновление документов в векторной БД
+- **Полная реиндексация** - при необходимости
+
+**BOT** принимает решения (WHEN):
+- **Мониторинг изменений** - отслеживает изменения в базах знаний
+- **Принятие решений** - решает когда вызывать MCP Hub для обновления индекса
+- **Реактивность** - реагирует на события изменения файлов
+
+### Преимущества архитектуры
+
+1. **Централизованное управление** - Все операции с векторной БД выполняются MCP Hub
+2. **Отсутствие дублирования** - BOT не дублирует функциональность MCP Hub
+3. **Инкрементальные обновления** - BOT вызывает add/update/delete для конкретных файлов
 4. **Унифицированный доступ** - Агенты используют векторный поиск через стандартные MCP тулзы
 
 ## Архитектура
@@ -49,8 +63,14 @@
 │                           ▼                                 │
 │  ┌──────────────────────────────────────────────────────┐  │
 │  │  Vector Search Tools (MCP)                           │  │
+│  │  Search:                                             │  │
 │  │  - vector_search(query, top_k)                       │  │
-│  │  - reindex_vector(force) [bot-managed]               │  │
+│  │                                                      │  │
+│  │  CRUD Operations (called by BOT):                    │  │
+│  │  - add_vector_documents(file_paths)                  │  │
+│  │  - delete_vector_documents(file_paths)               │  │
+│  │  - update_vector_documents(file_paths)               │  │
+│  │  - reindex_vector(force) [full reindex]              │  │
 │  └──────────────────────────────────────────────────────┘  │
 │                           │                                 │
 │                           ▼                                 │
@@ -81,30 +101,42 @@
 
 #### BotVectorSearchManager (`src/bot/vector_search_manager.py`)
 
-Управляет векторным поиском со стороны бота:
+**AICODE-NOTE: BOT's responsibility - WHEN to update vector search**
 
-**Ответственности:**
+Принимает решения о необходимости обновления векторной БД:
+
+**Ответственности (WHEN - Когда делать):**
 
 - Проверка доступности векторного поиска через MCP Hub API
-- Сканирование файлов в базах знаний
-- Вычисление хешей файлов для обнаружения изменений
-- Мониторинг изменений и триггер реиндексации
-- Сохранение/загрузка состояния
+- Сканирование файлов в базах знаний для обнаружения изменений
+- Вычисление хешей файлов для tracking изменений
+- **Принятие решений**: когда вызывать MCP Hub для обновления индекса
+- Сохранение/загрузка состояния отслеживания (file hashes)
+
+**НЕ выполняет** (это делает MCP Hub):
+- Эмбеддинги текстов
+- Управление векторной БД
+- Индексацию/переиндексацию
+- CRUD операции с документами
 
 **Основные методы:**
 
-- `check_vector_search_availability()` - Проверяет доступность тулз через `/health`
-- `perform_initial_indexing()` - Запускает начальную индексацию
-- `check_and_reindex_changes()` - Проверяет изменения и запускает реиндексацию
+- `check_vector_search_availability()` - Проверяет доступность MCP Hub tools через `/health`
+- `perform_initial_indexing()` - Запускает начальную индексацию через MCP Hub
+- `check_and_reindex_changes()` - **Главный метод**: обнаруживает изменения и вызывает MCP Hub
+  - Для новых файлов → `add_vector_documents`
+  - Для измененных файлов → `update_vector_documents`
+  - Для удаленных файлов → `delete_vector_documents`
 - `start_monitoring()` - Запускает фоновый мониторинг (каждые 5 минут)
 - `trigger_reindex()` - Вручную запускает проверку и реиндексацию
 - `shutdown()` - Корректно завершает работу менеджера
 
 **Важные особенности:**
 
-- **Событийная реиндексация:** Подписывается на события изменения KB (создание, изменение, удаление файлов)
-- **Батчинг изменений:** Множественные изменения в течение 2 секунд объединяются в одну реиндексацию
-- **Защита от конкурентности:** Использует async lock для предотвращения одновременных реиндексаций
+- **Событийная система:** Подписывается на события изменения KB (создание, изменение, удаление файлов)
+- **Батчинг изменений:** Множественные изменения в течение 2 секунд объединяются в одну операцию
+- **Защита от конкурентности:** Использует async lock для предотвращения одновременных операций
+- **Инкрементальные обновления:** Вызывает конкретные MCP операции (add/update/delete) вместо полной реиндексации
 - **Корректное завершение:** Метод `shutdown()` отменяет pending задачи
 
 #### Инициализация в main.py
@@ -129,12 +161,28 @@ if settings.VECTOR_SEARCH_ENABLED:
 
 **Доступные тулзы:**
 
+**Для Агентов (Search):**
 1. **`vector_search`** - Семантический поиск в базе знаний
    - `query` (string) - Поисковый запрос
    - `top_k` (int) - Количество результатов (default: 5)
    - `user_id` (int, optional) - ID пользователя
 
-2. Reindex is triggered by the bot container and is not exposed to agents
+**Для BOT (CRUD Operations):**
+2. **`add_vector_documents`** - Добавить документы в индекс
+   - `file_paths` (list[string]) - Список путей к файлам относительно KB root
+   - `user_id` (int, optional) - ID пользователя
+
+3. **`delete_vector_documents`** - Удалить документы из индекса
+   - `file_paths` (list[string]) - Список путей к файлам
+   - `user_id` (int, optional) - ID пользователя
+
+4. **`update_vector_documents`** - Обновить документы в индексе
+   - `file_paths` (list[string]) - Список путей к файлам
+   - `user_id` (int, optional) - ID пользователя
+
+5. **`reindex_vector`** - Полная переиндексация (fallback)
+   - `force` (bool) - Принудительная переиндексация (default: false)
+   - `user_id` (int, optional) - ID пользователя
 
 **Проверка доступности:**
 
@@ -161,28 +209,50 @@ async def get_vector_search_manager() -> Optional[VectorSearchManager]:
     return manager
 ```
 
-#### VectorSearchManager (`src/vector_search/manager.py`)
+#### VectorSearchManager (`src/mcp/vector_search/manager.py`)
 
-Основной менеджер векторного поиска:
+**AICODE-NOTE: MCP HUB's responsibility - WHAT operations to provide**
+
+Основной менеджер векторного поиска, предоставляющий функциональность:
 
 **Компоненты:**
 
 - **Embedder** - Создание векторных представлений (sentence-transformers/openai/infinity)
 - **VectorStore** - Хранение векторов (FAISS/Qdrant)
 - **Chunker** - Разбиение документов на чанки
-- **Index Metadata** - Отслеживание индексированных файлов
+- **Index Metadata** - Отслеживание индексированных файлов и хэшей
+
+**Основные методы:**
+
+**Search:**
+- `search(query, top_k)` - Семантический поиск
+
+**Full Indexing:**
+- `index_knowledge_base(force)` - Полная (пере)индексация всех файлов
+- `initialize()` - Инициализация и загрузка существующего индекса
+- `clear_index()` - Очистка индекса
+
+**CRUD Operations (новые):**
+- `add_documents_by_paths(file_paths)` - Добавить конкретные документы
+- `delete_documents_by_paths(file_paths)` - Удалить конкретные документы
+- `update_documents_by_paths(file_paths)` - Обновить конкретные документы (delete + add)
+
+**Metadata Management:**
+- `get_stats()` - Статистика индекса
+- `_get_file_hash()` - Вычисление хэша файла
+- `_save_metadata()` / `_load_metadata()` - Управление метаданными
 
 **Инкрементальная индексация:**
 
-- Хранит хеши файлов в `metadata.json`
-- При индексации проверяет изменения
+- Хранит хеши файлов в `metadata.json` в `.vector_index/`
+- При индексации проверяет изменения по хэшам
 - Индексирует только новые/измененные файлы
-- Полная реиндексация при изменении конфигурации
+- Полная реиндексация при изменении конфигурации (embedder, chunker, vector store)
 
 **Обработка удаленных файлов:**
 
-- **Qdrant (поддерживает удаление):** Удаляет векторы по фильтру `file_path` инкрементально
-- **FAISS (не поддерживает удаление):** Автоматически переключается на полную реиндексацию при обнаружении удаленных файлов
+- **Qdrant (поддерживает удаление):** Удаляет векторы по фильтру `file_path` инкрементально через `delete_by_filter`
+- **FAISS (не поддерживает удаление):** Возвращает ошибку из `delete_documents_by_paths`, требуется полная реиндексация
 - **Метаданные:** Обновляются только после успешного удаления/индексации для корректного состояния при ошибках
 
 ### 3. Agent
@@ -259,9 +329,11 @@ agent = AutonomousAgent(
    Results → MCP Hub → MCP Client → VectorSearchMCPTool → Agent
    ```
 
-### Change Detection and Reindexing
+### Change Detection and Incremental Updates
 
-1. **Событийный мониторинг** (основной механизм)
+**AICODE-NOTE: Новая архитектура - BOT решает КОГДА, MCP Hub делает ЧТО**
+
+1. **Событийный мониторинг** (основной механизм - BOT)
    ```
    KB событие (create/modify/delete) 
    → BotVectorSearchManager._handle_kb_change_event()
@@ -271,34 +343,53 @@ agent = AutonomousAgent(
    → Вычисление хешей
    → Сравнение с предыдущими хешами
    → Обнаружение: added, modified, deleted
-   → Вызов MCP reindex_vector
+   → Вызов соответствующих MCP Hub операций:
+      - Added files → add_vector_documents
+      - Modified files → update_vector_documents
+      - Deleted files → delete_vector_documents
    ```
 
-2. **Фоновый мониторинг** (fallback, каждые 5 минут)
+2. **Фоновый мониторинг** (fallback, каждые 5 минут - BOT)
    ```
    BotVectorSearchManager.start_monitoring()
    → Периодическая проверка изменений
    → Для случаев, не покрытых событиями (NFS, внешние изменения)
    ```
 
-3. **Обработка изменений в VectorSearchManager**
+3. **Обработка CRUD операций в MCP Hub**
    ```
-   При обнаружении изменений:
+   MCP Hub получает запрос от BOT:
    
-   Added/Modified файлы:
-   → Индексируются инкрементально
-   → Добавляются в vector store
+   add_vector_documents(file_paths):
+   → VectorSearchManager.add_documents_by_paths()
+   → Чтение файлов
+   → Chunking
+   → Embedding
+   → Добавление в vector store
+   → Обновление metadata
    
-   Deleted файлы (Qdrant):
-   → delete_by_filter({"file_path": path})
-   → Удаляются из metadata
+   delete_vector_documents(file_paths):
+   → VectorSearchManager.delete_documents_by_paths()
+   → Если Qdrant: delete_by_filter({"file_path": path})
+   → Если FAISS: возврат ошибки (требуется full reindex)
+   → Обновление metadata
    
-   Deleted файлы (FAISS):
-   → force=True → full reindex
-   → Очистка store → переиндексация всех файлов
+   update_vector_documents(file_paths):
+   → VectorSearchManager.update_documents_by_paths()
+   → delete_documents_by_paths()
+   → add_documents_by_paths()
+   → Обновление metadata
    
-   → Сохранение новых хешей и metadata
+   reindex_vector(force):
+   → VectorSearchManager.index_knowledge_base(force)
+   → Полная переиндексация (fallback)
    ```
+
+4. **Преимущества инкрементальных обновлений:**
+   - Быстрее полной реиндексации (обрабатываются только измененные файлы)
+   - Меньше нагрузка на embedder
+   - Меньше использование памяти
+   - Лучшая отзывчивость системы
 
 ## Конфигурация
 

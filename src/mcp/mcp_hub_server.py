@@ -279,6 +279,9 @@ def get_builtin_tools() -> List[str]:
             [
                 "vector_search",
                 "reindex_vector",
+                "add_vector_documents",
+                "delete_vector_documents",
+                "update_vector_documents",
             ]
         )
 
@@ -634,23 +637,19 @@ async def get_vector_search_manager() -> Optional[VectorSearchManager]:
         logger.info("🚀 INITIALIZING VECTOR SEARCH MANAGER")
         logger.info("=" * 60)
 
-        # Get knowledge base path
-        kb_root_path = Path(app_settings.KB_PATH)
+        # AICODE-NOTE: SOLID - Dependency Inversion Principle
+        # MCP HUB no longer needs access to KB files.
+        # It works with data provided by BOT.
         
-        # If KB_TOPICS_ONLY is enabled, restrict indexing to topics/ folder
-        if app_settings.KB_TOPICS_ONLY:
-            kb_root_path = kb_root_path / "topics"
-            logger.info(f"📁 KB Root: {kb_root_path.absolute()} (KB_TOPICS_ONLY=True)")
-            # Ensure topics directory exists
-            kb_root_path.mkdir(parents=True, exist_ok=True)
-        else:
-            logger.info(f"📁 KB Root: {kb_root_path.absolute()} (KB_TOPICS_ONLY=False)")
+        # Set index path (MCP HUB only needs to store vector index)
+        index_path = Path("data/vector_index")
+        logger.info(f"📁 Vector Index Path: {index_path.absolute()}")
 
         # Initialize vector search manager
         from src.mcp.vector_search import VectorSearchFactory
 
         _vector_search_manager = VectorSearchFactory.create_from_settings(
-            settings=app_settings, kb_root_path=kb_root_path
+            settings=app_settings, index_path=index_path
         )
 
         if _vector_search_manager:
@@ -724,12 +723,16 @@ async def vector_search(query: str, top_k: int = 5, user_id: int = None) -> dict
 
 
 @mcp.tool()
-async def reindex_vector(force: bool = False, user_id: int = None) -> dict:
+async def reindex_vector(documents: List[Dict[str, str]] = None, force: bool = False, user_id: int = None) -> dict:
     """
     Reindex knowledge base for vector search
+    
+    AICODE-NOTE: BOT sends all documents for reindexing.
+    If force=True, clears index first.
 
     Args:
-        force: Force reindexing even if index exists (default: false)
+        documents: List of all documents to index (optional for force clear)
+        force: Force reindexing - clear index first (default: false)
         user_id: User ID (optional, for logging purposes)
 
     Returns:
@@ -744,33 +747,202 @@ async def reindex_vector(force: bool = False, user_id: int = None) -> dict:
 
     logger.info("🔄 REINDEX_VECTOR called")
     logger.info(f"  Force: {force}")
+    logger.info(f"  Documents count: {len(documents) if documents else 0}")
     if user_id:
         logger.info(f"  User: {user_id}")
 
     try:
-        # Perform reindexing using async/await
         manager = await get_vector_search_manager()
 
         if not manager:
             return {"success": False, "error": "Vector search is not enabled or not configured"}
 
-        # Call the async index_knowledge_base method
-        stats = await manager.index_knowledge_base(force=force)
+        # Clear index if force=True
+        if force:
+            logger.info("🗑️  Force=True: Clearing existing index")
+            await manager.clear_index()
+
+        # If documents provided, add them
+        if documents:
+            stats = await manager.add_documents(documents=documents)
+            
+            logger.info(
+                f"✅ Reindexing complete: "
+                f"{stats['documents_processed']} documents processed, "
+                f"{stats['chunks_created']} chunks created"
+            )
+
+            return {
+                "success": True,
+                "stats": stats,
+                "message": f"Successfully indexed {stats['documents_processed']} documents",
+            }
+        else:
+            logger.info("✅ Index cleared (no documents provided)")
+            return {
+                "success": True,
+                "stats": {"documents_processed": 0, "chunks_created": 0, "errors": []},
+                "message": "Index cleared",
+            }
+
+    except Exception as e:
+        logger.error(f"❌ Error in reindexing: {e}", exc_info=True)
+        return {"success": False, "error": str(e), "error_type": type(e).__name__}
+
+
+@mcp.tool()
+async def add_vector_documents(documents: List[Dict[str, str]], user_id: int = None) -> dict:
+    """
+    Add or update documents to vector search index
+    
+    AICODE-NOTE: SOLID - Dependency Inversion Principle
+    BOT reads files and sends CONTENT, MCP HUB works with DATA only.
+
+    Args:
+        documents: List of documents with structure:
+            - id (str): Unique document identifier
+            - content (str): Document text content
+            - metadata (dict, optional): Additional metadata
+        user_id: User ID (optional, for logging purposes)
+
+    Returns:
+        Operation statistics
+    """
+    # Check availability first
+    if not check_vector_search_availability():
+        return {
+            "success": False,
+            "error": "Vector search is not available. Check config (VECTOR_SEARCH_ENABLED) and dependencies.",
+        }
+
+    logger.info("➕ ADD_VECTOR_DOCUMENTS called")
+    logger.info(f"  Documents count: {len(documents)}")
+    if user_id:
+        logger.info(f"  User: {user_id}")
+
+    try:
+        manager = await get_vector_search_manager()
+
+        if not manager:
+            return {"success": False, "error": "Vector search is not enabled or not configured"}
+
+        # Call the async add_documents method
+        stats = await manager.add_documents(documents=documents)
 
         logger.info(
-            f"✅ Reindexing complete: "
-            f"{stats['files_processed']} files processed, "
+            f"✅ Add documents complete: "
+            f"{stats['documents_processed']} documents processed, "
             f"{stats['chunks_created']} chunks created"
         )
 
         return {
             "success": True,
             "stats": stats,
-            "message": f"Successfully indexed {stats['files_processed']} files",
+            "message": f"Successfully added {stats['documents_processed']} documents",
         }
 
     except Exception as e:
-        logger.error(f"❌ Error in reindexing: {e}", exc_info=True)
+        logger.error(f"❌ Error adding documents: {e}", exc_info=True)
+        return {"success": False, "error": str(e), "error_type": type(e).__name__}
+
+
+@mcp.tool()
+async def delete_vector_documents(document_ids: List[str], user_id: int = None) -> dict:
+    """
+    Delete documents from vector search index
+    
+    AICODE-NOTE: Works with document IDs, not file paths
+
+    Args:
+        document_ids: List of document IDs to delete
+        user_id: User ID (optional, for logging purposes)
+
+    Returns:
+        Operation statistics
+    """
+    # Check availability first
+    if not check_vector_search_availability():
+        return {
+            "success": False,
+            "error": "Vector search is not available. Check config (VECTOR_SEARCH_ENABLED) and dependencies.",
+        }
+
+    logger.info("🗑️  DELETE_VECTOR_DOCUMENTS called")
+    logger.info(f"  Document IDs: {len(document_ids)}")
+    if user_id:
+        logger.info(f"  User: {user_id}")
+
+    try:
+        manager = await get_vector_search_manager()
+
+        if not manager:
+            return {"success": False, "error": "Vector search is not enabled or not configured"}
+
+        # Call the async delete_documents method
+        stats = await manager.delete_documents(document_ids=document_ids)
+
+        logger.info(f"✅ Delete documents complete: {stats['documents_deleted']} documents deleted")
+
+        return {
+            "success": True,
+            "stats": stats,
+            "message": f"Successfully deleted {stats['documents_deleted']} documents",
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Error deleting documents: {e}", exc_info=True)
+        return {"success": False, "error": str(e), "error_type": type(e).__name__}
+
+
+@mcp.tool()
+async def update_vector_documents(documents: List[Dict[str, str]], user_id: int = None) -> dict:
+    """
+    Update documents in vector search index
+    
+    AICODE-NOTE: Works with document data, not file paths
+
+    Args:
+        documents: List of documents (same structure as add_vector_documents)
+        user_id: User ID (optional, for logging purposes)
+
+    Returns:
+        Operation statistics
+    """
+    # Check availability first
+    if not check_vector_search_availability():
+        return {
+            "success": False,
+            "error": "Vector search is not available. Check config (VECTOR_SEARCH_ENABLED) and dependencies.",
+        }
+
+    logger.info("🔄 UPDATE_VECTOR_DOCUMENTS called")
+    logger.info(f"  Documents count: {len(documents)}")
+    if user_id:
+        logger.info(f"  User: {user_id}")
+
+    try:
+        manager = await get_vector_search_manager()
+
+        if not manager:
+            return {"success": False, "error": "Vector search is not enabled or not configured"}
+
+        # Call the async update_documents method
+        stats = await manager.update_documents(documents=documents)
+
+        logger.info(
+            f"✅ Update documents complete: "
+            f"{stats['documents_updated']} documents updated, "
+            f"{stats['chunks_created']} chunks created"
+        )
+
+        return {
+            "success": True,
+            "stats": stats,
+            "message": f"Successfully updated {stats['documents_updated']} documents",
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Error updating documents: {e}", exc_info=True)
         return {"success": False, "error": str(e), "error_type": type(e).__name__}
 
 

@@ -85,15 +85,21 @@ class TestBotVectorSearchManager:
     @pytest.mark.asyncio
     async def test_check_availability_success(self, manager):
         """Test checking vector search availability - success case"""
-        # Mock successful health check
+        # Mock successful health check with all required tools
         mock_response = MagicMock()
         mock_response.status = 200
         mock_response.json = AsyncMock(
             return_value={
                 "status": "ok",
                 "builtin_tools": {
-                    "total": 2,
-                    "names": ["vector_search", "reindex_vector"],
+                    "total": 5,
+                    "names": [
+                        "vector_search",
+                        "reindex_vector",
+                        "add_vector_documents",
+                        "delete_vector_documents",
+                        "update_vector_documents",
+                    ],
                 },
             }
         )

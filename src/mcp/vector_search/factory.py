@@ -153,13 +153,19 @@ class VectorSearchFactory:
         )
 
     @classmethod
-    def create_from_settings(cls, settings, kb_root_path: Path) -> Optional[VectorSearchManager]:
+    def create_from_settings(
+        cls, settings, index_path: Optional[Path] = None
+    ) -> Optional[VectorSearchManager]:
         """
         Create vector search manager from settings
+        
+        AICODE-NOTE: SOLID - Dependency Inversion Principle
+        MCP HUB does not need file system access anymore.
+        It works with data provided by BOT.
 
         Args:
             settings: Settings object with vector search configuration
-            kb_root_path: Knowledge base root path
+            index_path: Path to store vector index (defaults to data/vector_index)
 
         Returns:
             VectorSearchManager instance or None if disabled
@@ -201,12 +207,16 @@ class VectorSearchFactory:
                 respect_headers=settings.VECTOR_RESPECT_HEADERS,
             )
 
+            # Default index path if not provided
+            if index_path is None:
+                index_path = Path("data/vector_index")
+
             # Create manager
             manager = VectorSearchManager(
                 embedder=embedder,
                 vector_store=vector_store,
                 chunker=chunker,
-                kb_root_path=kb_root_path,
+                index_path=index_path,
             )
 
             logger.info("✓ Vector search manager created successfully")
