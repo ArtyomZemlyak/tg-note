@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from src.vector_search import ChunkingStrategy, DocumentChunker
+from src.mcp.vector_search import ChunkingStrategy, DocumentChunker
 
 # Note: These tests only test the chunking functionality
 # Full vector search tests require optional dependencies
@@ -198,9 +198,9 @@ async def test_chunker_integration(temp_kb):
 @pytest.mark.asyncio
 async def test_manager_deletion_support():
     """Test that manager properly handles deletion logic"""
-    from src.vector_search.manager import VectorSearchManager
-    from src.vector_search.chunking import ChunkingStrategy, DocumentChunker
-    from src.vector_search.vector_stores import FAISSVectorStore
+    from src.mcp.vector_search.manager import VectorSearchManager
+    from src.mcp.vector_search.chunking import ChunkingStrategy, DocumentChunker
+    from src.mcp.vector_search.vector_stores import FAISSVectorStore
 
     # Create a mock embedder
     class MockEmbedder:
