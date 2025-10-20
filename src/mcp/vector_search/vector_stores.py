@@ -200,7 +200,9 @@ class FAISSVectorStore(BaseVectorStore):
 
     async def delete_by_filter(self, filter_dict: Dict[str, Any]) -> int:
         """Not supported for FAISS IndexFlatL2. Use full reindex instead."""
-        raise NotImplementedError("FAISS store does not support delete_by_filter; perform full reindex")
+        raise NotImplementedError(
+            "FAISS store does not support delete_by_filter; perform full reindex"
+        )
 
     async def get_count(self) -> int:
         """Get number of documents"""
@@ -312,7 +314,9 @@ class QdrantVectorStore(BaseVectorStore):
                             logger.warning(f"Failed to delete existing collection: {del_e}")
                         self._client.create_collection(
                             collection_name=self.collection_name,
-                            vectors_config=VectorParams(size=self.dimension, distance=Distance.COSINE),
+                            vectors_config=VectorParams(
+                                size=self.dimension, distance=Distance.COSINE
+                            ),
                         )
                         logger.info(
                             f"Recreated collection {self.collection_name} with dimension {self.dimension}"
@@ -446,7 +450,9 @@ class QdrantVectorStore(BaseVectorStore):
         client = self._get_client()
 
         # Build conditions from exact-match payload fields
-        conditions = [FieldCondition(key=k, match=MatchValue(value=v)) for k, v in filter_dict.items()]
+        conditions = [
+            FieldCondition(key=k, match=MatchValue(value=v)) for k, v in filter_dict.items()
+        ]
         q_filter = Filter(must=conditions) if conditions else None
 
         try:

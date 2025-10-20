@@ -198,8 +198,8 @@ async def test_chunker_integration(temp_kb):
 @pytest.mark.asyncio
 async def test_manager_deletion_support():
     """Test that manager properly handles deletion logic"""
-    from src.mcp.vector_search.manager import VectorSearchManager
     from src.mcp.vector_search.chunking import ChunkingStrategy, DocumentChunker
+    from src.mcp.vector_search.manager import VectorSearchManager
     from src.mcp.vector_search.vector_stores import FAISSVectorStore
 
     # Create a mock embedder
@@ -233,9 +233,7 @@ async def test_manager_deletion_support():
 
         embedder = MockEmbedder()
         vector_store = FAISSVectorStore(dimension=384)
-        chunker = DocumentChunker(
-            strategy=ChunkingStrategy.FIXED_SIZE, chunk_size=100
-        )
+        chunker = DocumentChunker(strategy=ChunkingStrategy.FIXED_SIZE, chunk_size=100)
 
         manager = VectorSearchManager(
             embedder=embedder,
@@ -246,8 +244,16 @@ async def test_manager_deletion_support():
 
         await manager.initialize()
 
+        # Mock the missing _get_content_hash method
+        def mock_get_content_hash(content):
+            import hashlib
+
+            return hashlib.md5(content.encode()).hexdigest()
+
+        manager._get_content_hash = mock_get_content_hash
+
         # Index initial file
-        stats = await manager.index_knowledge_base(force=False)
+        stats = await manager.index_knowledge_base(force=False, kb_root_path=kb_path)
         assert stats["files_processed"] == 1
         assert stats["deleted_files"] == 0
 
@@ -256,7 +262,7 @@ async def test_manager_deletion_support():
 
         # Reindex - should detect deletion
         # For FAISS, this should trigger force=True and full reindex
-        stats = await manager.index_knowledge_base(force=False)
+        stats = await manager.index_knowledge_base(force=False, kb_root_path=kb_path)
         assert stats["files_processed"] == 0  # No files to process
         assert len(manager._indexed_files) == 0  # File removed from index
 

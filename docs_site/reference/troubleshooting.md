@@ -36,7 +36,7 @@ pip install -e ".[mem-agent]"
 
 **Symptom:**
 ```
-WARNING  | src.mcp.qwen_config_generator:_detect_available_tools:110 | 
+WARNING  | src.mcp.qwen_config_generator:_detect_available_tools:110 |
 [QwenMCPConfig] Failed to detect available tools: No module named 'starlette'
 ```
 
@@ -58,7 +58,7 @@ The system will automatically fall back to basic memory tools if fastmcp is not 
 **Symptom:**
 ```
 ERROR    | src.mcp.client:_connect_sse:255 | [MCPClient] SSE connection timeout
-ERROR    | src.mcp.client:connect:127 | [MCPClient] Failed to connect: 
+ERROR    | src.mcp.client:connect:127 | [MCPClient] Failed to connect:
 SSE connection timeout - server did not respond
 ```
 
@@ -108,7 +108,7 @@ python -m main
 
 **Symptom:**
 ```
-WARNING  | src.mcp.client:_connect_sse:232 | [MCPClient] Failed to parse SSE data: 
+WARNING  | src.mcp.client:_connect_sse:232 | [MCPClient] Failed to parse SSE data:
 Expecting value: line 1 column 1 (char 0)
 ```
 
@@ -123,7 +123,7 @@ Expecting value: line 1 column 1 (char 0)
 
 **Symptom:**
 ```
-WARNING  | src.mcp.tools_description:get_mcp_tools_description:48 | 
+WARNING  | src.mcp.tools_description:get_mcp_tools_description:48 |
 [MCPToolsDescription] Failed to connect to MCP Hub at http://mcp-hub:8765/sse
 ```
 
@@ -133,7 +133,7 @@ WARNING  | src.mcp.tools_description:get_mcp_tools_description:48 |
    ```bash
    # Check environment variable
    echo $MCP_HUB_URL
-   
+
    # Test with curl
    curl http://mcp-hub:8765/health
    ```
@@ -142,7 +142,7 @@ WARNING  | src.mcp.tools_description:get_mcp_tools_description:48 |
    ```bash
    # Check if services can communicate
    docker-compose exec bot ping mcp-hub
-   
+
    # Verify network configuration
    docker network inspect tg-note_default
    ```
@@ -151,7 +151,7 @@ WARNING  | src.mcp.tools_description:get_mcp_tools_description:48 |
    ```bash
    # Linux: check if port 8765 is accessible
    sudo netstat -tulpn | grep 8765
-   
+
    # macOS: check if port 8765 is accessible
    lsof -i :8765
    ```

@@ -74,14 +74,14 @@ class EventType(Enum):
     KB_FILE_CREATED
     KB_FILE_MODIFIED
     KB_FILE_DELETED
-    
+
     # Folder events
     KB_FOLDER_CREATED
     KB_FOLDER_DELETED
-    
+
     # Batch events
     KB_BATCH_CHANGES
-    
+
     # Git events
     KB_GIT_COMMIT
     KB_GIT_PUSH
@@ -152,7 +152,7 @@ async def _handle_kb_change_event(event: KBChangeEvent):
     # Batch multiple rapid changes (2 second window)
     self._reindex_pending = True
     await asyncio.sleep(2)
-    
+
     if self._reindex_pending:
         self._reindex_pending = False
         await self.check_and_reindex_changes()
@@ -353,15 +353,15 @@ Event system легко тестируется благодаря развязк
 # Test tool без запуска vector search
 def test_file_create_publishes_event():
     event_received = []
-    
+
     def handler(event):
         event_received.append(event)
-    
+
     get_event_bus().subscribe(EventType.KB_FILE_CREATED, handler)
-    
+
     # Execute tool
     file_create_tool.execute(...)
-    
+
     # Verify event was published
     assert len(event_received) == 1
     assert event_received[0].type == EventType.KB_FILE_CREATED

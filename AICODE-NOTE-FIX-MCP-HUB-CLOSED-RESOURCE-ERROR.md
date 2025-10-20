@@ -19,7 +19,7 @@ WARNING | Failed to connect to MCP Hub for reindex
 ```
 
 ## Root Cause
-The MCP client (`src/mcp/client.py`) was incorrectly closing the SSE connection immediately after extracting the `session_id` (line 266). 
+The MCP client (`src/mcp/client.py`) was incorrectly closing the SSE connection immediately after extracting the `session_id` (line 266).
 
 **Incorrect flow:**
 1. ✅ Client opens SSE connection (GET /sse/)
@@ -45,7 +45,7 @@ Modified `src/mcp/client.py` to implement proper FastMCP SSE protocol:
 ### Changes Made
 
 1. **Keep SSE connection open** (`_connect_sse()` method)
-   - Store SSE response in `self._sse_response` 
+   - Store SSE response in `self._sse_response`
    - Removed `response.close()` call (line 266)
    - Start background task to read from SSE stream
 
