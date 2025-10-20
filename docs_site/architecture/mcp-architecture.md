@@ -452,15 +452,62 @@ The MCP Hub uses FastMCP library which implements the MCP protocol over HTTP Ser
    data: {"uri": "http://mcp-hub:8765/messages/?session_id=abc123"}
    ```
 
-3. **Send JSON-RPC Requests** (POST with session_id)
+3. **Keep SSE Connection Open** (CRITICAL)
+   - The SSE connection MUST remain open to receive responses
+   - Responses are sent as SSE 'message' events, not in POST response body
+   - Closing the connection causes `anyio.ClosedResourceError` on server
+
+4. **Send JSON-RPC Requests** (POST with session_id)
    ```
    POST /messages/?session_id=abc123 HTTP/1.1
    Content-Type: application/json
 
    {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {...}}
    ```
+   
+5. **Receive Responses via SSE** (SSE 'message' event)
+   ```
+   event: message
+   data: {"jsonrpc": "2.0", "id": 1, "result": {...}}
+   ```
+
+**IMPORTANT**: The POST request typically returns `202 Accepted` without a response body. The actual JSON-RPC response is sent via the SSE stream as a 'message' event. The client must match responses to requests by the `id` field.
 
 ### Common Connection Errors
+
+#### Error: anyio.ClosedResourceError
+**Symptom:**
+```
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  ...
+  File "/usr/local/lib/python3.11/site-packages/mcp/server/sse.py", line 202, in handle_post_message
+    await writer.send(session_message)
+  ...
+anyio.ClosedResourceError
+```
+
+**Client Error:**
+```
+ERROR | [MCPClient] HTTP request exception: 202, message='Attempt to decode JSON with unexpected mimetype: '
+```
+
+**Cause:** Client closed the SSE connection after receiving the session_id. FastMCP needs the SSE stream to remain open to send JSON-RPC responses.
+
+**Solution:** The SSE connection must remain open throughout the session:
+1. Client opens SSE connection (GET /sse/)
+2. Client reads session_id from 'endpoint' event
+3. **Client keeps SSE connection open** (do NOT call `response.close()`)
+4. Client starts background task to read 'message' events from SSE stream
+5. Client sends requests via POST (returns 202 Accepted)
+6. Server sends responses via SSE 'message' events
+7. Background task matches responses to requests by ID
+
+**Fixed in:** `src/mcp/client.py` - The `MCPClient` class now:
+- Keeps SSE response open in `_sse_response` attribute
+- Runs `_sse_reader()` background task to read responses
+- Matches responses to pending requests by request ID
+- Only closes SSE connection on explicit `disconnect()`
 
 #### Error: 307 Temporary Redirect
 **Symptom:**
