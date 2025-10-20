@@ -178,7 +178,11 @@ class MCPClient:
 
             # Parse SSE events to extract session_id
             # FastMCP sends an 'endpoint' event with the session_id
-            # SSE format: "event: <type>\ndata: <json>\n\n"
+            # SSE format: "event: <type>\ndata: <content>\n\n"
+            # Note: FastMCP may send data as either:
+            #   1. JSON: {"uri": "/messages/?session_id=..."}
+            #   2. Plain text: /messages/?session_id=...
+            # We handle both formats for compatibility
 
             lines_read = 0
             max_lines = 100  # Safety limit
@@ -210,9 +214,10 @@ class MCPClient:
                         logger.debug("[MCPClient] SSE data field is empty, skipping")
                         continue
                     
+                    # Try to parse as JSON first (newer FastMCP format)
                     try:
                         data_json = json.loads(data_str)
-                        logger.debug(f"[MCPClient] SSE endpoint data: {data_json}")
+                        logger.debug(f"[MCPClient] SSE endpoint data (JSON): {data_json}")
 
                         # Extract session_id from URL query params in 'uri' field
                         if "uri" in data_json:
@@ -234,12 +239,28 @@ class MCPClient:
                                 f"[MCPClient] ✓ SSE session established: {self._session_id}"
                             )
                             break
-                    except json.JSONDecodeError as e:
-                        logger.warning(
-                            f"[MCPClient] Failed to parse SSE data as JSON: {e}. "
-                            f"Data (first 200 chars): {data_str[:200]}"
-                        )
-                        continue
+                    except json.JSONDecodeError:
+                        # FastMCP might send plain text URI instead of JSON
+                        # Try to parse as plain URI string (e.g., "/messages/?session_id=...")
+                        from urllib.parse import parse_qs, urlparse
+                        
+                        logger.debug(f"[MCPClient] SSE endpoint data (plain text): {data_str}")
+                        
+                        try:
+                            parsed = urlparse(data_str)
+                            qs = parse_qs(parsed.query)
+                            if "session_id" in qs:
+                                self._session_id = qs["session_id"][0]
+                                logger.info(
+                                    f"[MCPClient] ✓ SSE session established (plain text format): {self._session_id}"
+                                )
+                                break
+                        except Exception as parse_err:
+                            logger.warning(
+                                f"[MCPClient] Failed to parse SSE data as JSON or URI: {parse_err}. "
+                                f"Data (first 200 chars): {data_str[:200]}"
+                            )
+                            continue
 
             # Close the SSE response (we got what we need)
             response.close()
