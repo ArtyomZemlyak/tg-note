@@ -406,6 +406,57 @@ curl -X POST http://localhost:7997/embeddings \
 
 ## Troubleshooting
 
+### Healthcheck не работает
+
+**Проблема**: Контейнеры Qdrant и Infinity не проходят healthcheck, сервисы зависающие от них не запускаются.
+
+**Причина**: Официальные образы `qdrant/qdrant:latest` и `michaelf34/infinity:latest` не содержат утилиту `curl`, которая часто используется для HTTP проверок.
+
+**Решение 1 (рекомендуется)**: В обновленной версии `docker-compose.vector.yml` используется `wget`:
+
+```yaml
+# Для Qdrant
+healthcheck:
+  test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:6333/ || exit 1"]
+  
+# Для Infinity  
+healthcheck:
+  test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7997/health || exit 1"]
+```
+
+**Решение 2**: Если wget также отсутствует, можно использовать TCP проверку:
+
+```yaml
+healthcheck:
+  test: ["CMD-SHELL", "timeout 2 bash -c '</dev/tcp/localhost/6333' || exit 1"]
+```
+
+**Решение 3**: Отключить healthcheck и использовать `service_started`:
+
+```yaml
+mcp-hub:
+  depends_on:
+    qdrant:
+      condition: service_started  # вместо service_healthy
+    infinity:
+      condition: service_started
+```
+
+**Проверка healthcheck**:
+```bash
+# Проверить статус контейнеров
+docker-compose -f docker-compose.vector.yml ps
+
+# Проверить healthcheck конкретного контейнера
+docker inspect tg-note-qdrant --format='{{json .State.Health}}' | jq
+
+# Проверить доступность вручную
+docker exec tg-note-qdrant wget --spider http://localhost:6333/
+docker exec tg-note-infinity wget --spider http://localhost:7997/health
+```
+
+Подробнее см. [DOCKER_HEALTHCHECK_TROUBLESHOOTING.md](../../DOCKER_HEALTHCHECK_TROUBLESHOOTING.md)
+
 ### Infinity не запускается
 
 **Проблема**: `Model download failed`

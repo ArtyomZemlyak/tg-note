@@ -21,8 +21,10 @@ services:
       # Qdrant configuration
       - QDRANT__SERVICE__HTTP_PORT=6333
       - QDRANT__SERVICE__GRPC_PORT=6334
+    # AICODE-NOTE: Using wget instead of curl (curl not available in qdrant image)
+    # Qdrant health endpoint is / (returns collection info when ready)
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6333/healthz"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:6333/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -63,12 +65,14 @@ services:
     #         - driver: nvidia
     #           count: 1
     #           capabilities: [gpu]
+    # AICODE-NOTE: Using wget instead of curl (curl not available in infinity image)
+    # Infinity health endpoint is /health
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:7997/health"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7997/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 60s  # Model loading takes time
+      start_period: 90s  # Model downloading and loading takes significant time
     networks:
       - tg-note-network
 
@@ -109,6 +113,7 @@ services:
         condition: service_healthy
       infinity:
         condition: service_healthy
+    # AICODE-NOTE: curl is available in mcp-hub image (installed in Dockerfile.hub)
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8765/health"]
       interval: 30s
@@ -148,6 +153,19 @@ networks:
   tg-note-network:
     driver: bridge
 
+# AICODE-NOTE: Health Checks Explained
+#
+# Why we use 'wget' for Qdrant and Infinity:
+# - Official qdrant/qdrant and michaelf34/infinity images don't include 'curl'
+# - 'wget' is more commonly available in minimal/alpine-based images
+# - Using CMD-SHELL allows shell command syntax (|| exit 1)
+#
+# Alternative if wget is also missing:
+# For Qdrant: test: ["CMD-SHELL", "timeout 2 bash -c '</dev/tcp/localhost/6333' || exit 1"]
+# For Infinity: test: ["CMD-SHELL", "timeout 2 bash -c '</dev/tcp/localhost/7997' || exit 1"]
+#
+# Or disable healthcheck entirely and use 'service_started' condition instead of 'service_healthy'
+#
 # AICODE-NOTE: Configuration guide
 #
 # 1. Environment Variables (.env file):
