@@ -39,7 +39,10 @@ class KnowledgeBaseChange:
         return bool(self.added or self.modified or self.deleted)
 
     def __repr__(self) -> str:
-        return f"KBChange(added={len(self.added)}, modified={len(self.modified)}, deleted={len(self.deleted)})"
+        return (
+            f"KBChange(added={len(self.added)}, "
+            f"modified={len(self.modified)}, deleted={len(self.deleted)})"
+        )
 
 
 class BotVectorSearchManager:
@@ -66,8 +69,9 @@ class BotVectorSearchManager:
         self.vector_search_available = False
         self._file_hashes: Dict[str, str] = {}  # file_path -> hash
         self._hash_file = Path("data/vector_search_hashes.json")
-        self._reindex_pending = False  # Flag to batch multiple changes
-        
+        self._reindex_lock = asyncio.Lock()  # Lock to prevent concurrent reindexing
+        self._reindex_task: Optional["asyncio.Task[None]"] = None  # Track ongoing reindex
+        self._shutdown = False  # Shutdown flag
         # Subscribe to KB change events for reactive reindexing
         if subscribe_to_events:
             self._subscribe_to_kb_events()
@@ -108,9 +112,10 @@ class BotVectorSearchManager:
                         self.vector_search_available = True
                         return True
                     else:
+                        available = ', '.join(available_tools) if available_tools else 'none'
                         logger.info(
                             f"ℹ️  Vector search tools not available. "
-                            f"Available tools: {', '.join(available_tools) if available_tools else 'none'}"
+                            f"Available tools: {available}"
                         )
                         self.vector_search_available = False
                         return False
@@ -165,10 +170,14 @@ class BotVectorSearchManager:
         - Modified files (hash changed)
         - Deleted files (no longer exist)
 
+        AICODE-NOTE: This method uses a lock internally when called from trigger_reindex,
+        but not when called from _delayed_reindex to avoid deadlock. The lock is only
+        needed for external/manual calls.
+
         Returns:
             True if reindexing was performed
         """
-        if not self.vector_search_available:
+        if not self.vector_search_available or self._shutdown:
             return False
 
         try:
@@ -197,13 +206,18 @@ class BotVectorSearchManager:
             logger.info("🔄 Triggering MCP reindex due to detected changes...")
             ok = await self._call_mcp_reindex(force=False)
 
-            # Save updated hashes snapshot regardless of MCP outcome to avoid duplicate work next time
+            # Save updated hashes snapshot regardless of MCP outcome
+            # to avoid duplicate work next time
             await self._save_file_hashes()
 
             if ok:
-                logger.info("✅ Change detection completed, reindex triggered and hashes updated")
+                logger.info(
+                    "✅ Change detection completed, reindex triggered and hashes updated"
+                )
             else:
-                logger.warning("⚠️ Reindex trigger failed; hashes updated, will retry on next event")
+                logger.warning(
+                    "⚠️ Reindex trigger failed; hashes updated, will retry on next event"
+                )
             return ok
 
         except Exception as e:
@@ -294,19 +308,19 @@ class BotVectorSearchManager:
     def _subscribe_to_kb_events(self) -> None:
         """Subscribe to knowledge base change events for reactive reindexing"""
         event_bus = get_event_bus()
-        
+
         # Subscribe to file change events
         event_bus.subscribe_async(EventType.KB_FILE_CREATED, self._handle_kb_change_event)
         event_bus.subscribe_async(EventType.KB_FILE_MODIFIED, self._handle_kb_change_event)
         event_bus.subscribe_async(EventType.KB_FILE_DELETED, self._handle_kb_change_event)
-        
+
         # Subscribe to batch changes (more efficient for multiple files)
         event_bus.subscribe_async(EventType.KB_BATCH_CHANGES, self._handle_kb_change_event)
-        
+
         # Subscribe to git events (might involve multiple files)
         event_bus.subscribe_async(EventType.KB_GIT_COMMIT, self._handle_kb_change_event)
         event_bus.subscribe_async(EventType.KB_GIT_PULL, self._handle_kb_change_event)
-        
+
         logger.info("📡 Subscribed to KB change events for reactive reindexing")
 
     async def _call_mcp_reindex(self, force: bool = False) -> bool:
@@ -342,54 +356,92 @@ class BotVectorSearchManager:
         Handle KB change event - trigger reindexing
 
         AICODE-NOTE: This is called automatically when KB files change.
-        Uses a flag to batch multiple rapid changes together.
-        
+        Uses a lock and task cancellation to batch multiple rapid changes together.
+        Only one reindex can run at a time; new events cancel pending reindex tasks.
+
         Args:
             event: KB change event
         """
-        if not self.vector_search_available:
+        if not self.vector_search_available or self._shutdown:
             return
-        
+
         logger.debug(f"📬 Received KB change event: {event.type.value}")
-        
-        # Mark reindex as pending
-        self._reindex_pending = True
-        
-        # Wait a bit to batch multiple rapid changes
-        await asyncio.sleep(2)
-        
-        # If still pending, perform reindex
-        if self._reindex_pending:
-            self._reindex_pending = False
+
+        # Cancel any pending reindex task (to batch rapid changes)
+        if self._reindex_task and not self._reindex_task.done():
+            logger.debug("⏸️  Cancelling pending reindex task to batch changes")
+            self._reindex_task.cancel()
+
+        # Schedule new reindex task with a delay to batch rapid changes
+        self._reindex_task = asyncio.create_task(self._delayed_reindex(event))
+
+    async def _delayed_reindex(self, event: KBChangeEvent) -> None:
+        """
+        Perform reindexing after a delay to batch multiple changes
+
+        Args:
+            event: KB change event that triggered this reindex
+        """
+        try:
+            # Wait to batch multiple rapid changes
+            await asyncio.sleep(2)
+
+            if self._shutdown:
+                return
+
             logger.info(f"🔄 Triggering reactive reindexing due to {event.type.value}")
-            
-            try:
-                await self.check_and_reindex_changes()
-                logger.info("✅ Reactive reindexing completed")
-            except Exception as e:
-                logger.error(f"❌ Reactive reindexing failed: {e}", exc_info=True)
+
+            await self.check_and_reindex_changes()
+            logger.info("✅ Reactive reindexing completed")
+
+        except asyncio.CancelledError:
+            logger.debug("⏹️  Reindex task cancelled (batching changes)")
+        except Exception as e:
+            logger.error(f"❌ Reactive reindexing failed: {e}", exc_info=True)
 
     async def trigger_reindex(self) -> bool:
         """
         Manually trigger reindexing
-        
+
         This can be called from anywhere to force a reindex check.
         Useful for external triggers or API endpoints.
-        
+        Uses a lock to prevent concurrent reindexing.
+
         Returns:
             True if reindexing was performed
         """
-        if not self.vector_search_available:
-            logger.warning("⚠️  Vector search not available, skipping reindex")
+        if not self.vector_search_available or self._shutdown:
+            logger.warning("⚠️  Vector search not available or shutting down, skipping reindex")
             return False
-        
-        logger.info("🔄 Manual reindex triggered")
-        return await self.check_and_reindex_changes()
+
+        async with self._reindex_lock:
+            logger.info("🔄 Manual reindex triggered")
+            return await self.check_and_reindex_changes()
+
+    async def shutdown(self) -> None:
+        """
+        Shutdown the vector search manager
+
+        Cancels any pending reindex tasks and marks manager as shutdown.
+        """
+        logger.info("🛑 Shutting down BotVectorSearchManager")
+        self._shutdown = True
+
+        # Cancel pending reindex task
+        if self._reindex_task and not self._reindex_task.done():
+            logger.debug("⏹️  Cancelling pending reindex task")
+            self._reindex_task.cancel()
+            try:
+                await self._reindex_task
+            except asyncio.CancelledError:
+                pass
+
+        logger.info("✅ BotVectorSearchManager shutdown complete")
 
     async def start_monitoring(self, check_interval: int = 300) -> None:
         """
         Start periodic monitoring of knowledge bases for changes
-        
+
         AICODE-NOTE: This is a fallback mechanism for changes that might be missed
         by event system (e.g., external file modifications, NFS mounts, etc.).
         The primary change detection is event-driven via _handle_kb_change_event().
@@ -406,10 +458,11 @@ class BotVectorSearchManager:
         )
         logger.info("   Primary change detection is event-driven (reactive)")
 
-        while True:
+        while not self._shutdown:
             try:
                 await asyncio.sleep(check_interval)
-                await self.check_and_reindex_changes()
+                if not self._shutdown:
+                    await self.check_and_reindex_changes()
             except asyncio.CancelledError:
                 logger.info("🛑 Periodic KB monitoring stopped")
                 break

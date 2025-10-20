@@ -195,5 +195,71 @@ async def test_chunker_integration(temp_kb):
     assert len(headers_found) > 0
 
 
+@pytest.mark.asyncio
+async def test_manager_deletion_support():
+    """Test that manager properly handles deletion logic"""
+    from src.vector_search.manager import VectorSearchManager
+    from src.vector_search.chunking import ChunkingStrategy, DocumentChunker
+    from src.vector_search.vector_stores import FAISSVectorStore
+
+    # Create a mock embedder
+    class MockEmbedder:
+        def __init__(self):
+            self.model_name = "mock"
+            self._dimension = 384
+
+        async def embed_texts(self, texts):
+            import numpy as np
+
+            return np.random.rand(len(texts), 384).tolist()
+
+        async def embed_query(self, query):
+            import numpy as np
+
+            return np.random.rand(384).tolist()
+
+        def get_dimension(self):
+            return self._dimension
+
+        def get_model_hash(self):
+            return "mock_hash"
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        kb_path = Path(tmpdir) / "kb"
+        kb_path.mkdir()
+
+        # Create initial file
+        (kb_path / "file1.md").write_text("# File 1\n\nContent")
+
+        embedder = MockEmbedder()
+        vector_store = FAISSVectorStore(dimension=384)
+        chunker = DocumentChunker(
+            strategy=ChunkingStrategy.FIXED_SIZE, chunk_size=100
+        )
+
+        manager = VectorSearchManager(
+            embedder=embedder,
+            vector_store=vector_store,
+            chunker=chunker,
+            kb_root_path=kb_path,
+        )
+
+        await manager.initialize()
+
+        # Index initial file
+        stats = await manager.index_knowledge_base(force=False)
+        assert stats["files_processed"] == 1
+        assert stats["deleted_files"] == 0
+
+        # Delete the file
+        (kb_path / "file1.md").unlink()
+
+        # Reindex - should detect deletion
+        # For FAISS, this should trigger force=True and full reindex
+        stats = await manager.index_knowledge_base(force=False)
+        assert stats["files_processed"] == 0  # No files to process
+        assert len(manager._indexed_files) == 0  # File removed from index
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
