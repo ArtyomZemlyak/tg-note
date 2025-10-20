@@ -464,7 +464,7 @@ The MCP Hub uses FastMCP library which implements the MCP protocol over HTTP Ser
 
    {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {...}}
    ```
-   
+
 5. **Receive Responses via SSE** (SSE 'message' event)
    ```
    event: message

@@ -168,7 +168,9 @@ def _create_autonomous_agent(config: Dict) -> AutonomousAgent:
         enable_shell=config.get("enable_shell", False),
         enable_file_management=config.get("enable_file_management", True),
         enable_folder_management=config.get("enable_folder_management", True),
-        enable_vector_search=config.get("enable_vector_search", False),  # AICODE-NOTE: Vector search via MCP
+        enable_vector_search=config.get(
+            "enable_vector_search", False
+        ),  # AICODE-NOTE: Vector search via MCP
         enable_mcp=config.get("enable_mcp", False),
         enable_mcp_memory=config.get("enable_mcp_memory", False),
         kb_root_path=kb_root_path,

@@ -91,7 +91,7 @@ from typing import TypedDict, List, Optional, Dict, Any
 class DocumentData(TypedDict):
     """
     Структура документа для передачи из BOT в MCP HUB
-    
+
     AICODE-NOTE: BOT читает файлы и отправляет контент,
     MCP HUB работает только с данными
     """
@@ -113,13 +113,13 @@ class VectorDocumentsBatch(TypedDict):
 async def add_vector_documents(documents: List[Dict[str, Any]]) -> dict:
     """
     Add documents to vector index
-    
+
     Args:
         documents: List of documents with structure:
             - id (str): Unique document ID
             - content (str): Document text content
             - metadata (dict): Additional metadata
-    
+
     Returns:
         Operation statistics
     """
@@ -132,10 +132,10 @@ async def add_vector_documents(documents: List[Dict[str, Any]]) -> dict:
 async def delete_vector_documents(document_ids: List[str]) -> dict:
     """
     Delete documents from vector index
-    
+
     Args:
         document_ids: List of document IDs to delete
-    
+
     Returns:
         Operation statistics
     """
@@ -148,10 +148,10 @@ async def delete_vector_documents(document_ids: List[str]) -> dict:
 async def update_vector_documents(documents: List[Dict[str, Any]]) -> dict:
     """
     Update documents in vector index
-    
+
     Args:
         documents: List of documents (same structure as add)
-    
+
     Returns:
         Operation statistics
     """
@@ -173,22 +173,22 @@ class VectorSearchManager:
         index_path: Optional[Path] = None,  # Только для индекса
     ):
         # БЕЗ kb_root_path!
-        
+
     # НОВЫЕ методы - принимают ДАННЫЕ, не пути
     async def add_documents(
-        self, 
+        self,
         documents: List[DocumentData]
     ) -> Dict[str, Any]:
         """Принимает готовые данные, не читает файлы"""
-        
+
     async def delete_documents(
-        self, 
+        self,
         document_ids: List[str]
     ) -> Dict[str, Any]:
         """Удаляет по ID, не по путям"""
-        
+
     async def update_documents(
-        self, 
+        self,
         documents: List[DocumentData]
     ) -> Dict[str, Any]:
         """Обновляет из данных"""
@@ -207,7 +207,7 @@ class BotVectorSearchManager:
         4. Отправить в MCP HUB
         """
         changes = self._detect_changes(previous, current)
-        
+
         # Для новых файлов
         if changes.added:
             documents = []
@@ -221,10 +221,10 @@ class BotVectorSearchManager:
                     metadata={"file_path": file_path, ...}
                 )
                 documents.append(doc)
-            
+
             # Отправляем ДАННЫЕ, не пути
             await self._call_mcp_add_documents(documents)
-        
+
         # Аналогично для modified и deleted
 ```
 

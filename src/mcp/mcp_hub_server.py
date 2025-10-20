@@ -644,7 +644,7 @@ async def get_vector_search_manager(kb_id: str = "default") -> Optional[VectorSe
         # AICODE-NOTE: SOLID - Dependency Inversion Principle
         # MCP HUB no longer needs access to KB files.
         # It works with data provided by BOT.
-        
+
         # Set index path per knowledge base
         kb_suffix = f"/{kb_id}" if kb_id != "default" else ""
         index_path = Path(f"data/vector_index{kb_suffix}")
@@ -678,7 +678,9 @@ async def get_vector_search_manager(kb_id: str = "default") -> Optional[VectorSe
 
 
 @mcp.tool()
-async def vector_search(query: str, top_k: int = 5, user_id: int = None, kb_id: str = "default") -> dict:
+async def vector_search(
+    query: str, top_k: int = 5, user_id: int = None, kb_id: str = "default"
+) -> dict:
     """
     Perform semantic vector search in knowledge base
 
@@ -731,10 +733,15 @@ async def vector_search(query: str, top_k: int = 5, user_id: int = None, kb_id: 
 
 
 @mcp.tool()
-async def reindex_vector(documents: List[Dict[str, Any]] = None, force: bool = False, user_id: int = None, kb_id: str = "default") -> dict:
+async def reindex_vector(
+    documents: List[Dict[str, Any]] = None,
+    force: bool = False,
+    user_id: int = None,
+    kb_id: str = "default",
+) -> dict:
     """
     Reindex knowledge base for vector search
-    
+
     AICODE-NOTE: BOT sends all documents for reindexing.
     If force=True, clears index first.
 
@@ -775,7 +782,7 @@ async def reindex_vector(documents: List[Dict[str, Any]] = None, force: bool = F
         # If documents provided, add them
         if documents:
             stats = await manager.add_documents(documents=documents)
-            
+
             logger.info(
                 f"✅ Reindexing complete: "
                 f"{stats['documents_processed']} documents processed, "
@@ -801,10 +808,12 @@ async def reindex_vector(documents: List[Dict[str, Any]] = None, force: bool = F
 
 
 @mcp.tool()
-async def add_vector_documents(documents: List[Dict[str, Any]], user_id: int = None, kb_id: str = "default") -> dict:
+async def add_vector_documents(
+    documents: List[Dict[str, Any]], user_id: int = None, kb_id: str = "default"
+) -> dict:
     """
     Add or update documents to vector search index
-    
+
     AICODE-NOTE: SOLID - Dependency Inversion Principle
     BOT reads files and sends CONTENT, MCP HUB works with DATA only.
 
@@ -859,10 +868,12 @@ async def add_vector_documents(documents: List[Dict[str, Any]], user_id: int = N
 
 
 @mcp.tool()
-async def delete_vector_documents(document_ids: List[str], user_id: int = None, kb_id: str = "default") -> dict:
+async def delete_vector_documents(
+    document_ids: List[str], user_id: int = None, kb_id: str = "default"
+) -> dict:
     """
     Delete documents from vector search index
-    
+
     AICODE-NOTE: Works with document IDs, not file paths
 
     Args:
@@ -909,10 +920,12 @@ async def delete_vector_documents(document_ids: List[str], user_id: int = None, 
 
 
 @mcp.tool()
-async def update_vector_documents(documents: List[Dict[str, Any]], user_id: int = None, kb_id: str = "default") -> dict:
+async def update_vector_documents(
+    documents: List[Dict[str, Any]], user_id: int = None, kb_id: str = "default"
+) -> dict:
     """
     Update documents in vector search index
-    
+
     AICODE-NOTE: Works with document data, not file paths
 
     Args:
