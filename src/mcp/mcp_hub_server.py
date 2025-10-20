@@ -694,10 +694,23 @@ def vector_search(query: str, top_k: int = 5, user_id: int = None) -> dict:
         # Perform search (sync wrapper for async method)
         import asyncio
 
-        # Get or create event loop
+        # Handle both sync and async contexts
         try:
             loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # Event loop is already running (e.g., in FastAPI/MCP context)
+                # Use nest_asyncio to allow nested event loops
+                try:
+                    import nest_asyncio
+                    nest_asyncio.apply()
+                except ImportError:
+                    # If nest_asyncio is not available, raise error with helpful message
+                    return {
+                        "success": False,
+                        "error": "Cannot run in async context. Please install nest_asyncio: pip install nest-asyncio",
+                    }
         except RuntimeError:
+            # No event loop exists, create a new one
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
@@ -754,10 +767,23 @@ def reindex_vector(force: bool = False, user_id: int = None) -> dict:
         # Perform reindexing (sync wrapper for async method)
         import asyncio
 
-        # Get or create event loop
+        # Handle both sync and async contexts
         try:
             loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # Event loop is already running (e.g., in FastAPI/MCP context)
+                # Use nest_asyncio to allow nested event loops
+                try:
+                    import nest_asyncio
+                    nest_asyncio.apply()
+                except ImportError:
+                    # If nest_asyncio is not available, raise error with helpful message
+                    return {
+                        "success": False,
+                        "error": "Cannot run in async context. Please install nest_asyncio: pip install nest-asyncio",
+                    }
         except RuntimeError:
+            # No event loop exists, create a new one
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 

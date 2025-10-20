@@ -107,6 +107,25 @@ Detailed installation instructions for tg-note.
 
 ## Optional Dependencies
 
+### MCP (Model Context Protocol) Support
+
+To use MCP server features (memory tools, vector search, server registry):
+
+```bash
+poetry install --extras mcp
+```
+
+**What's included:**
+- `fastmcp` - MCP server framework
+- `nest-asyncio` - Event loop handling for async contexts
+
+**Use cases:**
+- Exposing tools via MCP protocol
+- Integrating with AI assistants that support MCP
+- Running MCP Hub server
+
+[Learn more about MCP features →](../agents/mcp-tools.md)
+
 ### Qwen Code CLI (Recommended for Production)
 
 The Qwen Code CLI agent provides the best AI-powered processing capabilities.

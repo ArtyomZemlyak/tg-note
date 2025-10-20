@@ -69,6 +69,8 @@ mcp = [
     # MCP (Model Context Protocol) support
     # FastMCP for creating MCP servers
     "fastmcp>=0.1.0",
+    # nest-asyncio for handling event loops in async contexts
+    "nest-asyncio>=1.5.0",
 ]
 mem-agent = [
     # Memory Agent dependencies - Lightweight (for Docker deployment)
