@@ -75,7 +75,7 @@ class VectorSearchTool(BaseTool):
 
 
 class VectorReindexTool(BaseTool):
-    """Tool for reindexing knowledge base for vector search"""
+    """DEPRECATED: reindexing must be triggered by bot container only"""
 
     @property
     def name(self) -> str:
@@ -83,44 +83,21 @@ class VectorReindexTool(BaseTool):
 
     @property
     def description(self) -> str:
-        return "Переиндексировать базу знаний для векторного поиска"
+        return (
+            "Deprecated. Реиндексация запускается только бот контейнером. "
+            "Агент должен использовать только семантический поиск."
+        )
 
     @property
     def parameters_schema(self) -> Dict[str, Any]:
-        return {
-            "type": "object",
-            "properties": {"force": {"type": "boolean"}},
-        }
+        return {"type": "object", "properties": {}}
 
     async def execute(self, params: Dict[str, Any], context: ToolContext) -> Dict[str, Any]:
-        """Reindex knowledge base for vector search"""
-        if not context.vector_search_manager:
-            logger.error("[kb_reindex_vector] Vector search manager not configured")
-            return {"success": False, "error": "Vector search is not enabled or not configured"}
-
-        force = params.get("force", False)
-
-        try:
-            logger.info(f"[kb_reindex_vector] Starting reindexing (force={force})")
-
-            # Perform indexing
-            stats = await context.vector_search_manager.index_knowledge_base(force=force)
-
-            logger.info(
-                f"[kb_reindex_vector] ✓ Indexing complete: "
-                f"{stats['files_processed']} files processed, "
-                f"{stats['chunks_created']} chunks created"
-            )
-
-            return {
-                "success": True,
-                "stats": stats,
-                "message": f"Successfully indexed {stats['files_processed']} files",
-            }
-
-        except Exception as e:
-            logger.error(f"[kb_reindex_vector] Failed: {e}", exc_info=True)
-            return {"success": False, "error": f"Reindexing failed: {e}"}
+        logger.warning("[kb_reindex_vector] Deprecated call blocked: bot container is responsible")
+        return {
+            "success": False,
+            "error": "Reindex is managed by bot container. Agent must not trigger reindex.",
+        }
 
 
 # Export all vector search tools

@@ -23,6 +23,7 @@ from loguru import logger
 
 from config import settings
 from src.core.events import EventType, KBChangeEvent, get_event_bus
+from src.mcp.client import MCPClient, MCPServerConfig
 
 
 class KnowledgeBaseChange:
@@ -136,30 +137,20 @@ class BotVectorSearchManager:
             return False
 
         try:
-            # Call MCP Hub reindex endpoint (HTTP API for direct access)
-            # Note: We could also use the MCP tool interface, but HTTP is simpler for bot-side
-            logger.info("🔄 Starting initial knowledge base indexing...")
+            logger.info("🔄 Starting initial knowledge base indexing (bot-triggered)...")
 
-            # For now, we'll use a simple HTTP call to trigger reindexing
-            # The actual implementation will be in MCP Hub
-            async with aiohttp.ClientSession() as session:
-                # MCP Hub doesn't have a direct HTTP endpoint for tools yet
-                # So we need to use the MCP protocol
-                # For simplicity in the bot, we'll log and return success
-                logger.info(
-                    "📝 Initial indexing will be triggered by agent when first needed"
-                )
-                logger.info(
-                    "   (Agent will call reindex_vector tool via MCP when searching)"
-                )
+            # Load current file hashes and scan current state (for change tracking only)
+            await self._load_file_hashes()
+            await self._scan_knowledge_bases()
 
-                # Load current file hashes
-                await self._load_file_hashes()
+            # Trigger reindex via MCP Hub
+            ok = await self._call_mcp_reindex(force=force)
+            if not ok:
+                return False
 
-                # Scan all KB files and update hashes
-                await self._scan_knowledge_bases()
-
-                return True
+            # Persist hash snapshot after successful trigger
+            await self._save_file_hashes()
+            return True
 
         except Exception as e:
             logger.error(f"❌ Initial indexing failed: {e}", exc_info=True)
@@ -202,17 +193,18 @@ class BotVectorSearchManager:
                 f"Deleted: {len(changes.deleted)}"
             )
 
-            # Trigger reindexing
-            # For incremental reindexing, we use force=True to ensure changes are picked up
-            logger.info("🔄 Triggering reindexing due to changes...")
+            # Trigger reindexing (incremental by default; manager will full-rebuild if needed)
+            logger.info("🔄 Triggering MCP reindex due to detected changes...")
+            ok = await self._call_mcp_reindex(force=False)
 
-            # Note: The actual reindexing will be done by MCP Hub's vector_search manager
-            # which already handles incremental updates based on file hashes
-            # We just need to save the updated hashes
+            # Save updated hashes snapshot regardless of MCP outcome to avoid duplicate work next time
             await self._save_file_hashes()
 
-            logger.info("✅ Change detection completed, hashes updated")
-            return True
+            if ok:
+                logger.info("✅ Change detection completed, reindex triggered and hashes updated")
+            else:
+                logger.warning("⚠️ Reindex trigger failed; hashes updated, will retry on next event")
+            return ok
 
         except Exception as e:
             logger.error(f"❌ Failed to check/reindex changes: {e}", exc_info=True)
@@ -316,6 +308,34 @@ class BotVectorSearchManager:
         event_bus.subscribe_async(EventType.KB_GIT_PULL, self._handle_kb_change_event)
         
         logger.info("📡 Subscribed to KB change events for reactive reindexing")
+
+    async def _call_mcp_reindex(self, force: bool = False) -> bool:
+        """Call MCP Hub reindex_vector tool via SSE transport."""
+        try:
+            # Ensure SSE URL
+            sse_url = self.mcp_hub_url
+            if not sse_url.endswith("/sse"):
+                sse_url = f"{sse_url}/sse"
+
+            client = MCPClient(MCPServerConfig(transport="sse", url=sse_url))
+            connected = await client.connect()
+            if not connected:
+                logger.warning("⚠️ Failed to connect to MCP Hub for reindex")
+                return False
+
+            try:
+                result = await client.call_tool("reindex_vector", {"force": bool(force)})
+                if result.get("success"):
+                    logger.info("✅ MCP reindex_vector completed successfully")
+                    return True
+                else:
+                    logger.warning(f"⚠️ MCP reindex_vector failed: {result.get('error')}")
+                    return False
+            finally:
+                await client.disconnect()
+        except Exception as e:
+            logger.error(f"❌ Exception while calling MCP reindex_vector: {e}", exc_info=True)
+            return False
 
     async def _handle_kb_change_event(self, event: KBChangeEvent) -> None:
         """

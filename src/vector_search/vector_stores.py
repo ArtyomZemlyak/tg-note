@@ -72,6 +72,15 @@ class BaseVectorStore(ABC):
         """Load the vector store from disk"""
         pass
 
+    # Optional capabilities (not abstract to keep subclasses compatible)
+    def supports_delete_by_filter(self) -> bool:
+        """Return True if store supports deletion by metadata filter"""
+        return False
+
+    async def delete_by_filter(self, filter_dict: Dict[str, Any]) -> int:
+        """Delete documents matching metadata filter. Returns number deleted if known."""
+        raise NotImplementedError("delete_by_filter is not supported by this vector store")
+
 
 class FAISSVectorStore(BaseVectorStore):
     """FAISS-based local vector store"""
@@ -184,6 +193,14 @@ class FAISSVectorStore(BaseVectorStore):
         self._documents = []
         self._ids = []
         logger.info("Cleared FAISS index")
+
+    def supports_delete_by_filter(self) -> bool:
+        """FAISS (IndexFlatL2) does not support in-place deletions; requires rebuild"""
+        return False
+
+    async def delete_by_filter(self, filter_dict: Dict[str, Any]) -> int:
+        """Not supported for FAISS IndexFlatL2. Use full reindex instead."""
+        raise NotImplementedError("FAISS store does not support delete_by_filter; perform full reindex")
 
     async def get_count(self) -> int:
         """Get number of documents"""
@@ -386,3 +403,27 @@ class QdrantVectorStore(BaseVectorStore):
     async def load(self, path: Path) -> None:
         """Load not needed for Qdrant (persists on server)"""
         logger.info("Qdrant collections are loaded from the server automatically")
+
+    def supports_delete_by_filter(self) -> bool:
+        return True
+
+    async def delete_by_filter(self, filter_dict: Dict[str, Any]) -> int:
+        """Delete points in Qdrant matching payload filter"""
+        from qdrant_client.models import FieldCondition, Filter, MatchValue
+
+        client = self._get_client()
+
+        # Build conditions from exact-match payload fields
+        conditions = [FieldCondition(key=k, match=MatchValue(value=v)) for k, v in filter_dict.items()]
+        q_filter = Filter(must=conditions) if conditions else None
+
+        try:
+            # Delete by filter; Qdrant does not return count synchronously
+            client.delete(collection_name=self.collection_name, points_selector=q_filter)
+            logger.info(
+                f"Deleted documents from Qdrant where {filter_dict} in collection {self.collection_name}"
+            )
+            return -1  # unknown count
+        except Exception as e:
+            logger.error(f"Error deleting by filter in Qdrant: {e}")
+            raise

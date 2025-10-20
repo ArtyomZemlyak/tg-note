@@ -143,7 +143,13 @@ class VectorSearchManager:
         """
         logger.info(f"Starting knowledge base indexing (force={force})")
 
-        stats = {"files_processed": 0, "files_skipped": 0, "chunks_created": 0, "errors": []}
+        stats = {
+            "files_processed": 0,
+            "files_skipped": 0,
+            "chunks_created": 0,
+            "errors": [],
+            "deleted_files": 0,
+        }
 
         # Find all markdown files
         markdown_files = list(self.kb_root_path.rglob("*.md"))
@@ -151,9 +157,13 @@ class VectorSearchManager:
 
         # Check which files need indexing
         files_to_index = []
+        current_files_set = set()
+        file_hash_map: Dict[str, str] = {}
         for file_path in markdown_files:
             rel_path = str(file_path.relative_to(self.kb_root_path))
+            current_files_set.add(rel_path)
             current_hash = self._get_file_hash(file_path)
+            file_hash_map[rel_path] = current_hash
 
             if (
                 force
@@ -166,12 +176,53 @@ class VectorSearchManager:
 
         logger.info(f"Need to index {len(files_to_index)} files (skipped {stats['files_skipped']})")
 
-        if not files_to_index:
+        # Detect deleted files since last run
+        deleted_files = [fp for fp in self._indexed_files.keys() if fp not in current_files_set]
+
+        # If there are deleted files and store supports deletions, remove them
+        if deleted_files:
+            if hasattr(self.vector_store, "supports_delete_by_filter") and self.vector_store.supports_delete_by_filter():
+                for rel_path in deleted_files:
+                    try:
+                        await self.vector_store.delete_by_filter({"file_path": rel_path})
+                        stats["deleted_files"] += 1
+                        # Also drop from metadata
+                        self._indexed_files.pop(rel_path, None)
+                    except Exception as e:
+                        error_msg = f"Error deleting vectors for removed file {rel_path}: {e}"
+                        logger.error(error_msg)
+                        stats["errors"].append(error_msg)
+            else:
+                # If deletions are not supported, perform a full rebuild when any deletion occurs
+                if deleted_files and not force:
+                    logger.info(
+                        "Vector store does not support deletions; performing full reindex to reflect removals"
+                    )
+                    force = True
+
+        # If force became True after deletion detection, rebuild files_to_index as ALL files
+        if force:
+            files_to_index = []
+            for file_path in markdown_files:
+                rel_path = str(file_path.relative_to(self.kb_root_path))
+                files_to_index.append((file_path, rel_path, file_hash_map[rel_path]))
+            stats["files_skipped"] = 0
+
+        if not files_to_index and not force:
+            # If only deletions occurred and we performed them above, persist metadata
+            if stats["deleted_files"] > 0:
+                await self._save_metadata()
             logger.info("No files to index")
             return stats
 
         # Process files
         all_chunks: List[DocumentChunk] = []
+
+        # When force is set (e.g., config change or deleted files with non-deletable backend),
+        # clear the store and rebuild from scratch for accuracy
+        if force:
+            await self.vector_store.clear()
+            self._indexed_files = {}
 
         for file_path, rel_path, file_hash in files_to_index:
             try:
@@ -203,6 +254,7 @@ class VectorSearchManager:
                 stats["errors"].append(error_msg)
 
         # Embed and store chunks
+        saved_metadata = False
         if all_chunks:
             try:
                 logger.info(f"Embedding {len(all_chunks)} chunks")
@@ -229,15 +281,21 @@ class VectorSearchManager:
                 # Save index and metadata
                 await self.vector_store.save(self.index_path)
                 await self._save_metadata()
+                saved_metadata = True
 
             except Exception as e:
                 error_msg = f"Error embedding/storing chunks: {e}"
                 logger.error(error_msg)
                 stats["errors"].append(error_msg)
 
+        # Ensure metadata is saved even when no chunks were embedded (e.g., force clear or deletions only)
+        if not saved_metadata:
+            await self._save_metadata()
+
         logger.info(
             f"Indexing complete: {stats['files_processed']} files, "
-            f"{stats['chunks_created']} chunks, {len(stats['errors'])} errors"
+            f"{stats['chunks_created']} chunks, deleted {stats['deleted_files']}, "
+            f"{len(stats['errors'])} errors"
         )
 
         return stats

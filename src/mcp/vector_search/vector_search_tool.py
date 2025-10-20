@@ -287,8 +287,6 @@ class VectorReindexMCPTool(BaseMCPTool):
         return result
 
 
-# Export all vector search tools
-ALL_TOOLS = [
-    VectorSearchMCPTool(),
-    VectorReindexMCPTool(),
-]
+# Export only vector search tool for agents
+# AICODE-NOTE: Reindexing is bot-container responsibility; do not expose to agent
+ALL_TOOLS = [VectorSearchMCPTool()]
