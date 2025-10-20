@@ -258,6 +258,8 @@ curl -X POST http://localhost:8765/tools/reindex_vector \
   }'
 ```
 
+Актуальная реализация `reindex_vector` и `vector_search` в MCP Hub полностью асинхронная (без nested asyncio и `run_until_complete`). Это позволяет безопасно вызывать инструменты из уже работающего event loop (например, из бота).
+
 Ответ:
 ```json
 {
