@@ -635,8 +635,16 @@ async def get_vector_search_manager() -> Optional[VectorSearchManager]:
         logger.info("=" * 60)
 
         # Get knowledge base path
-        kb_root_path = Path(app_settings.KB_ROOT_PATH)
-        logger.info(f"📁 KB Root: {kb_root_path.absolute()}")
+        kb_root_path = Path(app_settings.KB_PATH)
+        
+        # If KB_TOPICS_ONLY is enabled, restrict indexing to topics/ folder
+        if app_settings.KB_TOPICS_ONLY:
+            kb_root_path = kb_root_path / "topics"
+            logger.info(f"📁 KB Root: {kb_root_path.absolute()} (KB_TOPICS_ONLY=True)")
+            # Ensure topics directory exists
+            kb_root_path.mkdir(parents=True, exist_ok=True)
+        else:
+            logger.info(f"📁 KB Root: {kb_root_path.absolute()} (KB_TOPICS_ONLY=False)")
 
         # Initialize vector search manager
         from src.vector_search import VectorSearchFactory
