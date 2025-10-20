@@ -191,13 +191,15 @@ class VectorSearchMCPTool(BaseMCPTool):
         if not query:
             return {"success": False, "error": "Query is required"}
 
-        # Get user_id from context if available
+        # Get user_id and kb_id from context if available
         user_id = getattr(context, "user_id", None)
+        kb_id = getattr(context, "kb_id", "default")
 
         # Prepare MCP parameters
         mcp_params = {
             "query": query,
             "top_k": top_k,
+            "kb_id": kb_id,
         }
 
         if user_id:
@@ -267,12 +269,14 @@ class VectorReindexMCPTool(BaseMCPTool):
         """
         force = params.get("force", False)
 
-        # Get user_id from context if available
+        # Get user_id and kb_id from context if available
         user_id = getattr(context, "user_id", None)
+        kb_id = getattr(context, "kb_id", "default")
 
         # Prepare MCP parameters
         mcp_params = {
             "force": force,
+            "kb_id": kb_id,
         }
 
         if user_id:

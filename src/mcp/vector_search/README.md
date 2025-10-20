@@ -4,6 +4,13 @@ Flexible vector search capabilities for the knowledge base with support for mult
 
 ## Features
 
+### Knowledge Base Isolation
+
+- **Per-KB Collections**: Each knowledge base gets its own Qdrant collection
+- **Separate Metadata**: Metadata stored in isolated directories
+- **Document Filtering**: Documents include `kb_id` for proper isolation
+- **Scalable**: Support for unlimited knowledge bases
+
 ### Embedding Models
 
 - **sentence-transformers**: Local embeddings (recommended)
@@ -169,12 +176,41 @@ manager = VectorSearchManager(
     embedder=embedder,
     vector_store=vector_store,
     chunker=chunker,
-    kb_root_path=Path("./knowledge_base")
+    # kb_root_path is optional for MCP usage
+    index_path=Path("./data/vector_index"),
+    kb_id="my_knowledge_base"  # Optional: for knowledge base isolation
 )
 
 # Use as before
 await manager.initialize()
 await manager.index_knowledge_base()
+```
+
+### Knowledge Base Isolation Example
+
+```python
+# Different knowledge bases get separate collections and metadata
+kb1_manager = VectorSearchManager(
+    embedder=embedder,
+    vector_store=vector_store,
+    chunker=chunker,
+    kb_id="user_1_kb"  # Creates collection: knowledge_base_user_1_kb
+)
+
+kb2_manager = VectorSearchManager(
+    embedder=embedder,
+    vector_store=vector_store,
+    chunker=chunker,
+    kb_id="user_2_kb"  # Creates collection: knowledge_base_user_2_kb
+)
+
+# Documents are automatically tagged with kb_id
+documents = [
+    {"id": "doc1", "content": "User 1's document", "metadata": {"source": "file1.md"}}
+]
+
+# This document will have kb_id="user_1_kb" in its metadata
+await kb1_manager.add_documents(documents)
 ```
 
 ## Architecture

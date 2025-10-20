@@ -257,6 +257,7 @@ class QdrantVectorStore(BaseVectorStore):
         dimension: int,
         url: str = "http://localhost:6333",
         api_key: Optional[str] = None,
+        kb_id: Optional[str] = None,
     ):
         """
         Initialize Qdrant vector store
@@ -266,8 +267,10 @@ class QdrantVectorStore(BaseVectorStore):
             dimension: Embedding dimension
             url: Qdrant API URL
             api_key: Optional API key for authentication
+            kb_id: Knowledge base ID for collection naming
         """
-        self.collection_name = collection_name
+        self.kb_id = kb_id or "default"
+        self.collection_name = f"{collection_name}_{self.kb_id}" if kb_id and kb_id != "default" else collection_name
         self.dimension = dimension
         self.url = url
         self.api_key = api_key
