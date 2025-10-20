@@ -17,7 +17,7 @@ import aiohttp
 import requests
 from loguru import logger
 
-from config.agent_prompts import QWEN_CODE_AGENT_INSTRUCTION
+from config.agent_prompts import get_qwen_code_agent_instruction
 
 from .base_agent import AgentResult as BaseAgentResult
 from .base_agent import BaseAgent, KBStructure
@@ -231,7 +231,7 @@ class AutonomousAgent(BaseAgent):
     - TODO планирование и автономное выполнение
     """
 
-    DEFAULT_INSTRUCTION = QWEN_CODE_AGENT_INSTRUCTION
+    DEFAULT_INSTRUCTION = get_qwen_code_agent_instruction("en")
 
     def __init__(
         self,

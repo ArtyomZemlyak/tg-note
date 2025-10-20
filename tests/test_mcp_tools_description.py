@@ -13,6 +13,7 @@ import pytest
 from src.agents.autonomous_agent import AutonomousAgent
 from src.agents.qwen_code_cli_agent import QwenCodeCLIAgent
 from src.mcp.tools_description import format_mcp_tools_for_prompt, get_mcp_tools_description
+from src.prompts.registry import PromptRegistry
 
 
 class TestMCPToolsDescription:
@@ -92,6 +93,18 @@ class TestMCPToolsDescription:
         formatted = format_mcp_tools_for_prompt("", include_in_system=True)
 
         assert formatted == ""
+
+    def test_prompt_registry_lookup(self, tmp_path):
+        """PromptRegistry should locate highest version file"""
+        # Create temporary prompt files
+        base = tmp_path / "config" / "prompts" / "demo"
+        base.mkdir(parents=True)
+        (base / "greeting.en.v1.md").write_text("hello v1", encoding="utf-8")
+        (base / "greeting.en.v2.md").write_text("hello v2", encoding="utf-8")
+
+        reg = PromptRegistry(base_dirs=[tmp_path / "config" / "prompts"])
+        latest = reg.get("demo.greeting", locale="en")
+        assert latest == "hello v2"
 
 
 class TestAutonomousAgentMCPIntegration:

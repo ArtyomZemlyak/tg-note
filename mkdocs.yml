@@ -118,6 +118,7 @@ nav:
   - KB Synchronization: architecture/kb-synchronization.md
   - MCP Architecture: architecture/mcp-architecture.md
   - Message DTO: architecture/message-dto.md
+  - Prompt System: architecture/prompt-system.md
 
 - Development:
   - Overview: development/overview.md
