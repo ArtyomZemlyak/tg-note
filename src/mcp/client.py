@@ -204,6 +204,12 @@ class MCPClient:
                 # Parse event data
                 if line_str.startswith("data:") and event_type == "endpoint":
                     data_str = line_str[5:].strip()
+                    
+                    # Check if data is empty before parsing
+                    if not data_str:
+                        logger.debug("[MCPClient] SSE data field is empty, skipping")
+                        continue
+                    
                     try:
                         data_json = json.loads(data_str)
                         logger.debug(f"[MCPClient] SSE endpoint data: {data_json}")
@@ -229,14 +235,23 @@ class MCPClient:
                             )
                             break
                     except json.JSONDecodeError as e:
-                        logger.warning(f"[MCPClient] Failed to parse SSE data: {e}")
+                        logger.warning(
+                            f"[MCPClient] Failed to parse SSE data as JSON: {e}. "
+                            f"Data (first 200 chars): {data_str[:200]}"
+                        )
                         continue
 
             # Close the SSE response (we got what we need)
             response.close()
 
             if not self._session_id:
-                raise RuntimeError("Failed to extract session_id from SSE connection")
+                error_msg = (
+                    f"Failed to extract session_id from SSE endpoint at {sse_url}. "
+                    f"Read {lines_read} lines but no valid session_id found. "
+                    f"Check if the MCP Hub server is running and accessible."
+                )
+                logger.error(f"[MCPClient] {error_msg}")
+                raise RuntimeError(error_msg)
 
             # Derive the JSON-RPC endpoint URL from SSE URL
             parts = urlsplit(self.config.url)
@@ -252,8 +267,16 @@ class MCPClient:
             logger.info(f"[MCPClient] Using RPC endpoint: {self._rpc_url}")
 
         except asyncio.TimeoutError:
-            logger.error("[MCPClient] SSE connection timeout")
-            raise RuntimeError("SSE connection timeout - server did not respond")
+            error_msg = (
+                f"SSE connection timeout - server at {sse_url} did not respond within 10 seconds. "
+                f"Verify that:\n"
+                f"  1. MCP Hub server is running\n"
+                f"  2. URL is correct (currently: {self.config.url})\n"
+                f"  3. Network connectivity is available\n"
+                f"  4. Firewall allows the connection"
+            )
+            logger.error(f"[MCPClient] {error_msg}")
+            raise RuntimeError(error_msg)
         except Exception as e:
             logger.error(f"[MCPClient] Failed to establish SSE connection: {e}", exc_info=True)
             raise RuntimeError(f"SSE connection failed: {e}")

@@ -334,6 +334,68 @@ curl http://localhost:8765/config/client/standard | jq
    - Configs are generated on MCP Hub startup
    - To regenerate: restart MCP Hub service
 
+## Error Handling
+
+### Connection Error Handling
+
+The MCP client (`src/mcp/client.py`) includes comprehensive error handling for connection issues:
+
+**Empty SSE Data:**
+- Checks if SSE data is empty before parsing as JSON
+- Logs debug message and continues reading next event
+- Prevents `JSONDecodeError` on empty data fields
+
+**Connection Timeout:**
+- 10-second timeout for SSE connection establishment
+- Detailed error message with diagnostic checklist:
+  - Verify MCP Hub server is running
+  - Check URL configuration
+  - Verify network connectivity
+  - Check firewall settings
+
+**Session ID Extraction:**
+- Reads up to 100 lines from SSE stream
+- Supports multiple session ID formats:
+  - From `uri` query parameter: `?session_id=abc123`
+  - From data directly: `{"session_id": "abc123"}`
+- Provides detailed error if session ID not found
+
+**Import Error Handling:**
+- `qwen_config_generator.py` handles missing FastMCP dependencies gracefully
+- Falls back to basic memory tools if `mcp_hub_server` can't be imported
+- Logs helpful message suggesting to install with `pip install fastmcp`
+
+### Logging Strategy
+
+**Client-side logging:**
+- `DEBUG`: SSE events, parsed data, connection details
+- `INFO`: Connection established, session ID, available tools
+- `WARNING`: Empty data, parse errors (non-critical)
+- `ERROR`: Connection failures, timeouts, missing session ID
+
+**Example successful connection log:**
+```
+[MCPClient] Connecting to MCP server (SSE): http://mcp-hub:8765/sse
+[MCPClient] Opening SSE connection to http://mcp-hub:8765/sse/
+[MCPClient] SSE event: endpoint
+[MCPClient] SSE endpoint data: {'uri': 'http://mcp-hub:8765/messages/?session_id=abc123'}
+[MCPClient] ✓ SSE session established: abc123
+[MCPClient] Using RPC endpoint: http://mcp-hub:8765/messages/
+[MCPClient] ✓ Connected. Available tools: ['store_memory', 'retrieve_memory', 'list_categories']
+```
+
+**Example connection error log:**
+```
+[MCPClient] Connecting to MCP server (SSE): http://mcp-hub:8765/sse
+[MCPClient] Opening SSE connection to http://mcp-hub:8765/sse/
+[MCPClient] SSE connection timeout - server at http://mcp-hub:8765/sse/ did not respond within 10 seconds.
+  Verify that:
+    1. MCP Hub server is running
+    2. URL is correct (currently: http://mcp-hub:8765/sse)
+    3. Network connectivity is available
+    4. Firewall allows the connection
+```
+
 ## Troubleshooting
 
 ### Issue: Logs show config generation in Docker mode
