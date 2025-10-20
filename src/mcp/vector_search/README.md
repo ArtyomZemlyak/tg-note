@@ -169,7 +169,8 @@ manager = VectorSearchManager(
     embedder=embedder,
     vector_store=vector_store,
     chunker=chunker,
-    kb_root_path=Path("./knowledge_base")
+    # kb_root_path is optional for MCP usage
+    index_path=Path("./data/vector_index")
 )
 
 # Use as before

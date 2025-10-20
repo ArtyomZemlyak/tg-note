@@ -23,7 +23,7 @@ class VectorSearchManager:
         embedder: BaseEmbedder,
         vector_store: BaseVectorStore,
         chunker: DocumentChunker,
-        kb_root_path: Path,
+        kb_root_path: Optional[Path] = None,
         index_path: Optional[Path] = None,
     ):
         """
@@ -33,17 +33,17 @@ class VectorSearchManager:
             embedder: Embedding model
             vector_store: Vector store
             chunker: Document chunker
-            kb_root_path: Knowledge base root path
+            kb_root_path: Knowledge base root path (optional for MCP usage)
             index_path: Path to save/load index
         """
         self.embedder = embedder
         self.vector_store = vector_store
         self.chunker = chunker
-        self.kb_root_path = Path(kb_root_path)
-        self.index_path = index_path or (self.kb_root_path / ".vector_index")
+        self.kb_root_path = Path(kb_root_path) if kb_root_path else None
+        self.index_path = index_path or (self.kb_root_path / ".vector_index" if self.kb_root_path else Path("data/vector_index"))
 
-        # Track indexed files
-        self._indexed_files: Dict[str, str] = {}  # file_path -> content_hash
+        # Track indexed documents
+        self._indexed_documents: Dict[str, str] = {}  # document_id -> content_hash
         self._config_hash: Optional[str] = None
 
     def _get_config_hash(self) -> str:
@@ -114,9 +114,9 @@ class VectorSearchManager:
                 return False
 
             self._config_hash = saved_config_hash
-            self._indexed_files = metadata.get("indexed_files", {})
+            self._indexed_documents = metadata.get("indexed_documents", {})
 
-            logger.info(f"Loaded metadata for {len(self._indexed_files)} indexed files")
+            logger.info(f"Loaded metadata for {len(self._indexed_documents)} indexed documents")
             return True
 
         except Exception as e:
@@ -135,7 +135,7 @@ class VectorSearchManager:
             except Exception as e:
                 logger.warning(f"Failed to load vector store: {e}. Will re-index.")
                 await self.vector_store.clear()
-                self._indexed_files = {}
+                self._indexed_documents = {}
         else:
             # Configuration changed or no index exists
             logger.info("Initializing new vector index")
@@ -244,7 +244,7 @@ class VectorSearchManager:
         if force:
             files_to_index = []
             for file_path in markdown_files:
-                rel_path = str(file_path.relative_to(self.kb_root_path))
+                rel_path = str(file_path.relative_to(kb_root_path))
                 files_to_index.append((file_path, rel_path, file_hash_map[rel_path]))
             stats["files_skipped"] = 0
 

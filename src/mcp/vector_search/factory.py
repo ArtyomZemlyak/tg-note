@@ -216,6 +216,7 @@ class VectorSearchFactory:
                 embedder=embedder,
                 vector_store=vector_store,
                 chunker=chunker,
+                kb_root_path=None,  # MCP doesn't need file system access
                 index_path=index_path,
             )
 
