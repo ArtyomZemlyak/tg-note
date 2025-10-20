@@ -83,6 +83,9 @@ services:
     image: tg-note-bot:latest
     restart: unless-stopped
     env_file: .env
+    environment:
+      # MCP Hub URL for Docker mode (bot connects to hub via HTTP/SSE)
+      - MCP_HUB_URL=http://mcp-hub:8765/sse
     volumes:
       # Persistent storage for knowledge base
       - ./knowledge_base:/app/knowledge_base
