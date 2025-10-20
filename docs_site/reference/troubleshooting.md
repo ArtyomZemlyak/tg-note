@@ -53,6 +53,26 @@ pip install fastmcp
 
 The system will automatically fall back to basic memory tools if fastmcp is not installed.
 
+### Error: "This event loop is already running"
+
+**Symptom:**
+```
+ERROR | __main__:reindex_vector - ❌ Error in reindexing: This event loop is already running
+```
+
+**Cause:** The MCP server functions (`vector_search`, `reindex_vector`) are called from an async context (FastMCP server) but try to run async operations in an already-running event loop.
+
+**Solution:**
+This issue is fixed in the latest version by automatically using `nest-asyncio` when needed. Ensure you have the MCP extras installed:
+
+```bash
+poetry install --extras mcp
+# or
+pip install nest-asyncio
+```
+
+The code now automatically detects when an event loop is running and uses `nest-asyncio` to handle nested async operations.
+
 ### Error: "SSE connection timeout"
 
 **Symptom:**
