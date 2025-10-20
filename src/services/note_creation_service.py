@@ -21,6 +21,7 @@ from src.processor.message_aggregator import MessageGroup
 from src.services.base_kb_service import BaseKBService
 from src.services.interfaces import INoteCreationService, IUserContextManager
 from src.tracker.processing_tracker import ProcessingTracker
+from config.agent_prompts import get_note_mode_instruction
 
 
 class NoteCreationService(BaseKBService, INoteCreationService):
@@ -183,6 +184,13 @@ class NoteCreationService(BaseKBService, INoteCreationService):
             if not await self._check_rate_limit(user_id, chat_id, processing_msg_id):
                 return
 
+            # Temporarily change agent instruction to note mode
+            original_instruction = None
+            if hasattr(user_agent, "get_instruction") and hasattr(user_agent, "set_instruction"):
+                original_instruction = user_agent.get_instruction()
+                user_agent.set_instruction(get_note_mode_instruction("ru"))
+                self.logger.debug(f"Temporarily changed agent instruction to note mode")
+
             try:
                 self.logger.info(f"[NOTE_SERVICE] Processing content with agent for user {user_id}")
                 processed_content = await user_agent.process(content)
@@ -195,6 +203,11 @@ class NoteCreationService(BaseKBService, INoteCreationService):
                     message_id=processing_msg_id,
                 )
                 return
+            finally:
+                # Restore original instruction
+                if original_instruction is not None and hasattr(user_agent, "set_instruction"):
+                    user_agent.set_instruction(original_instruction)
+                    self.logger.debug(f"Restored original agent instruction")
 
             # Save to knowledge base
             await self._save_to_kb(
