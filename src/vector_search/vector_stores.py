@@ -285,8 +285,40 @@ class QdrantVectorStore(BaseVectorStore):
 
                 # Create collection if it doesn't exist
                 try:
-                    self._client.get_collection(self.collection_name)
-                    logger.info(f"Using existing collection: {self.collection_name}")
+                    info = self._client.get_collection(self.collection_name)
+                    # Validate collection vector dimension; recreate if mismatched
+                    current_size = None
+                    try:
+                        # Single vector configuration
+                        current_size = info.config.params.vectors.size  # type: ignore[attr-defined]
+                    except Exception:
+                        try:
+                            # Named vectors configuration
+                            vectors_cfg = info.config.params.vectors  # type: ignore[attr-defined]
+                            if isinstance(vectors_cfg, dict) and vectors_cfg:
+                                # Take the first vector's size
+                                current_size = next(iter(vectors_cfg.values())).size
+                        except Exception:
+                            current_size = None
+
+                    if current_size is not None and int(current_size) != int(self.dimension):
+                        logger.warning(
+                            "Qdrant collection exists but dimension differs "
+                            f"(have {current_size}, need {self.dimension}). Recreating collection."
+                        )
+                        try:
+                            self._client.delete_collection(self.collection_name)
+                        except Exception as del_e:
+                            logger.warning(f"Failed to delete existing collection: {del_e}")
+                        self._client.create_collection(
+                            collection_name=self.collection_name,
+                            vectors_config=VectorParams(size=self.dimension, distance=Distance.COSINE),
+                        )
+                        logger.info(
+                            f"Recreated collection {self.collection_name} with dimension {self.dimension}"
+                        )
+                    else:
+                        logger.info(f"Using existing collection: {self.collection_name}")
                 except Exception:
                     logger.info(f"Creating collection: {self.collection_name}")
                     self._client.create_collection(

@@ -16,6 +16,7 @@ Flexible vector search capabilities for the knowledge base with support for mult
 - **Infinity API**: Self-hosted or remote embeddings
   - Open-source alternative
   - Flexible deployment
+  - Dimension is determined dynamically at runtime
 
 ### Vector Stores
 
@@ -90,7 +91,7 @@ from pathlib import Path
 from src.vector_search import VectorSearchFactory
 from config.settings import settings
 
-# Create vector search manager from settings
+# Create vector search manager from settings (dimension is auto-detected)
 manager = VectorSearchFactory.create_from_settings(
     settings=settings,
     kb_root_path=Path("./knowledge_base")
@@ -269,6 +270,15 @@ docker run -p 6333:6333 qdrant/qdrant
 - Use GPU acceleration
 - Use smaller embedding model
 - Increase chunk size
+
+### Model change and reindexing
+
+- When you change the embedding model (e.g., switch Infinity or OpenAI model), the embedding
+  dimension is detected automatically.
+- The vector search manager includes the embedding dimension in its configuration hash. If it
+  changes, a full reindex will be triggered on the next run.
+- For Qdrant, if an existing collection has a different vector size, it will be recreated
+  automatically with the correct dimension.
 
 ## Examples
 

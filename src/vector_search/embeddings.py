@@ -140,7 +140,8 @@ class OpenAIEmbedder(BaseEmbedder):
         self.api_key = api_key
         self.base_url = base_url
         self._client = None
-        self._dimension = self.DIMENSIONS.get(model_name, 1536)
+        # If model is known, use mapped dimension; otherwise determine dynamically later
+        self._dimension: Optional[int] = self.DIMENSIONS.get(model_name)
 
     def _get_client(self):
         """Lazy load OpenAI client"""
@@ -170,6 +171,13 @@ class OpenAIEmbedder(BaseEmbedder):
             embeddings = [item.embedding for item in response.data]
             all_embeddings.extend(embeddings)
 
+        # Set dimension from first embedding if not yet known
+        if self._dimension is None and all_embeddings:
+            self._dimension = len(all_embeddings[0])
+            logger.info(
+                f"Determined OpenAI embedding dimension from response: {self._dimension}"
+            )
+
         return all_embeddings
 
     async def embed_query(self, query: str) -> List[float]:
@@ -179,7 +187,49 @@ class OpenAIEmbedder(BaseEmbedder):
 
     def get_dimension(self) -> int:
         """Get embedding dimension"""
-        return self._dimension
+        # If we already know it (known model mapping or previously probed), return it
+        if self._dimension is not None:
+            return self._dimension
+
+        # Try to probe synchronously via HTTP (no dependency on openai package)
+        try:
+            import urllib.request
+            import urllib.error
+
+            url_base = self.base_url or "https://api.openai.com/v1"
+            url = f"{url_base.rstrip('/')}/embeddings"
+            headers = {"Content-Type": "application/json"}
+            if self.api_key:
+                headers["Authorization"] = f"Bearer {self.api_key}"
+
+            payload = {
+                "model": self.model_name,
+                "input": ["__dimension_probe__"],
+            }
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode("utf-8"),
+                headers=headers,
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            embeddings = [item.get("embedding", []) for item in data.get("data", [])]
+            if embeddings and isinstance(embeddings[0], list):
+                self._dimension = len(embeddings[0])
+                logger.info(
+                    f"Determined OpenAI embedding dimension dynamically: {self._dimension}"
+                )
+                return self._dimension
+        except Exception as e:
+            logger.warning(
+                f"Failed to determine OpenAI embedding dimension dynamically: {e}"
+            )
+
+        # If we cannot determine dimension, raise to avoid mismatched vector store creation
+        raise RuntimeError(
+            "Unable to determine OpenAI embedding dimension; ensure API connectivity or use a known model."
+        )
 
 
 class InfinityEmbedder(BaseEmbedder):
@@ -200,6 +250,33 @@ class InfinityEmbedder(BaseEmbedder):
         self.api_url = api_url.rstrip("/")
         self.api_key = api_key
         self._dimension: Optional[int] = None
+
+    def _determine_dimension_sync(self) -> int:
+        """Determine embedding dimension synchronously via Infinity API.
+
+        Uses a lightweight single-text embedding request to avoid assumptions about
+        the /models schema. This keeps factory usage synchronous and avoids event loop issues.
+        """
+        import urllib.request
+        import urllib.error
+
+        url = f"{self.api_url}/embeddings"
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+
+        payload = {"model": self.model_name, "input": ["__dimension_probe__"]}
+
+        req = urllib.request.Request(
+            url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+
+        embeddings = [item.get("embedding", []) for item in data.get("data", [])]
+        if not embeddings or not isinstance(embeddings[0], list):
+            raise RuntimeError("Infinity API returned unexpected response for dimension probe")
+        return len(embeddings[0])
 
     async def _make_request(self, texts: List[str]) -> List[List[float]]:
         """Make request to Infinity API"""
@@ -242,5 +319,13 @@ class InfinityEmbedder(BaseEmbedder):
     def get_dimension(self) -> int:
         """Get embedding dimension"""
         if self._dimension is None:
-            raise RuntimeError("Dimension unknown. Call embed_texts() or embed_query() first.")
+            try:
+                self._dimension = self._determine_dimension_sync()
+                logger.info(
+                    f"Determined Infinity embedding dimension dynamically: {self._dimension}"
+                )
+            except Exception as e:
+                raise RuntimeError(
+                    f"Failed to determine Infinity embedding dimension: {e}"
+                )
         return self._dimension
