@@ -20,7 +20,7 @@ import asyncio
 import hashlib
 import json
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 import aiohttp
 from loguru import logger
