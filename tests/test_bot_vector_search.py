@@ -104,9 +104,35 @@ class TestBotVectorSearchManager:
             }
         )
 
-        with patch("aiohttp.ClientSession") as mock_session:
-            ctx_get = mock_session.return_value.__aenter__.return_value.get
-            ctx_get.return_value.__aenter__.return_value = mock_response
+        with patch("aiohttp.ClientSession") as mock_session_class:
+            # Create a mock session that properly handles async context managers
+            mock_session = MagicMock()
+            mock_response_obj = MagicMock()
+            mock_response_obj.status = 200
+            mock_response_obj.json = AsyncMock(
+                return_value={
+                    "status": "ok",
+                    "builtin_tools": {
+                        "total": 5,
+                        "names": [
+                            "vector_search",
+                            "reindex_vector",
+                            "add_vector_documents",
+                            "delete_vector_documents",
+                            "update_vector_documents",
+                        ],
+                    },
+                }
+            )
+
+            # Set up the context manager chain
+            mock_get = MagicMock()
+            mock_get.__aenter__ = AsyncMock(return_value=mock_response_obj)
+            mock_get.__aexit__ = AsyncMock(return_value=None)
+            mock_session.get.return_value = mock_get
+
+            mock_session_class.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session_class.return_value.__aexit__ = AsyncMock(return_value=None)
 
             available = await manager.check_vector_search_availability()
 
@@ -129,9 +155,29 @@ class TestBotVectorSearchManager:
             }
         )
 
-        with patch("aiohttp.ClientSession") as mock_session:
-            ctx_mgr = mock_session.return_value.__aenter__.return_value.get
-            ctx_mgr.return_value.__aenter__.return_value = mock_response
+        with patch("aiohttp.ClientSession") as mock_session_class:
+            # Create a mock session that properly handles async context managers
+            mock_session = MagicMock()
+            mock_response_obj = MagicMock()
+            mock_response_obj.status = 200
+            mock_response_obj.json = AsyncMock(
+                return_value={
+                    "status": "ok",
+                    "builtin_tools": {
+                        "total": 2,
+                        "names": ["store_memory", "retrieve_memory"],
+                    },
+                }
+            )
+
+            # Set up the context manager chain
+            mock_get = MagicMock()
+            mock_get.__aenter__ = AsyncMock(return_value=mock_response_obj)
+            mock_get.__aexit__ = AsyncMock(return_value=None)
+            mock_session.get.return_value = mock_get
+
+            mock_session_class.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session_class.return_value.__aexit__ = AsyncMock(return_value=None)
 
             available = await manager.check_vector_search_availability()
 
@@ -243,6 +289,7 @@ class TestBotVectorSearchManager:
     @pytest.mark.asyncio
     async def test_shutdown(self, manager):
         """Test shutdown functionality"""
+
         # Create a fake reindex task
         async def fake_task():
             await asyncio.sleep(10)
@@ -302,9 +349,29 @@ class TestInitializeVectorSearchForBot:
                 }
             )
 
-            with patch("aiohttp.ClientSession") as mock_session:
-                ctx_mgr = mock_session.return_value.__aenter__.return_value.get
-                ctx_mgr.return_value.__aenter__.return_value = mock_response
+            with patch("aiohttp.ClientSession") as mock_session_class:
+                # Create a mock session that properly handles async context managers
+                mock_session = MagicMock()
+                mock_response_obj = MagicMock()
+                mock_response_obj.status = 200
+                mock_response_obj.json = AsyncMock(
+                    return_value={
+                        "status": "ok",
+                        "builtin_tools": {
+                            "total": 0,
+                            "names": [],
+                        },
+                    }
+                )
+
+                # Set up the context manager chain
+                mock_get = MagicMock()
+                mock_get.__aenter__ = AsyncMock(return_value=mock_response_obj)
+                mock_get.__aexit__ = AsyncMock(return_value=None)
+                mock_session.get.return_value = mock_get
+
+                mock_session_class.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+                mock_session_class.return_value.__aexit__ = AsyncMock(return_value=None)
 
                 result = await initialize_vector_search_for_bot(
                     mcp_hub_url="http://localhost:8765",
@@ -333,9 +400,35 @@ class TestInitializeVectorSearchForBot:
                 }
             )
 
-            with patch("aiohttp.ClientSession") as mock_session:
-                ctx_mgr = mock_session.return_value.__aenter__.return_value.get
-                ctx_mgr.return_value.__aenter__.return_value = mock_response
+            with patch("aiohttp.ClientSession") as mock_session_class:
+                # Create a mock session that properly handles async context managers
+                mock_session = MagicMock()
+                mock_response_obj = MagicMock()
+                mock_response_obj.status = 200
+                mock_response_obj.json = AsyncMock(
+                    return_value={
+                        "status": "ok",
+                        "builtin_tools": {
+                            "total": 5,
+                            "names": [
+                                "vector_search",
+                                "reindex_vector",
+                                "add_vector_documents",
+                                "delete_vector_documents",
+                                "update_vector_documents",
+                            ],
+                        },
+                    }
+                )
+
+                # Set up the context manager chain
+                mock_get = MagicMock()
+                mock_get.__aenter__ = AsyncMock(return_value=mock_response_obj)
+                mock_get.__aexit__ = AsyncMock(return_value=None)
+                mock_session.get.return_value = mock_get
+
+                mock_session_class.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+                mock_session_class.return_value.__aexit__ = AsyncMock(return_value=None)
 
                 result = await initialize_vector_search_for_bot(
                     mcp_hub_url="http://localhost:8765",

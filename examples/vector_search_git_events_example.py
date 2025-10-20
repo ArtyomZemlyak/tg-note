@@ -27,7 +27,7 @@ from src.knowledge_base.git_ops_with_events import GitOpsWithEvents, create_git_
 def demo_event_listener():
     """
     Demo: Listen to git events
-    
+
     This shows how the event system works.
     In production, BotVectorSearchManager subscribes to these events.
     """
@@ -57,7 +57,7 @@ def demo_event_listener():
 def demo_autonomous_agent_workflow():
     """
     Demo: Autonomous Agent (uses tool-based file operations)
-    
+
     This agent publishes events for each file operation AND git commit.
     """
     logger.info("\n" + "=" * 60)
@@ -89,7 +89,7 @@ def demo_autonomous_agent_workflow():
 def demo_qwen_cli_workflow():
     """
     Demo: Qwen CLI Agent (uses internal tools)
-    
+
     This agent ONLY publishes git commit event (we don't see file operations).
     But that's enough!
     """
@@ -174,7 +174,7 @@ def demo_multiple_commits():
 async def demo_with_actual_events():
     """
     Demo: Actually run with events
-    
+
     This would work if you have a real KB repo.
     """
     logger.info("\n" + "=" * 60)

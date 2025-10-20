@@ -265,9 +265,7 @@ class EventBus:
             results = await asyncio.gather(*tasks, return_exceptions=True)
             for i, result in enumerate(results):
                 if isinstance(result, Exception):
-                    logger.error(
-                        f"[EventBus] Async handler {i} failed: {result}", exc_info=result
-                    )
+                    logger.error(f"[EventBus] Async handler {i} failed: {result}", exc_info=result)
 
     def get_subscriber_count(self, event_type: Optional[EventType] = None) -> int:
         """

@@ -56,10 +56,10 @@
 ```python
 @mcp.tool()
 async def add_vector_documents(file_paths: List[str], user_id: int = None) -> dict
-    
+
 @mcp.tool()
 async def delete_vector_documents(file_paths: List[str], user_id: int = None) -> dict
-    
+
 @mcp.tool()
 async def update_vector_documents(file_paths: List[str], user_id: int = None) -> dict
 ```

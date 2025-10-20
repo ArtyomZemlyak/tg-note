@@ -17,7 +17,7 @@
 ### Исходные требования
 
 > Векторный поиск перенести в MCP. Должна быть следующая логика:
-> 
+>
 > 1. Сначала на старте контейнер bot проверяет через API MCP HUB server какие тулзы доступны в MCP (mcp hub все тулзы проверяет и активирует НА СТАРТЕ перед тем как отдает health!)
 > 2. Если доступен векторный поиск тулза, а так же VECTOR_SEARCH_ENABLED: true, то контейнер bot начинает индексацию всех текущих баз знаний (используя реиндекс тулзу mcp)
 > 3. Если что-то где-то в базе знаний изменилось, то контейнер бот тоже запускает реиндекс, но только изменений (смотреть через diff) (изменения: новые файлы, измененные файлы, удаленные файлы)
@@ -44,15 +44,15 @@
 ```python
 class BotVectorSearchManager:
     """Bot-side Vector Search Manager"""
-    
+
     async def check_vector_search_availability() -> bool
     async def perform_initial_indexing(force: bool = False) -> bool
     async def check_and_reindex_changes() -> bool
     async def start_monitoring(check_interval: int = 300) -> None
 
 async def initialize_vector_search_for_bot(
-    mcp_hub_url: str, 
-    kb_root_path: Path, 
+    mcp_hub_url: str,
+    kb_root_path: Path,
     start_monitoring: bool = True
 ) -> Optional[BotVectorSearchManager]
 ```
@@ -102,15 +102,15 @@ if mcp_hub_url:
 async def get_vector_search_manager() -> Optional[VectorSearchManager]:
     """Get or create global vector search manager"""
     global _vector_search_manager
-    
+
     if _vector_search_manager is not None:
         return _vector_search_manager
-    
+
     # ... создание менеджера ...
-    
+
     # AICODE-NOTE: Initialize the vector search manager
     await _vector_search_manager.initialize()
-    
+
     return _vector_search_manager
 ```
 
@@ -208,7 +208,7 @@ Agent
 
 2. Change Detection:
    Monitor → scan files → compute hashes → detect changes → save hashes
-   
+
 3. Vector Search:
    Agent → MCP tool → MCP Hub → VectorSearchManager → Results
 
@@ -255,9 +255,9 @@ VectorSearchManager автоматически определяет какие �
 files_to_index = []
 for file_path in markdown_files:
     current_hash = self._get_file_hash(file_path)
-    
-    if (force 
-        or rel_path not in self._indexed_files 
+
+    if (force
+        or rel_path not in self._indexed_files
         or self._indexed_files[rel_path] != current_hash):
         files_to_index.append((file_path, rel_path, current_hash))
 ```
@@ -271,10 +271,10 @@ async def check_and_reindex_changes() -> bool:
     # Scan current state
     await self._scan_knowledge_bases()
     current_hashes = self._file_hashes
-    
+
     # Detect changes
     changes = self._detect_changes(previous_hashes, current_hashes)
-    
+
     if changes.has_changes():
         logger.info(f"Detected changes: {changes}")
         # Save updated hashes
@@ -302,20 +302,20 @@ VECTOR_SEARCH_ENABLED=true
 ```yaml
 vector_search:
   enabled: true
-  
+
   embedding:
     provider: sentence_transformers
     model: all-MiniLM-L6-v2
-  
+
   vector_store:
     provider: faiss
-  
+
   chunking:
     strategy: fixed_size_overlap
     chunk_size: 512
     chunk_overlap: 50
     respect_headers: true
-  
+
   search:
     top_k: 5
 ```

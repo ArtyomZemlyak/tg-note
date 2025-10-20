@@ -68,32 +68,32 @@ class GitCommandTool(BaseTool):
             success = result.returncode == 0
             if success:
                 logger.info(f"[git_command] ✓ Executed: {command}")
-                
+
                 # Publish git events for specific commands
                 if len(cmd_parts) >= 2:
                     git_subcommand = cmd_parts[1]
-                    
+
                     # Map git commands to events
                     if git_subcommand == "commit":
                         publish_kb_git_event(
                             EventType.KB_GIT_COMMIT,
                             user_id=context.user_id,
                             source="git_command_tool",
-                            command=command
+                            command=command,
                         )
                     elif git_subcommand == "push":
                         publish_kb_git_event(
                             EventType.KB_GIT_PUSH,
                             user_id=context.user_id,
                             source="git_command_tool",
-                            command=command
+                            command=command,
                         )
                     elif git_subcommand == "pull":
                         publish_kb_git_event(
                             EventType.KB_GIT_PULL,
                             user_id=context.user_id,
                             source="git_command_tool",
-                            command=command
+                            command=command,
                         )
             else:
                 logger.warning(f"[git_command] Failed: {command} (code {result.returncode})")

@@ -640,7 +640,7 @@ async def get_vector_search_manager() -> Optional[VectorSearchManager]:
         # AICODE-NOTE: SOLID - Dependency Inversion Principle
         # MCP HUB no longer needs access to KB files.
         # It works with data provided by BOT.
-        
+
         # Set index path (MCP HUB only needs to store vector index)
         index_path = Path("data/vector_index")
         logger.info(f"📁 Vector Index Path: {index_path.absolute()}")
@@ -723,10 +723,12 @@ async def vector_search(query: str, top_k: int = 5, user_id: int = None) -> dict
 
 
 @mcp.tool()
-async def reindex_vector(documents: List[Dict[str, Any]] = None, force: bool = False, user_id: int = None) -> dict:
+async def reindex_vector(
+    documents: List[Dict[str, Any]] = None, force: bool = False, user_id: int = None
+) -> dict:
     """
     Reindex knowledge base for vector search
-    
+
     AICODE-NOTE: BOT sends all documents for reindexing.
     If force=True, clears index first.
 
@@ -765,7 +767,7 @@ async def reindex_vector(documents: List[Dict[str, Any]] = None, force: bool = F
         # If documents provided, add them
         if documents:
             stats = await manager.add_documents(documents=documents)
-            
+
             logger.info(
                 f"✅ Reindexing complete: "
                 f"{stats['documents_processed']} documents processed, "
@@ -794,7 +796,7 @@ async def reindex_vector(documents: List[Dict[str, Any]] = None, force: bool = F
 async def add_vector_documents(documents: List[Dict[str, Any]], user_id: int = None) -> dict:
     """
     Add or update documents to vector search index
-    
+
     AICODE-NOTE: SOLID - Dependency Inversion Principle
     BOT reads files and sends CONTENT, MCP HUB works with DATA only.
 
@@ -850,7 +852,7 @@ async def add_vector_documents(documents: List[Dict[str, Any]], user_id: int = N
 async def delete_vector_documents(document_ids: List[str], user_id: int = None) -> dict:
     """
     Delete documents from vector search index
-    
+
     AICODE-NOTE: Works with document IDs, not file paths
 
     Args:
@@ -898,7 +900,7 @@ async def delete_vector_documents(document_ids: List[str], user_id: int = None) 
 async def update_vector_documents(documents: List[Dict[str, Any]], user_id: int = None) -> dict:
     """
     Update documents in vector search index
-    
+
     AICODE-NOTE: Works with document data, not file paths
 
     Args:

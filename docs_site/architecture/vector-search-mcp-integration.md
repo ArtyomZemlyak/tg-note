@@ -145,7 +145,7 @@
 # main.py
 if settings.VECTOR_SEARCH_ENABLED:
     from src.bot.vector_search_manager import initialize_vector_search_for_bot
-    
+
     vector_search_manager = await initialize_vector_search_for_bot(
         mcp_hub_url=mcp_hub_url,
         kb_root_path=settings.KB_PATH,
@@ -202,10 +202,10 @@ async def get_vector_search_manager() -> Optional[VectorSearchManager]:
     """Создает и инициализирует VectorSearchManager"""
     # Создание из настроек
     manager = VectorSearchFactory.create_from_settings(...)
-    
+
     # Инициализация (загрузка существующего индекса)
     await manager.initialize()
-    
+
     return manager
 ```
 
@@ -264,7 +264,7 @@ async def get_vector_search_manager() -> Optional[VectorSearchManager]:
 ```python
 if enable_vector_search:
     from ..mcp.vector_search import vector_search_tool
-    
+
     for tool in vector_search_tool.ALL_TOOLS:
         tool.enable()
     manager.register_many(vector_search_tool.ALL_TOOLS)
@@ -335,7 +335,7 @@ agent = AutonomousAgent(
 
 1. **Событийный мониторинг** (основной механизм - BOT)
    ```
-   KB событие (create/modify/delete) 
+   KB событие (create/modify/delete)
    → BotVectorSearchManager._handle_kb_change_event()
    → Батчинг изменений (2 секунды)
    → check_and_reindex_changes()
@@ -359,7 +359,7 @@ agent = AutonomousAgent(
 3. **Обработка CRUD операций в MCP Hub**
    ```
    MCP Hub получает запрос от BOT:
-   
+
    add_vector_documents(file_paths):
    → VectorSearchManager.add_documents_by_paths()
    → Чтение файлов
@@ -367,19 +367,19 @@ agent = AutonomousAgent(
    → Embedding
    → Добавление в vector store
    → Обновление metadata
-   
+
    delete_vector_documents(file_paths):
    → VectorSearchManager.delete_documents_by_paths()
    → Если Qdrant: delete_by_filter({"file_path": path})
    → Если FAISS: возврат ошибки (требуется full reindex)
    → Обновление metadata
-   
+
    update_vector_documents(file_paths):
    → VectorSearchManager.update_documents_by_paths()
    → delete_documents_by_paths()
    → add_documents_by_paths()
    → Обновление metadata
-   
+
    reindex_vector(force):
    → VectorSearchManager.index_knowledge_base(force)
    → Полная переиндексация (fallback)
@@ -421,23 +421,23 @@ VECTOR_SEARCH_TOP_K=5
 # Vector Search Configuration
 vector_search:
   enabled: true
-  
+
   # Embedding configuration
   embedding:
     provider: sentence_transformers  # sentence_transformers, openai, infinity
     model: all-MiniLM-L6-v2
-  
+
   # Vector store configuration
   vector_store:
     provider: faiss  # faiss, qdrant
-  
+
   # Chunking configuration
   chunking:
     strategy: fixed_size_overlap  # fixed_size, fixed_size_overlap, semantic
     chunk_size: 512
     chunk_overlap: 50
     respect_headers: true
-  
+
   # Search configuration
   search:
     top_k: 5

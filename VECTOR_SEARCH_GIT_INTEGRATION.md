@@ -98,11 +98,11 @@ Wrapper класс, который extends GitOps:
 ```python
 class GitOpsWithEvents(GitOps):
     """GitOps с автоматической публикацией событий"""
-    
+
     def commit(self, message: str) -> bool:
         # Вызываем оригинальный метод
         success = super().commit(message)
-        
+
         # Если успешно - публикуем событие
         if success:
             publish_git_commit_event(
@@ -110,9 +110,9 @@ class GitOpsWithEvents(GitOps):
                 repo_path=self.repo_path,
                 user_id=self.user_id
             )
-        
+
         return success
-    
+
     def auto_commit_and_push(self, message, remote, branch):
         """
         ГЛАВНАЯ ТОЧКА ИНТЕГРАЦИИ для Qwen CLI!
@@ -135,7 +135,7 @@ def create_git_ops_for_user(
 ) -> GitOps:
     """
     Создает GitOps с или без событий
-    
+
     with_events=True  → GitOpsWithEvents (рекомендуется)
     with_events=False → GitOps (оригинал, без событий)
     """
@@ -221,16 +221,16 @@ Commit - это не только для векторного поиска:
 def on_git_commit(event):
     # 1. Vector search reindexing
     vector_search_manager.trigger_reindex()
-    
+
     # 2. Update documentation
     update_docs()
-    
+
     # 3. Run tests
     run_tests()
-    
+
     # 4. Send notifications
     notify_team()
-    
+
     # 5. Backup
     create_backup()
 ```
@@ -299,19 +299,19 @@ git_ops.auto_commit_and_push()  # ← Автоматически публику�
 def test_git_ops_publishes_commit_event():
     """Test that commit publishes event"""
     events_received = []
-    
+
     # Subscribe to events
     def handler(event):
         events_received.append(event)
-    
+
     get_event_bus().subscribe(EventType.KB_GIT_COMMIT, handler)
-    
+
     # Create GitOps with events
     git_ops = GitOpsWithEvents(repo_path, user_id=123)
-    
+
     # Commit
     git_ops.commit("Test commit")
-    
+
     # Verify event was published
     assert len(events_received) == 1
     assert events_received[0].type == EventType.KB_GIT_COMMIT
@@ -326,15 +326,15 @@ async def test_commit_triggers_reindex():
     # Setup
     vector_manager = await initialize_vector_search_for_bot(...)
     git_ops = GitOpsWithEvents(repo_path, user_id=123)
-    
+
     # Make changes and commit
     Path(repo_path / "new_file.md").write_text("# New content")
     git_ops.add("new_file.md")
     git_ops.commit("Add new file")
-    
+
     # Wait for event processing
     await asyncio.sleep(3)
-    
+
     # Verify reindexing was triggered
     assert vector_manager.last_reindex_time is not None
 ```

@@ -99,19 +99,19 @@ vector_search:
 ```yaml
 vector_search:
   enabled: true
-  
+
   embedding:
     provider: sentence_transformers  # or openai, infinity
     model: all-MiniLM-L6-v2
-  
+
   vector_store:
     provider: faiss  # or qdrant
-  
+
   chunking:
     strategy: fixed_size_overlap
     chunk_size: 512
     chunk_overlap: 50
-  
+
   search:
     top_k: 5
 ```

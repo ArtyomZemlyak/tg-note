@@ -24,7 +24,7 @@ def publish_git_commit_event(
 ) -> None:
     """
     Publish git commit event
-    
+
     AICODE-NOTE: This is the MAIN trigger point for post-commit actions!
     After a commit succeeds, this event notifies all subscribers (e.g., vector search)
     that changes are finalized and ready for processing.
