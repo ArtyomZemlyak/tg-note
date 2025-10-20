@@ -333,6 +333,7 @@ class NoteCreationService(BaseKBService, INoteCreationService):
 
         # AICODE-NOTE: Use base class methods for GitHub URL and file change formatting
         github_base = self._get_github_base_url(kb_path, user_id)
+        kb_topics_only = self.settings_manager.get_setting(user_id, "KB_TOPICS_ONLY")
 
         # Normalize created files for duplicate filtering
         def _normalize_path_str(p: str) -> str:
@@ -345,13 +346,13 @@ class NoteCreationService(BaseKBService, INoteCreationService):
 
         # AICODE-NOTE: Use base class method for file change formatting
         file_change_parts = self._format_file_changes(
-            files_created, files_edited_unique, [], folders_created, github_base, files_created_norm
+            files_created, files_edited_unique, [], folders_created, github_base, files_created_norm, kb_topics_only
         )
         message_parts.extend(file_change_parts)
 
         # AICODE-NOTE: Use base class method for links/relations filtering and formatting
         links = metadata.get("links", []) or metadata.get("relations", [])
-        link_parts = self._filter_and_format_links(links, files_created, kb_path, github_base)
+        link_parts = self._filter_and_format_links(links, files_created, kb_path, github_base, kb_topics_only)
         message_parts.extend(link_parts)
 
         await self.bot.edit_message_text(

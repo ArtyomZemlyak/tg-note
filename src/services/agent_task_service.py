@@ -317,10 +317,11 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
 
         # AICODE-NOTE: Use base class method for GitHub URL generation
         github_base = self._get_github_base_url(kb_path, user_id)
+        kb_topics_only = self.settings_manager.get_setting(user_id, "KB_TOPICS_ONLY")
 
         # AICODE-NOTE: Use base class method for file change formatting
         file_change_parts = self._format_file_changes(
-            files_created, files_edited, files_deleted, folders_created, github_base
+            files_created, files_edited, files_deleted, folders_created, github_base, None, kb_topics_only
         )
         # Convert to newline-terminated strings for agent service formatting
         message_parts.extend(
@@ -330,7 +331,7 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
         # AICODE-NOTE: Use base class method for links/relations filtering and formatting
         metadata = result.get("metadata", {}) or {}
         links = metadata.get("links", []) or metadata.get("relations", [])
-        link_parts = self._filter_and_format_links(links, files_created, kb_path, github_base)
+        link_parts = self._filter_and_format_links(links, files_created, kb_path, github_base, kb_topics_only)
         # Convert to newline-terminated strings for agent service formatting
         message_parts.extend(
             [part + "\n" if not part.endswith("\n") else part for part in link_parts]
