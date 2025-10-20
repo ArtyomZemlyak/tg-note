@@ -16,15 +16,15 @@ from loguru import logger
 
 from config.agent_prompts import (
     CATEGORY_KEYWORDS,
-    CONTENT_PROCESSING_PROMPT_TEMPLATE,
     DEFAULT_CATEGORY,
     MAX_SUMMARY_LENGTH,
     MAX_TAG_COUNT,
     MAX_TITLE_LENGTH,
     MIN_KEYWORD_LENGTH,
-    QWEN_CODE_CLI_AGENT_INSTRUCTION,
     STOP_WORDS,
-    URLS_SECTION_TEMPLATE,
+    get_content_processing_template,
+    get_qwen_code_cli_instruction,
+    get_urls_section_template,
 )
 
 from .base_agent import BaseAgent, KBStructure
@@ -42,7 +42,7 @@ class QwenCodeCLIAgent(BaseAgent):
     - Configurable instruction system
     """
 
-    DEFAULT_INSTRUCTION = QWEN_CODE_CLI_AGENT_INSTRUCTION
+    DEFAULT_INSTRUCTION = get_qwen_code_cli_instruction("ru")
 
     def __init__(
         self,
@@ -385,10 +385,10 @@ class QwenCodeCLIAgent(BaseAgent):
             urls_section = ""
             if urls:
                 url_list = "\n".join([f"- {url}" for url in urls])
-                urls_section = URLS_SECTION_TEMPLATE.format(url_list=url_list)
+                urls_section = get_urls_section_template("ru").format(url_list=url_list)
 
             # Use template from config
-            base_prompt = CONTENT_PROCESSING_PROMPT_TEMPLATE.format(
+            base_prompt = get_content_processing_template("ru").format(
                 instruction=self.instruction, text=text, urls_section=urls_section
             )
 
@@ -420,10 +420,10 @@ class QwenCodeCLIAgent(BaseAgent):
         urls_section = ""
         if urls:
             url_list = "\n".join([f"- {url}" for url in urls])
-            urls_section = URLS_SECTION_TEMPLATE.format(url_list=url_list)
+            urls_section = get_urls_section_template("ru").format(url_list=url_list)
 
         # Use template from config
-        return CONTENT_PROCESSING_PROMPT_TEMPLATE.format(
+        return get_content_processing_template("ru").format(
             instruction=self.instruction, text=text, urls_section=urls_section
         )
 

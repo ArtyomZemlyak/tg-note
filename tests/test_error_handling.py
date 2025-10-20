@@ -11,6 +11,7 @@ import pytest
 from src.agents.base_agent import KBStructure
 from src.agents.qwen_code_cli_agent import QwenCodeCLIAgent
 from src.knowledge_base.manager import KnowledgeBaseManager
+from src.prompts.registry import PromptRegistry
 
 
 class TestKBStructureErrorHandling:
@@ -102,6 +103,12 @@ class TestQwenCodeCLIAgentErrorHandling:
             await agent.process(invalid_content)
 
         assert "must be a dict with 'text' key" in str(exc_info.value)
+
+    def test_prompt_registry_not_found(self, tmp_path):
+        """Registry raises FileNotFoundError for missing prompt"""
+        reg = PromptRegistry(base_dirs=[tmp_path / "config" / "prompts"])
+        with pytest.raises(FileNotFoundError):
+            reg.get("missing.key", locale="ru")
 
     @pytest.mark.asyncio
     async def test_execute_cli_non_zero_exit(self, agent):

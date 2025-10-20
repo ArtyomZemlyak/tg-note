@@ -10,7 +10,7 @@ from typing import Optional
 
 from loguru import logger
 
-from config.agent_prompts import ASK_MODE_AGENT_INSTRUCTION, KB_QUERY_PROMPT_TEMPLATE
+from config.agent_prompts import get_ask_mode_instruction, get_kb_query_template
 from src.bot.bot_port import BotPort
 from src.bot.settings_manager import SettingsManager
 from src.bot.utils import escape_markdown, split_long_message
@@ -237,7 +237,7 @@ class QuestionAnsweringService(IQuestionAnsweringService):
         original_instruction = None
         if hasattr(user_agent, "get_instruction") and hasattr(user_agent, "set_instruction"):
             original_instruction = user_agent.get_instruction()
-            user_agent.set_instruction(ASK_MODE_AGENT_INSTRUCTION)
+            user_agent.set_instruction(get_ask_mode_instruction("ru"))
             self.logger.debug(f"Temporarily changed agent instruction to ask mode")
 
         # Get conversation context
@@ -246,9 +246,9 @@ class QuestionAnsweringService(IQuestionAnsweringService):
         # Prepare query prompt with appropriate path (based on KB_TOPICS_ONLY setting)
         # Include context if available
         if context:
-            query_prompt = f"{context}\n\n{KB_QUERY_PROMPT_TEMPLATE.format(kb_path=str(agent_working_dir), question=question)}"
+            query_prompt = f"{context}\n\n{get_kb_query_template('ru').format(kb_path=str(agent_working_dir), question=question)}"
         else:
-            query_prompt = KB_QUERY_PROMPT_TEMPLATE.format(
+            query_prompt = get_kb_query_template("ru").format(
                 kb_path=str(agent_working_dir), question=question
             )
 

@@ -8,6 +8,7 @@ import pytest
 
 from src.agents.base_agent import BaseAgent, KBStructure
 from src.agents.qwen_code_cli_agent import QwenCodeCLIAgent
+from src.prompts.registry import prompt_registry
 
 
 class TestQwenCodeCLIAgent:
@@ -89,6 +90,11 @@ class TestQwenCodeCLIAgent:
         assert "Базу Знаний" in prompt  # Instruction mentions knowledge base in Russian
         assert "```" in prompt  # Markdown code blocks are mentioned in instruction
         assert agent.instruction in prompt
+
+    def test_registry_fallback_latest_version(self):
+        """Registry returns latest version when no version specified"""
+        text = prompt_registry.get("qwen_code_cli.instruction", locale="ru")
+        assert isinstance(text, str) and len(text) > 0
 
     def test_prepare_prompt_no_urls(self, agent):
         """Test prompt preparation without URLs"""
