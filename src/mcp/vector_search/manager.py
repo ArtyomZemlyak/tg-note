@@ -79,6 +79,10 @@ class VectorSearchManager:
         content = file_path.read_text(encoding="utf-8", errors="ignore")
         return hashlib.md5(content.encode()).hexdigest()
 
+    def _get_content_hash(self, content: str) -> str:
+        """Get hash of content string"""
+        return hashlib.md5(content.encode()).hexdigest()
+
     async def _save_metadata(self) -> None:
         """Save indexing metadata"""
         metadata = {
@@ -207,7 +211,7 @@ class VectorSearchManager:
             rel_path = str(file_path.relative_to(kb_root_path))
             current_files_set.add(rel_path)
             content = file_path.read_text(encoding="utf-8", errors="ignore")
-            current_hash = hashlib.md5(content.encode()).hexdigest()
+            current_hash = self._get_content_hash(content)
             file_hash_map[rel_path] = current_hash
 
             if (
@@ -455,7 +459,7 @@ class VectorSearchManager:
                     continue
 
                 # Compute hash
-                content_hash = hashlib.md5(content.encode()).hexdigest()
+                content_hash = self._get_content_hash(content)
 
                 # Merge metadata
                 metadata = {
