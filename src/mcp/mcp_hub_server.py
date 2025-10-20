@@ -665,7 +665,7 @@ async def get_vector_search_manager() -> Optional[VectorSearchManager]:
 
 
 @mcp.tool()
-def vector_search(query: str, top_k: int = 5, user_id: int = None) -> dict:
+async def vector_search(query: str, top_k: int = 5, user_id: int = None) -> dict:
     """
     Perform semantic vector search in knowledge base
 
@@ -691,25 +691,14 @@ def vector_search(query: str, top_k: int = 5, user_id: int = None) -> dict:
         logger.info(f"  User: {user_id}")
 
     try:
-        # Perform search (sync wrapper for async method)
-        import asyncio
-
-        # Get or create event loop
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        manager = loop.run_until_complete(get_vector_search_manager())
+        # Perform search using async/await
+        manager = await get_vector_search_manager()
 
         if not manager:
             return {"success": False, "error": "Vector search is not enabled or not configured"}
 
-        if asyncio.iscoroutinefunction(manager.search):
-            results = loop.run_until_complete(manager.search(query=query, top_k=top_k))
-        else:
-            results = manager.search(query=query, top_k=top_k)
+        # Call the async search method
+        results = await manager.search(query=query, top_k=top_k)
 
         logger.info(f"✅ Vector search successful: found {len(results)} results")
 
@@ -727,7 +716,7 @@ def vector_search(query: str, top_k: int = 5, user_id: int = None) -> dict:
 
 
 @mcp.tool()
-def reindex_vector(force: bool = False, user_id: int = None) -> dict:
+async def reindex_vector(force: bool = False, user_id: int = None) -> dict:
     """
     Reindex knowledge base for vector search
 
@@ -751,25 +740,14 @@ def reindex_vector(force: bool = False, user_id: int = None) -> dict:
         logger.info(f"  User: {user_id}")
 
     try:
-        # Perform reindexing (sync wrapper for async method)
-        import asyncio
-
-        # Get or create event loop
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        manager = loop.run_until_complete(get_vector_search_manager())
+        # Perform reindexing using async/await
+        manager = await get_vector_search_manager()
 
         if not manager:
             return {"success": False, "error": "Vector search is not enabled or not configured"}
 
-        if asyncio.iscoroutinefunction(manager.index_knowledge_base):
-            stats = loop.run_until_complete(manager.index_knowledge_base(force=force))
-        else:
-            stats = manager.index_knowledge_base(force=force)
+        # Call the async index_knowledge_base method
+        stats = await manager.index_knowledge_base(force=force)
 
         logger.info(
             f"✅ Reindexing complete: "
