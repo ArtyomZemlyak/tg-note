@@ -71,6 +71,17 @@ class MCPClient:
     1. stdio: Launches MCP server as subprocess (JSON-RPC over stdin/stdout)
     2. sse: Connects to HTTP/SSE endpoint (JSON-RPC over HTTP Server-Sent Events)
 
+    FastMCP SSE Protocol:
+    - Client opens SSE connection (GET /sse/) and keeps it open
+    - Server sends session_id via SSE 'endpoint' event
+    - Client sends JSON-RPC requests via POST to /messages/?session_id=xxx
+    - Server sends responses back via SSE stream as 'message' events
+    - SSE connection must remain open to receive responses
+    
+    IMPORTANT: The SSE connection is NOT closed after getting the session_id.
+    It must remain open to receive JSON-RPC responses from the server.
+    Closing it prematurely causes ClosedResourceError on the server side.
+
     Supported operations:
     - Tools: list_tools(), call_tool()
     - Resources: list_resources(), read_resource()
@@ -110,6 +121,11 @@ class MCPClient:
         self._rpc_url: Optional[str] = None
         # AICODE-NOTE: Store session_id for FastMCP SSE protocol
         self._session_id: Optional[str] = None
+        # AICODE-NOTE: Keep SSE response open to receive server messages
+        self._sse_response: Optional[aiohttp.ClientResponse] = None
+        self._sse_reader_task: Optional[asyncio.Task] = None
+        # AICODE-NOTE: Pending requests waiting for responses from SSE stream
+        self._pending_requests: Dict[int, asyncio.Future] = {}
 
     async def connect(self) -> bool:
         """
@@ -262,9 +278,8 @@ class MCPClient:
                             )
                             continue
 
-            # Close the SSE response (we got what we need)
-            response.close()
-
+            # AICODE-NOTE: Keep SSE response open to receive server messages
+            # DO NOT close the response - we need it to receive JSON-RPC responses
             if not self._session_id:
                 error_msg = (
                     f"Failed to extract session_id from SSE endpoint at {sse_url}. "
@@ -286,6 +301,11 @@ class MCPClient:
                 self._rpc_url = urlunsplit((parts.scheme, parts.netloc, "/messages/", "", ""))
 
             logger.info(f"[MCPClient] Using RPC endpoint: {self._rpc_url}")
+
+            # Store SSE response and start background task to read from stream
+            self._sse_response = response
+            self._sse_reader_task = asyncio.create_task(self._sse_reader())
+            logger.debug("[MCPClient] Started SSE reader task")
 
         except asyncio.TimeoutError:
             error_msg = (
@@ -346,6 +366,20 @@ class MCPClient:
 
     async def disconnect(self) -> None:
         """Disconnect from MCP server"""
+        # Cancel SSE reader task if running
+        if self._sse_reader_task and not self._sse_reader_task.done():
+            self._sse_reader_task.cancel()
+            try:
+                await self._sse_reader_task
+            except asyncio.CancelledError:
+                pass
+            self._sse_reader_task = None
+
+        # Close SSE response if open
+        if self._sse_response:
+            self._sse_response.close()
+            self._sse_response = None
+
         if self.process:
             try:
                 self.process.terminate()
@@ -593,6 +627,66 @@ class MCPClient:
             logger.error(f"[MCPClient] stdio request failed: {e}", exc_info=True)
             return None
 
+    async def _sse_reader(self) -> None:
+        """
+        Background task to read responses from SSE stream.
+        
+        FastMCP sends JSON-RPC responses as SSE 'message' events.
+        This task reads those events and matches them to pending requests.
+        """
+        if not self._sse_response:
+            logger.error("[MCPClient] SSE reader started but no response available")
+            return
+        
+        try:
+            logger.debug("[MCPClient] SSE reader task started")
+            event_type = None
+            
+            async for line in self._sse_response.content:
+                line_str = line.decode("utf-8").strip()
+                
+                # Skip empty lines
+                if not line_str:
+                    continue
+                
+                # Parse event type
+                if line_str.startswith("event:"):
+                    event_type = line_str[6:].strip()
+                    continue
+                
+                # Parse event data
+                if line_str.startswith("data:"):
+                    data_str = line_str[5:].strip()
+                    
+                    if not data_str:
+                        continue
+                    
+                    # Only process 'message' events (JSON-RPC responses)
+                    if event_type == "message":
+                        try:
+                            response = json.loads(data_str)
+                            
+                            # Match response to pending request by ID
+                            if "id" in response and response["id"] in self._pending_requests:
+                                future = self._pending_requests.pop(response["id"])
+                                if not future.done():
+                                    future.set_result(response)
+                                    logger.debug(f"[MCPClient] Matched response for request ID {response['id']}")
+                            else:
+                                logger.debug(f"[MCPClient] Received response with no matching request: {response.get('id')}")
+                                
+                        except json.JSONDecodeError as e:
+                            logger.warning(f"[MCPClient] Failed to parse SSE message data: {e}")
+                            continue
+                    
+        except asyncio.CancelledError:
+            logger.debug("[MCPClient] SSE reader task cancelled")
+            raise
+        except Exception as e:
+            logger.error(f"[MCPClient] SSE reader task error: {e}", exc_info=True)
+        finally:
+            logger.debug("[MCPClient] SSE reader task finished")
+
     async def _send_request_http(
         self, method: str, params: Dict[str, Any]
     ) -> Optional[Dict[str, Any]]:
@@ -611,18 +705,33 @@ class MCPClient:
             url_with_session = f"{self._rpc_url}?{urlencode({'session_id': self._session_id})}"
 
             try:
+                # Create a Future to wait for the response from SSE stream
+                future = asyncio.get_event_loop().create_future()
+                self._pending_requests[self._request_id] = future
+                
+                # Send the request (server returns 202 Accepted, response comes via SSE)
                 async with self.session.post(
                     url_with_session, json=request, timeout=aiohttp.ClientTimeout(total=30)
                 ) as response:
-                    if response.status in (200, 202):  # 202 Accepted is also valid
-                        result = await response.json()
-                        return result
-                    else:
+                    if response.status not in (200, 202):
+                        # Remove pending request on error
+                        self._pending_requests.pop(self._request_id, None)
                         logger.error(
                             f"[MCPClient] HTTP request failed with status {response.status} at {url_with_session}"
                         )
                         return None
+                
+                # Wait for response from SSE stream (with timeout)
+                try:
+                    result = await asyncio.wait_for(future, timeout=30.0)
+                    return result
+                except asyncio.TimeoutError:
+                    self._pending_requests.pop(self._request_id, None)
+                    logger.error(f"[MCPClient] Timeout waiting for response to request ID {self._request_id}")
+                    return None
+                    
             except Exception as e:
+                self._pending_requests.pop(self._request_id, None)
                 logger.error(f"[MCPClient] HTTP request exception: {e}", exc_info=True)
                 return None
 
