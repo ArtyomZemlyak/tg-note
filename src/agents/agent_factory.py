@@ -75,6 +75,7 @@ class AgentFactory:
             "enable_shell": settings.AGENT_ENABLE_SHELL,
             "enable_file_management": settings.AGENT_ENABLE_FILE_MANAGEMENT,
             "enable_folder_management": settings.AGENT_ENABLE_FOLDER_MANAGEMENT,
+            "enable_vector_search": settings.VECTOR_SEARCH_ENABLED,  # AICODE-NOTE: Enable vector search if configured
             "enable_mcp": settings.AGENT_ENABLE_MCP,
             "enable_mcp_memory": settings.AGENT_ENABLE_MCP_MEMORY,
             "qwen_cli_path": settings.AGENT_QWEN_CLI_PATH,
@@ -167,6 +168,7 @@ def _create_autonomous_agent(config: Dict) -> AutonomousAgent:
         enable_shell=config.get("enable_shell", False),
         enable_file_management=config.get("enable_file_management", True),
         enable_folder_management=config.get("enable_folder_management", True),
+        enable_vector_search=config.get("enable_vector_search", False),  # AICODE-NOTE: Vector search via MCP
         enable_mcp=config.get("enable_mcp", False),
         enable_mcp_memory=config.get("enable_mcp_memory", False),
         kb_root_path=kb_root_path,

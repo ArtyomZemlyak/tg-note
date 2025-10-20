@@ -60,6 +60,7 @@ async def main():
         mcp_server_manager = container.get("mcp_server_manager")
 
         # Auto-start MCP servers if enabled
+        vector_search_manager = None
         if settings.AGENT_ENABLE_MCP or settings.AGENT_ENABLE_MCP_MEMORY:
             logger.info("MCP is enabled, auto-starting MCP servers...")
             await mcp_server_manager.auto_start_servers()
@@ -69,6 +70,36 @@ async def main():
             if mcp_hub_url:
                 try:
                     await _wait_for_mcp_hub_ready_and_log_servers(mcp_hub_url)
+
+                    # Initialize vector search if enabled and available
+                    if settings.VECTOR_SEARCH_ENABLED:
+                        from src.bot.vector_search_manager import initialize_vector_search_for_bot
+
+                        logger.info("=" * 60)
+                        logger.info("🔍 VECTOR SEARCH INITIALIZATION")
+                        logger.info("=" * 60)
+
+                        try:
+                            vector_search_manager = await initialize_vector_search_for_bot(
+                                mcp_hub_url=mcp_hub_url,
+                                kb_root_path=settings.KB_PATH,
+                                start_monitoring=True,
+                            )
+
+                            if vector_search_manager:
+                                logger.info("✅ Vector search fully initialized for bot container")
+                            else:
+                                logger.info(
+                                    "ℹ️  Vector search initialization skipped "
+                                    "(disabled or not available)"
+                                )
+                        except Exception as e:
+                            logger.warning(
+                                f"⚠️  Vector search initialization failed: {e}", exc_info=True
+                            )
+
+                        logger.info("=" * 60)
+
                 except Exception as e:
                     logger.warning(f"MCP Hub health check failed: {e}")
         else:
