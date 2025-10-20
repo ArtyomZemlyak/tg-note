@@ -28,6 +28,7 @@ class UniversalMCPConfigGenerator:
         user_id: Optional[int] = None,
         http_port: int = 8765,
         mcp_hub_url: Optional[str] = None,
+        available_tools: Optional[List[str]] = None,
     ):
         """
         Initialize universal config generator
@@ -36,15 +37,49 @@ class UniversalMCPConfigGenerator:
             user_id: Optional user ID for per-user MCP servers
             http_port: Port for HTTP server (default: 8765)
             mcp_hub_url: Custom MCP Hub URL (for Docker environments). If not provided, auto-detected.
+            available_tools: List of available tools (if None, will be auto-detected)
         """
         self.user_id = user_id
         self.http_port = http_port
         self.mcp_hub_url = mcp_hub_url
+        self.available_tools = available_tools
         self.project_root = Path(__file__).parent.parent.parent.resolve()
 
         # Auto-detect Docker environment if URL not provided
         if self.mcp_hub_url is None:
             self.mcp_hub_url = self._detect_mcp_hub_url()
+
+        # Auto-detect available tools if not provided
+        if self.available_tools is None:
+            self.available_tools = self._detect_available_tools()
+
+    def _detect_available_tools(self) -> List[str]:
+        """
+        Detect available MCP tools based on current configuration
+
+        Returns:
+            List of available tool names
+        """
+        try:
+            # Try to import and call get_builtin_tools from mcp_hub_server
+            # This ensures we always use the current available tools
+            import sys
+            from pathlib import Path
+
+            # Add src to path if not already there
+            src_path = str(Path(__file__).parent.parent.resolve())
+            if src_path not in sys.path:
+                sys.path.insert(0, src_path)
+
+            from mcp.mcp_hub_server import get_builtin_tools
+
+            tools = get_builtin_tools()
+            logger.info(f"[UniversalMCPConfig] Detected {len(tools)} available tools: {tools}")
+            return tools
+        except Exception as e:
+            logger.warning(f"[UniversalMCPConfig] Failed to detect available tools: {e}")
+            # Fallback to basic memory tools
+            return ["store_memory", "retrieve_memory", "list_categories"]
 
     def _detect_mcp_hub_url(self) -> str:
         """
@@ -91,16 +126,15 @@ class UniversalMCPConfigGenerator:
         Returns:
             Configuration dict with mcpServers
         """
+        tools_desc = ", ".join(self.available_tools) if self.available_tools else "various tools"
+
         config = {
             "mcpServers": {
                 "mcp-hub": {
                     "url": self.mcp_hub_url,
                     "timeout": 10000,
                     "trust": True,
-                    "description": (
-                        "MCP Hub - Unified MCP gateway with built-in memory tools. "
-                        "Provides: store_memory, retrieve_memory, list_categories"
-                    ),
+                    "description": (f"MCP Hub - Unified MCP gateway. " f"Provides: {tools_desc}"),
                 }
             }
         }
@@ -172,13 +206,16 @@ class UniversalMCPConfigGenerator:
         qwen_dir.mkdir(parents=True, exist_ok=True)
         settings_file = qwen_dir / "settings.json"
 
+        # ALWAYS regenerate to ensure tools are up to date
         # Load existing settings if present
         existing_config = {}
         if settings_file.exists():
             try:
                 with open(settings_file, "r", encoding="utf-8") as f:
                     existing_config = json.load(f)
-                logger.info(f"Loaded existing qwen config from {settings_file}")
+                logger.info(
+                    f"Loaded existing qwen config from {settings_file} (will update with current tools)"
+                )
             except Exception as e:
                 logger.warning(f"Failed to load existing config: {e}")
 
@@ -247,13 +284,16 @@ class UniversalMCPConfigGenerator:
 
         claude_config_path.parent.mkdir(parents=True, exist_ok=True)
 
+        # ALWAYS regenerate to ensure tools are up to date
         # Load existing config if present
         existing_config = {}
         if claude_config_path.exists():
             try:
                 with open(claude_config_path, "r", encoding="utf-8") as f:
                     existing_config = json.load(f)
-                logger.info(f"Loaded existing Claude config from {claude_config_path}")
+                logger.info(
+                    f"Loaded existing Claude config from {claude_config_path} (will update with current tools)"
+                )
             except Exception as e:
                 logger.warning(f"Failed to load existing Claude config: {e}")
 

@@ -159,6 +159,8 @@ curl http://localhost:7997/health
 curl http://localhost:8765/health
 ```
 
+**Важно**: При использовании external embedding providers (infinity или openai), локальная установка `sentence-transformers` **не требуется**, так как эмбеддинги генерируются внешним сервисом. Требуется только установка vector store backend (faiss-cpu или qdrant-client).
+
 ## Модели эмбеддингов
 
 ### Рекомендуемые модели для Infinity
@@ -453,8 +455,13 @@ INFINITY_BATCH_SIZE=64
 
 **Решение**:
 1. Проверить `VECTOR_SEARCH_ENABLED=true` в config.yaml
-2. Убедиться, что Qdrant и Infinity запущены
-3. Проверить сетевое подключение между контейнерами
+2. Проверить правильность настройки `VECTOR_EMBEDDING_PROVIDER`:
+   - Для `infinity` или `openai`: НЕ требуется установка `sentence-transformers`
+   - Для `sentence_transformers`: требуется `pip install sentence-transformers`
+3. Убедиться, что установлен хотя бы один vector store:
+   - `pip install faiss-cpu` ИЛИ `pip install qdrant-client`
+4. Убедиться, что Qdrant и Infinity запущены
+5. Проверить сетевое подключение между контейнерами
 
 ```bash
 # Проверить сеть
