@@ -46,7 +46,7 @@ from src.mcp.memory.memory_storage import MemoryStorage
 from src.mcp.registry.registry import MCPServerRegistry, MCPServerSpec
 
 # Import vector search components
-from src.vector_search import VectorSearchManager
+from src.mcp.vector_search import VectorSearchManager
 
 # Configure logger
 log_dir = Path("logs")
@@ -647,7 +647,7 @@ async def get_vector_search_manager() -> Optional[VectorSearchManager]:
             logger.info(f"📁 KB Root: {kb_root_path.absolute()} (KB_TOPICS_ONLY=False)")
 
         # Initialize vector search manager
-        from src.vector_search import VectorSearchFactory
+        from src.mcp.vector_search import VectorSearchFactory
 
         _vector_search_manager = VectorSearchFactory.create_from_settings(
             settings=app_settings, kb_root_path=kb_root_path

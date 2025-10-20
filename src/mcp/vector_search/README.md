@@ -1,27 +1,4 @@
-# Vector Search Module (DEPRECATED)
-
-⚠️ **DEPRECATION NOTICE**: This module has been moved to `src.mcp.vector_search`.
-
-Please update your imports:
-```python
-# Old (deprecated)
-from src.vector_search import VectorSearchManager
-
-# New (recommended)
-from src.mcp.vector_search import VectorSearchManager
-```
-
-## New Architecture
-
-Vector search has been refactored into the MCP Hub:
-- **MCP Hub** (`src/mcp/vector_search/`) - Provides vector search functionality and DB editing
-- **Bot Manager** (`src/bot/vector_search_manager.py`) - Manages when to trigger operations
-
-See `src/mcp/vector_search/README.md` for current documentation.
-
----
-
-# Legacy Documentation
+# Vector Search Module
 
 Flexible vector search capabilities for the knowledge base with support for multiple embedding models and vector stores.
 
@@ -111,7 +88,7 @@ VECTOR_SEARCH_TOP_K: 5
 
 ```python
 from pathlib import Path
-from src.vector_search import VectorSearchFactory
+from src.mcp.vector_search import VectorSearchFactory
 from config.settings import settings
 
 # Create vector search manager from settings (dimension is auto-detected)
@@ -139,34 +116,32 @@ for result in results:
 ### With Autonomous Agent
 
 ```python
-from src.agents.autonomous_agent import AutonomousAgent
-from src.vector_search import VectorSearchFactory
+# AICODE-NOTE: Vector search is now integrated via MCP Hub
+# The bot container manages when to trigger reindexing based on KB changes
 
-# Create vector search manager
-manager = VectorSearchFactory.create_from_settings(
-    settings=settings,
-    kb_root_path=kb_root_path
-)
+from src.bot.vector_search_manager import initialize_vector_search_for_bot
 
-# Initialize
-await manager.initialize()
-await manager.index_knowledge_base()
-
-# Create agent with vector search
-agent = AutonomousAgent(
-    llm_connector=llm_connector,
+# Initialize vector search for bot (checks availability, performs initial indexing)
+vector_search_manager = await initialize_vector_search_for_bot(
+    mcp_hub_url="http://mcp-hub:8765/sse",
     kb_root_path=kb_root_path,
-    enable_vector_search=True,
-    vector_search_manager=manager
+    start_monitoring=True  # Start monitoring KB changes
 )
 
-# Agent now has access to kb_vector_search and kb_reindex_vector tools
+# Bot now:
+# - Monitors KB changes via events (file operations, git commits)
+# - Triggers reindexing via MCP Hub when needed
+# - Uses MCP Hub's vector_search tool for semantic search
+
+# Agents access vector search via MCP tools:
+# - kb_vector_search: Semantic search in knowledge base
+# - (Reindexing is bot responsibility, not exposed to agents)
 ```
 
 ### Manual Component Setup
 
 ```python
-from src.vector_search import (
+from src.mcp.vector_search import (
     SentenceTransformerEmbedder,
     FAISSVectorStore,
     DocumentChunker,
@@ -189,7 +164,7 @@ chunker = DocumentChunker(
     respect_headers=True
 )
 
-# Create manager
+# Create manager (used by MCP Hub internally)
 manager = VectorSearchManager(
     embedder=embedder,
     vector_store=vector_store,
@@ -202,29 +177,38 @@ await manager.initialize()
 await manager.index_knowledge_base()
 ```
 
-## Agent Tools
+## Architecture
 
-When vector search is enabled, two new tools are available:
+Vector search is now integrated into the MCP Hub architecture:
 
-### kb_vector_search
+### MCP Hub Responsibilities
 
-Performs semantic vector search in the knowledge base.
+- Provides `vector_search` tool for semantic search
+- Provides `reindex_vector` tool for manual reindexing
+- Manages vector search configuration and components
+- Handles indexing operations when triggered
+
+### Bot Container Responsibilities
+
+- Monitors knowledge base changes (file operations, git commits)
+- Decides when reindexing is needed
+- Calls MCP Hub's `reindex_vector` tool
+- Manages reindexing schedules and batching
+
+### Agent Access
+
+Agents can use vector search via MCP tools:
 
 ```python
-result = await agent._tool_kb_vector_search({
+# Semantic search (available to agents)
+result = await mcp_client.call_tool("vector_search", {
     "query": "neural network architectures",
     "top_k": 5
 })
-```
 
-### kb_reindex_vector
-
-Reindexes the knowledge base for vector search.
-
-```python
-result = await agent._tool_kb_reindex_vector({
-    "force": False  # Set to True to force full reindexing
-})
+# Reindexing (bot container responsibility)
+# Agents do not trigger reindexing directly
+# Bot monitors KB changes and triggers reindexing automatically
 ```
 
 ## Performance Considerations

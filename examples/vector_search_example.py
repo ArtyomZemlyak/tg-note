@@ -12,7 +12,7 @@ import asyncio
 from pathlib import Path
 
 from src.agents.autonomous_agent import AutonomousAgent
-from src.vector_search import (
+from src.mcp.vector_search import (
     ChunkingStrategy,
     DocumentChunker,
     FAISSVectorStore,
