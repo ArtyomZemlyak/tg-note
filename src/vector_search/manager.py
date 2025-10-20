@@ -48,8 +48,16 @@ class VectorSearchManager:
 
     def _get_config_hash(self) -> str:
         """Get hash of current configuration"""
+        # Include embedding dimension so changes trigger reindex even if model name stays same
+        try:
+            embedder_dimension = self.embedder.get_dimension()
+        except Exception:
+            # If dimension cannot be determined synchronously, omit it
+            embedder_dimension = None
+
         config = {
             "embedder": self.embedder.get_model_hash(),
+            "embedding_dimension": embedder_dimension,
             "vector_store": self.vector_store.__class__.__name__,
             "chunking_strategy": self.chunker.strategy.value,
             "chunk_size": self.chunker.chunk_size,

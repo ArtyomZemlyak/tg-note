@@ -181,12 +181,8 @@ class VectorSearchFactory:
                 infinity_api_key=settings.VECTOR_INFINITY_API_KEY,
             )
 
-            # Get embedding dimension
-            # For some embedders, we need to do a test embedding
-            if hasattr(embedder, "_dimension") and embedder._dimension:
-                dimension = embedder._dimension
-            else:
-                dimension = embedder.get_dimension()
+            # Get embedding dimension dynamically (each embedder implements a sync-safe method)
+            dimension = embedder.get_dimension()
 
             # Create vector store
             vector_store = cls.create_vector_store(
