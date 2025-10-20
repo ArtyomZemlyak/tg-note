@@ -296,6 +296,7 @@ class BaseKBService:
         folders_created: list,
         github_base: Optional[str],
         files_created_norm: set = None,
+        kb_topics_only: bool = False,
     ) -> list[str]:
         """
         Format file changes for display in user notification.
@@ -307,6 +308,7 @@ class BaseKBService:
             folders_created: List of created folders
             github_base: GitHub base URL for links (optional)
             files_created_norm: Set of normalized created file paths (to filter duplicates)
+            kb_topics_only: Whether KB_TOPICS_ONLY is enabled (to add topics/ prefix)
 
         Returns:
             List of message parts
@@ -324,7 +326,10 @@ class BaseKBService:
                 message_parts.append(f"  ✨ Создано файлов: {len(files_created)}")
                 for file in files_created[:5]:  # Show first 5
                     if github_base:
-                        message_parts.append(f"    • {file} — {github_base}/{file}")
+                        # Add topics/ prefix if KB_TOPICS_ONLY is true
+                        github_path = f"topics/{file}" if kb_topics_only else file
+                        # Use Telegram markdown link format
+                        message_parts.append(f"    • [{file}]({github_base}/{github_path})")
                     else:
                         message_parts.append(f"    • {file}")
                 if len(files_created) > 5:
@@ -334,7 +339,10 @@ class BaseKBService:
                 message_parts.append(f"  ✏️ Изменено файлов: {len(files_edited)}")
                 for file in files_edited[:5]:  # Show first 5
                     if github_base:
-                        message_parts.append(f"    • {file} — {github_base}/{file}")
+                        # Add topics/ prefix if KB_TOPICS_ONLY is true
+                        github_path = f"topics/{file}" if kb_topics_only else file
+                        # Use Telegram markdown link format
+                        message_parts.append(f"    • [{file}]({github_base}/{github_path})")
                     else:
                         message_parts.append(f"    • {file}")
                 if len(files_edited) > 5:
@@ -350,7 +358,13 @@ class BaseKBService:
             if folders_created:
                 message_parts.append(f"  📁 Создано папок: {len(folders_created)}")
                 for folder in folders_created[:5]:  # Show first 5
-                    message_parts.append(f"    • {folder}")
+                    if github_base:
+                        # Add topics/ prefix if KB_TOPICS_ONLY is true
+                        github_path = f"topics/{folder}" if kb_topics_only else folder
+                        # Use Telegram markdown link format for folders too
+                        message_parts.append(f"    • [{folder}]({github_base}/{github_path})")
+                    else:
+                        message_parts.append(f"    • {folder}")
                 if len(folders_created) > 5:
                     message_parts.append(f"    • ... и ещё {len(folders_created) - 5}")
 
@@ -362,6 +376,7 @@ class BaseKBService:
         files_created: list,
         kb_path: Path,
         github_base: Optional[str],
+        kb_topics_only: bool = False,
     ) -> list[str]:
         """
         Filter and format links/relations for display.
@@ -374,6 +389,7 @@ class BaseKBService:
             files_created: List of created files (to filter out)
             kb_path: Path to knowledge base
             github_base: GitHub base URL for links (optional)
+            kb_topics_only: Whether KB_TOPICS_ONLY is enabled (to add topics/ prefix)
 
         Returns:
             List of formatted message parts
@@ -427,8 +443,11 @@ class BaseKBService:
                         except Exception:
                             description = "связанная тема"
                     if github_base:
+                        # Add topics/ prefix if KB_TOPICS_ONLY is true
+                        github_path = f"topics/{file_path}" if kb_topics_only else file_path
+                        # Use Telegram markdown link format
                         message_parts.append(
-                            f"  • {file_path} - {description} — {github_base}/{file_path}"
+                            f"  • [{file_path}]({github_base}/{github_path}) - {description}"
                         )
                     else:
                         message_parts.append(f"  • {file_path} - {description}")
