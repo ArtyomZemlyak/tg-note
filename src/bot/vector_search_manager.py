@@ -1,15 +1,19 @@
 """
 Vector Search Manager for Bot Container
 
+AICODE-NOTE: BOT's responsibility - WHEN to update vector search
 This module manages vector search integration in the bot container:
 1. Checks availability of vector search tools via MCP Hub API
-2. Performs initial indexing of all knowledge bases on startup
-3. Monitors knowledge base changes and reindexes when needed
-4. Provides incremental reindexing based on file diffs
+2. Monitors knowledge base changes (events + periodic checks)
+3. Decides WHEN to call MCP Hub for vector DB updates
+4. Tracks file changes to determine which documents need updates
 
-AICODE-NOTE: This is the bot-side manager that coordinates with MCP Hub.
-The actual vector search implementation is in src/mcp/mcp_hub_server.py
-and src/vector_search/.
+The actual vector search operations (SEARCH, ADD, DELETE, UPDATE) are
+provided by MCP Hub. BOT only decides when to trigger these operations.
+
+Architecture:
+- MCP HUB = provides vector search tools (WHAT)
+- BOT = monitors KB and decides when to use MCP Hub tools (WHEN)
 """
 
 import asyncio
@@ -101,20 +105,30 @@ class BotVectorSearchManager:
                     builtin_tools = data.get("builtin_tools", {})
                     available_tools = builtin_tools.get("names", [])
 
-                    # Check if both vector search tools are available
-                    has_search = "vector_search" in available_tools
-                    has_reindex = "reindex_vector" in available_tools
+                    # Check if vector search tools are available
+                    required_tools = [
+                        "vector_search",
+                        "reindex_vector",
+                        "add_vector_documents",
+                        "delete_vector_documents",
+                        "update_vector_documents",
+                    ]
+                    
+                    has_all_tools = all(tool in available_tools for tool in required_tools)
 
-                    if has_search and has_reindex:
+                    if has_all_tools:
                         logger.info(
-                            "✅ Vector search tools are available: vector_search, reindex_vector"
+                            "✅ All vector search tools are available: "
+                            f"{', '.join(required_tools)}"
                         )
                         self.vector_search_available = True
                         return True
                     else:
+                        missing = [t for t in required_tools if t not in available_tools]
                         available = ', '.join(available_tools) if available_tools else 'none'
                         logger.info(
-                            f"ℹ️  Vector search tools not available. "
+                            f"ℹ️  Vector search tools not fully available. "
+                            f"Missing: {', '.join(missing)}. "
                             f"Available tools: {available}"
                         )
                         self.vector_search_available = False
@@ -129,6 +143,7 @@ class BotVectorSearchManager:
         """
         Perform initial indexing of all knowledge bases
 
+        AICODE-NOTE: BOT decision - triggers MCP Hub to do the actual work.
         This calls the MCP Hub reindex_vector tool to index all KBs.
 
         Args:
@@ -144,11 +159,11 @@ class BotVectorSearchManager:
         try:
             logger.info("🔄 Starting initial knowledge base indexing (bot-triggered)...")
 
-            # Load current file hashes and scan current state (for change tracking only)
+            # Load current file hashes and scan current state (for change tracking)
             await self._load_file_hashes()
             await self._scan_knowledge_bases()
 
-            # Trigger reindex via MCP Hub
+            # Trigger reindex via MCP Hub (MCP Hub manages actual indexing)
             ok = await self._call_mcp_reindex(force=force)
             if not ok:
                 return False
@@ -163,19 +178,18 @@ class BotVectorSearchManager:
 
     async def check_and_reindex_changes(self) -> bool:
         """
-        Check for changes in knowledge bases and reindex if needed
+        Check for changes in knowledge bases and call MCP Hub for updates
 
+        AICODE-NOTE: BOT's core responsibility - WHEN to update vector search.
         This compares current file hashes with stored hashes to detect:
-        - New files (added)
-        - Modified files (hash changed)
-        - Deleted files (no longer exist)
+        - New files (added) -> calls add_vector_documents
+        - Modified files (hash changed) -> calls update_vector_documents
+        - Deleted files (no longer exist) -> calls delete_vector_documents
 
-        AICODE-NOTE: This method uses a lock internally when called from trigger_reindex,
-        but not when called from _delayed_reindex to avoid deadlock. The lock is only
-        needed for external/manual calls.
+        MCP HUB handles the actual indexing/updating operations.
 
         Returns:
-            True if reindexing was performed
+            True if changes were processed successfully
         """
         if not self.vector_search_available or self._shutdown:
             return False
@@ -202,23 +216,36 @@ class BotVectorSearchManager:
                 f"Deleted: {len(changes.deleted)}"
             )
 
-            # Trigger reindexing (incremental by default; manager will full-rebuild if needed)
-            logger.info("🔄 Triggering MCP reindex due to detected changes...")
-            ok = await self._call_mcp_reindex(force=False)
+            # Call MCP Hub for each type of change
+            all_ok = True
+
+            # Delete removed files
+            if changes.deleted:
+                logger.info(f"🗑️  Calling MCP Hub to delete {len(changes.deleted)} documents")
+                ok = await self._call_mcp_delete_documents(list(changes.deleted))
+                all_ok = all_ok and ok
+
+            # Add new files
+            if changes.added:
+                logger.info(f"➕ Calling MCP Hub to add {len(changes.added)} documents")
+                ok = await self._call_mcp_add_documents(list(changes.added))
+                all_ok = all_ok and ok
+
+            # Update modified files
+            if changes.modified:
+                logger.info(f"🔄 Calling MCP Hub to update {len(changes.modified)} documents")
+                ok = await self._call_mcp_update_documents(list(changes.modified))
+                all_ok = all_ok and ok
 
             # Save updated hashes snapshot regardless of MCP outcome
             # to avoid duplicate work next time
             await self._save_file_hashes()
 
-            if ok:
-                logger.info(
-                    "✅ Change detection completed, reindex triggered and hashes updated"
-                )
+            if all_ok:
+                logger.info("✅ Change detection completed, all updates successful")
             else:
-                logger.warning(
-                    "⚠️ Reindex trigger failed; hashes updated, will retry on next event"
-                )
-            return ok
+                logger.warning("⚠️ Some updates failed; hashes updated, will retry on next event")
+            return all_ok
 
         except Exception as e:
             logger.error(f"❌ Failed to check/reindex changes: {e}", exc_info=True)
@@ -324,7 +351,12 @@ class BotVectorSearchManager:
         logger.info("📡 Subscribed to KB change events for reactive reindexing")
 
     async def _call_mcp_reindex(self, force: bool = False) -> bool:
-        """Call MCP Hub reindex_vector tool via SSE transport."""
+        """
+        Call MCP Hub reindex_vector tool via SSE transport.
+        
+        AICODE-NOTE: This is for full reindexing (initial or forced).
+        For incremental updates, use _call_mcp_add/delete/update_documents.
+        """
         try:
             # Ensure SSE URL
             sse_url = self.mcp_hub_url
@@ -349,6 +381,99 @@ class BotVectorSearchManager:
                 await client.disconnect()
         except Exception as e:
             logger.error(f"❌ Exception while calling MCP reindex_vector: {e}", exc_info=True)
+            return False
+
+    async def _call_mcp_add_documents(self, file_paths: List[str]) -> bool:
+        """
+        Call MCP Hub add_vector_documents tool to add new documents.
+        
+        AICODE-NOTE: BOT decides WHEN to add documents, MCP Hub does the actual work.
+        """
+        try:
+            sse_url = self.mcp_hub_url
+            if not sse_url.endswith("/sse"):
+                sse_url = f"{sse_url}/sse"
+
+            client = MCPClient(MCPServerConfig(transport="sse", url=sse_url))
+            connected = await client.connect()
+            if not connected:
+                logger.warning("⚠️ Failed to connect to MCP Hub for add_documents")
+                return False
+
+            try:
+                result = await client.call_tool("add_vector_documents", {"file_paths": file_paths})
+                if result.get("success"):
+                    logger.info(f"✅ MCP add_vector_documents completed: {result.get('message')}")
+                    return True
+                else:
+                    logger.warning(f"⚠️ MCP add_vector_documents failed: {result.get('error')}")
+                    return False
+            finally:
+                await client.disconnect()
+        except Exception as e:
+            logger.error(f"❌ Exception while calling MCP add_vector_documents: {e}", exc_info=True)
+            return False
+
+    async def _call_mcp_delete_documents(self, file_paths: List[str]) -> bool:
+        """
+        Call MCP Hub delete_vector_documents tool to delete documents.
+        
+        AICODE-NOTE: BOT decides WHEN to delete documents, MCP Hub does the actual work.
+        """
+        try:
+            sse_url = self.mcp_hub_url
+            if not sse_url.endswith("/sse"):
+                sse_url = f"{sse_url}/sse"
+
+            client = MCPClient(MCPServerConfig(transport="sse", url=sse_url))
+            connected = await client.connect()
+            if not connected:
+                logger.warning("⚠️ Failed to connect to MCP Hub for delete_documents")
+                return False
+
+            try:
+                result = await client.call_tool("delete_vector_documents", {"file_paths": file_paths})
+                if result.get("success"):
+                    logger.info(f"✅ MCP delete_vector_documents completed: {result.get('message')}")
+                    return True
+                else:
+                    logger.warning(f"⚠️ MCP delete_vector_documents failed: {result.get('error')}")
+                    return False
+            finally:
+                await client.disconnect()
+        except Exception as e:
+            logger.error(f"❌ Exception while calling MCP delete_vector_documents: {e}", exc_info=True)
+            return False
+
+    async def _call_mcp_update_documents(self, file_paths: List[str]) -> bool:
+        """
+        Call MCP Hub update_vector_documents tool to update modified documents.
+        
+        AICODE-NOTE: BOT decides WHEN to update documents, MCP Hub does the actual work.
+        """
+        try:
+            sse_url = self.mcp_hub_url
+            if not sse_url.endswith("/sse"):
+                sse_url = f"{sse_url}/sse"
+
+            client = MCPClient(MCPServerConfig(transport="sse", url=sse_url))
+            connected = await client.connect()
+            if not connected:
+                logger.warning("⚠️ Failed to connect to MCP Hub for update_documents")
+                return False
+
+            try:
+                result = await client.call_tool("update_vector_documents", {"file_paths": file_paths})
+                if result.get("success"):
+                    logger.info(f"✅ MCP update_vector_documents completed: {result.get('message')}")
+                    return True
+                else:
+                    logger.warning(f"⚠️ MCP update_vector_documents failed: {result.get('error')}")
+                    return False
+            finally:
+                await client.disconnect()
+        except Exception as e:
+            logger.error(f"❌ Exception while calling MCP update_vector_documents: {e}", exc_info=True)
             return False
 
     async def _handle_kb_change_event(self, event: KBChangeEvent) -> None:

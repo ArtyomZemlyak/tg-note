@@ -375,3 +375,210 @@ class VectorSearchManager:
             "chunking_strategy": self.chunker.strategy.value,
             "chunk_size": self.chunker.chunk_size,
         }
+
+    async def add_documents_by_paths(self, file_paths: List[str]) -> Dict[str, Any]:
+        """
+        Add or update specific documents by file paths
+        
+        AICODE-NOTE: This is a CRUD operation for BOT to call when new files are detected.
+        MCP HUB provides this functionality, BOT decides when to use it.
+
+        Args:
+            file_paths: List of file paths relative to kb_root_path
+
+        Returns:
+            Operation statistics
+        """
+        logger.info(f"Adding/updating {len(file_paths)} documents")
+        
+        stats = {
+            "files_processed": 0,
+            "files_skipped": 0,
+            "chunks_created": 0,
+            "errors": [],
+        }
+
+        all_chunks: List[DocumentChunk] = []
+
+        for rel_path in file_paths:
+            try:
+                file_path = self.kb_root_path / rel_path
+                
+                if not file_path.exists():
+                    error_msg = f"File not found: {rel_path}"
+                    logger.warning(error_msg)
+                    stats["errors"].append(error_msg)
+                    continue
+
+                # Read file
+                content = file_path.read_text(encoding="utf-8", errors="ignore")
+                
+                # Compute hash
+                file_hash = self._get_file_hash(file_path)
+
+                # Create metadata
+                metadata = {
+                    "file_path": rel_path,
+                    "file_name": file_path.name,
+                    "file_size": len(content),
+                }
+
+                # Chunk document
+                chunks = self.chunker.chunk_document(
+                    text=content, metadata=metadata, source_file=rel_path
+                )
+
+                all_chunks.extend(chunks)
+                self._indexed_files[rel_path] = file_hash
+                stats["files_processed"] += 1
+                stats["chunks_created"] += len(chunks)
+
+                logger.debug(f"Processed {rel_path}: {len(chunks)} chunks")
+
+            except Exception as e:
+                error_msg = f"Error processing {rel_path}: {e}"
+                logger.error(error_msg)
+                stats["errors"].append(error_msg)
+
+        # Embed and store chunks
+        if all_chunks:
+            try:
+                logger.info(f"Embedding {len(all_chunks)} chunks")
+
+                # Extract texts
+                texts = [chunk.text for chunk in all_chunks]
+
+                # Get embeddings
+                embeddings = await self.embedder.embed_texts(texts)
+
+                # Prepare documents for storage
+                documents = []
+                for chunk in all_chunks:
+                    doc = chunk.metadata.copy()
+                    doc["text"] = chunk.text
+                    doc["chunk_index"] = chunk.chunk_index
+                    documents.append(doc)
+
+                # Add to vector store
+                await self.vector_store.add_documents(embeddings=embeddings, documents=documents)
+
+                logger.info(f"Successfully added {len(all_chunks)} chunks to vector store")
+
+                # Save index and metadata
+                await self.vector_store.save(self.index_path)
+                await self._save_metadata()
+
+            except Exception as e:
+                error_msg = f"Error embedding/storing chunks: {e}"
+                logger.error(error_msg, exc_info=True)
+                stats["errors"].append(error_msg)
+
+        logger.info(
+            f"Add documents complete: {stats['files_processed']} files, "
+            f"{stats['chunks_created']} chunks, {len(stats['errors'])} errors"
+        )
+
+        return stats
+
+    async def delete_documents_by_paths(self, file_paths: List[str]) -> Dict[str, Any]:
+        """
+        Delete specific documents by file paths
+        
+        AICODE-NOTE: This is a CRUD operation for BOT to call when files are deleted.
+        MCP HUB provides this functionality, BOT decides when to use it.
+
+        Args:
+            file_paths: List of file paths relative to kb_root_path
+
+        Returns:
+            Operation statistics
+        """
+        logger.info(f"Deleting {len(file_paths)} documents")
+        
+        stats = {
+            "files_deleted": 0,
+            "errors": [],
+        }
+
+        # Check if vector store supports deletions
+        supports_delete = (
+            hasattr(self.vector_store, "supports_delete_by_filter")
+            and self.vector_store.supports_delete_by_filter()
+        )
+
+        if not supports_delete:
+            error_msg = "Vector store does not support deletions. Full reindex required."
+            logger.warning(error_msg)
+            return {
+                "success": False,
+                "error": error_msg,
+                "files_deleted": 0,
+                "errors": [error_msg],
+            }
+
+        for rel_path in file_paths:
+            try:
+                # Delete from vector store
+                await self.vector_store.delete_by_filter({"file_path": rel_path})
+                
+                # Remove from metadata
+                if rel_path in self._indexed_files:
+                    del self._indexed_files[rel_path]
+                
+                stats["files_deleted"] += 1
+                logger.debug(f"Deleted vectors for: {rel_path}")
+
+            except Exception as e:
+                error_msg = f"Error deleting {rel_path}: {e}"
+                logger.error(error_msg)
+                stats["errors"].append(error_msg)
+
+        # Save updated metadata
+        if stats["files_deleted"] > 0:
+            await self._save_metadata()
+            await self.vector_store.save(self.index_path)
+
+        logger.info(
+            f"Delete documents complete: {stats['files_deleted']} files deleted, "
+            f"{len(stats['errors'])} errors"
+        )
+
+        return stats
+
+    async def update_documents_by_paths(self, file_paths: List[str]) -> Dict[str, Any]:
+        """
+        Update specific documents by file paths
+        
+        AICODE-NOTE: This is a CRUD operation for BOT to call when files are modified.
+        MCP HUB provides this functionality, BOT decides when to use it.
+        
+        This is implemented as delete + add for simplicity.
+
+        Args:
+            file_paths: List of file paths relative to kb_root_path
+
+        Returns:
+            Operation statistics
+        """
+        logger.info(f"Updating {len(file_paths)} documents")
+        
+        # First, delete existing documents
+        delete_stats = await self.delete_documents_by_paths(file_paths)
+        
+        # Then add new versions
+        add_stats = await self.add_documents_by_paths(file_paths)
+        
+        # Combine stats
+        stats = {
+            "files_updated": add_stats["files_processed"],
+            "files_deleted": delete_stats.get("files_deleted", 0),
+            "chunks_created": add_stats["chunks_created"],
+            "errors": delete_stats.get("errors", []) + add_stats.get("errors", []),
+        }
+
+        logger.info(
+            f"Update documents complete: {stats['files_updated']} files updated, "
+            f"{stats['chunks_created']} chunks created, {len(stats['errors'])} errors"
+        )
+
+        return stats

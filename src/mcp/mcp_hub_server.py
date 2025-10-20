@@ -279,6 +279,9 @@ def get_builtin_tools() -> List[str]:
             [
                 "vector_search",
                 "reindex_vector",
+                "add_vector_documents",
+                "delete_vector_documents",
+                "update_vector_documents",
             ]
         )
 
@@ -771,6 +774,161 @@ async def reindex_vector(force: bool = False, user_id: int = None) -> dict:
 
     except Exception as e:
         logger.error(f"❌ Error in reindexing: {e}", exc_info=True)
+        return {"success": False, "error": str(e), "error_type": type(e).__name__}
+
+
+@mcp.tool()
+async def add_vector_documents(file_paths: List[str], user_id: int = None) -> dict:
+    """
+    Add or update specific documents to vector search index
+    
+    AICODE-NOTE: CRUD operation - BOT calls this when new files are detected.
+    MCP HUB provides the functionality, BOT decides when to use it.
+
+    Args:
+        file_paths: List of file paths relative to KB root (e.g., ["topics/example.md"])
+        user_id: User ID (optional, for logging purposes)
+
+    Returns:
+        Operation statistics
+    """
+    # Check availability first
+    if not check_vector_search_availability():
+        return {
+            "success": False,
+            "error": "Vector search is not available. Check config (VECTOR_SEARCH_ENABLED) and dependencies.",
+        }
+
+    logger.info("➕ ADD_VECTOR_DOCUMENTS called")
+    logger.info(f"  File paths: {file_paths}")
+    if user_id:
+        logger.info(f"  User: {user_id}")
+
+    try:
+        manager = await get_vector_search_manager()
+
+        if not manager:
+            return {"success": False, "error": "Vector search is not enabled or not configured"}
+
+        # Call the async add_documents_by_paths method
+        stats = await manager.add_documents_by_paths(file_paths=file_paths)
+
+        logger.info(
+            f"✅ Add documents complete: "
+            f"{stats['files_processed']} files processed, "
+            f"{stats['chunks_created']} chunks created"
+        )
+
+        return {
+            "success": True,
+            "stats": stats,
+            "message": f"Successfully added {stats['files_processed']} files",
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Error adding documents: {e}", exc_info=True)
+        return {"success": False, "error": str(e), "error_type": type(e).__name__}
+
+
+@mcp.tool()
+async def delete_vector_documents(file_paths: List[str], user_id: int = None) -> dict:
+    """
+    Delete specific documents from vector search index
+    
+    AICODE-NOTE: CRUD operation - BOT calls this when files are deleted.
+    MCP HUB provides the functionality, BOT decides when to use it.
+
+    Args:
+        file_paths: List of file paths relative to KB root (e.g., ["topics/example.md"])
+        user_id: User ID (optional, for logging purposes)
+
+    Returns:
+        Operation statistics
+    """
+    # Check availability first
+    if not check_vector_search_availability():
+        return {
+            "success": False,
+            "error": "Vector search is not available. Check config (VECTOR_SEARCH_ENABLED) and dependencies.",
+        }
+
+    logger.info("🗑️  DELETE_VECTOR_DOCUMENTS called")
+    logger.info(f"  File paths: {file_paths}")
+    if user_id:
+        logger.info(f"  User: {user_id}")
+
+    try:
+        manager = await get_vector_search_manager()
+
+        if not manager:
+            return {"success": False, "error": "Vector search is not enabled or not configured"}
+
+        # Call the async delete_documents_by_paths method
+        stats = await manager.delete_documents_by_paths(file_paths=file_paths)
+
+        logger.info(f"✅ Delete documents complete: {stats['files_deleted']} files deleted")
+
+        return {
+            "success": True,
+            "stats": stats,
+            "message": f"Successfully deleted {stats['files_deleted']} files",
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Error deleting documents: {e}", exc_info=True)
+        return {"success": False, "error": str(e), "error_type": type(e).__name__}
+
+
+@mcp.tool()
+async def update_vector_documents(file_paths: List[str], user_id: int = None) -> dict:
+    """
+    Update specific documents in vector search index
+    
+    AICODE-NOTE: CRUD operation - BOT calls this when files are modified.
+    MCP HUB provides the functionality, BOT decides when to use it.
+
+    Args:
+        file_paths: List of file paths relative to KB root (e.g., ["topics/example.md"])
+        user_id: User ID (optional, for logging purposes)
+
+    Returns:
+        Operation statistics
+    """
+    # Check availability first
+    if not check_vector_search_availability():
+        return {
+            "success": False,
+            "error": "Vector search is not available. Check config (VECTOR_SEARCH_ENABLED) and dependencies.",
+        }
+
+    logger.info("🔄 UPDATE_VECTOR_DOCUMENTS called")
+    logger.info(f"  File paths: {file_paths}")
+    if user_id:
+        logger.info(f"  User: {user_id}")
+
+    try:
+        manager = await get_vector_search_manager()
+
+        if not manager:
+            return {"success": False, "error": "Vector search is not enabled or not configured"}
+
+        # Call the async update_documents_by_paths method
+        stats = await manager.update_documents_by_paths(file_paths=file_paths)
+
+        logger.info(
+            f"✅ Update documents complete: "
+            f"{stats['files_updated']} files updated, "
+            f"{stats['chunks_created']} chunks created"
+        )
+
+        return {
+            "success": True,
+            "stats": stats,
+            "message": f"Successfully updated {stats['files_updated']} files",
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Error updating documents: {e}", exc_info=True)
         return {"success": False, "error": str(e), "error_type": type(e).__name__}
 
 
