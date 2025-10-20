@@ -32,8 +32,9 @@ def escape_markdown(text: str) -> str:
     Returns:
         Escaped text safe for Markdown
     """
-    # Characters that need to be escaped in standard Markdown
-    special_chars = r"_*[`"
+    # Characters that need to be escaped in Telegram Markdown (legacy)
+    # Do NOT escape square brackets here, as they are required for link syntax [text](url)
+    special_chars = r"_*`"
     return re.sub(f"([{re.escape(special_chars)}])", r"\\\1", text)
 
 

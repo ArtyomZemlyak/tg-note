@@ -126,10 +126,8 @@ class QuestionAnsweringService(IQuestionAnsweringService):
             )
 
             # Send answer - escape the answer text to prevent Markdown parsing errors
-            escaped_answer = escape_markdown(answer)
-
-            # Handle long messages by splitting them
-            full_message = f"💡 **Ответ:**\n\n{escaped_answer}"
+            # Handle long messages by splitting them. Avoid pre-escaping to keep links clickable.
+            full_message = f"💡 Ответ:\n\n{answer}"
             message_chunks = split_long_message(full_message)
 
             try:
@@ -145,7 +143,7 @@ class QuestionAnsweringService(IQuestionAnsweringService):
                 for i, chunk in enumerate(message_chunks[1:], start=2):
                     await self.bot.send_message(
                         chat_id=chat_id,
-                        text=f"💡 **Ответ (часть {i}/{len(message_chunks)}):**\n\n{chunk}",
+                        text=f"💡 Ответ (часть {i}/{len(message_chunks)}):\n\n{chunk}",
                         parse_mode="Markdown",
                     )
 
