@@ -11,6 +11,9 @@ from typing import Any, Dict, Optional
 
 from loguru import logger
 
+from src.core.events import EventType
+
+from ._event_publisher import publish_kb_file_event
 from .base_tool import BaseTool, ToolContext
 
 
@@ -93,6 +96,15 @@ class FolderCreateTool(BaseTool):
             full_path.mkdir(parents=True, exist_ok=False)
 
             logger.info(f"[folder_create] ✓ Created folder: {relative_path}")
+            
+            # Publish KB change event
+            publish_kb_file_event(
+                EventType.KB_FOLDER_CREATED,
+                full_path,
+                user_id=context.user_id,
+                source="folder_create_tool"
+            )
+            
             return {
                 "success": True,
                 "path": relative_path,
@@ -156,6 +168,15 @@ class FolderDeleteTool(BaseTool):
             shutil.rmtree(full_path)
 
             logger.info(f"[folder_delete] ✓ Deleted folder: {relative_path}")
+            
+            # Publish KB change event
+            publish_kb_file_event(
+                EventType.KB_FOLDER_DELETED,
+                full_path,
+                user_id=context.user_id,
+                source="folder_delete_tool"
+            )
+            
             return {
                 "success": True,
                 "path": relative_path,

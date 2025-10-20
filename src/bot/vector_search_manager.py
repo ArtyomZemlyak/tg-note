@@ -22,6 +22,7 @@ import aiohttp
 from loguru import logger
 
 from config import settings
+from src.core.events import EventType, KBChangeEvent, get_event_bus
 
 
 class KnowledgeBaseChange:
@@ -50,19 +51,25 @@ class BotVectorSearchManager:
     - Monitors KB changes for reindexing
     """
 
-    def __init__(self, mcp_hub_url: str, kb_root_path: Path):
+    def __init__(self, mcp_hub_url: str, kb_root_path: Path, subscribe_to_events: bool = True):
         """
         Initialize bot vector search manager
 
         Args:
             mcp_hub_url: MCP Hub base URL (e.g., http://mcp-hub:8765)
             kb_root_path: Root path to knowledge bases
+            subscribe_to_events: Whether to subscribe to KB change events (default: True)
         """
         self.mcp_hub_url = mcp_hub_url.rstrip("/sse").rstrip("/")  # Remove /sse if present
         self.kb_root_path = Path(kb_root_path)
         self.vector_search_available = False
         self._file_hashes: Dict[str, str] = {}  # file_path -> hash
         self._hash_file = Path("data/vector_search_hashes.json")
+        self._reindex_pending = False  # Flag to batch multiple changes
+        
+        # Subscribe to KB change events for reactive reindexing
+        if subscribe_to_events:
+            self._subscribe_to_kb_events()
 
     async def check_vector_search_availability(self) -> bool:
         """
@@ -292,30 +299,102 @@ class BotVectorSearchManager:
         except Exception as e:
             logger.error(f"❌ Failed to save file hashes: {e}", exc_info=True)
 
+    def _subscribe_to_kb_events(self) -> None:
+        """Subscribe to knowledge base change events for reactive reindexing"""
+        event_bus = get_event_bus()
+        
+        # Subscribe to file change events
+        event_bus.subscribe_async(EventType.KB_FILE_CREATED, self._handle_kb_change_event)
+        event_bus.subscribe_async(EventType.KB_FILE_MODIFIED, self._handle_kb_change_event)
+        event_bus.subscribe_async(EventType.KB_FILE_DELETED, self._handle_kb_change_event)
+        
+        # Subscribe to batch changes (more efficient for multiple files)
+        event_bus.subscribe_async(EventType.KB_BATCH_CHANGES, self._handle_kb_change_event)
+        
+        # Subscribe to git events (might involve multiple files)
+        event_bus.subscribe_async(EventType.KB_GIT_COMMIT, self._handle_kb_change_event)
+        event_bus.subscribe_async(EventType.KB_GIT_PULL, self._handle_kb_change_event)
+        
+        logger.info("📡 Subscribed to KB change events for reactive reindexing")
+
+    async def _handle_kb_change_event(self, event: KBChangeEvent) -> None:
+        """
+        Handle KB change event - trigger reindexing
+
+        AICODE-NOTE: This is called automatically when KB files change.
+        Uses a flag to batch multiple rapid changes together.
+        
+        Args:
+            event: KB change event
+        """
+        if not self.vector_search_available:
+            return
+        
+        logger.debug(f"📬 Received KB change event: {event.type.value}")
+        
+        # Mark reindex as pending
+        self._reindex_pending = True
+        
+        # Wait a bit to batch multiple rapid changes
+        await asyncio.sleep(2)
+        
+        # If still pending, perform reindex
+        if self._reindex_pending:
+            self._reindex_pending = False
+            logger.info(f"🔄 Triggering reactive reindexing due to {event.type.value}")
+            
+            try:
+                await self.check_and_reindex_changes()
+                logger.info("✅ Reactive reindexing completed")
+            except Exception as e:
+                logger.error(f"❌ Reactive reindexing failed: {e}", exc_info=True)
+
+    async def trigger_reindex(self) -> bool:
+        """
+        Manually trigger reindexing
+        
+        This can be called from anywhere to force a reindex check.
+        Useful for external triggers or API endpoints.
+        
+        Returns:
+            True if reindexing was performed
+        """
+        if not self.vector_search_available:
+            logger.warning("⚠️  Vector search not available, skipping reindex")
+            return False
+        
+        logger.info("🔄 Manual reindex triggered")
+        return await self.check_and_reindex_changes()
+
     async def start_monitoring(self, check_interval: int = 300) -> None:
         """
-        Start monitoring knowledge bases for changes
+        Start periodic monitoring of knowledge bases for changes
+        
+        AICODE-NOTE: This is a fallback mechanism for changes that might be missed
+        by event system (e.g., external file modifications, NFS mounts, etc.).
+        The primary change detection is event-driven via _handle_kb_change_event().
 
         Args:
             check_interval: Interval in seconds between checks (default: 5 minutes)
         """
         if not self.vector_search_available:
-            logger.info("⏭️  Skipping monitoring: vector search not available")
+            logger.info("⏭️  Skipping periodic monitoring: vector search not available")
             return
 
         logger.info(
-            f"👁️  Starting KB change monitoring (checking every {check_interval}s)..."
+            f"👁️  Starting periodic KB monitoring (checking every {check_interval}s as fallback)..."
         )
+        logger.info("   Primary change detection is event-driven (reactive)")
 
         while True:
             try:
                 await asyncio.sleep(check_interval)
                 await self.check_and_reindex_changes()
             except asyncio.CancelledError:
-                logger.info("🛑 KB monitoring stopped")
+                logger.info("🛑 Periodic KB monitoring stopped")
                 break
             except Exception as e:
-                logger.error(f"❌ Error in KB monitoring: {e}", exc_info=True)
+                logger.error(f"❌ Error in periodic KB monitoring: {e}", exc_info=True)
                 # Continue monitoring despite errors
 
 

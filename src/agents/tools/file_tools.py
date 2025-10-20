@@ -10,6 +10,9 @@ from typing import Any, Dict, Optional
 
 from loguru import logger
 
+from src.core.events import EventType
+
+from ._event_publisher import publish_kb_batch_event, publish_kb_file_event
 from .base_tool import BaseTool, ToolContext
 
 
@@ -94,6 +97,15 @@ class FileCreateTool(BaseTool):
             full_path.write_text(content, encoding="utf-8")
 
             logger.info(f"[file_create] ✓ Created file: {relative_path} ({len(content)} bytes)")
+            
+            # Publish KB change event
+            publish_kb_file_event(
+                EventType.KB_FILE_CREATED,
+                full_path,
+                user_id=context.user_id,
+                source="file_create_tool"
+            )
+            
             return {
                 "success": True,
                 "path": relative_path,
@@ -161,6 +173,15 @@ class FileEditTool(BaseTool):
             logger.info(
                 f"[file_edit] ✓ Edited file: {relative_path} ({len(old_content)} → {len(content)} bytes)"
             )
+            
+            # Publish KB change event
+            publish_kb_file_event(
+                EventType.KB_FILE_MODIFIED,
+                full_path,
+                user_id=context.user_id,
+                source="file_edit_tool"
+            )
+            
             return {
                 "success": True,
                 "path": relative_path,
@@ -220,6 +241,15 @@ class FileDeleteTool(BaseTool):
             full_path.unlink()
 
             logger.info(f"[file_delete] ✓ Deleted file: {relative_path}")
+            
+            # Publish KB change event
+            publish_kb_file_event(
+                EventType.KB_FILE_DELETED,
+                full_path,
+                user_id=context.user_id,
+                source="file_delete_tool"
+            )
+            
             return {
                 "success": True,
                 "path": relative_path,
@@ -296,6 +326,14 @@ class FileMoveTool(BaseTool):
             full_source.rename(full_dest)
 
             logger.info(f"[file_move] ✓ Moved file: {source_path} → {dest_path}")
+            
+            # Publish KB change events (delete old + create new)
+            publish_kb_batch_event(
+                files=[full_source, full_dest],
+                user_id=context.user_id,
+                source="file_move_tool"
+            )
+            
             return {
                 "success": True,
                 "source": source_path,
