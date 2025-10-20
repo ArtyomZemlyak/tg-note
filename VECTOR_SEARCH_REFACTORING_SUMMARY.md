@@ -95,7 +95,7 @@ async def add_vector_documents(file_paths: List[str]):  # ❌
 
 # После
 @mcp.tool()
-async def add_vector_documents(documents: List[Dict[str, str]]):  # ✅
+async def add_vector_documents(documents: List[Dict[str, Any]]):  # ✅
     await manager.add_documents(documents)
 ```
 

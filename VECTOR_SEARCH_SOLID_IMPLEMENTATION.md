@@ -120,7 +120,7 @@ manager = VectorSearchFactory.create_from_settings(
 # add_vector_documents - принимает данные
 @mcp.tool()
 async def add_vector_documents(
-    documents: List[Dict[str, str]],  # ✅ Данные, не пути
+    documents: List[Dict[str, Any]],  # ✅ Данные, не пути
     user_id: int = None
 ) -> dict:
     stats = await manager.add_documents(documents=documents)
@@ -136,7 +136,7 @@ async def delete_vector_documents(
 # update_vector_documents - принимает данные
 @mcp.tool()
 async def update_vector_documents(
-    documents: List[Dict[str, str]],  # ✅ Данные, не пути
+    documents: List[Dict[str, Any]],  # ✅ Данные, не пути
     user_id: int = None
 ) -> dict:
     stats = await manager.update_documents(documents=documents)
