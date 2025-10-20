@@ -150,6 +150,8 @@ def check_vector_search_availability() -> bool:
     Check if vector search is available based on:
     1. Configuration (VECTOR_SEARCH_ENABLED)
     2. Dependencies (sentence-transformers, faiss-cpu, etc.)
+       - For external providers (infinity, openai), sentence-transformers is not required
+       - For local provider (sentence_transformers), it is required
 
     Returns:
         True if vector search should be available, False otherwise
@@ -171,8 +173,46 @@ def check_vector_search_availability() -> bool:
             _vector_search_available = False
             return False
 
-        # Check 2: Dependencies
-        logger.info("🔍 Checking vector search dependencies...")
+        # Check 2: Dependencies (based on provider type)
+        embedding_provider = app_settings.VECTOR_EMBEDDING_PROVIDER.lower()
+        logger.info(f"🔍 Checking vector search dependencies for provider: {embedding_provider}...")
+
+        # External providers (infinity, openai) don't require local dependencies
+        if embedding_provider in ["infinity", "openai"]:
+            logger.info(f"  ✓ Using external embedding provider ({embedding_provider})")
+            logger.info("  ℹ️  No local dependencies required (model runs externally)")
+            
+            # Still check for vector store backends
+            faiss_available = False
+            qdrant_available = False
+
+            try:
+                import faiss  # noqa: F401
+                faiss_available = True
+                logger.info("  ✓ faiss-cpu is installed")
+            except ImportError:
+                logger.debug("  ✗ faiss-cpu not available")
+
+            try:
+                import qdrant_client  # noqa: F401
+                qdrant_available = True
+                logger.info("  ✓ qdrant-client is installed")
+            except ImportError:
+                logger.debug("  ✗ qdrant-client not available")
+
+            if not (faiss_available or qdrant_available):
+                logger.warning(
+                    "⚠️  Vector search is enabled but no vector store backend is available. "
+                    "Install dependencies: pip install faiss-cpu or pip install qdrant-client"
+                )
+                _vector_search_available = False
+                return False
+
+            logger.info("✓ Vector search is available (external provider)")
+            _vector_search_available = True
+            return True
+
+        # Local provider (sentence_transformers) requires the package
         try:
             # Try to import required packages
             import sentence_transformers  # noqa: F401
@@ -1029,7 +1069,7 @@ def _generate_client_configs(host: str, port: int) -> None:
             http_port=port,
             mcp_hub_url=mcp_hub_url,
         )
-        logger.info(f"   ✓ Qwen CLI config: {saved_paths}")
+        logger.info(f"   ✓ Qwen CLI config: {saved_path}")
 
         # Generate universal configs for other clients (only in standalone mode)
         if not os.getenv("MCP_HUB_URL"):
