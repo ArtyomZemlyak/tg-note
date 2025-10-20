@@ -73,6 +73,7 @@ class VectorSearchFactory:
         qdrant_url: Optional[str] = None,
         qdrant_api_key: Optional[str] = None,
         qdrant_collection: str = "knowledge_base",
+        kb_id: Optional[str] = None,
     ) -> BaseVectorStore:
         """
         Create a vector store based on provider
@@ -83,6 +84,7 @@ class VectorSearchFactory:
             qdrant_url: Qdrant API URL
             qdrant_api_key: Qdrant API key
             qdrant_collection: Qdrant collection name
+            kb_id: Knowledge base ID for collection naming
 
         Returns:
             BaseVectorStore instance
@@ -103,6 +105,7 @@ class VectorSearchFactory:
                 dimension=dimension,
                 url=qdrant_url or "http://localhost:6333",
                 api_key=qdrant_api_key,
+                kb_id=kb_id,
             )
 
         else:
@@ -154,7 +157,7 @@ class VectorSearchFactory:
 
     @classmethod
     def create_from_settings(
-        cls, settings, index_path: Optional[Path] = None
+        cls, settings, index_path: Optional[Path] = None, kb_id: Optional[str] = None
     ) -> Optional[VectorSearchManager]:
         """
         Create vector search manager from settings
@@ -166,6 +169,7 @@ class VectorSearchFactory:
         Args:
             settings: Settings object with vector search configuration
             index_path: Path to store vector index (defaults to data/vector_index)
+            kb_id: Knowledge base ID for isolation (optional)
 
         Returns:
             VectorSearchManager instance or None if disabled
@@ -197,6 +201,7 @@ class VectorSearchFactory:
                 qdrant_url=settings.VECTOR_QDRANT_URL,
                 qdrant_api_key=settings.VECTOR_QDRANT_API_KEY,
                 qdrant_collection=settings.VECTOR_QDRANT_COLLECTION,
+                kb_id=kb_id,
             )
 
             # Create chunker
@@ -209,7 +214,8 @@ class VectorSearchFactory:
 
             # Default index path if not provided
             if index_path is None:
-                index_path = Path("data/vector_index")
+                kb_suffix = f"/{kb_id}" if kb_id and kb_id != "default" else ""
+                index_path = Path(f"data/vector_index{kb_suffix}")
 
             # Create manager
             manager = VectorSearchManager(
@@ -218,6 +224,7 @@ class VectorSearchFactory:
                 chunker=chunker,
                 kb_root_path=None,  # MCP doesn't need file system access
                 index_path=index_path,
+                kb_id=kb_id,
             )
 
             logger.info("✓ Vector search manager created successfully")

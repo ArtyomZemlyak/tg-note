@@ -96,7 +96,8 @@ _storages: Dict[int, MemoryStorage] = {}
 _registry: Optional[MCPServerRegistry] = None
 
 # Global vector search manager (shared across users)
-_vector_search_manager: Optional[VectorSearchManager] = None
+# Per-knowledge base vector search managers (kb_id -> VectorSearchManager)
+_vector_search_managers: Dict[str, VectorSearchManager] = {}
 
 # Vector search availability cache
 _vector_search_available: Optional[bool] = None
@@ -613,17 +614,20 @@ def list_categories(user_id: int) -> dict:
 # 4. Dependencies (sentence-transformers, faiss-cpu, etc.) are verified
 
 
-async def get_vector_search_manager() -> Optional[VectorSearchManager]:
+async def get_vector_search_manager(kb_id: str = "default") -> Optional[VectorSearchManager]:
     """
-    Get or create global vector search manager
+    Get or create vector search manager for specific knowledge base
+
+    Args:
+        kb_id: Knowledge base ID for isolation
 
     Returns:
         VectorSearchManager instance or None if disabled/failed
     """
-    global _vector_search_manager
+    global _vector_search_managers
 
-    if _vector_search_manager is not None:
-        return _vector_search_manager
+    if kb_id in _vector_search_managers:
+        return _vector_search_managers[kb_id]
 
     # Get settings from config.yaml or environment
     try:
@@ -634,45 +638,47 @@ async def get_vector_search_manager() -> Optional[VectorSearchManager]:
             return None
 
         logger.info("=" * 60)
-        logger.info("🚀 INITIALIZING VECTOR SEARCH MANAGER")
+        logger.info(f"🚀 INITIALIZING VECTOR SEARCH MANAGER FOR KB: {kb_id}")
         logger.info("=" * 60)
 
         # AICODE-NOTE: SOLID - Dependency Inversion Principle
         # MCP HUB no longer needs access to KB files.
         # It works with data provided by BOT.
         
-        # Set index path (MCP HUB only needs to store vector index)
-        index_path = Path("data/vector_index")
+        # Set index path per knowledge base
+        kb_suffix = f"/{kb_id}" if kb_id != "default" else ""
+        index_path = Path(f"data/vector_index{kb_suffix}")
         logger.info(f"📁 Vector Index Path: {index_path.absolute()}")
 
         # Initialize vector search manager
         from src.mcp.vector_search import VectorSearchFactory
 
-        _vector_search_manager = VectorSearchFactory.create_from_settings(
-            settings=app_settings, index_path=index_path
+        manager = VectorSearchFactory.create_from_settings(
+            settings=app_settings, index_path=index_path, kb_id=kb_id
         )
 
-        if _vector_search_manager:
+        if manager:
             # AICODE-NOTE: Initialize the vector search manager
             # This loads existing index or prepares for indexing
             logger.info("🔄 Initializing vector search manager...")
-            await _vector_search_manager.initialize()
-            logger.info("✅ Vector search manager initialized successfully")
+            await manager.initialize()
+            logger.info(f"✅ Vector search manager initialized successfully for KB: {kb_id}")
             logger.info("=" * 60)
+            _vector_search_managers[kb_id] = manager
         else:
-            logger.warning("⚠️  Vector search manager could not be initialized")
+            logger.warning(f"⚠️  Vector search manager could not be initialized for KB: {kb_id}")
             logger.info("=" * 60)
 
-        return _vector_search_manager
+        return manager
 
     except Exception as e:
-        logger.error(f"❌ Failed to initialize vector search: {e}", exc_info=True)
+        logger.error(f"❌ Failed to initialize vector search for KB {kb_id}: {e}", exc_info=True)
         logger.info("=" * 60)
         return None
 
 
 @mcp.tool()
-async def vector_search(query: str, top_k: int = 5, user_id: int = None) -> dict:
+async def vector_search(query: str, top_k: int = 5, user_id: int = None, kb_id: str = "default") -> dict:
     """
     Perform semantic vector search in knowledge base
 
@@ -680,6 +686,7 @@ async def vector_search(query: str, top_k: int = 5, user_id: int = None) -> dict
         query: Search query - describe what you're looking for in natural language
         top_k: Number of results to return (default: 5)
         user_id: User ID (optional, for logging purposes)
+        kb_id: Knowledge base ID for isolation (default: "default")
 
     Returns:
         Search results with relevant documents
@@ -694,12 +701,13 @@ async def vector_search(query: str, top_k: int = 5, user_id: int = None) -> dict
     logger.info("🔍 VECTOR_SEARCH called")
     logger.info(f"  Query: {query}")
     logger.info(f"  Top K: {top_k}")
+    logger.info(f"  KB ID: {kb_id}")
     if user_id:
         logger.info(f"  User: {user_id}")
 
     try:
         # Perform search using async/await
-        manager = await get_vector_search_manager()
+        manager = await get_vector_search_manager(kb_id=kb_id)
 
         if not manager:
             return {"success": False, "error": "Vector search is not enabled or not configured"}
@@ -723,7 +731,7 @@ async def vector_search(query: str, top_k: int = 5, user_id: int = None) -> dict
 
 
 @mcp.tool()
-async def reindex_vector(documents: List[Dict[str, Any]] = None, force: bool = False, user_id: int = None) -> dict:
+async def reindex_vector(documents: List[Dict[str, Any]] = None, force: bool = False, user_id: int = None, kb_id: str = "default") -> dict:
     """
     Reindex knowledge base for vector search
     
@@ -734,6 +742,7 @@ async def reindex_vector(documents: List[Dict[str, Any]] = None, force: bool = F
         documents: List of all documents to index (optional for force clear)
         force: Force reindexing - clear index first (default: false)
         user_id: User ID (optional, for logging purposes)
+        kb_id: Knowledge base ID for isolation (default: "default")
 
     Returns:
         Reindexing statistics
@@ -748,11 +757,12 @@ async def reindex_vector(documents: List[Dict[str, Any]] = None, force: bool = F
     logger.info("🔄 REINDEX_VECTOR called")
     logger.info(f"  Force: {force}")
     logger.info(f"  Documents count: {len(documents) if documents else 0}")
+    logger.info(f"  KB ID: {kb_id}")
     if user_id:
         logger.info(f"  User: {user_id}")
 
     try:
-        manager = await get_vector_search_manager()
+        manager = await get_vector_search_manager(kb_id=kb_id)
 
         if not manager:
             return {"success": False, "error": "Vector search is not enabled or not configured"}
@@ -791,7 +801,7 @@ async def reindex_vector(documents: List[Dict[str, Any]] = None, force: bool = F
 
 
 @mcp.tool()
-async def add_vector_documents(documents: List[Dict[str, Any]], user_id: int = None) -> dict:
+async def add_vector_documents(documents: List[Dict[str, Any]], user_id: int = None, kb_id: str = "default") -> dict:
     """
     Add or update documents to vector search index
     
@@ -804,6 +814,7 @@ async def add_vector_documents(documents: List[Dict[str, Any]], user_id: int = N
             - content (str): Document text content
             - metadata (dict, optional): Additional metadata
         user_id: User ID (optional, for logging purposes)
+        kb_id: Knowledge base ID for isolation (default: "default")
 
     Returns:
         Operation statistics
@@ -817,11 +828,12 @@ async def add_vector_documents(documents: List[Dict[str, Any]], user_id: int = N
 
     logger.info("➕ ADD_VECTOR_DOCUMENTS called")
     logger.info(f"  Documents count: {len(documents)}")
+    logger.info(f"  KB ID: {kb_id}")
     if user_id:
         logger.info(f"  User: {user_id}")
 
     try:
-        manager = await get_vector_search_manager()
+        manager = await get_vector_search_manager(kb_id=kb_id)
 
         if not manager:
             return {"success": False, "error": "Vector search is not enabled or not configured"}
@@ -847,7 +859,7 @@ async def add_vector_documents(documents: List[Dict[str, Any]], user_id: int = N
 
 
 @mcp.tool()
-async def delete_vector_documents(document_ids: List[str], user_id: int = None) -> dict:
+async def delete_vector_documents(document_ids: List[str], user_id: int = None, kb_id: str = "default") -> dict:
     """
     Delete documents from vector search index
     
@@ -856,6 +868,7 @@ async def delete_vector_documents(document_ids: List[str], user_id: int = None) 
     Args:
         document_ids: List of document IDs to delete
         user_id: User ID (optional, for logging purposes)
+        kb_id: Knowledge base ID for isolation (default: "default")
 
     Returns:
         Operation statistics
@@ -869,11 +882,12 @@ async def delete_vector_documents(document_ids: List[str], user_id: int = None) 
 
     logger.info("🗑️  DELETE_VECTOR_DOCUMENTS called")
     logger.info(f"  Document IDs: {len(document_ids)}")
+    logger.info(f"  KB ID: {kb_id}")
     if user_id:
         logger.info(f"  User: {user_id}")
 
     try:
-        manager = await get_vector_search_manager()
+        manager = await get_vector_search_manager(kb_id=kb_id)
 
         if not manager:
             return {"success": False, "error": "Vector search is not enabled or not configured"}
@@ -895,7 +909,7 @@ async def delete_vector_documents(document_ids: List[str], user_id: int = None) 
 
 
 @mcp.tool()
-async def update_vector_documents(documents: List[Dict[str, Any]], user_id: int = None) -> dict:
+async def update_vector_documents(documents: List[Dict[str, Any]], user_id: int = None, kb_id: str = "default") -> dict:
     """
     Update documents in vector search index
     
@@ -904,6 +918,7 @@ async def update_vector_documents(documents: List[Dict[str, Any]], user_id: int 
     Args:
         documents: List of documents (same structure as add_vector_documents)
         user_id: User ID (optional, for logging purposes)
+        kb_id: Knowledge base ID for isolation (default: "default")
 
     Returns:
         Operation statistics
@@ -917,11 +932,12 @@ async def update_vector_documents(documents: List[Dict[str, Any]], user_id: int 
 
     logger.info("🔄 UPDATE_VECTOR_DOCUMENTS called")
     logger.info(f"  Documents count: {len(documents)}")
+    logger.info(f"  KB ID: {kb_id}")
     if user_id:
         logger.info(f"  User: {user_id}")
 
     try:
-        manager = await get_vector_search_manager()
+        manager = await get_vector_search_manager(kb_id=kb_id)
 
         if not manager:
             return {"success": False, "error": "Vector search is not enabled or not configured"}

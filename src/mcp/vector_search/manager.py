@@ -25,6 +25,7 @@ class VectorSearchManager:
         chunker: DocumentChunker,
         kb_root_path: Optional[Path] = None,
         index_path: Optional[Path] = None,
+        kb_id: Optional[str] = None,
     ):
         """
         Initialize vector search manager
@@ -35,12 +36,14 @@ class VectorSearchManager:
             chunker: Document chunker
             kb_root_path: Knowledge base root path (optional for MCP usage)
             index_path: Path to save/load index
+            kb_id: Knowledge base ID for isolation (optional)
         """
         self.embedder = embedder
         self.vector_store = vector_store
         self.chunker = chunker
         self.kb_root_path = Path(kb_root_path) if kb_root_path else None
-        self.index_path = index_path or (self.kb_root_path / ".vector_index" if self.kb_root_path else Path("data/vector_index"))
+        self.kb_id = kb_id or "default"
+        self.index_path = index_path or (self.kb_root_path / ".vector_index" if self.kb_root_path else Path(f"data/vector_index/{self.kb_id}"))
 
         # Track indexed documents
         self._indexed_documents: Dict[str, str] = {}  # document_id -> content_hash
@@ -75,6 +78,7 @@ class VectorSearchManager:
     async def _save_metadata(self) -> None:
         """Save indexing metadata"""
         metadata = {
+            "kb_id": self.kb_id,
             "config_hash": self._config_hash,
             "indexed_documents": self._indexed_documents,
         }
@@ -85,7 +89,7 @@ class VectorSearchManager:
         with open(metadata_path, "w") as f:
             json.dump(metadata, f, indent=2)
 
-        logger.debug(f"Saved metadata to {metadata_path}")
+        logger.debug(f"Saved metadata for KB '{self.kb_id}' to {metadata_path}")
 
     async def _load_metadata(self) -> bool:
         """
@@ -97,12 +101,21 @@ class VectorSearchManager:
         metadata_path = self.index_path / "metadata.json"
 
         if not metadata_path.exists():
-            logger.info("No existing index metadata found")
+            logger.info(f"No existing index metadata found for KB '{self.kb_id}'")
             return False
 
         try:
             with open(metadata_path, "r") as f:
                 metadata = json.load(f)
+
+            # Check KB ID match
+            saved_kb_id = metadata.get("kb_id", "default")
+            if saved_kb_id != self.kb_id:
+                logger.warning(
+                    f"KB ID mismatch: expected '{self.kb_id}', found '{saved_kb_id}'. "
+                    "Full re-indexing required."
+                )
+                return False
 
             saved_config_hash = metadata.get("config_hash")
             current_config_hash = self._get_config_hash()
@@ -116,11 +129,11 @@ class VectorSearchManager:
             self._config_hash = saved_config_hash
             self._indexed_documents = metadata.get("indexed_documents", {})
 
-            logger.info(f"Loaded metadata for {len(self._indexed_documents)} indexed documents")
+            logger.info(f"Loaded metadata for KB '{self.kb_id}': {len(self._indexed_documents)} indexed documents")
             return True
 
         except Exception as e:
-            logger.error(f"Error loading metadata: {e}")
+            logger.error(f"Error loading metadata for KB '{self.kb_id}': {e}")
             return False
 
     async def initialize(self) -> None:
@@ -272,6 +285,7 @@ class VectorSearchManager:
                 # Create metadata
                 metadata = {
                     "document_id": rel_path,
+                    "kb_id": self.kb_id,
                     "file_path": rel_path,
                     "file_name": file_path.name,
                     "file_size": len(content),
@@ -440,6 +454,7 @@ class VectorSearchManager:
                 # Merge metadata
                 metadata = {
                     "document_id": doc_id,
+                    "kb_id": self.kb_id,
                     **base_metadata,
                 }
 
