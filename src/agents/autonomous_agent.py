@@ -643,9 +643,19 @@ class AutonomousAgent(BaseAgent):
         if mcp_description:
             system_content = f"{self.instruction}\n\n{mcp_description}"
 
-        # Подготовить сообщения
+        # Подготовить сообщения с дополнительными инструкциями по поиску
+        enhanced_system_content = f"""{system_content}
+
+ВАЖНО: При работе с базой знаний ВСЕГДА используй инструменты поиска:
+- kb_search_content - для поиска по содержимому файлов
+- kb_search_files - для поиска файлов по названию  
+- kb_list_directory - для просмотра структуры
+- kb_read_file - для чтения конкретных файлов
+
+Сначала найди существующую информацию, затем решай что делать с новой."""
+        
         messages = [
-            {"role": "system", "content": system_content},
+            {"role": "system", "content": enhanced_system_content},
             {"role": "user", "content": context.task},
         ]
 
@@ -715,18 +725,34 @@ class AutonomousAgent(BaseAgent):
                 return text_part.strip()
         return task
 
+    def _extract_key_terms(self, text: str) -> str:
+        """Extract key terms from text for knowledge base search"""
+        # Simple keyword extraction - take first 3-5 meaningful words
+        words = text.split()
+        # Filter out common words and take meaningful terms
+        stop_words = {"и", "в", "на", "с", "по", "для", "от", "до", "из", "к", "у", "о", "об", "что", "как", "где", "когда", "почему", "зачем", "кто", "какой", "какая", "какое", "какие"}
+        meaningful_words = [word.lower().strip(".,!?;:") for word in words if word.lower().strip(".,!?;:") not in stop_words and len(word) > 2]
+        
+        # Take first 3-5 meaningful words
+        key_terms = " ".join(meaningful_words[:5])
+        return key_terms if key_terms else text[:100]  # Fallback to first 100 chars
+
     def _generate_task_list(self, text: str) -> List[str]:
         """Generate a list of tasks for processing content"""
         tasks = [
-            "Analyze content and extract key topics",
-            "Extract metadata (topics, tags, category)",
+            "Search existing knowledge base for related information using multiple search terms",
+            "Search for files with similar names or topics",
+            "Read and analyze found existing content",
+            "Compare existing content with new content to identify gaps",
+            "Decide whether to create new content, update existing, or enhance existing",
+            "Extract key topics and metadata from content",
             "Structure content for knowledge base",
-            "Generate markdown formatted content",
+            "Generate markdown formatted content with proper cross-references",
         ]
 
         # Add web search task if URLs present
         if "URL:" in text or "http" in text:
-            tasks.insert(1, "Search web for additional context")
+            tasks.insert(4, "Search web for additional context")
 
         return tasks
 
@@ -734,7 +760,17 @@ class AutonomousAgent(BaseAgent):
         """Convert a task to a tool call"""
         task_desc = task["task"].lower()
 
-        if "analyze content" in task_desc:
+        if "search existing knowledge base" in task_desc:
+            text = self._extract_text_from_task(context.task)
+            # Extract key terms for search
+            key_terms = self._extract_key_terms(text)
+            return "kb_search_content", {"query": key_terms}
+
+        elif "analyze found existing content" in task_desc:
+            text = self._extract_text_from_task(context.task)
+            return "analyze_content", {"text": text}
+
+        elif "decide whether to create" in task_desc:
             text = self._extract_text_from_task(context.task)
             return "analyze_content", {"text": text}
 
@@ -750,7 +786,29 @@ class AutonomousAgent(BaseAgent):
                 return "web_search", {"query": urls[0]}
             return "analyze_content", {"text": text}
 
-        elif "extract metadata" in task_desc:
+        elif "search existing knowledge base" in task_desc:
+            text = self._extract_text_from_task(context.task)
+            key_terms = self._extract_key_terms(text)
+            return "kb_search_content", {"query": key_terms}
+
+        elif "search for files" in task_desc:
+            text = self._extract_text_from_task(context.task)
+            key_terms = self._extract_key_terms(text)
+            return "kb_search_files", {"pattern": f"*{key_terms.split()[0]}*"}
+
+        elif "read and analyze found" in task_desc:
+            text = self._extract_text_from_task(context.task)
+            return "analyze_content", {"text": text}
+
+        elif "compare existing content" in task_desc:
+            text = self._extract_text_from_task(context.task)
+            return "analyze_content", {"text": text}
+
+        elif "decide whether to create" in task_desc:
+            text = self._extract_text_from_task(context.task)
+            return "analyze_content", {"text": text}
+
+        elif "extract key topics" in task_desc or "extract metadata" in task_desc:
             text = self._extract_text_from_task(context.task)
             return "analyze_content", {"text": text}
 
