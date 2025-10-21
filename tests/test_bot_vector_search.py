@@ -15,6 +15,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from src.bot.mcp_hub_client import MCPHubClient, MCPHubError
 from src.bot.vector_search_manager import (
     BotVectorSearchManager,
     KnowledgeBaseChange,
@@ -102,23 +103,15 @@ class TestBotVectorSearchManager:
     async def test_check_availability_not_available(self, manager):
         """Test checking vector search availability - not available"""
         # Mock health check without vector search tools
-        mock_response = MagicMock()
-        mock_response.status = 200
-        mock_response.json = AsyncMock(
-            return_value={
-                "status": "ok",
-                "builtin_tools": {
-                    "total": 2,
-                    "names": ["store_memory", "retrieve_memory"],
-                },
-            }
-        )
+        mock_response = {
+            "status": "ok",
+            "builtin_tools": {
+                "total": 2,
+                "names": ["store_memory", "retrieve_memory"],
+            },
+        }
 
-        with patch("aiohttp.ClientSession") as mock_session:
-            # Mock the async context manager properly
-            mock_session_instance = mock_session.return_value.__aenter__.return_value
-            mock_session_instance.get.return_value.__aenter__.return_value = mock_response
-
+        with patch.object(manager._mcp_client, "health_check", return_value=mock_response):
             available = await manager.check_vector_search_availability()
 
             assert available is False
@@ -128,11 +121,9 @@ class TestBotVectorSearchManager:
     async def test_check_availability_error(self, manager):
         """Test checking vector search availability - error case"""
         # Mock failed health check
-        with patch("aiohttp.ClientSession") as mock_session:
-            mock_session.return_value.__aenter__.return_value.get.side_effect = Exception(
-                "Connection error"
-            )
-
+        with patch.object(
+            manager._mcp_client, "health_check", side_effect=Exception("Connection error")
+        ):
             available = await manager.check_vector_search_availability()
 
             assert available is False
@@ -289,10 +280,11 @@ class TestInitializeVectorSearchForBot:
                 }
             )
 
-            with patch("aiohttp.ClientSession") as mock_session:
-                # Mock the async context manager properly
-                mock_session_instance = mock_session.return_value.__aenter__.return_value
-                mock_session_instance.get.return_value.__aenter__.return_value = mock_response
+            with patch("src.bot.vector_search_manager.MCPHubClient") as mock_client_class:
+                mock_client = AsyncMock()
+                mock_client.health_check.return_value = mock_response
+                mock_client_class.return_value = mock_client
+
                 result = await initialize_vector_search_for_bot(
                     mcp_hub_url="http://localhost:8765",
                     kb_root_path=temp_kb,

@@ -11,10 +11,11 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
+from config.settings import settings
+
 from ..agents.tools.base_tool import BaseTool, ToolContext
 from .client import MCPClient, MCPServerConfig
 from .registry_client import MCPRegistryClient
-from config.settings import settings
 
 
 class DynamicMCPTool(BaseTool):
@@ -123,7 +124,9 @@ async def discover_and_create_mcp_tools(
         mcp_hub_url = os.getenv("MCP_HUB_URL")
         if mcp_hub_url:
             try:
-                client = MCPClient(MCPServerConfig(transport="sse", url=mcp_hub_url), timeout=settings.MCP_TIMEOUT)
+                client = MCPClient(
+                    MCPServerConfig(transport="sse", url=mcp_hub_url), timeout=settings.MCP_TIMEOUT
+                )
                 if await client.connect():
                     connected_clients["mcp-hub"] = client
                 else:

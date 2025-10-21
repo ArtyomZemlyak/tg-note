@@ -25,7 +25,7 @@ class BaseMCPTool(BaseTool):
     def __init__(self, timeout: int = 600):
         """
         Initialize MCP tool
-        
+
         Args:
             timeout: Timeout in seconds for MCP requests (default: 600 seconds)
         """

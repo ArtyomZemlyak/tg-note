@@ -380,16 +380,20 @@ class MCPClient:
     async def reconnect(self) -> bool:
         """
         Reconnect to MCP server
-        
+
         Returns:
             True if reconnection successful
         """
         if self._reconnect_attempts >= self._max_reconnect_attempts:
-            logger.error(f"[MCPClient] Maximum reconnection attempts ({self._max_reconnect_attempts}) exceeded")
+            logger.error(
+                f"[MCPClient] Maximum reconnection attempts ({self._max_reconnect_attempts}) exceeded"
+            )
             return False
-            
+
         self._reconnect_attempts += 1
-        logger.info(f"[MCPClient] Attempting to reconnect (attempt {self._reconnect_attempts}/{self._max_reconnect_attempts})...")
+        logger.info(
+            f"[MCPClient] Attempting to reconnect (attempt {self._reconnect_attempts}/{self._max_reconnect_attempts})..."
+        )
         await self.disconnect()
         # Reset SSE reader ready event for reconnection
         if self._sse_reader_ready:
@@ -461,18 +465,28 @@ class MCPClient:
                     try:
                         await self._sse_reader_task
                     except Exception as e:
-                        logger.warning(f"[MCPClient] SSE connection lost: {e}. Attempting to reconnect...")
+                        logger.warning(
+                            f"[MCPClient] SSE connection lost: {e}. Attempting to reconnect..."
+                        )
                         # Try to reconnect
                         if await self.reconnect():
-                            logger.info("[MCPClient] Reconnected successfully, retrying tool call...")
+                            logger.info(
+                                "[MCPClient] Reconnected successfully, retrying tool call..."
+                            )
                             # Retry the tool call once
                             response = await self._send_request(
                                 "tools/call", {"name": tool_name, "arguments": arguments}
                             )
                             if not response:
-                                return {"success": False, "error": "No response from server after reconnection"}
+                                return {
+                                    "success": False,
+                                    "error": "No response from server after reconnection",
+                                }
                         else:
-                            return {"success": False, "error": f"SSE connection lost and reconnection failed: {e}"}
+                            return {
+                                "success": False,
+                                "error": f"SSE connection lost and reconnection failed: {e}",
+                            }
                 else:
                     return {"success": False, "error": "No response from server"}
 
@@ -697,12 +711,12 @@ class MCPClient:
 
         try:
             logger.debug("[MCPClient] SSE reader task started")
-            
+
             # Signal that SSE reader is ready to process responses
             if self._sse_reader_ready:
                 self._sse_reader_ready.set()
                 logger.debug("[MCPClient] SSE reader ready signal sent")
-            
+
             event_type = None
 
             async for line in self._sse_response.content:
@@ -770,7 +784,7 @@ class MCPClient:
         """Send request via HTTP/SSE transport (FastMCP protocol)"""
         if not self.session:
             return None
-        
+
         # Check if SSE reader task is still running
         if self._sse_reader_task and self._sse_reader_task.done():
             try:
@@ -778,7 +792,7 @@ class MCPClient:
             except Exception as e:
                 logger.error(f"[MCPClient] SSE reader task failed before request: {e}")
                 return None
-        
+
         # Check if SSE response is still active
         if self._sse_response and self._sse_response.closed:
             logger.error("[MCPClient] SSE response is closed, cannot send request")
@@ -802,7 +816,9 @@ class MCPClient:
 
                 # Send the request (server returns 202 Accepted, response comes via SSE)
                 async with self.session.post(
-                    url_with_session, json=request, timeout=aiohttp.ClientTimeout(total=self.timeout)
+                    url_with_session,
+                    json=request,
+                    timeout=aiohttp.ClientTimeout(total=self.timeout),
                 ) as response:
                     if response.status not in (200, 202):
                         # Remove pending request on error
@@ -823,7 +839,7 @@ class MCPClient:
                             logger.error(f"[MCPClient] SSE reader task failed: {e}")
                             self._pending_requests.pop(self._request_id, None)
                             return None
-                    
+
                     result = await asyncio.wait_for(future, timeout=float(self.timeout))
                     return result
                 except asyncio.TimeoutError:

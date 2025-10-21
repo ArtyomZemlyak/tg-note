@@ -22,11 +22,12 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
-import aiohttp
 from loguru import logger
 
 from config import settings
 from src.core.events import EventType, KBChangeEvent, get_event_bus
+
+from .mcp_hub_client import MCPHubClient, MCPHubError, MCPHubUnavailableError
 
 
 class KnowledgeBaseChange:
@@ -75,6 +76,10 @@ class BotVectorSearchManager:
         self._reindex_lock = asyncio.Lock()  # Lock to prevent concurrent reindexing
         self._reindex_task: Optional["asyncio.Task[None]"] = None  # Track ongoing reindex
         self._shutdown = False  # Shutdown flag
+
+        # Initialize unified HTTP client
+        self._mcp_client = MCPHubClient(self.mcp_hub_url)
+
         # Subscribe to KB change events for reactive reindexing
         if subscribe_to_events:
             self._subscribe_to_kb_events()
@@ -87,47 +92,37 @@ class BotVectorSearchManager:
             True if vector_search and reindex_vector tools are available
         """
         try:
-            health_url = f"{self.mcp_hub_url}/health"
-            logger.info(f"🔍 Checking vector search availability at {health_url}")
+            logger.info(f"🔍 Checking vector search availability at {self.mcp_hub_url}")
 
-            async with aiohttp.ClientSession() as session:
-                async with session.get(health_url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                    if resp.status != 200:
-                        logger.warning(f"⚠️  MCP Hub health check failed with status {resp.status}")
-                        return False
+            # Use unified client for health check
+            health_data = await self._mcp_client.health_check()
+            builtin_tools = health_data.get("builtin_tools", {})
+            available_tools = builtin_tools.get("names", [])
 
-                    data = await resp.json()
-                    builtin_tools = data.get("builtin_tools", {})
-                    available_tools = builtin_tools.get("names", [])
+            # Check if vector search tools are available
+            required_tools = [
+                "vector_search",
+            ]
 
-                    # Check if vector search tools are available
-                    required_tools = [
-                        "vector_search",
-                        "reindex_vector",
-                        "add_vector_documents",
-                        "delete_vector_documents",
-                        "update_vector_documents",
-                    ]
+            # Note: Vector indexing tools (reindex, add, delete, update) are now HTTP API only
+            # Only vector_search remains as MCP tool for agent usage
+            has_vector_search = all(tool in available_tools for tool in required_tools)
 
-                    has_all_tools = all(tool in available_tools for tool in required_tools)
-
-                    if has_all_tools:
-                        logger.info(
-                            "✅ All vector search tools are available: "
-                            f"{', '.join(required_tools)}"
-                        )
-                        self.vector_search_available = True
-                        return True
-                    else:
-                        missing = [t for t in required_tools if t not in available_tools]
-                        available = ", ".join(available_tools) if available_tools else "none"
-                        logger.info(
-                            f"ℹ️  Vector search tools not fully available. "
-                            f"Missing: {', '.join(missing)}. "
-                            f"Available tools: {available}"
-                        )
-                        self.vector_search_available = False
-                        return False
+            if has_vector_search:
+                logger.info("✅ Vector search tools are available: " f"{', '.join(required_tools)}")
+                logger.info("ℹ️  Vector indexing operations available via HTTP API")
+                self.vector_search_available = True
+                return True
+            else:
+                missing = [t for t in required_tools if t not in available_tools]
+                available = ", ".join(available_tools) if available_tools else "none"
+                logger.info(
+                    f"ℹ️  Vector search tools not available. "
+                    f"Missing: {', '.join(missing)}. "
+                    f"Available tools: {available}"
+                )
+                self.vector_search_available = False
+                return False
 
         except Exception as e:
             logger.warning(f"⚠️  Failed to check vector search availability: {e}")
@@ -450,38 +445,27 @@ class BotVectorSearchManager:
         AICODE-FIX: Changed from MCP tools to HTTP API (tools moved to HTTP endpoints)
         """
         try:
-            # Use HTTP API instead of MCP tools
-            api_url = f"{self.mcp_hub_url}/vector/reindex"
-            
-            payload = {
-                "documents": documents,
-                "force": bool(force),
-                "kb_id": "default",  # TODO: Make configurable per user
-                "user_id": None  # TODO: Add user_id support
-            }
+            # Use unified HTTP client
+            result = await self._mcp_client.vector_reindex(
+                documents=documents,
+                force=force,
+                kb_id="default",  # TODO: Make configurable per user
+                user_id=None,  # TODO: Add user_id support
+            )
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    api_url, 
-                    json=payload, 
-                    timeout=aiohttp.ClientTimeout(total=settings.MCP_TIMEOUT)
-                ) as response:
-                    if response.status == 200:
-                        result = await response.json()
-                        if result.get("success"):
-                            logger.info("✅ HTTP reindex_vector completed successfully")
-                            return True
-                        else:
-                            logger.warning(f"⚠️ HTTP reindex_vector failed: {result.get('error')}")
-                            return False
-                    elif response.status == 503:
-                        error_text = await response.text()
-                        logger.warning(f"⚠️ Vector search not available (503): {error_text}")
-                        return False
-                    else:
-                        error_text = await response.text()
-                        logger.warning(f"⚠️ HTTP reindex_vector failed with status {response.status}: {error_text}")
-                        return False
+            if result.get("success"):
+                logger.info("✅ HTTP reindex_vector completed successfully")
+                return True
+            else:
+                logger.warning(f"⚠️ HTTP reindex_vector failed: {result.get('error')}")
+                return False
+
+        except MCPHubUnavailableError as e:
+            logger.warning(f"⚠️ Vector search not available: {e}")
+            return False
+        except MCPHubError as e:
+            logger.warning(f"⚠️ HTTP reindex_vector failed: {e}")
+            return False
         except Exception as e:
             logger.error(f"❌ Exception while calling HTTP reindex_vector: {e}", exc_info=True)
             return False
@@ -494,39 +478,30 @@ class BotVectorSearchManager:
         AICODE-FIX: Changed from MCP tools to HTTP API (tools moved to HTTP endpoints)
         """
         try:
-            # Use HTTP API instead of MCP tools
-            api_url = f"{self.mcp_hub_url}/vector/documents"
-            
-            payload = {
-                "documents": documents,
-                "kb_id": "default",  # TODO: Make configurable per user
-                "user_id": None  # TODO: Add user_id support
-            }
+            # Use unified HTTP client
+            result = await self._mcp_client.vector_add_documents(
+                documents=documents,
+                kb_id="default",  # TODO: Make configurable per user
+                user_id=None,  # TODO: Add user_id support
+            )
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    api_url, 
-                    json=payload, 
-                    timeout=aiohttp.ClientTimeout(total=settings.MCP_TIMEOUT)
-                ) as response:
-                    if response.status == 200:
-                        result = await response.json()
-                        if result.get("success"):
-                            logger.info(f"✅ HTTP add_vector_documents completed: {result.get('message')}")
-                            return True
-                        else:
-                            logger.warning(f"⚠️ HTTP add_vector_documents failed: {result.get('error')}")
-                            return False
-                    elif response.status == 503:
-                        error_text = await response.text()
-                        logger.warning(f"⚠️ Vector search not available (503): {error_text}")
-                        return False
-                    else:
-                        error_text = await response.text()
-                        logger.warning(f"⚠️ HTTP add_vector_documents failed with status {response.status}: {error_text}")
-                        return False
+            if result.get("success"):
+                logger.info(f"✅ HTTP add_vector_documents completed: {result.get('message')}")
+                return True
+            else:
+                logger.warning(f"⚠️ HTTP add_vector_documents failed: {result.get('error')}")
+                return False
+
+        except MCPHubUnavailableError as e:
+            logger.warning(f"⚠️ Vector search not available: {e}")
+            return False
+        except MCPHubError as e:
+            logger.warning(f"⚠️ HTTP add_vector_documents failed: {e}")
+            return False
         except Exception as e:
-            logger.error(f"❌ Exception while calling HTTP add_vector_documents: {e}", exc_info=True)
+            logger.error(
+                f"❌ Exception while calling HTTP add_vector_documents: {e}", exc_info=True
+            )
             return False
 
     async def _call_mcp_delete_documents(self, document_ids: List[str]) -> bool:
@@ -537,39 +512,30 @@ class BotVectorSearchManager:
         AICODE-FIX: Changed from MCP tools to HTTP API (tools moved to HTTP endpoints)
         """
         try:
-            # Use HTTP API instead of MCP tools
-            api_url = f"{self.mcp_hub_url}/vector/documents"
-            
-            payload = {
-                "document_ids": document_ids,
-                "kb_id": "default",  # TODO: Make configurable per user
-                "user_id": None  # TODO: Add user_id support
-            }
+            # Use unified HTTP client
+            result = await self._mcp_client.vector_delete_documents(
+                document_ids=document_ids,
+                kb_id="default",  # TODO: Make configurable per user
+                user_id=None,  # TODO: Add user_id support
+            )
 
-            async with aiohttp.ClientSession() as session:
-                async with session.delete(
-                    api_url, 
-                    json=payload, 
-                    timeout=aiohttp.ClientTimeout(total=settings.MCP_TIMEOUT)
-                ) as response:
-                    if response.status == 200:
-                        result = await response.json()
-                        if result.get("success"):
-                            logger.info(f"✅ HTTP delete_vector_documents completed: {result.get('message')}")
-                            return True
-                        else:
-                            logger.warning(f"⚠️ HTTP delete_vector_documents failed: {result.get('error')}")
-                            return False
-                    elif response.status == 503:
-                        error_text = await response.text()
-                        logger.warning(f"⚠️ Vector search not available (503): {error_text}")
-                        return False
-                    else:
-                        error_text = await response.text()
-                        logger.warning(f"⚠️ HTTP delete_vector_documents failed with status {response.status}: {error_text}")
-                        return False
+            if result.get("success"):
+                logger.info(f"✅ HTTP delete_vector_documents completed: {result.get('message')}")
+                return True
+            else:
+                logger.warning(f"⚠️ HTTP delete_vector_documents failed: {result.get('error')}")
+                return False
+
+        except MCPHubUnavailableError as e:
+            logger.warning(f"⚠️ Vector search not available: {e}")
+            return False
+        except MCPHubError as e:
+            logger.warning(f"⚠️ HTTP delete_vector_documents failed: {e}")
+            return False
         except Exception as e:
-            logger.error(f"❌ Exception while calling HTTP delete_vector_documents: {e}", exc_info=True)
+            logger.error(
+                f"❌ Exception while calling HTTP delete_vector_documents: {e}", exc_info=True
+            )
             return False
 
     async def _call_mcp_update_documents(self, documents: List[Dict[str, Any]]) -> bool:
@@ -580,39 +546,30 @@ class BotVectorSearchManager:
         AICODE-FIX: Changed from MCP tools to HTTP API (tools moved to HTTP endpoints)
         """
         try:
-            # Use HTTP API instead of MCP tools
-            api_url = f"{self.mcp_hub_url}/vector/documents"
-            
-            payload = {
-                "documents": documents,
-                "kb_id": "default",  # TODO: Make configurable per user
-                "user_id": None  # TODO: Add user_id support
-            }
+            # Use unified HTTP client
+            result = await self._mcp_client.vector_update_documents(
+                documents=documents,
+                kb_id="default",  # TODO: Make configurable per user
+                user_id=None,  # TODO: Add user_id support
+            )
 
-            async with aiohttp.ClientSession() as session:
-                async with session.put(
-                    api_url, 
-                    json=payload, 
-                    timeout=aiohttp.ClientTimeout(total=settings.MCP_TIMEOUT)
-                ) as response:
-                    if response.status == 200:
-                        result = await response.json()
-                        if result.get("success"):
-                            logger.info(f"✅ HTTP update_vector_documents completed: {result.get('message')}")
-                            return True
-                        else:
-                            logger.warning(f"⚠️ HTTP update_vector_documents failed: {result.get('error')}")
-                            return False
-                    elif response.status == 503:
-                        error_text = await response.text()
-                        logger.warning(f"⚠️ Vector search not available (503): {error_text}")
-                        return False
-                    else:
-                        error_text = await response.text()
-                        logger.warning(f"⚠️ HTTP update_vector_documents failed with status {response.status}: {error_text}")
-                        return False
+            if result.get("success"):
+                logger.info(f"✅ HTTP update_vector_documents completed: {result.get('message')}")
+                return True
+            else:
+                logger.warning(f"⚠️ HTTP update_vector_documents failed: {result.get('error')}")
+                return False
+
+        except MCPHubUnavailableError as e:
+            logger.warning(f"⚠️ Vector search not available: {e}")
+            return False
+        except MCPHubError as e:
+            logger.warning(f"⚠️ HTTP update_vector_documents failed: {e}")
+            return False
         except Exception as e:
-            logger.error(f"❌ Exception while calling HTTP update_vector_documents: {e}", exc_info=True)
+            logger.error(
+                f"❌ Exception while calling HTTP update_vector_documents: {e}", exc_info=True
+            )
             return False
 
     async def _handle_kb_change_event(self, event: KBChangeEvent) -> None:
@@ -699,6 +656,9 @@ class BotVectorSearchManager:
                 await self._reindex_task
             except asyncio.CancelledError:
                 pass
+
+        # Close HTTP client
+        await self._mcp_client.close()
 
         logger.info("✅ BotVectorSearchManager shutdown complete")
 

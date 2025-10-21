@@ -426,7 +426,7 @@ async def health_check(request):
                     "endpoints": [
                         "POST /vector/reindex",
                         "POST /vector/documents",
-                        "DELETE /vector/documents", 
+                        "DELETE /vector/documents",
                         "PUT /vector/documents",
                     ],
                     "description": "Vector search indexing operations via HTTP API",
@@ -738,7 +738,7 @@ async def vector_search(
         return {"success": False, "error": str(e), "error_type": type(e).__name__}
 
 
-# AICODE-NOTE: Vector indexing tools (reindex_vector, add_vector_documents, 
+# AICODE-NOTE: Vector indexing tools (reindex_vector, add_vector_documents,
 # delete_vector_documents, update_vector_documents) have been moved to HTTP API endpoints.
 # Only vector_search remains as MCP tool for agent usage.
 

@@ -9,13 +9,14 @@ from pathlib import Path
 from typing import Dict, Optional
 from urllib.parse import urlsplit, urlunsplit
 
-import aiohttp
 from loguru import logger
 from telebot.async_telebot import AsyncTeleBot
 from telebot.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from src.bot.utils import escape_markdown
 from src.mcp.registry.manager import MCPServersManager
+
+from .mcp_hub_client import MCPHubClient, MCPHubError
 
 
 class MCPHandlers:
@@ -35,10 +36,12 @@ class MCPHandlers:
         self.waiting_for_json: Dict[int, bool] = {}
         # Resolve MCP Hub base URL for HTTP registry API if in Docker mode
         self._hub_base = None
+        self._mcp_client: Optional[MCPHubClient] = None
         mcp_hub_url = os.environ.get("MCP_HUB_URL")
         if mcp_hub_url:
             parts = urlsplit(mcp_hub_url)
             self._hub_base = urlunsplit((parts.scheme, parts.netloc, "", "", ""))
+            self._mcp_client = MCPHubClient(self._hub_base)
 
     async def register_handlers_async(self):
         """Register all MCP handlers"""
@@ -156,20 +159,22 @@ class MCPHandlers:
 
             # Add server via MCP Hub HTTP API if available, else local registry
             success = False
-            if self._hub_base:
+            if self._mcp_client:
                 try:
-                    async with aiohttp.ClientSession() as session:
-                        async with session.post(
-                            f"{self._hub_base}/registry/servers",
-                            json=json.loads(json_content),
-                            timeout=aiohttp.ClientTimeout(total=10),
-                        ) as resp:
-                            if resp.status in (200, 201):
-                                success = True
-                            else:
-                                # Fall back to local manager on failure
-                                success = self.mcp_manager.add_server_from_json(json_content)
-                except Exception:
+                    result = await self._mcp_client.registry_register_server(
+                        json.loads(json_content)
+                    )
+                    if result.get("success"):
+                        success = True
+                        logger.info(f"✅ [HTTP] Registered server via API: {server_name}")
+                    else:
+                        # Fall back to local manager on failure
+                        success = self.mcp_manager.add_server_from_json(json_content)
+                except MCPHubError as e:
+                    logger.warning(f"⚠️ [HTTP] MCP Hub error: {e}, falling back to local registry")
+                    success = self.mcp_manager.add_server_from_json(json_content)
+                except Exception as e:
+                    logger.warning(f"⚠️ [HTTP] Exception: {e}, falling back to local registry")
                     success = self.mcp_manager.add_server_from_json(json_content)
             else:
                 success = self.mcp_manager.add_server_from_json(json_content)
@@ -205,38 +210,36 @@ class MCPHandlers:
 
         # Prefer hub endpoint if available
         all_servers = None
-        if self._hub_base:
+        if self._mcp_client:
             try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(
-                        f"{self._hub_base}/registry/servers",
-                        timeout=aiohttp.ClientTimeout(total=10),
-                    ) as resp:
-                        if resp.status == 200:
-                            data = await resp.json()
-                            all_servers = []
-                            for srv in data.get("servers", []):
-                                # Minimal adapter object
-                                from dataclasses import make_dataclass
+                result = await self._mcp_client.registry_list_servers()
+                all_servers = []
+                for srv in result.get("servers", []):
+                    # Minimal adapter object
+                    from dataclasses import make_dataclass
 
-                                MCPServer = make_dataclass(
-                                    "MCPServer",
-                                    [
-                                        ("name", str),
-                                        ("description", str),
-                                        ("command", str),
-                                        ("enabled", bool),
-                                    ],
-                                )
-                                all_servers.append(
-                                    MCPServer(
-                                        name=srv.get("name", ""),
-                                        description=srv.get("description", ""),
-                                        command=srv.get("command", ""),
-                                        enabled=bool(srv.get("enabled", False)),
-                                    )
-                                )
-            except Exception:
+                    MCPServer = make_dataclass(
+                        "MCPServer",
+                        [
+                            ("name", str),
+                            ("description", str),
+                            ("command", str),
+                            ("enabled", bool),
+                        ],
+                    )
+                    all_servers.append(
+                        MCPServer(
+                            name=srv.get("name", ""),
+                            description=srv.get("description", ""),
+                            command=srv.get("command", ""),
+                            enabled=bool(srv.get("enabled", False)),
+                        )
+                    )
+            except MCPHubError as e:
+                logger.warning(f"Failed to fetch servers from hub: {e}")
+                all_servers = None
+            except Exception as e:
+                logger.warning(f"Failed to fetch servers from hub: {e}")
                 all_servers = None
 
         if all_servers is None:
@@ -300,23 +303,21 @@ class MCPHandlers:
 
         # Prefer hub endpoint for summary
         summary = None
-        if self._hub_base:
+        if self._mcp_client:
             try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(
-                        f"{self._hub_base}/registry/servers",
-                        timeout=aiohttp.ClientTimeout(total=10),
-                    ) as resp:
-                        if resp.status == 200:
-                            data = await resp.json()
-                            total = int(data.get("total", 0))
-                            enabled = sum(1 for s in data.get("servers", []) if s.get("enabled"))
-                            summary = {
-                                "total": total,
-                                "enabled": enabled,
-                                "disabled": total - enabled,
-                            }
-            except Exception:
+                result = await self._mcp_client.registry_list_servers()
+                total = int(result.get("total", 0))
+                enabled = sum(1 for s in result.get("servers", []) if s.get("enabled"))
+                summary = {
+                    "total": total,
+                    "enabled": enabled,
+                    "disabled": total - enabled,
+                }
+            except MCPHubError as e:
+                logger.warning(f"Failed to fetch status from hub: {e}")
+                summary = None
+            except Exception as e:
+                logger.warning(f"Failed to fetch status from hub: {e}")
                 summary = None
         if summary is None:
             summary = self.mcp_manager.get_servers_summary()
@@ -350,15 +351,15 @@ class MCPHandlers:
         server_name = args[1].strip()
 
         success = False
-        if self._hub_base:
+        if self._mcp_client:
             try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(
-                        f"{self._hub_base}/registry/servers/{server_name}/enable",
-                        timeout=aiohttp.ClientTimeout(total=10),
-                    ) as resp:
-                        success = resp.status == 200
-            except Exception:
+                result = await self._mcp_client.registry_enable_server(server_name)
+                success = result.get("success", False)
+            except MCPHubError as e:
+                logger.warning(f"Failed to enable server via hub: {e}")
+                success = False
+            except Exception as e:
+                logger.warning(f"Failed to enable server via hub: {e}")
                 success = False
         if not success:
             success = self.mcp_manager.enable_server(server_name)
@@ -396,15 +397,15 @@ class MCPHandlers:
         server_name = args[1].strip()
 
         success = False
-        if self._hub_base:
+        if self._mcp_client:
             try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(
-                        f"{self._hub_base}/registry/servers/{server_name}/disable",
-                        timeout=aiohttp.ClientTimeout(total=10),
-                    ) as resp:
-                        success = resp.status == 200
-            except Exception:
+                result = await self._mcp_client.registry_disable_server(server_name)
+                success = result.get("success", False)
+            except MCPHubError as e:
+                logger.warning(f"Failed to disable server via hub: {e}")
+                success = False
+            except Exception as e:
+                logger.warning(f"Failed to disable server via hub: {e}")
                 success = False
         if not success:
             success = self.mcp_manager.disable_server(server_name)
@@ -530,15 +531,15 @@ class MCPHandlers:
                 # Remove server
                 server_name = parts[2]
                 success = False
-                if self._hub_base:
+                if self._mcp_client:
                     try:
-                        async with aiohttp.ClientSession() as session:
-                            async with session.delete(
-                                f"{self._hub_base}/registry/servers/{server_name}",
-                                timeout=aiohttp.ClientTimeout(total=10),
-                            ) as resp:
-                                success = resp.status == 200
-                    except Exception:
+                        result = await self._mcp_client.registry_remove_server(server_name)
+                        success = result.get("success", False)
+                    except MCPHubError as e:
+                        logger.warning(f"Failed to remove server via hub: {e}")
+                        success = False
+                    except Exception as e:
+                        logger.warning(f"Failed to remove server via hub: {e}")
                         success = False
                 if not success:
                     success = self.mcp_manager.remove_server(server_name)
