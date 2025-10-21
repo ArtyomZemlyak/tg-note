@@ -474,13 +474,15 @@ class TestQwenCodeCLIAgentWithDifferentConfigurations:
 
     @pytest.mark.asyncio
     async def test_mcp_tools_description_with_qwen_native(self, mock_cli_check):
-        """Test MCP tools description with qwen native MCP"""
+        """Test MCP configuration with qwen native MCP"""
         config = {"enable_mcp": True}
         agent = QwenCodeCLIAgent(config=config)
 
-        # Python MCP tools description should be empty
-        # (qwen CLI uses its own MCP client, not Python DynamicMCPTool)
-        description = await agent.get_mcp_tools_description()
+        # QwenCodeCLIAgent uses qwen CLI's built-in MCP client
+        # It doesn't have a get_mcp_tools_description method
+        # because qwen CLI manages MCP servers itself
+        assert agent.enable_mcp is True
+        assert not hasattr(agent, "get_mcp_tools_description")
 
-        # Should return empty - qwen CLI manages MCP servers itself
-        assert description == ""
+        # The agent should have MCP configuration setup
+        assert hasattr(agent, "_setup_qwen_mcp_config")

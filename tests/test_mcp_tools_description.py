@@ -186,62 +186,46 @@ class TestQwenCodeCLIAgentMCPIntegration:
     """Test QwenCodeCLIAgent MCP integration"""
 
     @pytest.mark.asyncio
-    async def test_qwen_agent_get_mcp_tools_disabled(self):
-        """Test that MCP tools description is empty when MCP is disabled"""
+    async def test_qwen_agent_mcp_disabled(self):
+        """Test that MCP is disabled when enable_mcp is False"""
         config = {"enable_mcp": False}
 
         # Mock CLI check to avoid requiring qwen binary
         with patch.object(QwenCodeCLIAgent, "_check_cli_available"):
             agent = QwenCodeCLIAgent(config=config)
 
-            description = await agent.get_mcp_tools_description()
-
-            assert description == ""
-            assert agent._mcp_tools_description == ""
+            # QwenCodeCLIAgent uses built-in qwen CLI MCP client, not Python MCP tools
+            assert agent.enable_mcp is False
+            assert not hasattr(agent, "get_mcp_tools_description")
 
     @pytest.mark.asyncio
-    async def test_qwen_agent_get_mcp_tools_enabled(self):
-        """Test that MCP tools description is generated when enabled"""
+    async def test_qwen_agent_mcp_enabled(self):
+        """Test that MCP is enabled when enable_mcp is True"""
         config = {"enable_mcp": True, "user_id": 12345}
 
         with patch.object(QwenCodeCLIAgent, "_check_cli_available"):
             agent = QwenCodeCLIAgent(config=config)
 
-            # Mock the MCP description function - patch where it's imported FROM
-            with patch("src.mcp.get_mcp_tools_description") as mock_get:
-                mock_get.return_value = "# Test MCP Tools"
-
-                with patch("src.mcp.format_mcp_tools_for_prompt") as mock_format:
-                    mock_format.return_value = "\n---\n\n# Test MCP Tools"
-
-                    description = await agent.get_mcp_tools_description()
-
-                    # Should call the functions with correct parameters
-                    mock_get.assert_called_once_with(user_id=12345)
-                    mock_format.assert_called_once_with("# Test MCP Tools", include_in_system=False)
-
-                    # Should cache the result
-                    assert agent._mcp_tools_description == "\n---\n\n# Test MCP Tools"
+            # QwenCodeCLIAgent uses built-in qwen CLI MCP client, not Python MCP tools
+            assert agent.enable_mcp is True
+            assert agent.user_id == 12345
+            assert not hasattr(agent, "get_mcp_tools_description")
 
     @pytest.mark.asyncio
-    async def test_qwen_agent_includes_mcp_in_prompt(self):
-        """Test that MCP tools are included in prompt"""
+    async def test_qwen_agent_uses_qwen_native_mcp(self):
+        """Test that QwenCodeCLIAgent uses qwen native MCP, not Python MCP tools"""
         config = {"enable_mcp": True, "user_id": 12345}
 
         with patch.object(QwenCodeCLIAgent, "_check_cli_available"):
             agent = QwenCodeCLIAgent(config=config)
 
-            # Mock MCP description
-            with patch.object(agent, "get_mcp_tools_description") as mock_get_mcp:
-                mock_get_mcp.return_value = "\n\n## MCP Tools\n\ntest_tool available"
+            # QwenCodeCLIAgent uses qwen CLI's built-in MCP client
+            # It doesn't use Python MCP tools, so there's no get_mcp_tools_description method
+            assert agent.enable_mcp is True
+            assert not hasattr(agent, "get_mcp_tools_description")
 
-                content = {"text": "Test content"}
-
-                prompt = await agent._prepare_prompt_async(content)
-
-                # Should include MCP description
-                assert "MCP Tools" in prompt
-                assert "test_tool available" in prompt
+            # The agent should have MCP configuration setup
+            assert hasattr(agent, "_setup_qwen_mcp_config")
 
 
 if __name__ == "__main__":
