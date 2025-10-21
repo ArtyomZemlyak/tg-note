@@ -431,6 +431,16 @@ AGENT_ENABLE_MCP_MEMORY: false
 # Default: 600 seconds (10 minutes)
 MCP_TIMEOUT: 600
 
+# VECTOR_SEARCH_BATCH_SIZE: Batch size for vector search operations
+#
+# - Controls how many documents are processed in each batch
+# - Smaller batches reduce memory usage and timeout risk
+# - Larger batches are more efficient but may timeout
+# - Only applies to vector search indexing operations
+#
+# Default: 50 documents per batch
+VECTOR_SEARCH_BATCH_SIZE: 50
+
 
 # ───────────────────────────────────────────────────────────────────────────────
 # Memory Agent Settings
