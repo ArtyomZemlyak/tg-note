@@ -207,6 +207,12 @@ class Settings(BaseSettings):
     MCP_TIMEOUT: int = Field(
         default=600, description="Timeout in seconds for MCP requests (default: 600 seconds)"
     )
+    MCP_RETRY_ATTEMPTS: int = Field(
+        default=3, description="Number of retry attempts for MCP requests (default: 3)"
+    )
+    MCP_RETRY_DELAY: float = Field(
+        default=5.0, description="Delay in seconds between MCP retry attempts (default: 5.0)"
+    )
 
     # Memory Agent Settings (can be in YAML)
     MEM_AGENT_STORAGE_TYPE: str = Field(

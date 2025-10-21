@@ -812,6 +812,12 @@ class MCPClient:
                         f"[MCPClient] Timeout waiting for response to request ID {self._request_id}"
                     )
                     return None
+                except asyncio.CancelledError:
+                    self._pending_requests.pop(self._request_id, None)
+                    logger.warning(
+                        f"[MCPClient] Request ID {self._request_id} was cancelled"
+                    )
+                    raise
 
             except Exception as e:
                 self._pending_requests.pop(self._request_id, None)
