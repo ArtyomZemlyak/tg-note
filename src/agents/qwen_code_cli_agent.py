@@ -763,6 +763,47 @@ class QwenCodeCLIAgent(BaseAgent):
         except (FileNotFoundError, subprocess.TimeoutExpired):
             return False
 
+    async def get_mcp_tools_description(self) -> str:
+        """
+        Get description of available MCP tools
+
+        Returns:
+            Formatted description of MCP tools for use in prompts
+        """
+        # Return cached description if available
+        if self._mcp_tools_description is not None:
+            return self._mcp_tools_description
+
+        # Only generate if MCP is enabled
+        if not self.enable_mcp:
+            self._mcp_tools_description = ""
+            return ""
+
+        try:
+            # Import from src.mcp top-level so tests can monkeypatch
+            from src.mcp import format_mcp_tools_for_prompt, get_mcp_tools_description
+
+            # Get tools description
+            tools_desc = await get_mcp_tools_description(user_id=self.user_id)
+
+            # Format for system prompt
+            formatted = format_mcp_tools_for_prompt(tools_desc, include_in_system=True)
+
+            # Cache the result
+            self._mcp_tools_description = formatted
+
+            if formatted:
+                logger.info(
+                    f"[QwenCodeCLIAgent] MCP tools description generated ({len(formatted)} chars)"
+                )
+
+            return formatted
+
+        except Exception as e:
+            logger.error(f"[QwenCodeCLIAgent] Failed to get MCP tools description: {e}")
+            self._mcp_tools_description = ""
+            return ""
+
     @staticmethod
     def get_installation_instructions() -> str:
         """
