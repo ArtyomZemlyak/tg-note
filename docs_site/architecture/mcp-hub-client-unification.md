@@ -146,11 +146,11 @@ async def _call_mcp_reindex(self, documents, force=False):
             "kb_id": "default",
             "user_id": None
         }
-        
+
         async with aiohttp.ClientSession() as session:
             async with session.post(
-                api_url, 
-                json=payload, 
+                api_url,
+                json=payload,
                 timeout=aiohttp.ClientTimeout(total=settings.MCP_TIMEOUT)
             ) as response:
                 if response.status == 200:
@@ -184,14 +184,14 @@ async def _call_mcp_reindex(self, documents, force=False):
             kb_id="default",
             user_id=None
         )
-        
+
         if result.get("success"):
             logger.info("✅ HTTP reindex_vector completed successfully")
             return True
         else:
             logger.warning(f"⚠️ HTTP reindex_vector failed: {result.get('error')}")
             return False
-            
+
     except MCPHubUnavailableError as e:
         logger.warning(f"⚠️ Vector search not available: {e}")
         return False
@@ -246,11 +246,11 @@ class TestMCPHubClient:
     @pytest.mark.asyncio
     async def test_vector_reindex_success(self, client):
         # Test successful vector reindex
-        
+
     @pytest.mark.asyncio
     async def test_make_request_503_error(self, client):
         # Test 503 error handling
-        
+
     @pytest.mark.asyncio
     async def test_make_request_retry_logic(self, client):
         # Test retry logic
