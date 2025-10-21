@@ -187,6 +187,10 @@ class QuestionAnsweringService(IQuestionAnsweringService):
             error_message = str(e)
             if "summary" in error_message and "JSON" in str(type(e).__name__):
                 error_message = "Ошибка обработки ответа агента. Попробуйте переформулировать вопрос."
+            elif "JSON" in str(type(e).__name__) or "json" in error_message.lower():
+                error_message = "Ошибка обработки ответа агента. Попробуйте переформулировать вопрос."
+            elif "agent-result" in error_message.lower():
+                error_message = "Ошибка обработки ответа агента. Попробуйте переформулировать вопрос."
             await self._send_error_notification(processing_msg_id, chat_id, error_message)
 
     async def _query_kb(self, kb_path: Path, question: str, user_id: int) -> str:
