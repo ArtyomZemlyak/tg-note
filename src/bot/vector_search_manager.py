@@ -80,57 +80,6 @@ class BotVectorSearchManager:
         if subscribe_to_events:
             self._subscribe_to_kb_events()
 
-    async def _retry_mcp_operation(self, operation_name: str, operation_func, *args, **kwargs):
-        """
-        Retry MCP operation with exponential backoff and connectivity checks
-        
-        Args:
-            operation_name: Name of the operation for logging
-            operation_func: The async function to retry
-            *args, **kwargs: Arguments to pass to the operation function
-            
-        Returns:
-            Result of the operation or None if all retries failed
-        """
-        max_attempts = settings.MCP_RETRY_ATTEMPTS
-        base_delay = settings.MCP_RETRY_DELAY
-        
-        for attempt in range(max_attempts):
-            try:
-                # Check connectivity before each attempt (except the first one)
-                if attempt > 0:
-                    if not await self._check_mcp_hub_connectivity():
-                        logger.warning(f"⚠️ MCP Hub connectivity check failed before {operation_name} attempt {attempt + 1}")
-                        if attempt < max_attempts - 1:
-                            delay = base_delay * (2 ** attempt)
-                            logger.warning(f"⚠️ Retrying {operation_name} in {delay}s...")
-                            await asyncio.sleep(delay)
-                            continue
-                        else:
-                            logger.error(f"❌ {operation_name} failed - MCP Hub not reachable")
-                            return None
-                
-                result = await operation_func(*args, **kwargs)
-                if result is not None:
-                    return result
-                elif attempt < max_attempts - 1:
-                    delay = base_delay * (2 ** attempt)  # Exponential backoff
-                    logger.warning(f"⚠️ {operation_name} attempt {attempt + 1} failed, retrying in {delay}s...")
-                    await asyncio.sleep(delay)
-            except asyncio.CancelledError:
-                logger.warning(f"⚠️ {operation_name} was cancelled on attempt {attempt + 1}")
-                raise
-            except Exception as e:
-                if attempt < max_attempts - 1:
-                    delay = base_delay * (2 ** attempt)
-                    logger.warning(f"⚠️ {operation_name} attempt {attempt + 1} failed with error: {e}, retrying in {delay}s...")
-                    await asyncio.sleep(delay)
-                else:
-                    logger.error(f"❌ {operation_name} failed after {max_attempts} attempts: {e}", exc_info=True)
-                    raise
-        
-        logger.error(f"❌ {operation_name} failed after {max_attempts} attempts")
-        return None
 
     async def _check_mcp_hub_connectivity(self) -> bool:
         """
@@ -528,7 +477,7 @@ class BotVectorSearchManager:
 
         AICODE-NOTE: SOLID - BOT sends document DATA, not file paths
         """
-        async def _do_reindex():
+        try:
             # Ensure SSE URL
             sse_url = self.mcp_hub_url
             if not sse_url.endswith("/sse"):
@@ -552,9 +501,6 @@ class BotVectorSearchManager:
                     return False
             finally:
                 await client.disconnect()
-        
-        try:
-            return await self._retry_mcp_operation("reindex_vector", _do_reindex) or False
         except asyncio.CancelledError:
             logger.warning("⚠️ MCP reindex_vector operation was cancelled")
             return False
@@ -568,7 +514,7 @@ class BotVectorSearchManager:
 
         AICODE-NOTE: SOLID - BOT sends document DATA (content), not file paths
         """
-        async def _do_add_documents():
+        try:
             sse_url = self.mcp_hub_url
             if not sse_url.endswith("/sse"):
                 sse_url = f"{sse_url}/sse"
@@ -589,9 +535,6 @@ class BotVectorSearchManager:
                     return False
             finally:
                 await client.disconnect()
-        
-        try:
-            return await self._retry_mcp_operation("add_vector_documents", _do_add_documents) or False
         except asyncio.CancelledError:
             logger.warning("⚠️ MCP add_vector_documents operation was cancelled")
             return False
@@ -605,7 +548,7 @@ class BotVectorSearchManager:
 
         AICODE-NOTE: Sends document IDs (not file paths), MCP HUB deletes by ID
         """
-        async def _do_delete_documents():
+        try:
             sse_url = self.mcp_hub_url
             if not sse_url.endswith("/sse"):
                 sse_url = f"{sse_url}/sse"
@@ -630,9 +573,6 @@ class BotVectorSearchManager:
                     return False
             finally:
                 await client.disconnect()
-        
-        try:
-            return await self._retry_mcp_operation("delete_vector_documents", _do_delete_documents) or False
         except asyncio.CancelledError:
             logger.warning("⚠️ MCP delete_vector_documents operation was cancelled")
             return False
@@ -648,7 +588,7 @@ class BotVectorSearchManager:
 
         AICODE-NOTE: SOLID - BOT sends document DATA (content), not file paths
         """
-        async def _do_update_documents():
+        try:
             sse_url = self.mcp_hub_url
             if not sse_url.endswith("/sse"):
                 sse_url = f"{sse_url}/sse"
@@ -671,9 +611,6 @@ class BotVectorSearchManager:
                     return False
             finally:
                 await client.disconnect()
-        
-        try:
-            return await self._retry_mcp_operation("update_vector_documents", _do_update_documents) or False
         except asyncio.CancelledError:
             logger.warning("⚠️ MCP update_vector_documents operation was cancelled")
             return False

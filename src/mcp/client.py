@@ -446,17 +446,24 @@ class MCPClient:
                 if self._sse_reader_task and self._sse_reader_task.done():
                     try:
                         await self._sse_reader_task
+                    except asyncio.CancelledError:
+                        logger.warning(f"[MCPClient] Tool call {tool_name} was cancelled")
+                        return {"success": False, "error": "Tool call was cancelled"}
                     except Exception as e:
                         logger.warning(f"[MCPClient] SSE connection lost: {e}. Attempting to reconnect...")
                         # Try to reconnect
                         if await self.reconnect():
                             logger.info("[MCPClient] Reconnected successfully, retrying tool call...")
                             # Retry the tool call once
-                            response = await self._send_request(
-                                "tools/call", {"name": tool_name, "arguments": arguments}
-                            )
-                            if not response:
-                                return {"success": False, "error": "No response from server after reconnection"}
+                            try:
+                                response = await self._send_request(
+                                    "tools/call", {"name": tool_name, "arguments": arguments}
+                                )
+                                if not response:
+                                    return {"success": False, "error": "No response from server after reconnection"}
+                            except asyncio.CancelledError:
+                                logger.warning(f"[MCPClient] Retry tool call {tool_name} was cancelled")
+                                return {"success": False, "error": "Tool call was cancelled"}
                         else:
                             return {"success": False, "error": f"SSE connection lost and reconnection failed: {e}"}
                 else:
@@ -487,6 +494,9 @@ class MCPClient:
                 "is_error": result.get("isError", False),
             }
 
+        except asyncio.CancelledError:
+            logger.warning(f"[MCPClient] Tool call {tool_name} was cancelled")
+            return {"success": False, "error": "Tool call was cancelled"}
         except Exception as e:
             logger.error(f"[MCPClient] Tool call failed: {e}", exc_info=True)
             return {"success": False, "error": str(e)}
