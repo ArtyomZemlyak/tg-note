@@ -799,58 +799,179 @@ poetry run python verify_structure.py
 
 ## 🚀 Deployment
 
-### Docker Compose
+tg-note offers multiple deployment options to suit different needs and infrastructure requirements.
 
-This repository includes production-like Docker setup with a Makefile.
+### 🐳 Docker Deployment (Recommended)
 
-Prerequisites: Docker and Docker Compose.
+The project provides comprehensive Docker support with multiple deployment configurations:
 
-1) One-time setup
+#### Quick Start
 
+**Prerequisites:**
+- Docker and Docker Compose
+- `.env` file with required tokens (see [Configuration](#-configuration-reference))
+
+**1. Simple Deployment (No GPU Required)**
 ```bash
-make setup            # copies .env.docker.example -> .env and creates data dirs
+# Start with JSON storage (lightweight, no GPU needed)
+docker-compose -f docker-compose.simple.yml up -d --build
+
+# View logs
+docker-compose -f docker-compose.simple.yml logs -f bot
 ```
 
-2) Start in simple mode (no GPU, JSON storage)
-
+**2. Full Stack with AI Memory (GPU Required)**
 ```bash
-make up-simple        # uses docker-compose.simple.yml
-make logs-bot         # follow bot logs
+# Start with vLLM backend for mem-agent storage
+docker-compose up -d --build
+
+# View logs
+docker-compose logs -f
 ```
 
-3) Full stack with vLLM (GPU) for mem-agent
-
+**3. Vector Search Stack (Semantic Search)**
 ```bash
-make up               # uses docker-compose.yml (vLLM + MCP Hub + Bot)
+# Start with Qdrant + Infinity for vector search
+docker-compose -f docker-compose.vector.yml up -d --build
+
+# View logs
+docker-compose -f docker-compose.vector.yml logs -f
 ```
 
-Helpful commands:
-
+**4. SGLang Backend (Alternative to vLLM)**
 ```bash
-make down             # stop services
-make rebuild          # rebuild and restart
-make logs             # show all service logs
-make ps               # show service status
-
-# Storage modes (simple stack)
-make json             # JSON storage (default)
-make vector           # Vector storage (semantic search)
-make mem-agent        # mem-agent storage (requires GPU backend)
-
-# Alternative backend
-make up-sglang        # SGLang backend instead of vLLM
+# Use SGLang for faster inference
+docker-compose -f docker-compose.yml -f docker-compose.sglang.yml up -d --build
 ```
 
-Without Makefile:
+#### Services Overview
 
-```bash
-docker-compose -f docker-compose.simple.yml up -d          # simple mode
-docker-compose up -d                                       # full stack (vLLM)
+| Service | Description | GPU Required | Port |
+|---------|-------------|--------------|------|
+| **bot** | Main Telegram bot with Qwen CLI | No | - |
+| **mcp-hub** | MCP Hub server (memory, tools) | No | 8765 |
+| **vllm-server** | LLM inference (mem-agent) | Yes | 8001 |
+| **qdrant** | Vector database (optional) | No | 6333 |
+| **infinity** | Embedding service (optional) | No | 7997 |
+
+#### Configuration
+
+**Environment Variables (.env):**
+```env
+# Required
+TELEGRAM_BOT_TOKEN=your_bot_token_here
+
+# Optional API Keys
+OPENAI_API_KEY=sk-...
+QWEN_API_KEY=your_qwen_key
+ANTHROPIC_API_KEY=sk-ant-...
+
+# Vector Search (if using vector stack)
+QDRANT_PORT=6333
+INFINITY_MODEL=BAAI/bge-small-en-v1.5
+
+# Docker-specific (auto-configured)
+MCP_HUB_URL=http://mcp-hub:8765/sse
 ```
 
-Configuration used inside containers is mounted from `config.docker.yaml` and secrets come from `.env` (see `.env.docker.example`).
+**Configuration Files:**
+- `config.yaml` - Main application configuration
+- `.env` - Environment variables and secrets
+- `docker-compose*.yml` - Service orchestration
 
-### Systemd Service (Linux)
+**Docker Volumes:**
+- `./knowledge_base` → Bot's knowledge base storage
+- `./data` → Processed messages, user settings
+- `./logs` → Application logs
+- `~/.qwen` → Qwen CLI authentication
+
+#### Qwen CLI Setup (Inside Container)
+
+```bash
+# Authenticate Qwen CLI
+docker exec -it tg-note-bot bash -lc "qwen"
+
+# Set approval mode for automated operation
+docker exec -it tg-note-bot bash -lc "qwen <<<'/approval-mode yolo --project'"
+```
+
+#### Health Checks
+
+```bash
+# Check service status
+docker ps
+
+# Test MCP Hub health
+curl http://localhost:8765/health
+
+# Test vector search (if enabled)
+curl http://localhost:6333/healthz  # Qdrant
+curl http://localhost:7997/health   # Infinity
+```
+
+#### Management Commands
+
+```bash
+# Stop all services
+docker-compose down
+
+# Rebuild and restart
+docker-compose up -d --build --force-recreate
+
+# View specific service logs
+docker-compose logs -f bot
+docker-compose logs -f mcp-hub
+
+# Execute commands in running container
+docker exec -it tg-note-bot bash
+docker exec -it tg-note-hub bash
+```
+
+### 🔄 Automated Deployment
+
+The project includes automated deployment scripts for production environments:
+
+#### Git-based Auto-Deploy
+
+**Setup:**
+```bash
+# Copy and configure auto-deploy
+cp scripts/auto_deploy.conf.example scripts/auto_deploy.conf
+# Edit configuration paths and options
+nano scripts/auto_deploy.conf
+
+# Make script executable
+chmod +x scripts/auto_deploy.sh
+```
+
+**Cron Setup (every 5 minutes):**
+```bash
+# Add to crontab
+crontab -e
+
+# Add this line:
+*/5 * * * * /bin/bash -lc 'cd /path/to/your/repo && scripts/auto_deploy.sh -c scripts/auto_deploy.conf >> logs/cron.tail 2>&1'
+```
+
+**Systemd Timer (alternative):**
+```bash
+# Create service and timer files
+sudo cp scripts/auto_deploy.service /etc/systemd/system/
+sudo cp scripts/auto_deploy.timer /etc/systemd/system/
+
+# Enable and start
+sudo systemctl daemon-reload
+sudo systemctl enable --now auto-deploy.timer
+```
+
+**Safety Features:**
+- Blocks deployment if critical files change (`.env`, `docker-compose.yml`, etc.)
+- Prevents overlapping deployments with file locks
+- Detailed logging and error reporting
+
+### 🖥️ Systemd Service (Bare Metal)
+
+For direct host deployment without Docker:
 
 ```bash
 # Create service file
@@ -868,16 +989,97 @@ User=youruser
 WorkingDirectory=/path/to/tg-note
 ExecStart=/usr/local/bin/poetry run python main.py
 Restart=always
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
 ```
 
 ```bash
+# Enable and start service
+sudo systemctl daemon-reload
 sudo systemctl enable tg-note
 sudo systemctl start tg-note
 sudo systemctl status tg-note
 ```
+
+### 📋 Production Checklist
+
+**Before Deployment:**
+- [ ] Docker and Docker Compose installed
+- [ ] `.env` file configured with all required tokens
+- [ ] Knowledge base repository prepared (GitHub or local)
+- [ ] Firewall configured (if exposing ports)
+- [ ] SSL certificates ready (if using HTTPS)
+
+**Deployment Steps:**
+1. [ ] Clone repository and configure environment
+2. [ ] Start services: `docker-compose up -d --build`
+3. [ ] Authenticate Qwen CLI (if using `qwen_code_cli` agent)
+4. [ ] Verify health: `curl http://localhost:8765/health`
+5. [ ] Test bot functionality in Telegram
+6. [ ] Configure automated deployment (optional)
+
+**Security Hardening:**
+- [ ] Set `ALLOWED_USER_IDS` to restrict bot access
+- [ ] Use strong, unique API keys
+- [ ] Enable log rotation
+- [ ] Regular security updates
+- [ ] Backup knowledge base and data directories
+
+**Monitoring:**
+- [ ] Set up log monitoring
+- [ ] Monitor disk space for knowledge base
+- [ ] Track API usage and costs
+- [ ] Set up alerts for service failures
+
+### 🔧 Troubleshooting
+
+**Common Issues:**
+
+**Bot not responding:**
+```bash
+# Check bot logs
+docker-compose logs -f bot
+
+# Verify environment variables
+docker exec tg-note-bot env | grep TELEGRAM
+```
+
+**MCP Hub connection issues:**
+```bash
+# Check MCP Hub health
+curl http://localhost:8765/health
+
+# Check MCP Hub logs
+docker-compose logs -f mcp-hub
+```
+
+**Qwen CLI authentication:**
+```bash
+# Re-authenticate
+docker exec -it tg-note-bot bash -lc "qwen"
+
+# Check authentication status
+docker exec tg-note-bot qwen --version
+```
+
+**Vector search not working:**
+```bash
+# Check Qdrant health
+curl http://localhost:6333/healthz
+
+# Check Infinity health
+curl http://localhost:7997/health
+
+# Check vector search logs
+docker-compose -f docker-compose.vector.yml logs -f
+```
+
+**Performance Issues:**
+- Monitor resource usage: `docker stats`
+- Check disk space: `df -h`
+- Review logs for errors: `docker-compose logs --tail=100`
 
 ---
 
@@ -899,8 +1101,8 @@ sudo systemctl status tg-note
 ### 🚧 In Progress
 
 - 🚧 Enhanced error handling and recovery
-- 🚧 Docker deployment
-- 🚧 CI/CD pipeline
+- 🚧 CI/CD pipeline improvements
+- 🚧 Advanced monitoring and alerting
 
 ### 📋 Planned
 
