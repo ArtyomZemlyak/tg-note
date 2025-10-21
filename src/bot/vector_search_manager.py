@@ -27,26 +27,10 @@ from loguru import logger
 from config import settings
 from src.core.events import EventType, KBChangeEvent, get_event_bus
 
+from .file_change_monitor import FileChangeMonitor
 from .mcp_hub_client import MCPHubClient, MCPHubError, MCPHubUnavailableError
-
-
-class KnowledgeBaseChange:
-    """Represents a change in knowledge base files"""
-
-    def __init__(self):
-        self.added: Set[str] = set()
-        self.modified: Set[str] = set()
-        self.deleted: Set[str] = set()
-
-    def has_changes(self) -> bool:
-        """Check if there are any changes"""
-        return bool(self.added or self.modified or self.deleted)
-
-    def __repr__(self) -> str:
-        return (
-            f"KBChange(added={len(self.added)}, "
-            f"modified={len(self.modified)}, deleted={len(self.deleted)})"
-        )
+from .mcp_vector_operations import MCPVectorOperations
+from .knowledge_base_change import KnowledgeBaseChange
 
 
 class BotVectorSearchManager:
@@ -71,14 +55,16 @@ class BotVectorSearchManager:
         self.mcp_hub_url = mcp_hub_url.rstrip("/sse").rstrip("/")  # Remove /sse if present
         self.kb_root_path = Path(kb_root_path)
         self.vector_search_available = False
-        self._file_hashes: Dict[str, str] = {}  # file_path -> hash
-        self._hash_file = Path("data/vector_search_hashes.json")
         self._reindex_lock = asyncio.Lock()  # Lock to prevent concurrent reindexing
         self._reindex_task: Optional["asyncio.Task[None]"] = None  # Track ongoing reindex
         self._shutdown = False  # Shutdown flag
 
-        # Initialize unified HTTP client
+        # Initialize components with separated responsibilities
         self._mcp_client = MCPHubClient(self.mcp_hub_url)
+        self._file_monitor = FileChangeMonitor(
+            kb_root_path=kb_root_path, hash_file=Path("data/vector_search_hashes.json")
+        )
+        self._mcp_operations = MCPVectorOperations(self._mcp_client)
 
         # Subscribe to KB change events for reactive reindexing
         if subscribe_to_events:
@@ -91,43 +77,15 @@ class BotVectorSearchManager:
         Returns:
             True if vector_search and reindex_vector tools are available
         """
-        try:
-            logger.info(f"🔍 Checking vector search availability at {self.mcp_hub_url}")
+        logger.info(f"🔍 Checking vector search availability at {self.mcp_hub_url}")
 
-            # Use unified client for health check
-            health_data = await self._mcp_client.health_check()
-            builtin_tools = health_data.get("builtin_tools", {})
-            available_tools = builtin_tools.get("names", [])
+        # Use MCP operations component for availability check
+        self.vector_search_available = await self._mcp_operations.check_availability()
 
-            # Check if vector search tools are available
-            required_tools = [
-                "vector_search",
-            ]
+        if self.vector_search_available:
+            logger.info("ℹ️  Vector indexing operations available via HTTP API")
 
-            # Note: Vector indexing tools (reindex, add, delete, update) are now HTTP API only
-            # Only vector_search remains as MCP tool for agent usage
-            has_vector_search = all(tool in available_tools for tool in required_tools)
-
-            if has_vector_search:
-                logger.info("✅ Vector search tools are available: " f"{', '.join(required_tools)}")
-                logger.info("ℹ️  Vector indexing operations available via HTTP API")
-                self.vector_search_available = True
-                return True
-            else:
-                missing = [t for t in required_tools if t not in available_tools]
-                available = ", ".join(available_tools) if available_tools else "none"
-                logger.info(
-                    f"ℹ️  Vector search tools not available. "
-                    f"Missing: {', '.join(missing)}. "
-                    f"Available tools: {available}"
-                )
-                self.vector_search_available = False
-                return False
-
-        except Exception as e:
-            logger.warning(f"⚠️  Failed to check vector search availability: {e}")
-            self.vector_search_available = False
-            return False
+        return self.vector_search_available
 
     async def perform_initial_indexing(self, force: bool = False) -> bool:
         """
@@ -151,21 +109,21 @@ class BotVectorSearchManager:
             logger.info("🔄 Starting initial knowledge base indexing (bot-triggered)...")
 
             # Load current file hashes and scan current state (for change tracking)
-            await self._load_file_hashes()
-            await self._scan_knowledge_bases()
+            await self._file_monitor.load_file_hashes()
+            await self._file_monitor._scan_knowledge_bases()
 
             # Read all files and prepare documents
-            documents = await self._read_all_documents()
+            documents = await self._file_monitor.read_all_documents()
 
             logger.info(f"📚 Prepared {len(documents)} documents for indexing")
 
             # Trigger reindex via MCP Hub with document data
-            ok = await self._call_mcp_reindex(documents=documents, force=force)
+            ok = await self._mcp_operations.reindex_documents(documents=documents, force=force)
             if not ok:
                 return False
 
             # Persist hash snapshot after successful trigger
-            await self._save_file_hashes()
+            await self._file_monitor.save_file_hashes()
             return True
 
         except Exception as e:
@@ -191,15 +149,8 @@ class BotVectorSearchManager:
             return False
 
         try:
-            # Load previous hashes
-            previous_hashes = self._file_hashes.copy()
-
-            # Scan current state
-            await self._scan_knowledge_bases()
-            current_hashes = self._file_hashes
-
-            # Detect changes
-            changes = self._detect_changes(previous_hashes, current_hashes)
+            # Use file monitor to detect changes
+            changes = await self._file_monitor.detect_changes()
 
             if not changes.has_changes():
                 logger.debug("✓ No changes detected in knowledge bases")
@@ -218,28 +169,33 @@ class BotVectorSearchManager:
             # Delete removed files (only document IDs needed)
             if changes.deleted:
                 logger.info(f"🗑️  Calling MCP Hub to delete {len(changes.deleted)} documents")
-                ok = await self._call_mcp_delete_documents(list(changes.deleted))
+                ok = await self._mcp_operations.delete_documents(list(changes.deleted))
                 all_ok = all_ok and ok
 
             # Add new files (read content and send)
             if changes.added:
                 logger.info(f"➕ Reading {len(changes.added)} new files...")
-                documents = await self._read_documents_by_paths(list(changes.added))
+                documents = await self._file_monitor.read_documents_by_paths(list(changes.added))
                 logger.info(f"➕ Calling MCP Hub to add {len(documents)} documents")
-                ok = await self._call_mcp_add_documents(documents)
+                ok = await self._mcp_operations.add_documents(documents)
                 all_ok = all_ok and ok
 
             # Update modified files (read content and send)
             if changes.modified:
                 logger.info(f"🔄 Reading {len(changes.modified)} modified files...")
-                documents = await self._read_documents_by_paths(list(changes.modified))
+                documents = await self._file_monitor.read_documents_by_paths(list(changes.modified))
                 logger.info(f"🔄 Calling MCP Hub to update {len(documents)} documents")
-                ok = await self._call_mcp_update_documents(documents)
+                ok = await self._mcp_operations.update_documents(documents)
                 all_ok = all_ok and ok
 
-            # Save updated hashes snapshot regardless of MCP outcome
-            # to avoid duplicate work next time
-            await self._save_file_hashes()
+            # FIX: Only save hashes if all MCP operations succeeded
+            if all_ok:
+                await self._file_monitor.save_file_hashes()
+                logger.info("✅ All MCP operations succeeded, hashes saved")
+            else:
+                logger.warning(
+                    "⚠️ Some MCP operations failed, hashes not saved to retry on next check"
+                )
 
             if all_ok:
                 logger.info("✅ Change detection completed, all updates successful")
@@ -250,174 +206,6 @@ class BotVectorSearchManager:
         except Exception as e:
             logger.error(f"❌ Failed to check/reindex changes: {e}", exc_info=True)
             return False
-
-    async def _scan_knowledge_bases(self) -> None:
-        """
-        Scan all knowledge bases and compute file hashes
-
-        AICODE-NOTE: BOT has file system access, computes hashes for change detection
-        """
-        self._file_hashes.clear()
-
-        if not self.kb_root_path.exists():
-            logger.warning(f"⚠️  KB root path does not exist: {self.kb_root_path}")
-            return
-
-        # Find all markdown files in all KBs
-        # Each user KB is at kb_root_path/user_{user_id}/
-        markdown_files = list(self.kb_root_path.rglob("*.md"))
-
-        for file_path in markdown_files:
-            try:
-                # Compute relative path for consistent tracking
-                rel_path = str(file_path.relative_to(self.kb_root_path))
-
-                # Compute file hash
-                content = file_path.read_bytes()
-                file_hash = hashlib.md5(content).hexdigest()
-
-                self._file_hashes[rel_path] = file_hash
-
-            except Exception as e:
-                logger.warning(f"⚠️  Failed to hash file {file_path}: {e}")
-
-        logger.debug(f"📊 Scanned {len(self._file_hashes)} markdown files")
-
-    async def _read_all_documents(self) -> List[Dict[str, Any]]:
-        """
-        Read all markdown files and prepare documents for MCP HUB
-
-        AICODE-NOTE: SOLID - Single Responsibility Principle
-        BOT reads files, MCP HUB processes content
-        """
-        documents = []
-
-        if not self.kb_root_path.exists():
-            logger.warning(f"⚠️  KB root path does not exist: {self.kb_root_path}")
-            return documents
-
-        markdown_files = list(self.kb_root_path.rglob("*.md"))
-
-        for file_path in markdown_files:
-            try:
-                # Compute relative path as document ID
-                doc_id = str(file_path.relative_to(self.kb_root_path))
-
-                # Read file content
-                content = file_path.read_text(encoding="utf-8", errors="ignore")
-
-                # Prepare document structure
-                doc = {
-                    "id": doc_id,
-                    "content": content,
-                    "metadata": {
-                        "file_path": doc_id,
-                        "file_name": file_path.name,
-                        "file_size": len(content),
-                    },
-                }
-
-                documents.append(doc)
-
-            except Exception as e:
-                logger.error(f"❌ Failed to read file {file_path}: {e}")
-
-        logger.info(f"📖 Read {len(documents)} documents")
-        return documents
-
-    async def _read_documents_by_paths(self, file_paths: List[str]) -> List[Dict[str, Any]]:
-        """
-        Read specific files by paths and prepare documents
-
-        Args:
-            file_paths: List of relative file paths
-
-        Returns:
-            List of document structures
-        """
-        documents = []
-
-        for rel_path in file_paths:
-            try:
-                file_path = self.kb_root_path / rel_path
-
-                if not file_path.exists():
-                    logger.warning(f"⚠️  File not found: {rel_path}")
-                    continue
-
-                # Read file content
-                content = file_path.read_text(encoding="utf-8", errors="ignore")
-
-                # Prepare document structure
-                doc = {
-                    "id": rel_path,
-                    "content": content,
-                    "metadata": {
-                        "file_path": rel_path,
-                        "file_name": file_path.name,
-                        "file_size": len(content),
-                    },
-                }
-
-                documents.append(doc)
-
-            except Exception as e:
-                logger.error(f"❌ Failed to read file {rel_path}: {e}")
-
-        return documents
-
-    def _detect_changes(
-        self, previous: Dict[str, str], current: Dict[str, str]
-    ) -> KnowledgeBaseChange:
-        """
-        Detect changes between previous and current file states
-
-        Args:
-            previous: Previous file hashes
-            current: Current file hashes
-
-        Returns:
-            KnowledgeBaseChange with detected changes
-        """
-        changes = KnowledgeBaseChange()
-
-        # Find new and modified files
-        for file_path, current_hash in current.items():
-            if file_path not in previous:
-                changes.added.add(file_path)
-            elif previous[file_path] != current_hash:
-                changes.modified.add(file_path)
-
-        # Find deleted files
-        for file_path in previous:
-            if file_path not in current:
-                changes.deleted.add(file_path)
-
-        return changes
-
-    async def _load_file_hashes(self) -> None:
-        """Load file hashes from storage"""
-        try:
-            if self._hash_file.exists():
-                with open(self._hash_file, "r") as f:
-                    self._file_hashes = json.load(f)
-                logger.debug(f"📥 Loaded {len(self._file_hashes)} file hashes")
-            else:
-                self._file_hashes = {}
-                logger.debug("📝 No previous file hashes found")
-        except Exception as e:
-            logger.warning(f"⚠️  Failed to load file hashes: {e}")
-            self._file_hashes = {}
-
-    async def _save_file_hashes(self) -> None:
-        """Save file hashes to storage"""
-        try:
-            self._hash_file.parent.mkdir(parents=True, exist_ok=True)
-            with open(self._hash_file, "w") as f:
-                json.dump(self._file_hashes, f, indent=2)
-            logger.debug(f"💾 Saved {len(self._file_hashes)} file hashes")
-        except Exception as e:
-            logger.error(f"❌ Failed to save file hashes: {e}", exc_info=True)
 
     def _subscribe_to_kb_events(self) -> None:
         """Subscribe to knowledge base change events for reactive reindexing"""
@@ -437,141 +225,6 @@ class BotVectorSearchManager:
 
         logger.info("📡 Subscribed to KB change events for reactive reindexing")
 
-    async def _call_mcp_reindex(self, documents: List[Dict[str, Any]], force: bool = False) -> bool:
-        """
-        Call MCP Hub reindex_vector via HTTP API.
-
-        AICODE-NOTE: SOLID - BOT sends document DATA, not file paths
-        AICODE-FIX: Changed from MCP tools to HTTP API (tools moved to HTTP endpoints)
-        """
-        try:
-            # Use unified HTTP client
-            result = await self._mcp_client.vector_reindex(
-                documents=documents,
-                force=force,
-                kb_id="default",  # TODO: Make configurable per user
-                user_id=None,  # TODO: Add user_id support
-            )
-
-            if result.get("success"):
-                logger.info("✅ HTTP reindex_vector completed successfully")
-                return True
-            else:
-                logger.warning(f"⚠️ HTTP reindex_vector failed: {result.get('error')}")
-                return False
-
-        except MCPHubUnavailableError as e:
-            logger.warning(f"⚠️ Vector search not available: {e}")
-            return False
-        except MCPHubError as e:
-            logger.warning(f"⚠️ HTTP reindex_vector failed: {e}")
-            return False
-        except Exception as e:
-            logger.error(f"❌ Exception while calling HTTP reindex_vector: {e}", exc_info=True)
-            return False
-
-    async def _call_mcp_add_documents(self, documents: List[Dict[str, Any]]) -> bool:
-        """
-        Call MCP Hub add_vector_documents via HTTP API.
-
-        AICODE-NOTE: SOLID - BOT sends document DATA (content), not file paths
-        AICODE-FIX: Changed from MCP tools to HTTP API (tools moved to HTTP endpoints)
-        """
-        try:
-            # Use unified HTTP client
-            result = await self._mcp_client.vector_add_documents(
-                documents=documents,
-                kb_id="default",  # TODO: Make configurable per user
-                user_id=None,  # TODO: Add user_id support
-            )
-
-            if result.get("success"):
-                logger.info(f"✅ HTTP add_vector_documents completed: {result.get('message')}")
-                return True
-            else:
-                logger.warning(f"⚠️ HTTP add_vector_documents failed: {result.get('error')}")
-                return False
-
-        except MCPHubUnavailableError as e:
-            logger.warning(f"⚠️ Vector search not available: {e}")
-            return False
-        except MCPHubError as e:
-            logger.warning(f"⚠️ HTTP add_vector_documents failed: {e}")
-            return False
-        except Exception as e:
-            logger.error(
-                f"❌ Exception while calling HTTP add_vector_documents: {e}", exc_info=True
-            )
-            return False
-
-    async def _call_mcp_delete_documents(self, document_ids: List[str]) -> bool:
-        """
-        Call MCP Hub delete_vector_documents via HTTP API.
-
-        AICODE-NOTE: Sends document IDs (not file paths), MCP HUB deletes by ID
-        AICODE-FIX: Changed from MCP tools to HTTP API (tools moved to HTTP endpoints)
-        """
-        try:
-            # Use unified HTTP client
-            result = await self._mcp_client.vector_delete_documents(
-                document_ids=document_ids,
-                kb_id="default",  # TODO: Make configurable per user
-                user_id=None,  # TODO: Add user_id support
-            )
-
-            if result.get("success"):
-                logger.info(f"✅ HTTP delete_vector_documents completed: {result.get('message')}")
-                return True
-            else:
-                logger.warning(f"⚠️ HTTP delete_vector_documents failed: {result.get('error')}")
-                return False
-
-        except MCPHubUnavailableError as e:
-            logger.warning(f"⚠️ Vector search not available: {e}")
-            return False
-        except MCPHubError as e:
-            logger.warning(f"⚠️ HTTP delete_vector_documents failed: {e}")
-            return False
-        except Exception as e:
-            logger.error(
-                f"❌ Exception while calling HTTP delete_vector_documents: {e}", exc_info=True
-            )
-            return False
-
-    async def _call_mcp_update_documents(self, documents: List[Dict[str, Any]]) -> bool:
-        """
-        Call MCP Hub update_vector_documents via HTTP API.
-
-        AICODE-NOTE: SOLID - BOT sends document DATA (content), not file paths
-        AICODE-FIX: Changed from MCP tools to HTTP API (tools moved to HTTP endpoints)
-        """
-        try:
-            # Use unified HTTP client
-            result = await self._mcp_client.vector_update_documents(
-                documents=documents,
-                kb_id="default",  # TODO: Make configurable per user
-                user_id=None,  # TODO: Add user_id support
-            )
-
-            if result.get("success"):
-                logger.info(f"✅ HTTP update_vector_documents completed: {result.get('message')}")
-                return True
-            else:
-                logger.warning(f"⚠️ HTTP update_vector_documents failed: {result.get('error')}")
-                return False
-
-        except MCPHubUnavailableError as e:
-            logger.warning(f"⚠️ Vector search not available: {e}")
-            return False
-        except MCPHubError as e:
-            logger.warning(f"⚠️ HTTP update_vector_documents failed: {e}")
-            return False
-        except Exception as e:
-            logger.error(
-                f"❌ Exception while calling HTTP update_vector_documents: {e}", exc_info=True
-            )
-            return False
-
     async def _handle_kb_change_event(self, event: KBChangeEvent) -> None:
         """
         Handle KB change event - trigger reindexing
@@ -588,13 +241,19 @@ class BotVectorSearchManager:
 
         logger.debug(f"📬 Received KB change event: {event.type.value}")
 
-        # Cancel any pending reindex task (to batch rapid changes)
-        if self._reindex_task and not self._reindex_task.done():
-            logger.debug("⏸️  Cancelling pending reindex task to batch changes")
-            self._reindex_task.cancel()
+        # FIX: Use lock to prevent race conditions
+        async with self._reindex_lock:
+            # Cancel any pending reindex task (to batch rapid changes)
+            if self._reindex_task and not self._reindex_task.done():
+                logger.debug("⏸️  Cancelling pending reindex task to batch changes")
+                self._reindex_task.cancel()
+                try:
+                    await self._reindex_task
+                except asyncio.CancelledError:
+                    pass
 
-        # Schedule new reindex task with a delay to batch rapid changes
-        self._reindex_task = asyncio.create_task(self._delayed_reindex(event))
+            # Schedule new reindex task with a delay to batch rapid changes
+            self._reindex_task = asyncio.create_task(self._delayed_reindex(event))
 
     async def _delayed_reindex(self, event: KBChangeEvent) -> None:
         """
@@ -638,6 +297,27 @@ class BotVectorSearchManager:
         async with self._reindex_lock:
             logger.info("🔄 Manual reindex triggered")
             return await self.check_and_reindex_changes()
+
+    async def shutdown(self) -> None:
+        """
+        Shutdown the vector search manager
+
+        Cancels any pending reindex tasks and marks manager as shutdown.
+        """
+        logger.info("🛑 Shutting down BotVectorSearchManager")
+        self._shutdown = True
+
+        # Cancel pending reindex task
+        if self._reindex_task and not self._reindex_task.done():
+            logger.debug("⏹️  Cancelling pending reindex task")
+            self._reindex_task.cancel()
+            try:
+                await self._reindex_task
+            except asyncio.CancelledError:
+                pass
+
+        # Close HTTP client
+        await self._mcp_client.close()
 
     async def shutdown(self) -> None:
         """
