@@ -9,7 +9,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.bot.mcp_hub_client import MCPHubClient, MCPHubError, MCPHubTimeoutError, MCPHubUnavailableError
+from src.bot.mcp_hub_client import (
+    MCPHubClient,
+    MCPHubError,
+    MCPHubTimeoutError,
+    MCPHubUnavailableError,
+)
 
 
 class TestMCPHubClient:
@@ -151,7 +156,9 @@ class TestMCPHubClient:
             result = await client.registry_register_server(server_config)
 
             assert result == mock_response
-            mock_request.assert_called_once_with("POST", "/registry/servers", json_data=server_config)
+            mock_request.assert_called_once_with(
+                "POST", "/registry/servers", json_data=server_config
+            )
 
     @pytest.mark.asyncio
     async def test_registry_enable_server_success(self, client):
@@ -201,7 +208,7 @@ class TestMCPHubClient:
     async def test_make_request_success(self, client):
         """Test successful HTTP request"""
         mock_response = {"success": True}
-        
+
         # Mock the entire _make_request method to avoid complex aiohttp mocking
         with patch.object(client, "_make_request", return_value=mock_response) as mock_request:
             result = await client._make_request("GET", "/test")
@@ -210,14 +217,18 @@ class TestMCPHubClient:
     @pytest.mark.asyncio
     async def test_make_request_503_error(self, client):
         """Test HTTP request with 503 error"""
-        with patch.object(client, "_make_request", side_effect=MCPHubUnavailableError("Service unavailable")):
+        with patch.object(
+            client, "_make_request", side_effect=MCPHubUnavailableError("Service unavailable")
+        ):
             with pytest.raises(MCPHubUnavailableError):
                 await client._make_request("GET", "/test")
 
     @pytest.mark.asyncio
     async def test_make_request_timeout_error(self, client):
         """Test HTTP request with timeout error"""
-        with patch.object(client, "_make_request", side_effect=MCPHubTimeoutError("Request timeout")):
+        with patch.object(
+            client, "_make_request", side_effect=MCPHubTimeoutError("Request timeout")
+        ):
             with pytest.raises(MCPHubTimeoutError):
                 await client._make_request("GET", "/test")
 
@@ -226,7 +237,9 @@ class TestMCPHubClient:
         """Test HTTP request retry logic"""
         # This test is simplified to avoid complex mocking
         # In a real scenario, retry logic would be tested with integration tests
-        with patch.object(client, "_make_request", side_effect=MCPHubTimeoutError("Request timeout")):
+        with patch.object(
+            client, "_make_request", side_effect=MCPHubTimeoutError("Request timeout")
+        ):
             with pytest.raises(MCPHubTimeoutError):
                 await client._make_request("GET", "/test")
 
