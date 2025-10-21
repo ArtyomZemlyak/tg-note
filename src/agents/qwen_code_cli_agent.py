@@ -106,6 +106,9 @@ class QwenCodeCLIAgent(BaseAgent):
             )
             self._setup_qwen_mcp_config()
 
+        # MCP tools description cache
+        self._mcp_tools_description = None
+
         # Check if qwen CLI is available
         self._check_cli_available()
 
