@@ -418,6 +418,19 @@ AGENT_ENABLE_MCP: false
 #   User-specific: data/mcp_servers/user_{user_id}/ (override shared)
 AGENT_ENABLE_MCP_MEMORY: false
 
+# MCP_TIMEOUT: Timeout for MCP requests in seconds
+#
+# - Controls how long to wait for MCP server responses
+# - Prevents hanging during long-running MCP operations
+# - Recommended values:
+#   * Simple requests: 60-120 seconds
+#   * Complex operations: 300-600 seconds (5-10 minutes)
+#   * Very long operations: 900-1800 seconds (15-30 minutes)
+#
+# IMPORTANT: Too short timeout may interrupt useful operations
+# Default: 600 seconds (10 minutes)
+MCP_TIMEOUT: 600
+
 
 # ───────────────────────────────────────────────────────────────────────────────
 # Memory Agent Settings

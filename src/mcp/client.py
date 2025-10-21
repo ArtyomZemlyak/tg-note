@@ -104,14 +104,16 @@ class MCPClient:
     await client.connect()
     """
 
-    def __init__(self, config: MCPServerConfig):
+    def __init__(self, config: MCPServerConfig, timeout: int = 600):
         """
         Initialize MCP client
 
         Args:
             config: Server configuration (command+args for stdio, or url for sse)
+            timeout: Timeout in seconds for MCP requests (default: 600 seconds)
         """
         self.config = config
+        self.timeout = timeout
         self.process: Optional[subprocess.Popen] = None
         self.session: Optional[aiohttp.ClientSession] = None  # For HTTP/SSE
         self.is_connected = False
@@ -715,7 +717,7 @@ class MCPClient:
 
                 # Send the request (server returns 202 Accepted, response comes via SSE)
                 async with self.session.post(
-                    url_with_session, json=request, timeout=aiohttp.ClientTimeout(total=30)
+                    url_with_session, json=request, timeout=aiohttp.ClientTimeout(total=self.timeout)
                 ) as response:
                     if response.status not in (200, 202):
                         # Remove pending request on error
@@ -727,7 +729,7 @@ class MCPClient:
 
                 # Wait for response from SSE stream (with timeout)
                 try:
-                    result = await asyncio.wait_for(future, timeout=30.0)
+                    result = await asyncio.wait_for(future, timeout=float(self.timeout))
                     return result
                 except asyncio.TimeoutError:
                     self._pending_requests.pop(self._request_id, None)
@@ -779,7 +781,7 @@ class MCPClient:
         for url in candidates:
             try:
                 async with self.session.post(
-                    url, json=request, timeout=aiohttp.ClientTimeout(total=30)
+                    url, json=request, timeout=aiohttp.ClientTimeout(total=self.timeout)
                 ) as response:
                     if response.status in (200, 202):
                         # Cache working RPC endpoint

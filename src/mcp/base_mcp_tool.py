@@ -22,11 +22,17 @@ class BaseMCPTool(BaseTool):
     Subclasses should configure the MCP server and handle tool execution.
     """
 
-    def __init__(self):
-        """Initialize MCP tool"""
+    def __init__(self, timeout: int = 600):
+        """
+        Initialize MCP tool
+        
+        Args:
+            timeout: Timeout in seconds for MCP requests (default: 600 seconds)
+        """
         self.client: Optional[MCPClient] = None
         self.enabled = False
         self._connected = False
+        self.timeout = timeout
 
     @property
     @abstractmethod
@@ -61,7 +67,7 @@ class BaseMCPTool(BaseTool):
             return True
 
         if not self.client:
-            self.client = MCPClient(self.mcp_server_config)
+            self.client = MCPClient(self.mcp_server_config, timeout=self.timeout)
 
         self._connected = await self.client.connect()
         return self._connected

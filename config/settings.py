@@ -204,6 +204,9 @@ class Settings(BaseSettings):
     AGENT_ENABLE_MCP_MEMORY: bool = Field(
         default=False, description="Enable MCP memory agent tool (local memory via HTTP)"
     )
+    MCP_TIMEOUT: int = Field(
+        default=600, description="Timeout in seconds for MCP requests (default: 600 seconds)"
+    )
 
     # Memory Agent Settings (can be in YAML)
     MEM_AGENT_STORAGE_TYPE: str = Field(
