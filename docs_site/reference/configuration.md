@@ -140,6 +140,18 @@ Enable folder create/delete/move operations.
 - **Type:** `bool`
 - **Default:** `true`
 
+### MCP_TIMEOUT
+
+Timeout for MCP (Model Context Protocol) requests.
+
+- **Type:** `int`
+- **Default:** `600` (10 minutes)
+- **Description:** Controls how long to wait for MCP server responses
+- **Recommended values:**
+  - Simple requests: 60-120 seconds
+  - Complex operations: 300-600 seconds (5-10 minutes)
+  - Very long operations: 900-1800 seconds (15-30 minutes)
+
 ---
 
 ## Processing Settings

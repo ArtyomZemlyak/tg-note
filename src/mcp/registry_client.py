@@ -12,6 +12,7 @@ from typing import Dict, List, Optional
 from loguru import logger
 
 from src.mcp.registry import MCPServersManager, MCPServerSpec
+from config.settings import settings
 
 from .client import MCPClient, MCPServerConfig
 
@@ -104,7 +105,7 @@ class MCPRegistryClient:
                 logger.debug(f"[MCPRegistryClient] Created stdio client for: {spec.name}")
 
             # Create and return client
-            client = MCPClient(config)
+            client = MCPClient(config, timeout=settings.MCP_TIMEOUT)
             return client
 
         except Exception as e:

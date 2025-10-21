@@ -11,6 +11,7 @@ from typing import Dict, List, Optional
 
 from loguru import logger
 
+from config.settings import settings
 from .client import MCPClient, MCPServerConfig
 from .registry_client import MCPRegistryClient
 
@@ -41,7 +42,7 @@ async def get_mcp_tools_description(
 
         if mcp_hub_url:
             try:
-                client = MCPClient(MCPServerConfig(transport="sse", url=mcp_hub_url))
+                client = MCPClient(MCPServerConfig(transport="sse", url=mcp_hub_url), timeout=settings.MCP_TIMEOUT)
                 if await client.connect():
                     connected_clients["mcp-hub"] = client
                 else:

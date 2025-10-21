@@ -455,7 +455,7 @@ class BotVectorSearchManager:
             if not sse_url.endswith("/sse"):
                 sse_url = f"{sse_url}/sse"
 
-            client = MCPClient(MCPServerConfig(transport="sse", url=sse_url))
+            client = MCPClient(MCPServerConfig(transport="sse", url=sse_url), timeout=settings.MCP_TIMEOUT)
             connected = await client.connect()
             if not connected:
                 logger.warning("⚠️ Failed to connect to MCP Hub for reindex")
@@ -488,7 +488,7 @@ class BotVectorSearchManager:
             if not sse_url.endswith("/sse"):
                 sse_url = f"{sse_url}/sse"
 
-            client = MCPClient(MCPServerConfig(transport="sse", url=sse_url))
+            client = MCPClient(MCPServerConfig(transport="sse", url=sse_url), timeout=settings.MCP_TIMEOUT)
             connected = await client.connect()
             if not connected:
                 logger.warning("⚠️ Failed to connect to MCP Hub for add_documents")
@@ -519,7 +519,7 @@ class BotVectorSearchManager:
             if not sse_url.endswith("/sse"):
                 sse_url = f"{sse_url}/sse"
 
-            client = MCPClient(MCPServerConfig(transport="sse", url=sse_url))
+            client = MCPClient(MCPServerConfig(transport="sse", url=sse_url), timeout=settings.MCP_TIMEOUT)
             connected = await client.connect()
             if not connected:
                 logger.warning("⚠️ Failed to connect to MCP Hub for delete_documents")
@@ -556,7 +556,7 @@ class BotVectorSearchManager:
             if not sse_url.endswith("/sse"):
                 sse_url = f"{sse_url}/sse"
 
-            client = MCPClient(MCPServerConfig(transport="sse", url=sse_url))
+            client = MCPClient(MCPServerConfig(transport="sse", url=sse_url), timeout=settings.MCP_TIMEOUT)
             connected = await client.connect()
             if not connected:
                 logger.warning("⚠️ Failed to connect to MCP Hub for update_documents")
