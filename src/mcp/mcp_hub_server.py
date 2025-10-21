@@ -769,19 +769,28 @@ async def reindex_vector(
         logger.info(f"  User: {user_id}")
 
     try:
+        logger.info("🔍 Getting vector search manager...")
         manager = await get_vector_search_manager(kb_id=kb_id)
 
         if not manager:
+            logger.error("❌ Vector search manager not available")
             return {"success": False, "error": "Vector search is not enabled or not configured"}
+
+        logger.info("✅ Vector search manager obtained")
 
         # Clear index if force=True
         if force:
             logger.info("🗑️  Force=True: Clearing existing index")
             await manager.clear_index()
+            logger.info("✅ Index cleared")
 
         # If documents provided, add them
         if documents:
+            logger.info(f"📚 Adding {len(documents)} documents...")
+            logger.info("🔄 Starting add_documents operation...")
             stats = await manager.add_documents(documents=documents)
+            logger.info("✅ Documents added successfully")
+            logger.info(f"📊 Stats: {stats}")
 
             logger.info(
                 f"✅ Reindexing complete: "
@@ -789,22 +798,28 @@ async def reindex_vector(
                 f"{stats['chunks_created']} chunks created"
             )
 
-            return {
+            result = {
                 "success": True,
                 "stats": stats,
                 "message": f"Successfully indexed {stats['documents_processed']} documents",
             }
+            logger.info(f"📤 Returning result: {result}")
+            return result
         else:
             logger.info("✅ Index cleared (no documents provided)")
-            return {
+            result = {
                 "success": True,
                 "stats": {"documents_processed": 0, "chunks_created": 0, "errors": []},
                 "message": "Index cleared",
             }
+            logger.info(f"📤 Returning result: {result}")
+            return result
 
     except Exception as e:
         logger.error(f"❌ Error in reindexing: {e}", exc_info=True)
-        return {"success": False, "error": str(e), "error_type": type(e).__name__}
+        result = {"success": False, "error": str(e), "error_type": type(e).__name__}
+        logger.error(f"📤 Returning error result: {result}")
+        return result
 
 
 @mcp.tool()
@@ -1364,7 +1379,16 @@ def main():
         logger.info(f"🌐 Server listening on http://{args.host}:{args.port}/sse")
         logger.info(f"🏥 Health check: http://{args.host}:{args.port}/health")
         logger.info(f"📋 Registry API: http://{args.host}:{args.port}/registry/servers")
-        mcp.run(transport="sse", host=args.host, port=args.port)
+        # AICODE-NOTE: Configure uvicorn timeouts for long-running operations
+        import uvicorn
+        uvicorn.run(
+            mcp.app,
+            host=args.host,
+            port=args.port,
+            timeout_keep_alive=600,  # Keep connection alive for 10 minutes
+            timeout_graceful_shutdown=30,  # Graceful shutdown timeout
+            log_level="info"
+        )
     except KeyboardInterrupt:
         logger.info("⏹️  Server stopped by user")
     except Exception as e:

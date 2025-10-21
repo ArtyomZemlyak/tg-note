@@ -43,6 +43,23 @@ git.commit("Update")
 # → Реиндексация через 2 сек ✅
 ```
 
+### Асинхронная реиндексация (v1.1.0+)
+
+**AICODE-NOTE**: Реиндексация теперь работает асинхронно для предотвращения таймаутов MCP клиента.
+
+```python
+# reindex_vector возвращается немедленно
+result = await client.call_tool("reindex_vector", {
+    "documents": documents,
+    "force": True
+})
+# → {"success": True, "status": "started", "message": "Reindexing started in background"}
+
+# Проверка статуса
+status = await client.call_tool("get_reindex_status", {"kb_id": "default"})
+# → {"status": "completed", "stats": {"documents_processed": 96, "chunks_created": 334}}
+```
+
 ### Для Qwen CLI Agent
 
 ```python
@@ -190,6 +207,22 @@ get_event_bus().subscribe(EventType.KB_FILE_CREATED, my_handler)
 
 ## Troubleshooting
 
+### MCP Client Timeout (Fixed in v1.1.0)
+
+**Проблема:** `ERROR | [MCPClient] Timeout waiting for response to request ID X`
+
+**Решение:** Обновлено до v1.1.0+ с асинхронной реиндексацией:
+```python
+# Старый способ (мог вызывать таймауты)
+result = await client.call_tool("reindex_vector", {...})
+# → 600s timeout
+
+# Новый способ (немедленный ответ)
+result = await client.call_tool("reindex_vector", {...})
+# → {"status": "started"} - немедленно
+# → Проверка статуса: await client.call_tool("get_reindex_status", {...})
+```
+
 ### Векторный поиск не работает?
 
 ```bash
@@ -247,6 +280,14 @@ curl http://localhost:8765/health | jq '.builtin_tools'
 - `tests/test_vector_search.py` - Integration tests
 
 ## What's New
+
+### Version 1.1.0 (2025-10-21)
+
+✅ **Asynchronous Reindexing**
+- Fixed MCP client timeout issues (600s → immediate response)
+- Background processing for long-running operations
+- Status monitoring via `get_reindex_status` tool
+- Prevents concurrent reindexing conflicts
 
 ### Version 1.0.0 (2025-10-20)
 
