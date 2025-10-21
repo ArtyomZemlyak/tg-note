@@ -448,6 +448,7 @@ class BotVectorSearchManager:
         Call MCP Hub reindex_vector tool via SSE transport.
 
         AICODE-NOTE: SOLID - BOT sends document DATA, not file paths
+        AICODE-NOTE: reindex_vector now returns immediately and processes in background
         """
         try:
             # Ensure SSE URL
@@ -466,8 +467,16 @@ class BotVectorSearchManager:
                     "reindex_vector", {"documents": documents, "force": bool(force)}
                 )
                 if result.get("success"):
-                    logger.info("✅ MCP reindex_vector completed successfully")
-                    return True
+                    status = result.get("status", "unknown")
+                    if status == "started":
+                        logger.info("✅ MCP reindex_vector started successfully in background")
+                        logger.info(f"  Documents: {result.get('documents_count', 0)}")
+                        logger.info(f"  Force: {result.get('force', False)}")
+                        logger.info(f"  KB ID: {result.get('kb_id', 'default')}")
+                        return True
+                    else:
+                        logger.info(f"✅ MCP reindex_vector completed: {result.get('message', 'Success')}")
+                        return True
                 else:
                     logger.warning(f"⚠️ MCP reindex_vector failed: {result.get('error')}")
                     return False

@@ -22,6 +22,7 @@ Default:
 """
 
 import argparse
+import asyncio
 import json
 import os
 import sys
@@ -280,6 +281,7 @@ def get_builtin_tools() -> List[str]:
             [
                 "vector_search",
                 "reindex_vector",
+                "get_reindex_status",
                 "add_vector_documents",
                 "delete_vector_documents",
                 "update_vector_documents",
@@ -732,6 +734,11 @@ async def vector_search(
         return {"success": False, "error": str(e), "error_type": type(e).__name__}
 
 
+# AICODE-NOTE: Background reindexing status tracking
+_reindexing_tasks: Dict[str, asyncio.Task] = {}
+_reindexing_status: Dict[str, Dict[str, Any]] = {}
+
+
 @mcp.tool()
 async def reindex_vector(
     documents: List[Dict[str, Any]] = None,
@@ -744,6 +751,9 @@ async def reindex_vector(
 
     AICODE-NOTE: BOT sends all documents for reindexing.
     If force=True, clears index first.
+    
+    This function returns immediately and processes reindexing in the background
+    to avoid MCP client timeouts for long-running operations.
 
     Args:
         documents: List of all documents to index (optional for force clear)
@@ -752,7 +762,7 @@ async def reindex_vector(
         kb_id: Knowledge base ID for isolation (default: "default")
 
     Returns:
-        Reindexing statistics
+        Immediate status response (reindexing continues in background)
     """
     # Check availability first
     if not check_vector_search_availability():
@@ -768,12 +778,67 @@ async def reindex_vector(
     if user_id:
         logger.info(f"  User: {user_id}")
 
+    # Check if reindexing is already in progress for this KB
+    if kb_id in _reindexing_tasks and not _reindexing_tasks[kb_id].done():
+        return {
+            "success": False,
+            "error": f"Reindexing is already in progress for knowledge base '{kb_id}'",
+            "status": "in_progress"
+        }
+
     try:
         manager = await get_vector_search_manager(kb_id=kb_id)
 
         if not manager:
             return {"success": False, "error": "Vector search is not enabled or not configured"}
 
+        # Start background reindexing task
+        task = asyncio.create_task(
+            _background_reindex(manager, documents, force, user_id, kb_id)
+        )
+        _reindexing_tasks[kb_id] = task
+        
+        # Initialize status
+        _reindexing_status[kb_id] = {
+            "status": "started",
+            "started_at": asyncio.get_event_loop().time(),
+            "documents_count": len(documents) if documents else 0,
+            "force": force,
+            "user_id": user_id
+        }
+
+        logger.info("🚀 Reindexing started in background")
+        
+        return {
+            "success": True,
+            "message": "Reindexing started in background",
+            "status": "started",
+            "kb_id": kb_id,
+            "documents_count": len(documents) if documents else 0,
+            "force": force
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Error starting reindexing: {e}", exc_info=True)
+        return {"success": False, "error": str(e), "error_type": type(e).__name__}
+
+
+async def _background_reindex(
+    manager: "VectorSearchManager",
+    documents: List[Dict[str, Any]],
+    force: bool,
+    user_id: int,
+    kb_id: str
+) -> None:
+    """
+    Background task to perform the actual reindexing.
+    
+    This runs asynchronously and updates the status as it progresses.
+    """
+    try:
+        # Update status to processing
+        _reindexing_status[kb_id]["status"] = "processing"
+        
         # Clear index if force=True
         if force:
             logger.info("🗑️  Force=True: Clearing existing index")
@@ -789,22 +854,65 @@ async def reindex_vector(
                 f"{stats['chunks_created']} chunks created"
             )
 
-            return {
-                "success": True,
+            # Update final status
+            _reindexing_status[kb_id].update({
+                "status": "completed",
+                "completed_at": asyncio.get_event_loop().time(),
                 "stats": stats,
-                "message": f"Successfully indexed {stats['documents_processed']} documents",
-            }
+                "message": f"Successfully indexed {stats['documents_processed']} documents"
+            })
         else:
             logger.info("✅ Index cleared (no documents provided)")
-            return {
-                "success": True,
+            _reindexing_status[kb_id].update({
+                "status": "completed",
+                "completed_at": asyncio.get_event_loop().time(),
                 "stats": {"documents_processed": 0, "chunks_created": 0, "errors": []},
-                "message": "Index cleared",
-            }
+                "message": "Index cleared"
+            })
 
     except Exception as e:
-        logger.error(f"❌ Error in reindexing: {e}", exc_info=True)
-        return {"success": False, "error": str(e), "error_type": type(e).__name__}
+        logger.error(f"❌ Error in background reindexing: {e}", exc_info=True)
+        _reindexing_status[kb_id].update({
+            "status": "failed",
+            "completed_at": asyncio.get_event_loop().time(),
+            "error": str(e),
+            "error_type": type(e).__name__
+        })
+    finally:
+        # Clean up task reference
+        if kb_id in _reindexing_tasks:
+            del _reindexing_tasks[kb_id]
+
+
+@mcp.tool()
+async def get_reindex_status(kb_id: str = "default") -> dict:
+    """
+    Get the current status of reindexing operations for a knowledge base.
+    
+    Args:
+        kb_id: Knowledge base ID to check status for (default: "default")
+        
+    Returns:
+        Current reindexing status and progress information
+    """
+    if kb_id not in _reindexing_status:
+        return {
+            "success": True,
+            "status": "not_started",
+            "message": "No reindexing operations found for this knowledge base"
+        }
+    
+    status_info = _reindexing_status[kb_id].copy()
+    
+    # Add duration if completed
+    if "completed_at" in status_info and "started_at" in status_info:
+        status_info["duration_seconds"] = status_info["completed_at"] - status_info["started_at"]
+    
+    return {
+        "success": True,
+        "kb_id": kb_id,
+        **status_info
+    }
 
 
 @mcp.tool()
