@@ -39,6 +39,7 @@ import aiohttp
 from loguru import logger
 
 from config import settings
+from src.core.circuit_breaker import CircuitBreaker, CircuitBreakerError
 
 
 class MCPHubError(Exception):
@@ -91,6 +92,14 @@ class MCPHubClient:
         # Session will be created on first use
         self._session: Optional[aiohttp.ClientSession] = None
 
+        # Circuit breaker for protection against cascading failures
+        self._circuit_breaker = CircuitBreaker(
+            failure_threshold=5,
+            recovery_timeout=60.0,
+            expected_exception=MCPHubError,
+            name="MCPHubClient",
+        )
+
         logger.info(f"🔗 MCP Hub client initialized: {self.base_url}")
 
     async def _get_session(self) -> aiohttp.ClientSession:
@@ -141,8 +150,30 @@ class MCPHubClient:
             MCPHubTimeoutError: For timeout errors
             MCPHubUnavailableError: For service unavailable errors
         """
+        # Use circuit breaker for protection
+        try:
+            return await self._circuit_breaker.call(
+                self._make_request_internal, method, endpoint, json_data, params, expected_status
+            )
+        except CircuitBreakerError as e:
+            logger.error(f"🚫 Circuit breaker open: {e}")
+            raise MCPHubUnavailableError(f"Service temporarily unavailable: {e}")
+
+    async def _make_request_internal(
+        self,
+        method: str,
+        endpoint: str,
+        json_data: Optional[Dict[str, Any]] = None,
+        params: Optional[Dict[str, Any]] = None,
+        expected_status: int = 200,
+    ) -> Dict[str, Any]:
+        """Internal request method without circuit breaker"""
         url = urljoin(self.base_url, endpoint)
         session = await self._get_session()
+
+        # Define retryable status codes
+        retryable_status_codes = {503, 502, 504, 429, 408}
+        non_retryable_status_codes = {400, 401, 403, 404, 422}
 
         last_error = None
 
@@ -174,10 +205,15 @@ class MCPHubClient:
                         logger.warning(f"⚠️ Service unavailable (503): {error_text}")
                         raise MCPHubUnavailableError(f"Service unavailable: {error_text}")
 
-                    elif response.status == 404:
+                    elif response.status in non_retryable_status_codes:
                         error_text = await response.text()
-                        logger.warning(f"⚠️ Not found (404): {error_text}")
-                        raise MCPHubError(f"Endpoint not found: {error_text}")
+                        logger.warning(f"⚠️ Non-retryable error {response.status}: {error_text}")
+                        raise MCPHubError(f"HTTP {response.status}: {error_text}")
+
+                    elif response.status in retryable_status_codes:
+                        error_text = await response.text()
+                        logger.warning(f"⚠️ Retryable error {response.status}: {error_text}")
+                        raise MCPHubError(f"HTTP {response.status}: {error_text}")
 
                     else:
                         error_text = await response.text()
@@ -197,8 +233,16 @@ class MCPHubClient:
                 raise
 
             except MCPHubError as e:
-                # Don't retry other MCP Hub errors
-                raise
+                # Check if this is a retryable error
+                if hasattr(e, "status_code") and e.status_code in non_retryable_status_codes:
+                    # Don't retry non-retryable errors
+                    raise
+                elif attempt < self.retry_attempts - 1:
+                    # Retry retryable errors
+                    logger.debug(f"🔄 Retrying retryable error: {e}")
+                else:
+                    # Last attempt, don't retry
+                    raise
 
             except Exception as e:
                 last_error = MCPHubError(f"Unexpected error: {e}")
@@ -206,8 +250,10 @@ class MCPHubClient:
 
             # Wait before retry (except on last attempt)
             if attempt < self.retry_attempts - 1:
-                logger.debug(f"⏳ Waiting {self.retry_delay}s before retry...")
-                await asyncio.sleep(self.retry_delay)
+                # Exponential backoff for retries
+                delay = self.retry_delay * (2**attempt)
+                logger.debug(f"⏳ Waiting {delay}s before retry...")
+                await asyncio.sleep(delay)
 
         # All retries failed
         logger.error(f"❌ All {self.retry_attempts} attempts failed for {method} {endpoint}")

@@ -445,6 +445,8 @@ class VectorSearchManager:
         }
 
         all_chunks: List[DocumentChunk] = []
+        # FIX: Track documents that will be successfully processed
+        processed_documents: Dict[str, str] = {}  # doc_id -> content_hash
 
         for doc in documents:
             try:
@@ -474,7 +476,8 @@ class VectorSearchManager:
                 )
 
                 all_chunks.extend(chunks)
-                self._indexed_documents[doc_id] = content_hash
+                # FIX: Don't update _indexed_documents yet - wait for successful storage
+                processed_documents[doc_id] = content_hash
                 stats["documents_processed"] += 1
                 stats["chunks_created"] += len(chunks)
 
@@ -511,6 +514,9 @@ class VectorSearchManager:
 
                 logger.info(f"Successfully added {len(all_chunks)} chunks to vector store")
 
+                # FIX: Only update _indexed_documents after successful storage
+                self._indexed_documents.update(processed_documents)
+
                 # Save index and metadata
                 await self.vector_store.save(self.index_path)
                 await self._save_metadata()
@@ -519,6 +525,7 @@ class VectorSearchManager:
                 error_msg = f"Error embedding/storing chunks: {e}"
                 logger.error(error_msg, exc_info=True)
                 stats["errors"].append(error_msg)
+                # FIX: Don't update _indexed_documents on error to maintain consistency
 
         logger.info(
             f"Add documents complete: {stats['documents_processed']} documents, "
@@ -624,13 +631,6 @@ class VectorSearchManager:
 
         logger.info(
             f"Update documents complete: {stats['documents_updated']} documents updated, "
-            f"{stats['chunks_created']} chunks created, {len(stats['errors'])} errors"
-        )
-
-        return stats
-
-        logger.info(
-            f"Update documents complete: {stats['files_updated']} files updated, "
             f"{stats['chunks_created']} chunks created, {len(stats['errors'])} errors"
         )
 

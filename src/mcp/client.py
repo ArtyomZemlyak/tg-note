@@ -311,13 +311,19 @@ class MCPClient:
 
             # Store SSE response and start background task to read from stream
             self._sse_response = response
+
+            # FIX: Start SSE reader task and wait for it to be ready before proceeding
             self._sse_reader_task = asyncio.create_task(self._sse_reader())
             logger.debug("[MCPClient] Started SSE reader task")
 
             # Wait for SSE reader to be ready before initializing
             logger.debug("[MCPClient] Waiting for SSE reader to be ready...")
-            await self._sse_reader_ready.wait()
-            logger.debug("[MCPClient] SSE reader is ready, proceeding with initialization")
+            try:
+                await asyncio.wait_for(self._sse_reader_ready.wait(), timeout=10.0)
+                logger.debug("[MCPClient] SSE reader is ready, proceeding with initialization")
+            except asyncio.TimeoutError:
+                logger.error("[MCPClient] SSE reader failed to become ready within timeout")
+                raise RuntimeError("SSE reader failed to initialize")
 
         except asyncio.TimeoutError:
             error_msg = (
@@ -418,10 +424,16 @@ class MCPClient:
         if self._sse_reader_ready:
             self._sse_reader_ready.clear()
 
-        # Close SSE response if open
-        if self._sse_response:
+        # Close SSE response if open - FIX: Explicitly close to prevent resource leaks
+        if self._sse_response and not self._sse_response.closed:
             self._sse_response.close()
             self._sse_response = None
+
+        # Clear pending requests to prevent memory leaks
+        for request_id, future in list(self._pending_requests.items()):
+            if not future.done():
+                future.cancel()
+        self._pending_requests.clear()
 
         if self.process:
             try:
@@ -468,7 +480,7 @@ class MCPClient:
                         logger.warning(
                             f"[MCPClient] SSE connection lost: {e}. Attempting to reconnect..."
                         )
-                        # Try to reconnect
+                        # FIX: Only retry once to prevent infinite loops
                         if await self.reconnect():
                             logger.info(
                                 "[MCPClient] Reconnected successfully, retrying tool call..."
