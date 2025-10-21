@@ -193,6 +193,20 @@ class BaseAgent(ABC):
                 # Это часто происходит когда агент генерирует многострочный answer
                 json_text = self._fix_json_newlines(json_text)
                 
+                # AICODE-FIX: Дополнительная очистка JSON от возможных проблем
+                # Убираем лишние переносы строк и пробелы в начале/конце
+                json_text = json_text.strip()
+                
+                # Проверяем, что JSON начинается с { и заканчивается }
+                if not json_text.startswith('{') or not json_text.endswith('}'):
+                    # Попробуем найти JSON объект внутри текста
+                    json_start = json_text.find('{')
+                    json_end = json_text.rfind('}')
+                    if json_start != -1 and json_end != -1 and json_end > json_start:
+                        json_text = json_text[json_start:json_end + 1]
+                    else:
+                        raise ValueError("No valid JSON object found")
+                
                 result_data = json.loads(json_text)
 
                 # Ensure result_data is a dictionary
@@ -211,7 +225,7 @@ class BaseAgent(ABC):
                 folders_created = result_data.get("folders_created", [])
                 metadata = result_data.get("metadata", {})
                 answer = result_data.get("answer")  # Extract answer for ask mode
-            except json.JSONDecodeError as e:
+            except (json.JSONDecodeError, ValueError) as e:
                 # Если не удалось распарсить JSON, используем простой парсинг
                 # Log the error for debugging
                 import logging
@@ -228,7 +242,15 @@ class BaseAgent(ABC):
             if summary_match:
                 summary = summary_match.group(1).strip()
             else:
-                summary = "Agent completed processing"
+                # AICODE-FIX: Если нет summary, генерируем его из содержимого
+                # Берем первые 100 символов ответа как summary
+                summary = response.strip()[:100] + "..." if len(response.strip()) > 100 else response.strip()
+                if not summary:
+                    summary = "Agent completed processing"
+        
+        # AICODE-FIX: Если нет answer, используем весь ответ как answer (для ask mode)
+        if not answer:
+            answer = response.strip()
 
         # Ищем упоминания созданных файлов
         if not files_created:
@@ -422,6 +444,10 @@ class BaseAgent(ABC):
         """
         import re
         
+        # AICODE-FIX: Более надежное исправление JSON
+        # Сначала убираем лишние пробелы и переносы строк в начале/конце
+        json_text = json_text.strip()
+        
         # Ищем строковые значения в JSON и экранируем переносы строк
         def fix_string_value(match):
             key = match.group(1)
@@ -429,6 +455,8 @@ class BaseAgent(ABC):
             
             # Экранируем переносы строк в значении
             value = value.replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
+            # Убираем лишние пробелы
+            value = value.strip()
             
             return f'"{key}": "{value}"'
         
@@ -438,5 +466,10 @@ class BaseAgent(ABC):
         
         # Применяем исправления
         fixed_json = re.sub(pattern, fix_string_value, json_text)
+        
+        # AICODE-FIX: Дополнительная очистка - убираем лишние запятые в конце
+        # Убираем запятую перед закрывающей скобкой
+        fixed_json = re.sub(r',\s*}', '}', fixed_json)
+        fixed_json = re.sub(r',\s*]', ']', fixed_json)
         
         return fixed_json
