@@ -72,6 +72,11 @@ QWEN_API_KEY=your_qwen_key
 
 # GitHub Integration
 GITHUB_TOKEN=ghp_...
+GITHUB_USERNAME=your_username
+
+# GitLab Integration (optional)
+GITLAB_TOKEN=glpat_...
+GITLAB_USERNAME=your_username
 ```
 
 ---
@@ -294,6 +299,130 @@ GITHUB_TOKEN=ghp_...
 - **Description:** GitHub personal access token for API operations
 - **Example:** `ghp_...`
 
+#### GITHUB_USERNAME
+
+- **Type:** String
+- **Required:** No
+- **Source:** `.env` or environment variable only
+- **Description:** GitHub username for API operations
+- **Example:** `your_username`
+
+#### GITLAB_TOKEN
+
+- **Type:** String (Secret)
+- **Required:** No
+- **Source:** `.env` or environment variable only
+- **Description:** GitLab personal access token for API operations
+- **Example:** `glpat_...`
+
+#### GITLAB_USERNAME
+
+- **Type:** String
+- **Required:** No
+- **Source:** `.env` or environment variable only
+- **Description:** GitLab username for API operations
+- **Example:** `your_username`
+
+---
+
+### Vector Search Settings
+
+#### VECTOR_SEARCH_ENABLED
+
+- **Type:** Boolean
+- **Default:** `false`
+- **Description:** Enable semantic vector search
+- **Example:** `true` or `false`
+
+#### VECTOR_EMBEDDING_PROVIDER
+
+- **Type:** String
+- **Default:** `sentence_transformers`
+- **Options:** `sentence_transformers`, `openai`, `infinity`
+- **Description:** Embedding provider for vector search
+- **Example:** `infinity` for Docker setup
+
+#### VECTOR_EMBEDDING_MODEL
+
+- **Type:** String
+- **Default:** `all-MiniLM-L6-v2`
+- **Description:** Embedding model to use
+- **Examples:** `all-MiniLM-L6-v2`, `BAAI/bge-m3`, `text-embedding-ada-002`
+
+#### VECTOR_INFINITY_API_URL
+
+- **Type:** String
+- **Default:** `http://localhost:7997`
+- **Description:** Infinity API URL for embeddings
+- **Example:** `http://infinity:7997` (Docker)
+
+#### VECTOR_INFINITY_API_KEY
+
+- **Type:** String (Secret)
+- **Required:** No
+- **Source:** `.env` or environment variable only
+- **Description:** Infinity API key (if required)
+- **Example:** `your_infinity_key`
+
+#### VECTOR_STORE_PROVIDER
+
+- **Type:** String
+- **Default:** `faiss`
+- **Options:** `faiss`, `qdrant`
+- **Description:** Vector store provider
+- **Example:** `qdrant` for Docker setup
+
+#### VECTOR_QDRANT_URL
+
+- **Type:** String
+- **Default:** `http://localhost:6333`
+- **Description:** Qdrant vector database URL
+- **Example:** `http://qdrant:6333` (Docker)
+
+#### VECTOR_QDRANT_API_KEY
+
+- **Type:** String (Secret)
+- **Required:** No
+- **Source:** `.env` or environment variable only
+- **Description:** Qdrant API key (if required)
+- **Example:** `your_qdrant_key`
+
+#### VECTOR_QDRANT_COLLECTION
+
+- **Type:** String
+- **Default:** `knowledge_base`
+- **Description:** Qdrant collection name
+- **Example:** `my_kb_vectors`
+
+#### VECTOR_CHUNKING_STRATEGY
+
+- **Type:** String
+- **Default:** `fixed_size_overlap`
+- **Options:** `fixed_size_overlap`, `recursive`
+- **Description:** Text chunking strategy
+- **Example:** `fixed_size_overlap`
+
+#### VECTOR_CHUNK_SIZE
+
+- **Type:** Integer
+- **Default:** `512`
+- **Description:** Size of text chunks for vectorization
+- **Example:** `1024`
+
+#### VECTOR_CHUNK_OVERLAP
+
+- **Type:** Integer
+- **Default:** `50`
+- **Description:** Overlap between chunks
+- **Example:** `100`
+
+#### VECTOR_SEARCH_TOP_K
+
+- **Type:** Integer
+- **Default:** `5`
+- **Description:** Number of top results to return
+- **Example:** `10`
+
 ---
 
 ## Configuration Examples
@@ -362,6 +491,43 @@ LOG_LEVEL: WARNING  # Reduce noise
 LOG_FILE: ./logs/test.log
 
 ALLOWED_USER_IDS: "123"  # Test user only
+```
+
+### Vector Search Setup
+
+```yaml title="config.yaml"
+# Vector search configuration
+KB_PATH: ./knowledge_base
+KB_GIT_ENABLED: true
+KB_GIT_AUTO_PUSH: true
+
+AGENT_TYPE: "qwen_code_cli"
+AGENT_MODEL: "qwen-max"
+AGENT_TIMEOUT: 300
+
+# Vector search settings
+VECTOR_SEARCH_ENABLED: true
+
+# Embedding settings
+VECTOR_EMBEDDING_PROVIDER: infinity
+VECTOR_EMBEDDING_MODEL: BAAI/bge-m3
+VECTOR_INFINITY_API_URL: http://infinity:7997
+
+# Vector store settings
+VECTOR_STORE_PROVIDER: qdrant
+VECTOR_QDRANT_URL: http://qdrant:6333
+VECTOR_QDRANT_COLLECTION: knowledge_base
+
+# Chunking settings
+VECTOR_CHUNKING_STRATEGY: fixed_size_overlap
+VECTOR_CHUNK_SIZE: 512
+VECTOR_CHUNK_OVERLAP: 50
+
+# Search settings
+VECTOR_SEARCH_TOP_K: 5
+
+LOG_LEVEL: INFO
+LOG_FILE: ./logs/bot.log
 ```
 
 ---
@@ -458,5 +624,7 @@ chmod 644 config.yaml
 ## See Also
 
 - [Installation Guide](installation.md)
+- [Vector Search Quick Start](vector-search-quickstart.md)
 - [Settings Management](../user-guide/settings-management.md)
 - [Agent Configuration](../agents/overview.md)
+- [Vector Search Overview](../architecture/vector-search-overview.md)

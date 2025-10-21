@@ -186,7 +186,9 @@ class QuestionAnsweringService(IQuestionAnsweringService):
             # AICODE-FIX: Более информативное сообщение об ошибке
             error_message = str(e)
             if "summary" in error_message and "JSON" in str(type(e).__name__):
-                error_message = "Ошибка обработки ответа агента. Попробуйте переформулировать вопрос."
+                error_message = (
+                    "Ошибка обработки ответа агента. Попробуйте переформулировать вопрос."
+                )
             await self._send_error_notification(processing_msg_id, chat_id, error_message)
 
     async def _query_kb(self, kb_path: Path, question: str, user_id: int) -> str:

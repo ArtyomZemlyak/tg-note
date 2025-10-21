@@ -69,6 +69,18 @@ Perfect for:
 
     Configure bot settings directly via Telegram commands
 
+- :search:{ .lg .middle } **Vector Search**
+
+    ---
+
+    Semantic search through your knowledge base using AI embeddings
+
+- :lock:{ .lg .middle } **Secure Credentials**
+
+    ---
+
+    Personal encrypted Git tokens for each user via Telegram
+
 </div>
 
 ---
@@ -159,6 +171,38 @@ graph TD
 ```
 
 [Detailed Architecture →](architecture/overview.md)
+
+---
+
+## New Features
+
+<div class="grid cards" markdown>
+
+- :search:{ .lg .middle } **Vector Search**
+
+    ---
+
+    Semantic search through your knowledge base using AI embeddings. Find relevant content by meaning, not just keywords.
+
+    [:octicons-arrow-right-24: Learn More](architecture/vector-search-overview.md)
+
+- :lock:{ .lg .middle } **Secure Git Credentials**
+
+    ---
+
+    Each user can securely add their personal GitHub/GitLab tokens directly through Telegram with encryption.
+
+    [:octicons-arrow-right-24: Setup Guide](user-guide/secure-git-credentials.md)
+
+- :material-docker:{ .lg .middle } **Docker Vector Search**
+
+    ---
+
+    Complete Docker setup with Qdrant vector database and Infinity embeddings service.
+
+    [:octicons-arrow-right-24: Quick Start](getting-started/vector-search-quickstart.md)
+
+</div>
 
 ---
 

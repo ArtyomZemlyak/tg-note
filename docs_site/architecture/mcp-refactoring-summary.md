@@ -308,9 +308,8 @@ If issues occur:
 
 ## References
 
-- [MCP Architecture Documentation](docs_site/architecture/mcp-architecture.md)
+- [MCP Architecture Documentation](mcp-architecture.md)
 - [MCP Protocol Specification](https://modelcontextprotocol.io/)
-- [Original Issue](https://github.com/your-org/tg-note/issues/XXX)
 
 ## Author
 
