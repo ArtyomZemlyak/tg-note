@@ -210,7 +210,7 @@ class OpenAIEmbedder(BaseEmbedder):
                 headers=headers,
                 method="POST",
             )
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            with urllib.request.urlopen(req, timeout=10) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
             embeddings = [item.get("embedding", []) for item in data.get("data", [])]
             if embeddings and isinstance(embeddings[0], list):
@@ -264,7 +264,7 @@ class InfinityEmbedder(BaseEmbedder):
         req = urllib.request.Request(
             url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST"
         )
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode("utf-8"))
 
         embeddings = [item.get("embedding", []) for item in data.get("data", [])]
@@ -283,7 +283,8 @@ class InfinityEmbedder(BaseEmbedder):
 
         payload = {"model": self.model_name, "input": texts}
 
-        async with aiohttp.ClientSession() as session:
+        timeout = aiohttp.ClientTimeout(total=10)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
             async with session.post(url, json=payload, headers=headers) as response:
                 if response.status != 200:
                     error_text = await response.text()
