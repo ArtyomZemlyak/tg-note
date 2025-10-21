@@ -226,6 +226,62 @@ Some content"""
         # Tags are extracted from content, not from missing metadata
         assert isinstance(kb_structure.tags, list)
 
+    def test_parse_agent_response_with_unescaped_newlines(self, agent):
+        """Test parsing agent response with unescaped newlines in JSON (the bug fix)"""
+        result_text = """# Test Article
+
+```agent-result
+{
+  "summary": "Test summary with
+newlines",
+  "answer": "Test answer with
+multiple
+lines",
+  "files_created": [],
+  "files_edited": [],
+  "folders_created": [],
+  "metadata": {}
+}
+```
+
+Some content"""
+
+        # Test that agent can parse response with unescaped newlines
+        agent_result = agent.parse_agent_response(result_text)
+        
+        # Should successfully extract summary and answer despite newlines
+        assert "Test summary with" in agent_result.summary
+        assert "newlines" in agent_result.summary
+        assert "Test answer with" in agent_result.answer
+        assert "multiple" in agent_result.answer
+        assert "lines" in agent_result.answer
+
+    def test_parse_agent_response_malformed_json_fallback(self, agent):
+        """Test parsing agent response with malformed JSON falls back to regex extraction"""
+        result_text = """# Test Article
+
+```agent-result
+{
+  "summary": "Test summary",
+  "answer": "Test answer",
+  "files_created": [],
+  "files_edited": [],
+  "folders_created": [],
+  "metadata": {}
+  // This is malformed JSON with comment
+}
+```
+
+Some content"""
+
+        # Test that agent can parse response even with malformed JSON
+        agent_result = agent.parse_agent_response(result_text)
+        
+        # Should fall back to regex extraction or use the full response as answer
+        assert agent_result.summary or agent_result.answer
+        # At minimum, should have the full response as answer
+        assert "Test Article" in agent_result.answer
+
     def test_fallback_processing(self, agent):
         """Test fallback processing"""
         prompt = """

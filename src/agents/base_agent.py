@@ -186,6 +186,9 @@ class BaseAgent(ABC):
         # Ищем блок ```agent-result
         result_match = re.search(r"```agent-result\s*\n(.*?)\n```", response, re.DOTALL)
         if result_match:
+            # AICODE-FIX: Добавляем отладочное логирование
+            import logging
+            logging.debug(f"Found agent-result block: {result_match.group(1)[:200]}...")
             try:
                 json_text = result_match.group(1).strip()
 
@@ -211,6 +214,11 @@ class BaseAgent(ABC):
                 folders_created = result_data.get("folders_created", [])
                 metadata = result_data.get("metadata", {})
                 answer = result_data.get("answer")  # Extract answer for ask mode
+                
+                # AICODE-FIX: Логируем успешный парсинг для отладки
+                import logging
+                logging.debug(f"Successfully parsed agent-result JSON: summary='{summary[:50]}...', answer='{answer[:50] if answer else 'None'}...'")
+                
             except (json.JSONDecodeError, ValueError) as e:
                 # Если не удалось распарсить JSON, используем простой парсинг
                 # Log the error for debugging
@@ -219,6 +227,26 @@ class BaseAgent(ABC):
                 logging.warning(
                     f"Failed to parse agent-result JSON: {e}. Content: {result_match.group(1)[:100]}"
                 )
+                # AICODE-FIX: Пытаемся извлечь данные из невалидного JSON с помощью регулярных выражений
+                json_text = result_match.group(1).strip()
+                
+                # Извлекаем summary из невалидного JSON
+                summary_match = re.search(r'"summary":\s*"([^"]*(?:\\.[^"]*)*)"', json_text)
+                if summary_match:
+                    summary = summary_match.group(1).replace('\\n', '\n').replace('\\"', '"')
+                
+                # Извлекаем answer из невалидного JSON
+                answer_match = re.search(r'"answer":\s*"([^"]*(?:\\.[^"]*)*)"', json_text)
+                if answer_match:
+                    answer = answer_match.group(1).replace('\\n', '\n').replace('\\"', '"')
+                
+                # Извлекаем files_created из невалидного JSON
+                files_created_match = re.search(r'"files_created":\s*\[(.*?)\]', json_text, re.DOTALL)
+                if files_created_match:
+                    files_text = files_created_match.group(1)
+                    files_created = [f.strip().strip('"') for f in files_text.split(',') if f.strip()]
+                
+                logging.info(f"Extracted data from malformed JSON: summary='{summary[:50] if summary else 'None'}...', answer='{answer[:50] if answer else 'None'}...'")
                 pass
 
         # Фоллбэк: попытка найти информацию в тексте
@@ -429,33 +457,58 @@ class BaseAgent(ABC):
             Исправленный JSON текст
         """
         import re
+        import json
         
         # AICODE-FIX: Более надежное исправление JSON
         # Сначала убираем лишние пробелы и переносы строк в начале/конце
         json_text = json_text.strip()
         
-        # Ищем строковые значения в JSON и экранируем переносы строк
-        def fix_string_value(match):
+        # AICODE-FIX: Сначала попробуем распарсить как есть
+        try:
+            json.loads(json_text)
+            return json_text  # Если уже валидный, возвращаем как есть
+        except json.JSONDecodeError:
+            pass  # Продолжаем с исправлениями
+        
+        # AICODE-FIX: Более агрессивное исправление JSON
+        # Исправляем многострочные строки в JSON
+        def fix_multiline_string(match):
             key = match.group(1)
             value = match.group(2)
-
-            # Экранируем переносы строк в значении
-            value = value.replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
-            # Убираем лишние пробелы
-            value = value.strip()
+            
+            # Экранируем все специальные символы в значении
+            value = value.replace('\\', '\\\\')  # Экранируем обратные слеши
+            value = value.replace('"', '\\"')    # Экранируем кавычки
+            value = value.replace('\n', '\\n')   # Экранируем переносы строк
+            value = value.replace('\r', '\\r')   # Экранируем возврат каретки
+            value = value.replace('\t', '\\t')   # Экранируем табуляцию
+            value = value.replace('\b', '\\b')   # Экранируем backspace
+            value = value.replace('\f', '\\f')   # Экранируем form feed
             
             return f'"{key}": "{value}"'
-
-        # Паттерн для поиска строковых пар ключ-значение
-        # Ищем "key": "value" где value может содержать переносы строк
-        pattern = r'"([^"]+)":\s*"([^"]*(?:\\.[^"]*)*)"'
-
-        # Применяем исправления
-        fixed_json = re.sub(pattern, fix_string_value, json_text)
         
-        # AICODE-FIX: Дополнительная очистка - убираем лишние запятые в конце
-        # Убираем запятую перед закрывающей скобкой
+        # Паттерн для поиска строковых пар ключ-значение с многострочными значениями
+        # Ищем "key": "value" где value может содержать переносы строк и другие символы
+        pattern = r'"([^"]+)":\s*"([^"]*(?:\n[^"]*)*)"'
+        
+        # Применяем исправления
+        fixed_json = re.sub(pattern, fix_multiline_string, json_text, flags=re.DOTALL)
+        
+        # AICODE-FIX: Дополнительная очистка
+        # Убираем лишние запятые в конце объектов и массивов
         fixed_json = re.sub(r',\s*}', '}', fixed_json)
         fixed_json = re.sub(r',\s*]', ']', fixed_json)
         
-        return fixed_json
+        # Убираем лишние запятые в начале строк после переносов
+        fixed_json = re.sub(r'\n\s*,', '\n', fixed_json)
+        
+        # AICODE-FIX: Проверяем, что исправленный JSON валиден
+        try:
+            json.loads(fixed_json)
+            return fixed_json
+        except json.JSONDecodeError as e:
+            # Если все еще не валиден, возвращаем исходный текст
+            # и полагаемся на fallback логику в parse_agent_response
+            import logging
+            logging.warning(f"Could not fix JSON: {e}. Original: {json_text[:200]}")
+            return json_text
