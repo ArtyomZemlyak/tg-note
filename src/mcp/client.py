@@ -646,6 +646,7 @@ class MCPClient:
 
             async for line in self._sse_response.content:
                 line_str = line.decode("utf-8").strip()
+                logger.debug(f"[MCPClient] SSE line received: {line_str}")
 
                 # Skip empty lines
                 if not line_str:
@@ -654,11 +655,13 @@ class MCPClient:
                 # Parse event type
                 if line_str.startswith("event:"):
                     event_type = line_str[6:].strip()
+                    logger.debug(f"[MCPClient] SSE event type: {event_type}")
                     continue
 
                 # Parse event data
                 if line_str.startswith("data:"):
                     data_str = line_str[5:].strip()
+                    logger.debug(f"[MCPClient] SSE data: {data_str}")
 
                     if not data_str:
                         continue
@@ -667,17 +670,18 @@ class MCPClient:
                     if event_type == "message":
                         try:
                             response = json.loads(data_str)
+                            logger.debug(f"[MCPClient] Parsed JSON response: {response}")
 
                             # Match response to pending request by ID
                             if "id" in response and response["id"] in self._pending_requests:
                                 future = self._pending_requests.pop(response["id"])
                                 if not future.done():
                                     future.set_result(response)
-                                    logger.debug(
+                                    logger.info(
                                         f"[MCPClient] Matched response for request ID {response['id']}"
                                     )
                             else:
-                                logger.debug(
+                                logger.warning(
                                     f"[MCPClient] Received response with no matching request: {response.get('id')}"
                                 )
 
@@ -690,6 +694,10 @@ class MCPClient:
             raise
         except Exception as e:
             logger.error(f"[MCPClient] SSE reader task error: {e}", exc_info=True)
+            logger.error(f"[MCPClient] SSE reader error type: {type(e).__name__}")
+            logger.error(f"[MCPClient] SSE reader error args: {e.args}")
+            logger.error(f"[MCPClient] SSE response status: {self._sse_response.status if self._sse_response else 'None'}")
+            logger.error(f"[MCPClient] SSE response closed: {self._sse_response.closed if self._sse_response else 'None'}")
         finally:
             logger.debug("[MCPClient] SSE reader task finished")
 
@@ -702,6 +710,7 @@ class MCPClient:
 
         self._request_id += 1
         request = {"jsonrpc": "2.0", "id": self._request_id, "method": method, "params": params}
+        logger.info(f"[MCPClient] Sending request ID {self._request_id}: {method}")
 
         # Use the discovered RPC URL with session_id
         if self._rpc_url and self._session_id:
@@ -709,16 +718,20 @@ class MCPClient:
             from urllib.parse import urlencode
 
             url_with_session = f"{self._rpc_url}?{urlencode({'session_id': self._session_id})}"
+            logger.debug(f"[MCPClient] Request URL: {url_with_session}")
 
             try:
                 # Create a Future to wait for the response from SSE stream
                 future = asyncio.get_event_loop().create_future()
                 self._pending_requests[self._request_id] = future
+                logger.debug(f"[MCPClient] Created future for request ID {self._request_id}")
 
                 # Send the request (server returns 202 Accepted, response comes via SSE)
+                logger.debug(f"[MCPClient] Sending HTTP POST request...")
                 async with self.session.post(
                     url_with_session, json=request, timeout=aiohttp.ClientTimeout(total=self.timeout)
                 ) as response:
+                    logger.debug(f"[MCPClient] HTTP response status: {response.status}")
                     if response.status not in (200, 202):
                         # Remove pending request on error
                         self._pending_requests.pop(self._request_id, None)
@@ -727,9 +740,11 @@ class MCPClient:
                         )
                         return None
 
+                logger.debug(f"[MCPClient] HTTP request completed, waiting for SSE response...")
                 # Wait for response from SSE stream (with timeout)
                 try:
                     result = await asyncio.wait_for(future, timeout=float(self.timeout))
+                    logger.info(f"[MCPClient] Received response for request ID {self._request_id}")
                     return result
                 except asyncio.TimeoutError:
                     self._pending_requests.pop(self._request_id, None)
