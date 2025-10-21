@@ -87,6 +87,7 @@ nav:
   - Installation: getting-started/installation.md
   - Configuration: getting-started/configuration.md
   - First Steps: getting-started/first-steps.md
+  - Vector Search Quickstart: getting-started/vector-search-quickstart.md
 
 - User Guide:
   - Bot Commands: user-guide/bot-commands.md
@@ -95,6 +96,8 @@ nav:
   - MCP Server Management: user-guide/mcp-server-management.md
   - File Format Recognition: user-guide/file-format-recognition.md
   - Knowledge Base Setup: user-guide/knowledge-base-setup.md
+  - Git Credentials: user-guide/git-credentials.md
+  - Secure Git Credentials: user-guide/secure-git-credentials.md
 
 - Agent System:
   - Overview: agents/overview.md
@@ -118,8 +121,13 @@ nav:
   - KB Synchronization: architecture/kb-synchronization.md
   - MCP Architecture: architecture/mcp-architecture.md
   - Vector Search MCP: architecture/vector-search-mcp-integration.md
+  - Vector Search Overview: architecture/vector-search-overview.md
   - Message DTO: architecture/message-dto.md
   - Prompt System: architecture/prompt-system.md
+  - Bot Port: architecture/bot-port.md
+  - MCP Hub Client Unification: architecture/mcp-hub-client-unification.md
+  - MCP Refactoring Summary: architecture/mcp-refactoring-summary.md
+  - Service Refactoring: architecture/service-refactoring.md
 
 - Development:
   - Overview: development/overview.md
@@ -133,6 +141,8 @@ nav:
   - Production Checklist: deployment/production.md
   - Docker: deployment/docker.md
   - Vector Search Stack: deployment/docker-vector-search.md
+  - MCP Docker Setup: deployment/mcp-docker-setup.md
+  - MCP Docker Setup (RU): deployment/mcp-docker-setup-ru.md
   - CI/CD: deployment/cicd.md
   - PyPI Trusted Publisher: deployment/pypi-trusted-publisher-setup.md
   - Auto Deploy (Cron): deployment/auto-deploy.md
@@ -142,6 +152,7 @@ nav:
   - Configuration Options: reference/configuration.md
   - API Documentation: reference/api.md
   - Git Operations: reference/git-operations.md
+  - Security: reference/security.md
   - Troubleshooting: reference/troubleshooting.md
   - FAQ: reference/faq.md
 

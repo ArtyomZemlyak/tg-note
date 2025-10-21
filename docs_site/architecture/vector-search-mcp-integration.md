@@ -521,7 +521,7 @@ vector_search:
 
 ## См. также
 
-- [Vector Search Quickstart](../../VECTOR_SEARCH_QUICKSTART.md)
+- [Vector Search Quickstart](../getting-started/vector-search-quickstart.md)
 - [MCP Architecture](./mcp-architecture.md)
 - [Agent Architecture](./agent-architecture.md)
 - [Deployment Guide](../deployment/overview.md)
