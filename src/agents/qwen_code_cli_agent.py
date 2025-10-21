@@ -97,7 +97,6 @@ class QwenCodeCLIAgent(BaseAgent):
         self.enable_mcp = config.get("enable_mcp", False) if config else False
         self.enable_mcp_memory = config.get("enable_mcp_memory", False) if config else False
         self.user_id = config.get("user_id") if config else None
-        self._mcp_tools_description: Optional[str] = None
 
         # Setup MCP configuration if enabled
         if self.enable_mcp or self.enable_mcp_memory:
@@ -338,46 +337,6 @@ class QwenCodeCLIAgent(BaseAgent):
             logger.error(f"Unexpected error processing content: {e}", exc_info=True)
             raise RuntimeError(f"Failed to process content: {e}") from e
 
-    async def get_mcp_tools_description(self) -> str:
-        """
-        Get description of available MCP tools
-
-        Returns:
-            Formatted description of MCP tools for use in prompts
-        """
-        # Return cached description if available
-        if self._mcp_tools_description is not None:
-            return self._mcp_tools_description
-
-        # Only generate if MCP is enabled
-        if not (self.enable_mcp or self.enable_mcp_memory):
-            self._mcp_tools_description = ""
-            return ""
-
-        try:
-            # Import from src.mcp top-level so tests can monkeypatch
-            from src.mcp import format_mcp_tools_for_prompt, get_mcp_tools_description
-
-            # Get tools description
-            tools_desc = await get_mcp_tools_description(user_id=self.user_id)
-
-            # Format for user prompt (qwen CLI will receive this in input)
-            formatted = format_mcp_tools_for_prompt(tools_desc, include_in_system=False)
-
-            # Cache the result
-            self._mcp_tools_description = formatted
-
-            if formatted:
-                logger.info(
-                    f"[QwenCodeCLIAgent] MCP tools description generated ({len(formatted)} chars)"
-                )
-
-            return formatted
-
-        except Exception as e:
-            logger.error(f"[QwenCodeCLIAgent] Failed to get MCP tools description: {e}")
-            self._mcp_tools_description = ""
-            return ""
 
     async def _prepare_prompt_async(self, content: Dict) -> str:
         """
@@ -406,11 +365,6 @@ class QwenCodeCLIAgent(BaseAgent):
             base_prompt = get_content_processing_template("ru").format(
                 instruction=self.instruction, text=text, urls_section=urls_section
             )
-
-        # Add MCP tools description if available
-        mcp_description = await self.get_mcp_tools_description()
-        if mcp_description:
-            return f"{base_prompt}{mcp_description}"
 
         return base_prompt
 
