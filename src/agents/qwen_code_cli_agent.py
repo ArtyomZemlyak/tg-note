@@ -337,7 +337,6 @@ class QwenCodeCLIAgent(BaseAgent):
             logger.error(f"Unexpected error processing content: {e}", exc_info=True)
             raise RuntimeError(f"Failed to process content: {e}") from e
 
-
     async def _prepare_prompt_async(self, content: Dict) -> str:
         """
         Prepare prompt for qwen-code CLI using template from config (async version)

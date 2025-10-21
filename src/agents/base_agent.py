@@ -188,25 +188,11 @@ class BaseAgent(ABC):
         if result_match:
             try:
                 json_text = result_match.group(1).strip()
-                
+
                 # AICODE-FIX: Исправляем неэкранированные переносы строк в JSON
                 # Это часто происходит когда агент генерирует многострочный answer
                 json_text = self._fix_json_newlines(json_text)
-                
-                # AICODE-FIX: Дополнительная очистка JSON от возможных проблем
-                # Убираем лишние переносы строк и пробелы в начале/конце
-                json_text = json_text.strip()
-                
-                # Проверяем, что JSON начинается с { и заканчивается }
-                if not json_text.startswith('{') or not json_text.endswith('}'):
-                    # Попробуем найти JSON объект внутри текста
-                    json_start = json_text.find('{')
-                    json_end = json_text.rfind('}')
-                    if json_start != -1 and json_end != -1 and json_end > json_start:
-                        json_text = json_text[json_start:json_end + 1]
-                    else:
-                        raise ValueError("No valid JSON object found")
-                
+
                 result_data = json.loads(json_text)
 
                 # Ensure result_data is a dictionary
@@ -432,13 +418,13 @@ class BaseAgent(ABC):
     def _fix_json_newlines(self, json_text: str) -> str:
         """
         Исправляет неэкранированные переносы строк в JSON
-        
+
         Проблема: агент может генерировать JSON с неэкранированными \n в строках,
         что приводит к ошибке парсинга JSON.
-        
+
         Args:
             json_text: Исходный JSON текст
-            
+
         Returns:
             Исправленный JSON текст
         """
@@ -452,18 +438,18 @@ class BaseAgent(ABC):
         def fix_string_value(match):
             key = match.group(1)
             value = match.group(2)
-            
+
             # Экранируем переносы строк в значении
             value = value.replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
             # Убираем лишние пробелы
             value = value.strip()
             
             return f'"{key}": "{value}"'
-        
+
         # Паттерн для поиска строковых пар ключ-значение
         # Ищем "key": "value" где value может содержать переносы строк
         pattern = r'"([^"]+)":\s*"([^"]*(?:\\.[^"]*)*)"'
-        
+
         # Применяем исправления
         fixed_json = re.sub(pattern, fix_string_value, json_text)
         
