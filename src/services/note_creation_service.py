@@ -363,7 +363,10 @@ class NoteCreationService(BaseKBService, INoteCreationService):
         )
         message_parts.extend(link_parts)
 
-        await self.bot.edit_message_text(
+        from src.bot.utils import safe_edit_message_text
+        
+        await safe_edit_message_text(
+            self.bot,
             "\n".join(message_parts),
             chat_id=chat_id,
             message_id=processing_msg_id,

@@ -13,7 +13,7 @@ from loguru import logger
 
 from src.bot.bot_port import BotPort
 from src.bot.settings_manager import SettingsManager
-from src.bot.utils import escape_markdown, split_long_message
+from src.bot.utils import escape_markdown, split_long_message, safe_edit_message_text
 from src.core.rate_limiter import RateLimiter
 from src.knowledge_base.credentials_manager import CredentialsManager
 from src.knowledge_base.git_ops import GitOperations
@@ -328,8 +328,11 @@ class BaseKBService:
                     if github_base:
                         # Add topics/ prefix if KB_TOPICS_ONLY is true
                         github_path = f"topics/{file}" if kb_topics_only else file
+                        # Escape special characters in the URL for Telegram markdown
+                        escaped_file = escape_markdown(file)
+                        escaped_url = escape_markdown(f"{github_base}/{github_path}")
                         # Use markdown link format for clickable links in Telegram
-                        message_parts.append(f"    • [{file}]({github_base}/{github_path})")
+                        message_parts.append(f"    • [{escaped_file}]({escaped_url})")
                     else:
                         message_parts.append(f"    • {file}")
                 if len(files_created) > 5:
@@ -341,8 +344,11 @@ class BaseKBService:
                     if github_base:
                         # Add topics/ prefix if KB_TOPICS_ONLY is true
                         github_path = f"topics/{file}" if kb_topics_only else file
+                        # Escape special characters in the URL for Telegram markdown
+                        escaped_file = escape_markdown(file)
+                        escaped_url = escape_markdown(f"{github_base}/{github_path}")
                         # Use markdown link format for clickable links in Telegram
-                        message_parts.append(f"    • [{file}]({github_base}/{github_path})")
+                        message_parts.append(f"    • [{escaped_file}]({escaped_url})")
                     else:
                         message_parts.append(f"    • {file}")
                 if len(files_edited) > 5:
@@ -361,8 +367,11 @@ class BaseKBService:
                     if github_base:
                         # Add topics/ prefix if KB_TOPICS_ONLY is true
                         github_path = f"topics/{folder}" if kb_topics_only else folder
+                        # Escape special characters in the URL for Telegram markdown
+                        escaped_folder = escape_markdown(folder)
+                        escaped_url = escape_markdown(f"{github_base}/{github_path}")
                         # Use markdown link format for clickable links in Telegram
-                        message_parts.append(f"    • [{folder}]({github_base}/{github_path})")
+                        message_parts.append(f"    • [{escaped_folder}]({escaped_url})")
                     else:
                         message_parts.append(f"    • {folder}")
                 if len(folders_created) > 5:
@@ -445,9 +454,13 @@ class BaseKBService:
                     if github_base:
                         # Add topics/ prefix if KB_TOPICS_ONLY is true
                         github_path = f"topics/{file_path}" if kb_topics_only else file_path
+                        # Escape special characters in the URL for Telegram markdown
+                        escaped_file_path = escape_markdown(file_path)
+                        escaped_url = escape_markdown(f"{github_base}/{github_path}")
+                        escaped_description = escape_markdown(description)
                         # Use markdown link format for clickable links in Telegram
                         message_parts.append(
-                            f"  • [{file_path}]({github_base}/{github_path}) - {description}"
+                            f"  • [{escaped_file_path}]({escaped_url}) - {escaped_description}"
                         )
                     else:
                         message_parts.append(f"  • {file_path} - {description}")
@@ -514,8 +527,8 @@ class BaseKBService:
             True if edit succeeded, False if we should send a new message instead
         """
         try:
-            await self.bot.edit_message_text(
-                text, chat_id=chat_id, message_id=message_id, parse_mode=parse_mode
+            await safe_edit_message_text(
+                self.bot, text, chat_id=chat_id, message_id=message_id, parse_mode=parse_mode
             )
             return True
         except asyncio.TimeoutError as e:
