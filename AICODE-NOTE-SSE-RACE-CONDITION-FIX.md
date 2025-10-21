@@ -33,12 +33,12 @@ self._sse_reader_ready = asyncio.Event()
 ```python
 async def _sse_reader(self) -> None:
     # ... existing code ...
-    
+
     # Signal that SSE reader is ready to process responses
     if self._sse_reader_ready:
         self._sse_reader_ready.set()
         logger.debug("[MCPClient] SSE reader ready signal sent")
-    
+
     # ... rest of the method ...
 ```
 

@@ -19,7 +19,7 @@ Added 4 new HTTP endpoints in `/workspace/src/mcp/mcp_hub_server.py`:
 
 Removed the following MCP tools from `mcp_hub_server.py`:
 - `reindex_vector`
-- `add_vector_documents` 
+- `add_vector_documents`
 - `delete_vector_documents`
 - `update_vector_documents`
 
