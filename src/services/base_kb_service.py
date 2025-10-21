@@ -13,7 +13,7 @@ from loguru import logger
 
 from src.bot.bot_port import BotPort
 from src.bot.settings_manager import SettingsManager
-from src.bot.utils import escape_markdown, split_long_message, safe_edit_message_text
+from src.bot.utils import escape_markdown, escape_markdown_url, split_long_message, safe_edit_message_text
 from src.core.rate_limiter import RateLimiter
 from src.knowledge_base.credentials_manager import CredentialsManager
 from src.knowledge_base.git_ops import GitOperations
@@ -330,7 +330,7 @@ class BaseKBService:
                         github_path = f"topics/{file}" if kb_topics_only else file
                         # Escape special characters in the URL for Telegram markdown
                         escaped_file = escape_markdown(file)
-                        escaped_url = escape_markdown(f"{github_base}/{github_path}")
+                        escaped_url = escape_markdown_url(f"{github_base}/{github_path}")
                         # Use markdown link format for clickable links in Telegram
                         message_parts.append(f"    • [{escaped_file}]({escaped_url})")
                     else:
@@ -346,7 +346,7 @@ class BaseKBService:
                         github_path = f"topics/{file}" if kb_topics_only else file
                         # Escape special characters in the URL for Telegram markdown
                         escaped_file = escape_markdown(file)
-                        escaped_url = escape_markdown(f"{github_base}/{github_path}")
+                        escaped_url = escape_markdown_url(f"{github_base}/{github_path}")
                         # Use markdown link format for clickable links in Telegram
                         message_parts.append(f"    • [{escaped_file}]({escaped_url})")
                     else:
@@ -369,7 +369,7 @@ class BaseKBService:
                         github_path = f"topics/{folder}" if kb_topics_only else folder
                         # Escape special characters in the URL for Telegram markdown
                         escaped_folder = escape_markdown(folder)
-                        escaped_url = escape_markdown(f"{github_base}/{github_path}")
+                        escaped_url = escape_markdown_url(f"{github_base}/{github_path}")
                         # Use markdown link format for clickable links in Telegram
                         message_parts.append(f"    • [{escaped_folder}]({escaped_url})")
                     else:
@@ -456,7 +456,7 @@ class BaseKBService:
                         github_path = f"topics/{file_path}" if kb_topics_only else file_path
                         # Escape special characters in the URL for Telegram markdown
                         escaped_file_path = escape_markdown(file_path)
-                        escaped_url = escape_markdown(f"{github_base}/{github_path}")
+                        escaped_url = escape_markdown_url(f"{github_base}/{github_path}")
                         escaped_description = escape_markdown(description)
                         # Use markdown link format for clickable links in Telegram
                         message_parts.append(

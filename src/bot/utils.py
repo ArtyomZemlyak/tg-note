@@ -38,6 +38,22 @@ def escape_markdown(text: str) -> str:
     return re.sub(f"([{re.escape(special_chars)}])", r"\\\1", text)
 
 
+def escape_markdown_url(url: str) -> str:
+    """
+    Escape special characters for Telegram Markdown URL format
+    Does NOT escape underscores as they are valid in URLs
+
+    Args:
+        url: URL to escape
+
+    Returns:
+        Escaped URL safe for Markdown links
+    """
+    # Only escape characters that break URLs, not underscores
+    special_chars = r"*`"
+    return re.sub(f"([{re.escape(special_chars)}])", r"\\\1", url)
+
+
 def sanitize_for_telegram(text: str, parse_mode: str = "Markdown") -> str:
     """
     Sanitize text for safe sending via Telegram
