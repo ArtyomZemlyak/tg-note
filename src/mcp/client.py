@@ -131,6 +131,8 @@ class MCPClient:
         # AICODE-NOTE: Track reconnection attempts to prevent infinite loops
         self._reconnect_attempts: int = 0
         self._max_reconnect_attempts: int = 3
+        # AICODE-NOTE: Event to signal when SSE reader is ready to process responses
+        self._sse_reader_ready = asyncio.Event()
 
     async def connect(self) -> bool:
         """
@@ -312,6 +314,11 @@ class MCPClient:
             self._sse_reader_task = asyncio.create_task(self._sse_reader())
             logger.debug("[MCPClient] Started SSE reader task")
 
+            # Wait for SSE reader to be ready before initializing
+            logger.debug("[MCPClient] Waiting for SSE reader to be ready...")
+            await self._sse_reader_ready.wait()
+            logger.debug("[MCPClient] SSE reader is ready, proceeding with initialization")
+
         except asyncio.TimeoutError:
             error_msg = (
                 f"SSE connection timeout - server at {sse_url} did not respond within 10 seconds. "
@@ -384,6 +391,9 @@ class MCPClient:
         self._reconnect_attempts += 1
         logger.info(f"[MCPClient] Attempting to reconnect (attempt {self._reconnect_attempts}/{self._max_reconnect_attempts})...")
         await self.disconnect()
+        # Reset SSE reader ready event for reconnection
+        if self._sse_reader_ready:
+            self._sse_reader_ready.clear()
         success = await self.connect()
         if success:
             self._reconnect_attempts = 0  # Reset on successful reconnection
@@ -399,6 +409,10 @@ class MCPClient:
             except asyncio.CancelledError:
                 pass
             self._sse_reader_task = None
+
+        # Reset SSE reader ready event
+        if self._sse_reader_ready:
+            self._sse_reader_ready.clear()
 
         # Close SSE response if open
         if self._sse_response:
@@ -683,6 +697,12 @@ class MCPClient:
 
         try:
             logger.debug("[MCPClient] SSE reader task started")
+            
+            # Signal that SSE reader is ready to process responses
+            if self._sse_reader_ready:
+                self._sse_reader_ready.set()
+                logger.debug("[MCPClient] SSE reader ready signal sent")
+            
             event_type = None
 
             async for line in self._sse_response.content:
