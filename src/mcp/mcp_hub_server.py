@@ -275,14 +275,11 @@ def get_builtin_tools() -> List[str]:
     # Vector search tools (conditional - checked at tool list generation)
     # Checks both configuration (VECTOR_SEARCH_ENABLED) and dependencies
     # (sentence-transformers, faiss-cpu or qdrant-client)
+    # AICODE-NOTE: Only vector_search remains as MCP tool, indexing tools moved to HTTP API
     if check_vector_search_availability():
         tools.extend(
             [
                 "vector_search",
-                "reindex_vector",
-                "add_vector_documents",
-                "delete_vector_documents",
-                "update_vector_documents",
             ]
         )
 
@@ -424,6 +421,15 @@ async def health_check(request):
                 "builtin_tools": {
                     "total": get_builtin_tools_count(),
                     "names": get_builtin_tools(),
+                },
+                "vector_search_api": {
+                    "endpoints": [
+                        "POST /vector/reindex",
+                        "POST /vector/documents",
+                        "DELETE /vector/documents", 
+                        "PUT /vector/documents",
+                    ],
+                    "description": "Vector search indexing operations via HTTP API",
                 },
                 "registry": {
                     "servers_total": len(registry.get_all_servers()),
@@ -732,47 +738,58 @@ async def vector_search(
         return {"success": False, "error": str(e), "error_type": type(e).__name__}
 
 
-@mcp.tool()
-async def reindex_vector(
-    documents: List[Dict[str, Any]] = None,
-    force: bool = False,
-    user_id: int = None,
-    kb_id: str = "default",
-) -> dict:
-    """
-    Reindex knowledge base for vector search
+# AICODE-NOTE: Vector indexing tools (reindex_vector, add_vector_documents, 
+# delete_vector_documents, update_vector_documents) have been moved to HTTP API endpoints.
+# Only vector_search remains as MCP tool for agent usage.
 
-    AICODE-NOTE: BOT sends all documents for reindexing.
-    If force=True, clears index first.
 
-    Args:
-        documents: List of all documents to index (optional for force clear)
-        force: Force reindexing - clear index first (default: false)
-        user_id: User ID (optional, for logging purposes)
-        kb_id: Knowledge base ID for isolation (default: "default")
+# ============================================================================
+# Registry Tools - MCP Server Management
+# ============================================================================
+# AICODE-NOTE: MCP server management tools removed from MCP tools interface.
+# These tools are only for managing the MCP hub itself and should not be
+# exposed as MCP tools. They remain available via HTTP API for administration.
 
-    Returns:
-        Reindexing statistics
-    """
-    # Check availability first
-    if not check_vector_search_availability():
-        return {
-            "success": False,
-            "error": "Vector search is not available. Check config (VECTOR_SEARCH_ENABLED) and dependencies.",
-        }
 
-    logger.info("🔄 REINDEX_VECTOR called")
-    logger.info(f"  Force: {force}")
-    logger.info(f"  Documents count: {len(documents) if documents else 0}")
-    logger.info(f"  KB ID: {kb_id}")
-    if user_id:
-        logger.info(f"  User: {user_id}")
+# ============================================================================
+# Vector Search HTTP API - For bot/docker integration without MCP client
+# ============================================================================
 
+
+@mcp.custom_route("/vector/reindex", methods=["POST"])
+async def http_reindex_vector(request: Request):
+    """HTTP: Reindex knowledge base for vector search"""
     try:
+        payload = await request.json()
+        documents = payload.get("documents")
+        force = payload.get("force", False)
+        user_id = payload.get("user_id")
+        kb_id = payload.get("kb_id", "default")
+
+        # Check availability first
+        if not check_vector_search_availability():
+            return JSONResponse(
+                {
+                    "success": False,
+                    "error": "Vector search is not available. Check config (VECTOR_SEARCH_ENABLED) and dependencies.",
+                },
+                status_code=503,
+            )
+
+        logger.info("🔄 HTTP REINDEX_VECTOR called")
+        logger.info(f"  Force: {force}")
+        logger.info(f"  Documents count: {len(documents) if documents else 0}")
+        logger.info(f"  KB ID: {kb_id}")
+        if user_id:
+            logger.info(f"  User: {user_id}")
+
         manager = await get_vector_search_manager(kb_id=kb_id)
 
         if not manager:
-            return {"success": False, "error": "Vector search is not enabled or not configured"}
+            return JSONResponse(
+                {"success": False, "error": "Vector search is not enabled or not configured"},
+                status_code=503,
+            )
 
         # Clear index if force=True
         if force:
@@ -789,63 +806,63 @@ async def reindex_vector(
                 f"{stats['chunks_created']} chunks created"
             )
 
-            return {
-                "success": True,
-                "stats": stats,
-                "message": f"Successfully indexed {stats['documents_processed']} documents",
-            }
+            return JSONResponse(
+                {
+                    "success": True,
+                    "stats": stats,
+                    "message": f"Successfully indexed {stats['documents_processed']} documents",
+                }
+            )
         else:
             logger.info("✅ Index cleared (no documents provided)")
-            return {
-                "success": True,
-                "stats": {"documents_processed": 0, "chunks_created": 0, "errors": []},
-                "message": "Index cleared",
-            }
+            return JSONResponse(
+                {
+                    "success": True,
+                    "stats": {"documents_processed": 0, "chunks_created": 0, "errors": []},
+                    "message": "Index cleared",
+                }
+            )
 
     except Exception as e:
-        logger.error(f"❌ Error in reindexing: {e}", exc_info=True)
-        return {"success": False, "error": str(e), "error_type": type(e).__name__}
+        logger.error(f"❌ Error in HTTP reindexing: {e}", exc_info=True)
+        return JSONResponse(
+            {"success": False, "error": str(e), "error_type": type(e).__name__},
+            status_code=500,
+        )
 
 
-@mcp.tool()
-async def add_vector_documents(
-    documents: List[Dict[str, Any]], user_id: int = None, kb_id: str = "default"
-) -> dict:
-    """
-    Add or update documents to vector search index
-
-    AICODE-NOTE: SOLID - Dependency Inversion Principle
-    BOT reads files and sends CONTENT, MCP HUB works with DATA only.
-
-    Args:
-        documents: List of documents with structure:
-            - id (str): Unique document identifier
-            - content (str): Document text content
-            - metadata (dict, optional): Additional metadata
-        user_id: User ID (optional, for logging purposes)
-        kb_id: Knowledge base ID for isolation (default: "default")
-
-    Returns:
-        Operation statistics
-    """
-    # Check availability first
-    if not check_vector_search_availability():
-        return {
-            "success": False,
-            "error": "Vector search is not available. Check config (VECTOR_SEARCH_ENABLED) and dependencies.",
-        }
-
-    logger.info("➕ ADD_VECTOR_DOCUMENTS called")
-    logger.info(f"  Documents count: {len(documents)}")
-    logger.info(f"  KB ID: {kb_id}")
-    if user_id:
-        logger.info(f"  User: {user_id}")
-
+@mcp.custom_route("/vector/documents", methods=["POST"])
+async def http_add_vector_documents(request: Request):
+    """HTTP: Add or update documents to vector search index"""
     try:
+        payload = await request.json()
+        documents = payload.get("documents", [])
+        user_id = payload.get("user_id")
+        kb_id = payload.get("kb_id", "default")
+
+        # Check availability first
+        if not check_vector_search_availability():
+            return JSONResponse(
+                {
+                    "success": False,
+                    "error": "Vector search is not available. Check config (VECTOR_SEARCH_ENABLED) and dependencies.",
+                },
+                status_code=503,
+            )
+
+        logger.info("➕ HTTP ADD_VECTOR_DOCUMENTS called")
+        logger.info(f"  Documents count: {len(documents)}")
+        logger.info(f"  KB ID: {kb_id}")
+        if user_id:
+            logger.info(f"  User: {user_id}")
+
         manager = await get_vector_search_manager(kb_id=kb_id)
 
         if not manager:
-            return {"success": False, "error": "Vector search is not enabled or not configured"}
+            return JSONResponse(
+                {"success": False, "error": "Vector search is not enabled or not configured"},
+                status_code=503,
+            )
 
         # Call the async add_documents method
         stats = await manager.add_documents(documents=documents)
@@ -856,104 +873,108 @@ async def add_vector_documents(
             f"{stats['chunks_created']} chunks created"
         )
 
-        return {
-            "success": True,
-            "stats": stats,
-            "message": f"Successfully added {stats['documents_processed']} documents",
-        }
+        return JSONResponse(
+            {
+                "success": True,
+                "stats": stats,
+                "message": f"Successfully added {stats['documents_processed']} documents",
+            }
+        )
 
     except Exception as e:
-        logger.error(f"❌ Error adding documents: {e}", exc_info=True)
-        return {"success": False, "error": str(e), "error_type": type(e).__name__}
+        logger.error(f"❌ Error in HTTP adding documents: {e}", exc_info=True)
+        return JSONResponse(
+            {"success": False, "error": str(e), "error_type": type(e).__name__},
+            status_code=500,
+        )
 
 
-@mcp.tool()
-async def delete_vector_documents(
-    document_ids: List[str], user_id: int = None, kb_id: str = "default"
-) -> dict:
-    """
-    Delete documents from vector search index
-
-    AICODE-NOTE: Works with document IDs, not file paths
-
-    Args:
-        document_ids: List of document IDs to delete
-        user_id: User ID (optional, for logging purposes)
-        kb_id: Knowledge base ID for isolation (default: "default")
-
-    Returns:
-        Operation statistics
-    """
-    # Check availability first
-    if not check_vector_search_availability():
-        return {
-            "success": False,
-            "error": "Vector search is not available. Check config (VECTOR_SEARCH_ENABLED) and dependencies.",
-        }
-
-    logger.info("🗑️  DELETE_VECTOR_DOCUMENTS called")
-    logger.info(f"  Document IDs: {len(document_ids)}")
-    logger.info(f"  KB ID: {kb_id}")
-    if user_id:
-        logger.info(f"  User: {user_id}")
-
+@mcp.custom_route("/vector/documents", methods=["DELETE"])
+async def http_delete_vector_documents(request: Request):
+    """HTTP: Delete documents from vector search index"""
     try:
+        payload = await request.json()
+        document_ids = payload.get("document_ids", [])
+        user_id = payload.get("user_id")
+        kb_id = payload.get("kb_id", "default")
+
+        # Check availability first
+        if not check_vector_search_availability():
+            return JSONResponse(
+                {
+                    "success": False,
+                    "error": "Vector search is not available. Check config (VECTOR_SEARCH_ENABLED) and dependencies.",
+                },
+                status_code=503,
+            )
+
+        logger.info("🗑️  HTTP DELETE_VECTOR_DOCUMENTS called")
+        logger.info(f"  Document IDs: {len(document_ids)}")
+        logger.info(f"  KB ID: {kb_id}")
+        if user_id:
+            logger.info(f"  User: {user_id}")
+
         manager = await get_vector_search_manager(kb_id=kb_id)
 
         if not manager:
-            return {"success": False, "error": "Vector search is not enabled or not configured"}
+            return JSONResponse(
+                {"success": False, "error": "Vector search is not enabled or not configured"},
+                status_code=503,
+            )
 
         # Call the async delete_documents method
         stats = await manager.delete_documents(document_ids=document_ids)
 
         logger.info(f"✅ Delete documents complete: {stats['documents_deleted']} documents deleted")
 
-        return {
-            "success": True,
-            "stats": stats,
-            "message": f"Successfully deleted {stats['documents_deleted']} documents",
-        }
+        return JSONResponse(
+            {
+                "success": True,
+                "stats": stats,
+                "message": f"Successfully deleted {stats['documents_deleted']} documents",
+            }
+        )
 
     except Exception as e:
-        logger.error(f"❌ Error deleting documents: {e}", exc_info=True)
-        return {"success": False, "error": str(e), "error_type": type(e).__name__}
+        logger.error(f"❌ Error in HTTP deleting documents: {e}", exc_info=True)
+        return JSONResponse(
+            {"success": False, "error": str(e), "error_type": type(e).__name__},
+            status_code=500,
+        )
 
 
-@mcp.tool()
-async def update_vector_documents(
-    documents: List[Dict[str, Any]], user_id: int = None, kb_id: str = "default"
-) -> dict:
-    """
-    Update documents in vector search index
-
-    AICODE-NOTE: Works with document data, not file paths
-
-    Args:
-        documents: List of documents (same structure as add_vector_documents)
-        user_id: User ID (optional, for logging purposes)
-        kb_id: Knowledge base ID for isolation (default: "default")
-
-    Returns:
-        Operation statistics
-    """
-    # Check availability first
-    if not check_vector_search_availability():
-        return {
-            "success": False,
-            "error": "Vector search is not available. Check config (VECTOR_SEARCH_ENABLED) and dependencies.",
-        }
-
-    logger.info("🔄 UPDATE_VECTOR_DOCUMENTS called")
-    logger.info(f"  Documents count: {len(documents)}")
-    logger.info(f"  KB ID: {kb_id}")
-    if user_id:
-        logger.info(f"  User: {user_id}")
-
+@mcp.custom_route("/vector/documents", methods=["PUT"])
+async def http_update_vector_documents(request: Request):
+    """HTTP: Update documents in vector search index"""
     try:
+        payload = await request.json()
+        documents = payload.get("documents", [])
+        user_id = payload.get("user_id")
+        kb_id = payload.get("kb_id", "default")
+
+        # Check availability first
+        if not check_vector_search_availability():
+            return JSONResponse(
+                {
+                    "success": False,
+                    "error": "Vector search is not available. Check config (VECTOR_SEARCH_ENABLED) and dependencies.",
+                },
+                status_code=503,
+            )
+
+        logger.info("🔄 HTTP UPDATE_VECTOR_DOCUMENTS called")
+        logger.info(f"  Documents count: {len(documents)}")
+        logger.info(f"  KB ID: {kb_id}")
+        if user_id:
+            logger.info(f"  User: {user_id}")
+
         manager = await get_vector_search_manager(kb_id=kb_id)
 
         if not manager:
-            return {"success": False, "error": "Vector search is not enabled or not configured"}
+            return JSONResponse(
+                {"success": False, "error": "Vector search is not enabled or not configured"},
+                status_code=503,
+            )
 
         # Call the async update_documents method
         stats = await manager.update_documents(documents=documents)
@@ -964,23 +985,20 @@ async def update_vector_documents(
             f"{stats['chunks_created']} chunks created"
         )
 
-        return {
-            "success": True,
-            "stats": stats,
-            "message": f"Successfully updated {stats['documents_updated']} documents",
-        }
+        return JSONResponse(
+            {
+                "success": True,
+                "stats": stats,
+                "message": f"Successfully updated {stats['documents_updated']} documents",
+            }
+        )
 
     except Exception as e:
-        logger.error(f"❌ Error updating documents: {e}", exc_info=True)
-        return {"success": False, "error": str(e), "error_type": type(e).__name__}
-
-
-# ============================================================================
-# Registry Tools - MCP Server Management
-# ============================================================================
-# AICODE-NOTE: MCP server management tools removed from MCP tools interface.
-# These tools are only for managing the MCP hub itself and should not be
-# exposed as MCP tools. They remain available via HTTP API for administration.
+        logger.error(f"❌ Error in HTTP updating documents: {e}", exc_info=True)
+        return JSONResponse(
+            {"success": False, "error": str(e), "error_type": type(e).__name__},
+            status_code=500,
+        )
 
 
 # ============================================================================
@@ -1311,6 +1329,7 @@ def main():
     logger.info("")
     logger.info("📦 Features:")
     logger.info(f"  ✅ Memory Tools (json/vector/mem-agent)")
+    logger.info(f"  ✅ Vector Search (MCP tool + HTTP API)")
     logger.info(f"  ✅ MCP Server Registry")
     logger.info(f"  ✅ Per-user isolation")
     logger.info("")
@@ -1364,6 +1383,7 @@ def main():
         logger.info(f"🌐 Server listening on http://{args.host}:{args.port}/sse")
         logger.info(f"🏥 Health check: http://{args.host}:{args.port}/health")
         logger.info(f"📋 Registry API: http://{args.host}:{args.port}/registry/servers")
+        logger.info(f"🔍 Vector Search API: http://{args.host}:{args.port}/vector/")
         mcp.run(transport="sse", host=args.host, port=args.port)
     except KeyboardInterrupt:
         logger.info("⏹️  Server stopped by user")
