@@ -27,7 +27,6 @@ from loguru import logger
 
 from config import settings
 from src.core.events import EventType, KBChangeEvent, get_event_bus
-from src.mcp.client import MCPClient, MCPServerConfig
 
 
 class KnowledgeBaseChange:
@@ -445,139 +444,175 @@ class BotVectorSearchManager:
 
     async def _call_mcp_reindex(self, documents: List[Dict[str, Any]], force: bool = False) -> bool:
         """
-        Call MCP Hub reindex_vector tool via SSE transport.
+        Call MCP Hub reindex_vector via HTTP API.
 
         AICODE-NOTE: SOLID - BOT sends document DATA, not file paths
+        AICODE-FIX: Changed from MCP tools to HTTP API (tools moved to HTTP endpoints)
         """
         try:
-            # Ensure SSE URL
-            sse_url = self.mcp_hub_url
-            if not sse_url.endswith("/sse"):
-                sse_url = f"{sse_url}/sse"
+            # Use HTTP API instead of MCP tools
+            api_url = f"{self.mcp_hub_url}/vector/reindex"
+            
+            payload = {
+                "documents": documents,
+                "force": bool(force),
+                "kb_id": "default",  # TODO: Make configurable per user
+                "user_id": None  # TODO: Add user_id support
+            }
 
-            client = MCPClient(MCPServerConfig(transport="sse", url=sse_url), timeout=settings.MCP_TIMEOUT)
-            connected = await client.connect()
-            if not connected:
-                logger.warning("⚠️ Failed to connect to MCP Hub for reindex")
-                return False
-
-            try:
-                result = await client.call_tool(
-                    "reindex_vector", {"documents": documents, "force": bool(force)}
-                )
-                if result.get("success"):
-                    logger.info("✅ MCP reindex_vector completed successfully")
-                    return True
-                else:
-                    logger.warning(f"⚠️ MCP reindex_vector failed: {result.get('error')}")
-                    return False
-            finally:
-                await client.disconnect()
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    api_url, 
+                    json=payload, 
+                    timeout=aiohttp.ClientTimeout(total=settings.MCP_TIMEOUT)
+                ) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        if result.get("success"):
+                            logger.info("✅ HTTP reindex_vector completed successfully")
+                            return True
+                        else:
+                            logger.warning(f"⚠️ HTTP reindex_vector failed: {result.get('error')}")
+                            return False
+                    elif response.status == 503:
+                        error_text = await response.text()
+                        logger.warning(f"⚠️ Vector search not available (503): {error_text}")
+                        return False
+                    else:
+                        error_text = await response.text()
+                        logger.warning(f"⚠️ HTTP reindex_vector failed with status {response.status}: {error_text}")
+                        return False
         except Exception as e:
-            logger.error(f"❌ Exception while calling MCP reindex_vector: {e}", exc_info=True)
+            logger.error(f"❌ Exception while calling HTTP reindex_vector: {e}", exc_info=True)
             return False
 
     async def _call_mcp_add_documents(self, documents: List[Dict[str, Any]]) -> bool:
         """
-        Call MCP Hub add_vector_documents tool to add new documents.
+        Call MCP Hub add_vector_documents via HTTP API.
 
         AICODE-NOTE: SOLID - BOT sends document DATA (content), not file paths
+        AICODE-FIX: Changed from MCP tools to HTTP API (tools moved to HTTP endpoints)
         """
         try:
-            sse_url = self.mcp_hub_url
-            if not sse_url.endswith("/sse"):
-                sse_url = f"{sse_url}/sse"
+            # Use HTTP API instead of MCP tools
+            api_url = f"{self.mcp_hub_url}/vector/documents"
+            
+            payload = {
+                "documents": documents,
+                "kb_id": "default",  # TODO: Make configurable per user
+                "user_id": None  # TODO: Add user_id support
+            }
 
-            client = MCPClient(MCPServerConfig(transport="sse", url=sse_url), timeout=settings.MCP_TIMEOUT)
-            connected = await client.connect()
-            if not connected:
-                logger.warning("⚠️ Failed to connect to MCP Hub for add_documents")
-                return False
-
-            try:
-                result = await client.call_tool("add_vector_documents", {"documents": documents})
-                if result.get("success"):
-                    logger.info(f"✅ MCP add_vector_documents completed: {result.get('message')}")
-                    return True
-                else:
-                    logger.warning(f"⚠️ MCP add_vector_documents failed: {result.get('error')}")
-                    return False
-            finally:
-                await client.disconnect()
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    api_url, 
+                    json=payload, 
+                    timeout=aiohttp.ClientTimeout(total=settings.MCP_TIMEOUT)
+                ) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        if result.get("success"):
+                            logger.info(f"✅ HTTP add_vector_documents completed: {result.get('message')}")
+                            return True
+                        else:
+                            logger.warning(f"⚠️ HTTP add_vector_documents failed: {result.get('error')}")
+                            return False
+                    elif response.status == 503:
+                        error_text = await response.text()
+                        logger.warning(f"⚠️ Vector search not available (503): {error_text}")
+                        return False
+                    else:
+                        error_text = await response.text()
+                        logger.warning(f"⚠️ HTTP add_vector_documents failed with status {response.status}: {error_text}")
+                        return False
         except Exception as e:
-            logger.error(f"❌ Exception while calling MCP add_vector_documents: {e}", exc_info=True)
+            logger.error(f"❌ Exception while calling HTTP add_vector_documents: {e}", exc_info=True)
             return False
 
     async def _call_mcp_delete_documents(self, document_ids: List[str]) -> bool:
         """
-        Call MCP Hub delete_vector_documents tool to delete documents.
+        Call MCP Hub delete_vector_documents via HTTP API.
 
         AICODE-NOTE: Sends document IDs (not file paths), MCP HUB deletes by ID
+        AICODE-FIX: Changed from MCP tools to HTTP API (tools moved to HTTP endpoints)
         """
         try:
-            sse_url = self.mcp_hub_url
-            if not sse_url.endswith("/sse"):
-                sse_url = f"{sse_url}/sse"
+            # Use HTTP API instead of MCP tools
+            api_url = f"{self.mcp_hub_url}/vector/documents"
+            
+            payload = {
+                "document_ids": document_ids,
+                "kb_id": "default",  # TODO: Make configurable per user
+                "user_id": None  # TODO: Add user_id support
+            }
 
-            client = MCPClient(MCPServerConfig(transport="sse", url=sse_url), timeout=settings.MCP_TIMEOUT)
-            connected = await client.connect()
-            if not connected:
-                logger.warning("⚠️ Failed to connect to MCP Hub for delete_documents")
-                return False
-
-            try:
-                result = await client.call_tool(
-                    "delete_vector_documents", {"document_ids": document_ids}
-                )
-                if result.get("success"):
-                    logger.info(
-                        f"✅ MCP delete_vector_documents completed: {result.get('message')}"
-                    )
-                    return True
-                else:
-                    logger.warning(f"⚠️ MCP delete_vector_documents failed: {result.get('error')}")
-                    return False
-            finally:
-                await client.disconnect()
+            async with aiohttp.ClientSession() as session:
+                async with session.delete(
+                    api_url, 
+                    json=payload, 
+                    timeout=aiohttp.ClientTimeout(total=settings.MCP_TIMEOUT)
+                ) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        if result.get("success"):
+                            logger.info(f"✅ HTTP delete_vector_documents completed: {result.get('message')}")
+                            return True
+                        else:
+                            logger.warning(f"⚠️ HTTP delete_vector_documents failed: {result.get('error')}")
+                            return False
+                    elif response.status == 503:
+                        error_text = await response.text()
+                        logger.warning(f"⚠️ Vector search not available (503): {error_text}")
+                        return False
+                    else:
+                        error_text = await response.text()
+                        logger.warning(f"⚠️ HTTP delete_vector_documents failed with status {response.status}: {error_text}")
+                        return False
         except Exception as e:
-            logger.error(
-                f"❌ Exception while calling MCP delete_vector_documents: {e}", exc_info=True
-            )
+            logger.error(f"❌ Exception while calling HTTP delete_vector_documents: {e}", exc_info=True)
             return False
 
     async def _call_mcp_update_documents(self, documents: List[Dict[str, Any]]) -> bool:
         """
-        Call MCP Hub update_vector_documents tool to update modified documents.
+        Call MCP Hub update_vector_documents via HTTP API.
 
         AICODE-NOTE: SOLID - BOT sends document DATA (content), not file paths
+        AICODE-FIX: Changed from MCP tools to HTTP API (tools moved to HTTP endpoints)
         """
         try:
-            sse_url = self.mcp_hub_url
-            if not sse_url.endswith("/sse"):
-                sse_url = f"{sse_url}/sse"
+            # Use HTTP API instead of MCP tools
+            api_url = f"{self.mcp_hub_url}/vector/documents"
+            
+            payload = {
+                "documents": documents,
+                "kb_id": "default",  # TODO: Make configurable per user
+                "user_id": None  # TODO: Add user_id support
+            }
 
-            client = MCPClient(MCPServerConfig(transport="sse", url=sse_url), timeout=settings.MCP_TIMEOUT)
-            connected = await client.connect()
-            if not connected:
-                logger.warning("⚠️ Failed to connect to MCP Hub for update_documents")
-                return False
-
-            try:
-                result = await client.call_tool("update_vector_documents", {"documents": documents})
-                if result.get("success"):
-                    logger.info(
-                        f"✅ MCP update_vector_documents completed: {result.get('message')}"
-                    )
-                    return True
-                else:
-                    logger.warning(f"⚠️ MCP update_vector_documents failed: {result.get('error')}")
-                    return False
-            finally:
-                await client.disconnect()
+            async with aiohttp.ClientSession() as session:
+                async with session.put(
+                    api_url, 
+                    json=payload, 
+                    timeout=aiohttp.ClientTimeout(total=settings.MCP_TIMEOUT)
+                ) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        if result.get("success"):
+                            logger.info(f"✅ HTTP update_vector_documents completed: {result.get('message')}")
+                            return True
+                        else:
+                            logger.warning(f"⚠️ HTTP update_vector_documents failed: {result.get('error')}")
+                            return False
+                    elif response.status == 503:
+                        error_text = await response.text()
+                        logger.warning(f"⚠️ Vector search not available (503): {error_text}")
+                        return False
+                    else:
+                        error_text = await response.text()
+                        logger.warning(f"⚠️ HTTP update_vector_documents failed with status {response.status}: {error_text}")
+                        return False
         except Exception as e:
-            logger.error(
-                f"❌ Exception while calling MCP update_vector_documents: {e}", exc_info=True
-            )
+            logger.error(f"❌ Exception while calling HTTP update_vector_documents: {e}", exc_info=True)
             return False
 
     async def _handle_kb_change_event(self, event: KBChangeEvent) -> None:
