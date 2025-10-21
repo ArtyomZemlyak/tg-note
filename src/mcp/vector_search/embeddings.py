@@ -246,10 +246,39 @@ class InfinityEmbedder(BaseEmbedder):
         self._dimension: Optional[int] = None
 
     def _determine_dimension_sync(self) -> int:
-        """Determine embedding dimension synchronously via Infinity API.
+        """Determine embedding dimension synchronously using embed_texts function.
 
         Uses a lightweight single-text embedding request to avoid assumptions about
-        the /models schema. This keeps factory usage synchronous and avoids event loop issues.
+        the /models schema. This leverages the existing embed_texts method for consistency.
+        """
+        import asyncio
+
+        # Use embed_texts to get dimension from a probe text
+        probe_text = "__dimension_probe__"
+
+        # Run the async embed_texts method synchronously
+        try:
+            # Try to get the current event loop
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # If we're in an async context, we need to use a different approach
+                # Fall back to direct HTTP request for consistency
+                return self._determine_dimension_direct_http()
+            else:
+                # We can run the async method
+                embeddings = loop.run_until_complete(self.embed_texts([probe_text]))
+        except RuntimeError:
+            # No event loop or can't run in current context, fall back to direct HTTP
+            return self._determine_dimension_direct_http()
+
+        if not embeddings or not isinstance(embeddings[0], list):
+            raise RuntimeError("Infinity API returned unexpected response for dimension probe")
+        return len(embeddings[0])
+
+    def _determine_dimension_direct_http(self) -> int:
+        """Fallback method for determining dimension via direct HTTP request.
+
+        Used when async context is not available for embed_texts.
         """
         import urllib.error
         import urllib.request
