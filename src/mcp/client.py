@@ -691,10 +691,12 @@ class MCPClient:
             logger.error("[MCPClient] SSE reader started but no response available")
             return
 
+        line_count = 0
         try:
             logger.debug("[MCPClient] SSE reader task started")
+            logger.debug(f"[MCPClient] SSE response status: {self._sse_response.status}")
+            logger.debug(f"[MCPClient] SSE response headers: {dict(self._sse_response.headers)}")
             event_type = None
-            line_count = 0
 
             async for line in self._sse_response.content:
                 line_str = line.decode("utf-8").strip()
@@ -741,11 +743,6 @@ class MCPClient:
                                     )
                             else:
                                 logger.warning(f"[MCPClient] Received response with ID {response.get('id')} but no pending request found. Pending requests: {list(self._pending_requests.keys())}")
-                            else:
-                                logger.debug(
-                                    f"[MCPClient] Received response with no matching request: {response.get('id')}. "
-                                    f"Pending requests: {list(self._pending_requests.keys())}"
-                                )
 
                         except json.JSONDecodeError as e:
                             logger.warning(f"[MCPClient] Failed to parse SSE message data: {e}")
@@ -754,8 +751,28 @@ class MCPClient:
         except asyncio.CancelledError:
             logger.debug("[MCPClient] SSE reader task cancelled")
             raise
+        except ConnectionResetError as e:
+            logger.warning(f"[MCPClient] SSE connection reset by server: {e}")
+            # Cancel all pending requests when connection is reset
+            for request_id, future in list(self._pending_requests.items()):
+                if not future.done():
+                    future.cancel()
+            self._pending_requests.clear()
+        except aiohttp.ClientError as e:
+            logger.error(f"[MCPClient] SSE client error: {e}")
+            # Cancel all pending requests when client error occurs
+            for request_id, future in list(self._pending_requests.items()):
+                if not future.done():
+                    future.cancel()
+            self._pending_requests.clear()
         except Exception as e:
-            logger.error(f"[MCPClient] SSE reader task error: {e}", exc_info=True)
+            logger.error(f"[MCPClient] SSE reader task error: {e}")
+            logger.error(f"[MCPClient] Error type: {type(e).__name__}")
+            logger.error(f"[MCPClient] Error args: {e.args}")
+            logger.error(f"[MCPClient] SSE response status: {self._sse_response.status if self._sse_response else 'None'}")
+            logger.error(f"[MCPClient] SSE response closed: {self._sse_response.closed if self._sse_response else 'None'}")
+            logger.error(f"[MCPClient] SSE response headers: {self._sse_response.headers if self._sse_response else 'None'}")
+            logger.error(f"[MCPClient] SSE reader task error details:", exc_info=True)
             # Cancel all pending requests when SSE reader fails
             for request_id, future in list(self._pending_requests.items()):
                 if not future.done():
@@ -835,13 +852,13 @@ class MCPClient:
                 except asyncio.TimeoutError:
                     self._pending_requests.pop(self._request_id, None)
                     logger.error(
-                        f"[MCPClient] Timeout waiting for response to request ID {self._request_id}"
+                        f"[MCPClient] Timeout waiting for response to request ID {self._request_id} after {self.timeout}s. Pending requests: {list(self._pending_requests.keys())}"
                     )
                     return None
                 except asyncio.CancelledError:
                     self._pending_requests.pop(self._request_id, None)
                     logger.warning(
-                        f"[MCPClient] Request ID {self._request_id} was cancelled"
+                        f"[MCPClient] Request ID {self._request_id} was cancelled. Pending requests: {list(self._pending_requests.keys())}"
                     )
                     raise
 
