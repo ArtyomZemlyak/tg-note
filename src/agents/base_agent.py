@@ -188,6 +188,11 @@ class BaseAgent(ABC):
         if result_match:
             try:
                 json_text = result_match.group(1).strip()
+                
+                # AICODE-FIX: Исправляем неэкранированные переносы строк в JSON
+                # Это часто происходит когда агент генерирует многострочный answer
+                json_text = self._fix_json_newlines(json_text)
+                
                 result_data = json.loads(json_text)
 
                 # Ensure result_data is a dictionary
@@ -401,3 +406,37 @@ class BaseAgent(ABC):
             return first_para[:max_length].strip() + "..."
 
         return first_para or ""
+
+    def _fix_json_newlines(self, json_text: str) -> str:
+        """
+        Исправляет неэкранированные переносы строк в JSON
+        
+        Проблема: агент может генерировать JSON с неэкранированными \n в строках,
+        что приводит к ошибке парсинга JSON.
+        
+        Args:
+            json_text: Исходный JSON текст
+            
+        Returns:
+            Исправленный JSON текст
+        """
+        import re
+        
+        # Ищем строковые значения в JSON и экранируем переносы строк
+        def fix_string_value(match):
+            key = match.group(1)
+            value = match.group(2)
+            
+            # Экранируем переносы строк в значении
+            value = value.replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
+            
+            return f'"{key}": "{value}"'
+        
+        # Паттерн для поиска строковых пар ключ-значение
+        # Ищем "key": "value" где value может содержать переносы строк
+        pattern = r'"([^"]+)":\s*"([^"]*(?:\\.[^"]*)*)"'
+        
+        # Применяем исправления
+        fixed_json = re.sub(pattern, fix_string_value, json_text)
+        
+        return fixed_json
