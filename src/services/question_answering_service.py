@@ -115,7 +115,17 @@ class QuestionAnsweringService(IQuestionAnsweringService):
             self.logger.info(
                 f"[ASK_SERVICE] Querying KB for user {user_id}, question: {question_text[:50]}..."
             )
-            answer = await self._query_kb(kb_path, question_text, user_id)
+            
+            try:
+                answer = await self._query_kb(kb_path, question_text, user_id)
+            except Exception as kb_error:
+                self.logger.error(f"KB query failed: {kb_error}", exc_info=True)
+                await self.bot.edit_message_text(
+                    f"❌ Ошибка при поиске в базе знаний: {str(kb_error)}",
+                    chat_id=chat_id,
+                    message_id=processing_msg_id,
+                )
+                return
 
             # Save assistant response to context
             import time
@@ -185,8 +195,17 @@ class QuestionAnsweringService(IQuestionAnsweringService):
             self.logger.error(f"Error in question processing: {e}", exc_info=True)
             # AICODE-FIX: Более информативное сообщение об ошибке
             error_message = str(e)
-            if "summary" in error_message and "JSON" in str(type(e).__name__):
+            
+            # Handle specific error cases
+            if "summary" in error_message:
                 error_message = "Ошибка обработки ответа агента. Попробуйте переформулировать вопрос."
+            elif "JSON" in str(type(e).__name__) or "json" in error_message.lower():
+                error_message = "Ошибка парсинга ответа агента. Попробуйте переформулировать вопрос."
+            elif "MESSAGE_TOO_LONG" in error_message:
+                error_message = "Ответ слишком длинный. Попробуйте задать более конкретный вопрос."
+            else:
+                error_message = f"Ошибка обработки: {error_message}"
+                
             await self._send_error_notification(processing_msg_id, chat_id, error_message)
 
     async def _query_kb(self, kb_path: Path, question: str, user_id: int) -> str:
@@ -278,20 +297,39 @@ class QuestionAnsweringService(IQuestionAnsweringService):
             # Process query with agent
             self.logger.debug(f"[ASK_SERVICE] Processing query with agent for user {user_id}")
             response = await user_agent.process(query_content)
+            
+            # Log response structure for debugging
+            self.logger.debug(f"[ASK_SERVICE] Agent response keys: {list(response.keys()) if isinstance(response, dict) else 'Not a dict'}")
+            if isinstance(response, dict) and "summary" in response:
+                self.logger.debug(f"[ASK_SERVICE] Agent returned agent-result format with summary length: {len(str(response.get('summary', '')))}")
 
-            # Extract answer from response (priority: answer field, then markdown, then text)
-            # The 'answer' field contains the final formatted answer from agent-result block
+            # Extract answer from response
+            # Priority: answer field, then summary from agent-result, then markdown, then text
             answer = response.get("answer")
-
-            # Fallback to markdown or text if answer is not present
+            
+            # If no direct answer field, try to extract from agent-result structure
             if not answer:
-                self.logger.warning(
-                    "Agent did not return 'answer' field, using markdown/text as fallback"
-                )
-                answer = response.get("markdown") or response.get("text", "")
+                # Check if response contains agent-result structure
+                if "summary" in response:
+                    # This is an agent-result format, extract summary as answer
+                    answer = response.get("summary", "")
+                    self.logger.debug("Using 'summary' from agent-result as answer")
+                else:
+                    # Fallback to markdown or text
+                    self.logger.warning(
+                        "Agent did not return 'answer' or 'summary' field, using markdown/text as fallback"
+                    )
+                    answer = response.get("markdown") or response.get("text", "")
 
+            # Ensure answer is a string and not empty
+            if not answer or not isinstance(answer, str):
+                self.logger.error(f"Invalid answer format: {type(answer)} - {answer}")
+                raise ValueError("Agent returned invalid answer format")
+
+            # Clean up answer if it contains unwanted formatting
+            answer = str(answer).strip()
             if not answer:
-                raise ValueError("Agent did not return an answer")
+                raise ValueError("Agent returned empty answer")
 
             return answer
 
