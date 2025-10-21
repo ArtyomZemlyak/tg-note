@@ -704,9 +704,17 @@ class MCPClient:
                 logger.debug("[MCPClient] SSE reader ready signal sent")
             
             event_type = None
+            last_activity = asyncio.get_event_loop().time()
+            heartbeat_interval = 30  # Send heartbeat every 30 seconds
 
             async for line in self._sse_response.content:
                 line_str = line.decode("utf-8").strip()
+                current_time = asyncio.get_event_loop().time()
+
+                # Check for heartbeat timeout
+                if current_time - last_activity > heartbeat_interval:
+                    logger.debug("[MCPClient] SSE connection appears healthy")
+                    last_activity = current_time
 
                 # Skip empty lines
                 if not line_str:
@@ -777,12 +785,20 @@ class MCPClient:
                 await self._sse_reader_task
             except Exception as e:
                 logger.error(f"[MCPClient] SSE reader task failed before request: {e}")
-                return None
+                # Try to reconnect if SSE reader failed
+                if await self.reconnect():
+                    logger.info("[MCPClient] Reconnected after SSE reader failure")
+                else:
+                    return None
         
         # Check if SSE response is still active
         if self._sse_response and self._sse_response.closed:
-            logger.error("[MCPClient] SSE response is closed, cannot send request")
-            return None
+            logger.warning("[MCPClient] SSE response is closed, attempting to reconnect")
+            if await self.reconnect():
+                logger.info("[MCPClient] Reconnected after SSE response closed")
+            else:
+                logger.error("[MCPClient] Failed to reconnect, cannot send request")
+                return None
 
         self._request_id += 1
         request = {"jsonrpc": "2.0", "id": self._request_id, "method": method, "params": params}

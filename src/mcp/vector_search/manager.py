@@ -3,6 +3,7 @@ Vector Search Manager
 Manages indexing and searching of documents using configurable embedding models and vector stores
 """
 
+import asyncio
 import hashlib
 import json
 from pathlib import Path
@@ -322,12 +323,16 @@ class VectorSearchManager:
         if all_chunks:
             try:
                 logger.info(f"Embedding {len(all_chunks)} chunks")
+                start_time = asyncio.get_event_loop().time()
 
                 # Extract texts
                 texts = [chunk.text for chunk in all_chunks]
 
                 # Get embeddings
                 embeddings = await self.embedder.embed_texts(texts)
+                
+                embedding_time = asyncio.get_event_loop().time() - start_time
+                logger.info(f"✅ Embedding completed in {embedding_time:.2f} seconds")
 
                 # Prepare documents for storage
                 documents = []
@@ -489,12 +494,16 @@ class VectorSearchManager:
         if all_chunks:
             try:
                 logger.info(f"Embedding {len(all_chunks)} chunks")
+                start_time = asyncio.get_event_loop().time()
 
                 # Extract texts
                 texts = [chunk.text for chunk in all_chunks]
 
                 # Get embeddings
                 embeddings = await self.embedder.embed_texts(texts)
+                
+                embedding_time = asyncio.get_event_loop().time() - start_time
+                logger.info(f"✅ Embedding completed in {embedding_time:.2f} seconds")
 
                 # Prepare documents for storage
                 vector_documents = []

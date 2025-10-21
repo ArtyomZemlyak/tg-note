@@ -165,14 +165,43 @@ class BotVectorSearchManager:
 
             logger.info(f"📚 Prepared {len(documents)} documents for indexing")
 
-            # Trigger reindex via MCP Hub with document data
-            ok = await self._call_mcp_reindex(documents=documents, force=force)
-            if not ok:
-                return False
+            # Process documents in batches to avoid timeout issues
+            batch_size = settings.VECTOR_SEARCH_BATCH_SIZE
+            total_documents = len(documents)
+            success = True
 
-            # Persist hash snapshot after successful trigger
-            await self._save_file_hashes()
-            return True
+            if total_documents > batch_size:
+                logger.info(f"📦 Processing {total_documents} documents in batches of {batch_size}")
+                
+                for i in range(0, total_documents, batch_size):
+                    batch = documents[i:i + batch_size]
+                    batch_num = (i // batch_size) + 1
+                    total_batches = (total_documents + batch_size - 1) // batch_size
+                    
+                    logger.info(f"🔄 Processing batch {batch_num}/{total_batches} ({len(batch)} documents)")
+                    
+                    # For the first batch, use force parameter
+                    batch_force = force and i == 0
+                    ok = await self._call_mcp_reindex(documents=batch, force=batch_force)
+                    if not ok:
+                        logger.error(f"❌ Batch {batch_num} failed")
+                        success = False
+                        break
+                    else:
+                        logger.info(f"✅ Batch {batch_num} completed successfully")
+            else:
+                # Single batch processing
+                ok = await self._call_mcp_reindex(documents=documents, force=force)
+                success = ok
+
+            if success:
+                # Persist hash snapshot after successful trigger
+                await self._save_file_hashes()
+                logger.info("✅ Initial indexing completed successfully")
+            else:
+                logger.error("❌ Initial indexing failed - some batches failed")
+
+            return success
 
         except Exception as e:
             logger.error(f"❌ Initial indexing failed: {e}", exc_info=True)
@@ -449,33 +478,64 @@ class BotVectorSearchManager:
 
         AICODE-NOTE: SOLID - BOT sends document DATA, not file paths
         """
-        try:
-            # Ensure SSE URL
-            sse_url = self.mcp_hub_url
-            if not sse_url.endswith("/sse"):
-                sse_url = f"{sse_url}/sse"
-
-            client = MCPClient(MCPServerConfig(transport="sse", url=sse_url), timeout=settings.MCP_TIMEOUT)
-            connected = await client.connect()
-            if not connected:
-                logger.warning("⚠️ Failed to connect to MCP Hub for reindex")
-                return False
-
+        max_retries = 3
+        retry_delay = 5  # seconds
+        
+        for attempt in range(max_retries):
             try:
-                result = await client.call_tool(
-                    "reindex_vector", {"documents": documents, "force": bool(force)}
-                )
-                if result.get("success"):
-                    logger.info("✅ MCP reindex_vector completed successfully")
-                    return True
-                else:
-                    logger.warning(f"⚠️ MCP reindex_vector failed: {result.get('error')}")
+                # Ensure SSE URL
+                sse_url = self.mcp_hub_url
+                if not sse_url.endswith("/sse"):
+                    sse_url = f"{sse_url}/sse"
+
+                client = MCPClient(MCPServerConfig(transport="sse", url=sse_url), timeout=settings.MCP_TIMEOUT)
+                connected = await client.connect()
+                if not connected:
+                    logger.warning(f"⚠️ Failed to connect to MCP Hub for reindex (attempt {attempt + 1}/{max_retries})")
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(retry_delay)
+                        continue
                     return False
-            finally:
-                await client.disconnect()
-        except Exception as e:
-            logger.error(f"❌ Exception while calling MCP reindex_vector: {e}", exc_info=True)
-            return False
+
+                try:
+                    logger.info(f"🔄 Calling reindex_vector with {len(documents)} documents (attempt {attempt + 1}/{max_retries})")
+                    result = await client.call_tool(
+                        "reindex_vector", {"documents": documents, "force": bool(force)}
+                    )
+                    if result.get("success"):
+                        logger.info("✅ MCP reindex_vector completed successfully")
+                        return True
+                    else:
+                        error_msg = result.get('error', 'Unknown error')
+                        logger.warning(f"⚠️ MCP reindex_vector failed: {error_msg}")
+                        if attempt < max_retries - 1:
+                            logger.info(f"⏳ Retrying in {retry_delay} seconds...")
+                            await asyncio.sleep(retry_delay)
+                            continue
+                        return False
+                finally:
+                    await client.disconnect()
+                    
+            except asyncio.CancelledError:
+                logger.warning("⏹️ MCP reindex_vector was cancelled")
+                return False
+            except asyncio.TimeoutError:
+                logger.warning(f"⏰ MCP reindex_vector timed out (attempt {attempt + 1}/{max_retries})")
+                if attempt < max_retries - 1:
+                    logger.info(f"⏳ Retrying in {retry_delay} seconds...")
+                    await asyncio.sleep(retry_delay)
+                    continue
+                return False
+            except Exception as e:
+                logger.error(f"❌ Exception while calling MCP reindex_vector (attempt {attempt + 1}/{max_retries}): {e}", exc_info=True)
+                if attempt < max_retries - 1:
+                    logger.info(f"⏳ Retrying in {retry_delay} seconds...")
+                    await asyncio.sleep(retry_delay)
+                    continue
+                return False
+        
+        logger.error(f"❌ All {max_retries} attempts to call MCP reindex_vector failed")
+        return False
 
     async def _call_mcp_add_documents(self, documents: List[Dict[str, Any]]) -> bool:
         """

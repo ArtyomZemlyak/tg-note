@@ -207,6 +207,9 @@ class Settings(BaseSettings):
     MCP_TIMEOUT: int = Field(
         default=600, description="Timeout in seconds for MCP requests (default: 600 seconds)"
     )
+    VECTOR_SEARCH_BATCH_SIZE: int = Field(
+        default=50, description="Batch size for vector search operations (default: 50 documents per batch)"
+    )
 
     # Memory Agent Settings (can be in YAML)
     MEM_AGENT_STORAGE_TYPE: str = Field(
