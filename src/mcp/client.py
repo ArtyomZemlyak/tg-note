@@ -311,6 +311,9 @@ class MCPClient:
             self._sse_response = response
             self._sse_reader_task = asyncio.create_task(self._sse_reader())
             logger.debug("[MCPClient] Started SSE reader task")
+            
+            # Give SSE reader task a moment to start up before sending requests
+            await asyncio.sleep(0.1)
 
         except asyncio.TimeoutError:
             error_msg = (
@@ -332,6 +335,11 @@ class MCPClient:
 
     async def _initialize(self) -> bool:
         """Initialize MCP connection (common for both transports)"""
+        # For SSE transport, wait a bit for the reader task to be ready
+        if self.config.transport == "sse":
+            # Wait for SSE reader task to be ready
+            await asyncio.sleep(0.2)
+            
         # Send initialize request
         init_response = await self._send_request(
             "initialize",
@@ -696,9 +704,16 @@ class MCPClient:
             logger.debug("[MCPClient] SSE reader task started")
             logger.debug(f"[MCPClient] SSE response status: {self._sse_response.status}")
             logger.debug(f"[MCPClient] SSE response headers: {dict(self._sse_response.headers)}")
+            logger.debug(f"[MCPClient] SSE response closed: {self._sse_response.closed}")
             event_type = None
 
+            logger.debug("[MCPClient] Starting to read SSE content...")
             async for line in self._sse_response.content:
+                # Check if SSE response is still open
+                if self._sse_response.closed:
+                    logger.warning("[MCPClient] SSE response was closed during reading")
+                    break
+                    
                 line_str = line.decode("utf-8").strip()
                 line_count += 1
 
@@ -751,9 +766,23 @@ class MCPClient:
         except asyncio.CancelledError:
             logger.debug("[MCPClient] SSE reader task cancelled")
             raise
+        except StopAsyncIteration:
+            logger.info("[MCPClient] SSE stream ended normally (EOF)")
+            # Cancel all pending requests when stream ends
+            for request_id, future in list(self._pending_requests.items()):
+                if not future.done():
+                    future.cancel()
+            self._pending_requests.clear()
         except ConnectionResetError as e:
             logger.warning(f"[MCPClient] SSE connection reset by server: {e}")
             # Cancel all pending requests when connection is reset
+            for request_id, future in list(self._pending_requests.items()):
+                if not future.done():
+                    future.cancel()
+            self._pending_requests.clear()
+        except aiohttp.ClientPayloadError as e:
+            logger.warning(f"[MCPClient] SSE payload error (connection may be closed): {e}")
+            # Cancel all pending requests when payload error occurs
             for request_id, future in list(self._pending_requests.items()):
                 if not future.done():
                     future.cancel()
@@ -795,6 +824,9 @@ class MCPClient:
             except Exception as e:
                 logger.error(f"[MCPClient] SSE reader task failed before request: {e}")
                 return None
+            # If SSE reader task completed successfully, we can't send requests anymore
+            logger.error("[MCPClient] SSE reader task completed, cannot send requests")
+            return None
         
         # Check if SSE response is still active
         if self._sse_response and self._sse_response.closed:
