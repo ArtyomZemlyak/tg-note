@@ -311,6 +311,9 @@ class MCPClient:
             self._sse_response = response
             self._sse_reader_task = asyncio.create_task(self._sse_reader())
             logger.debug("[MCPClient] Started SSE reader task")
+            
+            # Give SSE reader task a moment to start up before sending requests
+            await asyncio.sleep(0.1)
 
         except asyncio.TimeoutError:
             error_msg = (
@@ -332,6 +335,11 @@ class MCPClient:
 
     async def _initialize(self) -> bool:
         """Initialize MCP connection (common for both transports)"""
+        # For SSE transport, wait a bit for the reader task to be ready
+        if self.config.transport == "sse":
+            # Wait for SSE reader task to be ready
+            await asyncio.sleep(0.2)
+            
         # Send initialize request
         init_response = await self._send_request(
             "initialize",
@@ -446,17 +454,24 @@ class MCPClient:
                 if self._sse_reader_task and self._sse_reader_task.done():
                     try:
                         await self._sse_reader_task
+                    except asyncio.CancelledError:
+                        logger.warning(f"[MCPClient] Tool call {tool_name} was cancelled")
+                        return {"success": False, "error": "Tool call was cancelled"}
                     except Exception as e:
                         logger.warning(f"[MCPClient] SSE connection lost: {e}. Attempting to reconnect...")
                         # Try to reconnect
                         if await self.reconnect():
                             logger.info("[MCPClient] Reconnected successfully, retrying tool call...")
                             # Retry the tool call once
-                            response = await self._send_request(
-                                "tools/call", {"name": tool_name, "arguments": arguments}
-                            )
-                            if not response:
-                                return {"success": False, "error": "No response from server after reconnection"}
+                            try:
+                                response = await self._send_request(
+                                    "tools/call", {"name": tool_name, "arguments": arguments}
+                                )
+                                if not response:
+                                    return {"success": False, "error": "No response from server after reconnection"}
+                            except asyncio.CancelledError:
+                                logger.warning(f"[MCPClient] Retry tool call {tool_name} was cancelled")
+                                return {"success": False, "error": "Tool call was cancelled"}
                         else:
                             return {"success": False, "error": f"SSE connection lost and reconnection failed: {e}"}
                 else:
@@ -487,6 +502,9 @@ class MCPClient:
                 "is_error": result.get("isError", False),
             }
 
+        except asyncio.CancelledError:
+            logger.warning(f"[MCPClient] Tool call {tool_name} was cancelled")
+            return {"success": False, "error": "Tool call was cancelled"}
         except Exception as e:
             logger.error(f"[MCPClient] Tool call failed: {e}", exc_info=True)
             return {"success": False, "error": str(e)}
@@ -681,20 +699,34 @@ class MCPClient:
             logger.error("[MCPClient] SSE reader started but no response available")
             return
 
+        line_count = 0
         try:
             logger.debug("[MCPClient] SSE reader task started")
+            logger.debug(f"[MCPClient] SSE response status: {self._sse_response.status}")
+            logger.debug(f"[MCPClient] SSE response headers: {dict(self._sse_response.headers)}")
+            logger.debug(f"[MCPClient] SSE response closed: {self._sse_response.closed}")
             event_type = None
 
+            logger.debug("[MCPClient] Starting to read SSE content...")
             async for line in self._sse_response.content:
+                # Check if SSE response is still open
+                if self._sse_response.closed:
+                    logger.warning("[MCPClient] SSE response was closed during reading")
+                    break
+                    
                 line_str = line.decode("utf-8").strip()
+                line_count += 1
 
                 # Skip empty lines
                 if not line_str:
                     continue
 
+                logger.debug(f"[MCPClient] SSE line {line_count}: {line_str}")
+
                 # Parse event type
                 if line_str.startswith("event:"):
                     event_type = line_str[6:].strip()
+                    logger.debug(f"[MCPClient] SSE event type: {event_type}")
                     continue
 
                 # Parse event data
@@ -704,10 +736,13 @@ class MCPClient:
                     if not data_str:
                         continue
 
+                    logger.debug(f"[MCPClient] SSE data: {data_str}")
+
                     # Only process 'message' events (JSON-RPC responses)
                     if event_type == "message":
                         try:
                             response = json.loads(data_str)
+                            logger.debug(f"[MCPClient] Parsed JSON response: {response}")
 
                             # Match response to pending request by ID
                             if "id" in response and response["id"] in self._pending_requests:
@@ -722,10 +757,7 @@ class MCPClient:
                                         f"[MCPClient] Received response for already completed request ID {response['id']}"
                                     )
                             else:
-                                logger.debug(
-                                    f"[MCPClient] Received response with no matching request: {response.get('id')}. "
-                                    f"Pending requests: {list(self._pending_requests.keys())}"
-                                )
+                                logger.warning(f"[MCPClient] Received response with ID {response.get('id')} but no pending request found. Pending requests: {list(self._pending_requests.keys())}")
 
                         except json.JSONDecodeError as e:
                             logger.warning(f"[MCPClient] Failed to parse SSE message data: {e}")
@@ -734,15 +766,49 @@ class MCPClient:
         except asyncio.CancelledError:
             logger.debug("[MCPClient] SSE reader task cancelled")
             raise
+        except StopAsyncIteration:
+            logger.info("[MCPClient] SSE stream ended normally (EOF)")
+            # Cancel all pending requests when stream ends
+            for request_id, future in list(self._pending_requests.items()):
+                if not future.done():
+                    future.cancel()
+            self._pending_requests.clear()
+        except ConnectionResetError as e:
+            logger.warning(f"[MCPClient] SSE connection reset by server: {e}")
+            # Cancel all pending requests when connection is reset
+            for request_id, future in list(self._pending_requests.items()):
+                if not future.done():
+                    future.cancel()
+            self._pending_requests.clear()
+        except aiohttp.ClientPayloadError as e:
+            logger.warning(f"[MCPClient] SSE payload error (connection may be closed): {e}")
+            # Cancel all pending requests when payload error occurs
+            for request_id, future in list(self._pending_requests.items()):
+                if not future.done():
+                    future.cancel()
+            self._pending_requests.clear()
+        except aiohttp.ClientError as e:
+            logger.error(f"[MCPClient] SSE client error: {e}")
+            # Cancel all pending requests when client error occurs
+            for request_id, future in list(self._pending_requests.items()):
+                if not future.done():
+                    future.cancel()
+            self._pending_requests.clear()
         except Exception as e:
-            logger.error(f"[MCPClient] SSE reader task error: {e}", exc_info=True)
+            logger.error(f"[MCPClient] SSE reader task error: {e}")
+            logger.error(f"[MCPClient] Error type: {type(e).__name__}")
+            logger.error(f"[MCPClient] Error args: {e.args}")
+            logger.error(f"[MCPClient] SSE response status: {self._sse_response.status if self._sse_response else 'None'}")
+            logger.error(f"[MCPClient] SSE response closed: {self._sse_response.closed if self._sse_response else 'None'}")
+            logger.error(f"[MCPClient] SSE response headers: {self._sse_response.headers if self._sse_response else 'None'}")
+            logger.error(f"[MCPClient] SSE reader task error details:", exc_info=True)
             # Cancel all pending requests when SSE reader fails
             for request_id, future in list(self._pending_requests.items()):
                 if not future.done():
                     future.cancel()
             self._pending_requests.clear()
         finally:
-            logger.debug("[MCPClient] SSE reader task finished")
+            logger.debug(f"[MCPClient] SSE reader task finished. Processed {line_count} lines. Pending requests: {list(self._pending_requests.keys())}")
 
     async def _send_request_http(
         self, method: str, params: Dict[str, Any]
@@ -758,11 +824,16 @@ class MCPClient:
             except Exception as e:
                 logger.error(f"[MCPClient] SSE reader task failed before request: {e}")
                 return None
+            # If SSE reader task completed successfully, we can't send requests anymore
+            logger.error("[MCPClient] SSE reader task completed, cannot send requests")
+            return None
         
         # Check if SSE response is still active
         if self._sse_response and self._sse_response.closed:
             logger.error("[MCPClient] SSE response is closed, cannot send request")
             return None
+        
+        logger.debug(f"[MCPClient] SSE reader task status: running={self._sse_reader_task and not self._sse_reader_task.done()}, SSE response closed: {self._sse_response and self._sse_response.closed}")
 
         self._request_id += 1
         request = {"jsonrpc": "2.0", "id": self._request_id, "method": method, "params": params}
@@ -781,9 +852,11 @@ class MCPClient:
                 self._pending_requests[self._request_id] = future
 
                 # Send the request (server returns 202 Accepted, response comes via SSE)
+                logger.debug(f"[MCPClient] Sending HTTP POST to {url_with_session}")
                 async with self.session.post(
                     url_with_session, json=request, timeout=aiohttp.ClientTimeout(total=self.timeout)
                 ) as response:
+                    logger.debug(f"[MCPClient] HTTP response status: {response.status}")
                     if response.status not in (200, 202):
                         # Remove pending request on error
                         self._pending_requests.pop(self._request_id, None)
@@ -794,6 +867,7 @@ class MCPClient:
 
                 # Wait for response from SSE stream (with timeout)
                 try:
+                    logger.debug(f"[MCPClient] Waiting for response to request ID {self._request_id} with timeout {self.timeout}s")
                     # Check if SSE reader task is still running
                     if self._sse_reader_task and self._sse_reader_task.done():
                         # SSE reader task has finished, check if it was due to an error
@@ -805,13 +879,20 @@ class MCPClient:
                             return None
                     
                     result = await asyncio.wait_for(future, timeout=float(self.timeout))
+                    logger.debug(f"[MCPClient] Received response for request ID {self._request_id}: {result}")
                     return result
                 except asyncio.TimeoutError:
                     self._pending_requests.pop(self._request_id, None)
                     logger.error(
-                        f"[MCPClient] Timeout waiting for response to request ID {self._request_id}"
+                        f"[MCPClient] Timeout waiting for response to request ID {self._request_id} after {self.timeout}s. Pending requests: {list(self._pending_requests.keys())}"
                     )
                     return None
+                except asyncio.CancelledError:
+                    self._pending_requests.pop(self._request_id, None)
+                    logger.warning(
+                        f"[MCPClient] Request ID {self._request_id} was cancelled. Pending requests: {list(self._pending_requests.keys())}"
+                    )
+                    raise
 
             except Exception as e:
                 self._pending_requests.pop(self._request_id, None)

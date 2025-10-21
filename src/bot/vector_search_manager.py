@@ -80,6 +80,29 @@ class BotVectorSearchManager:
         if subscribe_to_events:
             self._subscribe_to_kb_events()
 
+
+    async def _check_mcp_hub_connectivity(self) -> bool:
+        """
+        Check if MCP Hub is reachable and healthy
+        
+        Returns:
+            True if MCP Hub is reachable and healthy
+        """
+        try:
+            health_url = f"{self.mcp_hub_url}/health"
+            logger.debug(f"🔍 Checking MCP Hub connectivity at {health_url}")
+            async with aiohttp.ClientSession() as session:
+                async with session.get(health_url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                    if resp.status != 200:
+                        logger.warning(f"⚠️  MCP Hub health check failed with status {resp.status}")
+                        return False
+                    health_data = await resp.json()
+                    logger.debug(f"✅ MCP Hub is healthy: {health_data}")
+                    return True
+        except Exception as e:
+            logger.warning(f"⚠️  MCP Hub connectivity check failed: {e}")
+            return False
+
     async def check_vector_search_availability(self) -> bool:
         """
         Check if vector search tools are available via MCP Hub
@@ -151,6 +174,11 @@ class BotVectorSearchManager:
         """
         if not self.vector_search_available:
             logger.info("⏭️  Skipping initial indexing: vector search not available")
+            return False
+
+        # Check MCP Hub connectivity before starting indexing
+        if not await self._check_mcp_hub_connectivity():
+            logger.error("❌ Cannot perform initial indexing: MCP Hub is not reachable")
             return False
 
         try:
@@ -473,6 +501,9 @@ class BotVectorSearchManager:
                     return False
             finally:
                 await client.disconnect()
+        except asyncio.CancelledError:
+            logger.warning("⚠️ MCP reindex_vector operation was cancelled")
+            return False
         except Exception as e:
             logger.error(f"❌ Exception while calling MCP reindex_vector: {e}", exc_info=True)
             return False
@@ -504,6 +535,9 @@ class BotVectorSearchManager:
                     return False
             finally:
                 await client.disconnect()
+        except asyncio.CancelledError:
+            logger.warning("⚠️ MCP add_vector_documents operation was cancelled")
+            return False
         except Exception as e:
             logger.error(f"❌ Exception while calling MCP add_vector_documents: {e}", exc_info=True)
             return False
@@ -539,6 +573,9 @@ class BotVectorSearchManager:
                     return False
             finally:
                 await client.disconnect()
+        except asyncio.CancelledError:
+            logger.warning("⚠️ MCP delete_vector_documents operation was cancelled")
+            return False
         except Exception as e:
             logger.error(
                 f"❌ Exception while calling MCP delete_vector_documents: {e}", exc_info=True
@@ -574,6 +611,9 @@ class BotVectorSearchManager:
                     return False
             finally:
                 await client.disconnect()
+        except asyncio.CancelledError:
+            logger.warning("⚠️ MCP update_vector_documents operation was cancelled")
+            return False
         except Exception as e:
             logger.error(
                 f"❌ Exception while calling MCP update_vector_documents: {e}", exc_info=True
