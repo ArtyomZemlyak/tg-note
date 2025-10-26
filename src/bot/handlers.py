@@ -40,6 +40,8 @@ class BotHandlers:
         user_context_manager: IUserContextManager,
         message_processor: IMessageProcessor,
         settings_handlers=None,
+        kb_handlers=None,
+        mcp_handlers=None,
     ):
         """
         Initialize bot handlers
@@ -54,6 +56,8 @@ class BotHandlers:
             user_context_manager: User context manager service
             message_processor: Message processor service
             settings_handlers: Settings handlers (optional)
+            kb_handlers: Knowledge base handlers (optional)
+            mcp_handlers: MCP handlers (optional)
         """
         self.bot = bot
         self.async_bot = async_bot
@@ -64,6 +68,8 @@ class BotHandlers:
         self.user_context_manager = user_context_manager
         self.message_processor = message_processor
         self.settings_handlers = settings_handlers
+        self.kb_handlers = kb_handlers
+        self.mcp_handlers = mcp_handlers
         self.logger = logger
 
         # Initialize MkDocs configurator
@@ -255,7 +261,7 @@ class BotHandlers:
                 message = call.message
                 message.from_user = call.from_user
                 message.text = "/kb"
-                if hasattr(self, "kb_handlers"):
+                if self.kb_handlers:
                     await self.kb_handlers.handle_kb_menu(message)
                 else:
                     await self.bot.send_message(call.message.chat.id, "KB handlers not initialized")
@@ -266,7 +272,7 @@ class BotHandlers:
                 message = call.message
                 message.from_user = call.from_user
                 message.text = "/kb"
-                if hasattr(self, "kb_handlers"):
+                if self.kb_handlers:
                     await self.kb_handlers.handle_kb_menu(message)
                 else:
                     await self.bot.send_message(call.message.chat.id, "KB handlers not initialized")
@@ -297,11 +303,10 @@ class BotHandlers:
                 message.from_user = call.from_user
                 message.text = "/listmcpservers"
                 message.chat = call.message.chat
-                # Get mcp_handlers from telegram_bot
-                from src.bot.telegram_bot import TelegramBot
-
-                if hasattr(self, "mcp_handlers"):
+                if self.mcp_handlers:
                     await self.mcp_handlers.handle_list_mcp_servers(message)
+                else:
+                    await self.bot.send_message(call.message.chat.id, "MCP handlers not initialized")
 
             elif action == "context":
                 # Show context management menu

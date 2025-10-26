@@ -64,6 +64,8 @@ class TelegramBot:
             user_context_manager=user_context_manager,
             message_processor=message_processor,
             settings_handlers=None,
+            kb_handlers=None,  # Will be set after KB handlers are created
+            mcp_handlers=None,  # Will be set after MCP handlers are created
         )
         self.settings_handlers = SettingsHandlers(self.bot, self.handlers)
         # Update the settings_handlers reference in handlers
@@ -72,6 +74,8 @@ class TelegramBot:
         # Initialize MCP handlers
         self.mcp_manager = MCPServersManager()
         self.mcp_handlers = MCPHandlers(self.bot, self.mcp_manager)
+        # Update the mcp_handlers reference in handlers
+        self.handlers.mcp_handlers = self.mcp_handlers
 
         # Initialize KB handlers
         self.kb_handlers = KBHandlers(
@@ -79,6 +83,8 @@ class TelegramBot:
             repo_manager=repo_manager,
             user_settings=user_settings,
         )
+        # Update the kb_handlers reference in handlers
+        self.handlers.kb_handlers = self.kb_handlers
 
         # Initialize Credentials handlers
         self.credentials_handlers = CredentialsHandlers(
