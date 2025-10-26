@@ -13,7 +13,12 @@ from loguru import logger
 
 from src.bot.bot_port import BotPort
 from src.bot.settings_manager import SettingsManager
-from src.bot.utils import escape_markdown, escape_markdown_url, split_long_message, safe_edit_message_text
+from src.bot.utils import (
+    escape_markdown,
+    escape_markdown_url,
+    safe_edit_message_text,
+    split_long_message,
+)
 from src.core.rate_limiter import RateLimiter
 from src.knowledge_base.credentials_manager import CredentialsManager
 from src.knowledge_base.git_ops import GitOperations
