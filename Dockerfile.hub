@@ -25,6 +25,9 @@ RUN pip install --no-cache-dir --upgrade pip && \
     poetry config virtualenvs.create false && \
     poetry install --no-interaction --no-ansi -E mcp -E mem-agent --no-root
 
+# Install arxiv-mcp-server
+RUN pip install --no-cache-dir arxiv-mcp-server
+
 # Runtime stage
 FROM python:3.11-slim
 
@@ -44,7 +47,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 COPY . .
 
 # Create necessary directories
-RUN mkdir -p /app/data/memory /app/logs
+RUN mkdir -p /app/data/memory /app/data/arxiv_papers /app/logs
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
