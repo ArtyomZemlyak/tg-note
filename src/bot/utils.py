@@ -39,23 +39,31 @@ def escape_markdown(text: str) -> str:
     special_chars = r"_*`"
     
     # Pattern to match markdown links [text](url)
-    link_pattern = r'\[([^\]]*)\]\(([^\)]*)\)'
+    link_pattern = r'\[([^\]]+)\]\(([^\)]+)\)'
     
-    # Find all markdown links and store them
-    links = re.findall(link_pattern, text)
+    # Find all markdown links and store them with their positions
+    links = []
+    placeholder_counter = 0
+    placeholder_map = {}
+    
+    def replace_link(match):
+        nonlocal placeholder_counter
+        placeholder = f"%%LINK_PLACEHOLDER_{placeholder_counter}%%"
+        placeholder_counter += 1
+        placeholder_map[placeholder] = (match.group(1), match.group(2))
+        return placeholder
     
     # Replace links with placeholders
-    placeholder_text = re.sub(link_pattern, "%%LINK_PLACEHOLDER%%", text)
+    text_with_placeholders = re.sub(link_pattern, replace_link, text)
     
-    # Escape special characters in the text with placeholders
-    escaped_text = re.sub(f"([{re.escape(special_chars)}])", r"\\\1", placeholder_text)
+    # Escape special characters ONLY in non-link parts
+    escaped_text = re.sub(f"([{re.escape(special_chars)}])", r"\\\1", text_with_placeholders)
     
-    # Restore the original links
-    for link_text, link_url in links:
-        escaped_text = escaped_text.replace("%%LINK_PLACEHOLDER%%", f"[{link_text}]({link_url})", 1)
+    # Restore the original links (without escaping)
+    for placeholder, (link_text, link_url) in placeholder_map.items():
+        escaped_text = escaped_text.replace(placeholder, f"[{link_text}]({link_url})")
     
     return escaped_text
-
 
 
 def escape_markdown_url(url: str) -> str:
