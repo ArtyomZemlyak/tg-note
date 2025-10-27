@@ -67,7 +67,7 @@ class BotPort(ABC):
     def __init__(
         self,
         max_retries: int = 3,
-        retry_delay: float = 1.0,
+        retry_delay: float = 0.1,
         rate_limit: float = 30.0,
         rate_limit_period: float = 1.0,
     ):
