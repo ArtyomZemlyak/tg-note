@@ -86,6 +86,10 @@ def convert_html_for_telegram(html_text):
     
     # Remove empty span tags
     converted_text = re.sub(r'<span[^>]*>\s*</span>', '', converted_text)
+
+    converted_text = re.sub(r'<b><b>', '<b>', converted_text)
+    converted_text = re.sub(r'</b></b>', '</b>', converted_text)
+    converted_text = re.sub(r'</ul>', '</b>', converted_text)
     
     return converted_text.strip()
 
