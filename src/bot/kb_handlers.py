@@ -11,6 +11,7 @@ from telebot.async_telebot import AsyncTeleBot
 from telebot.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from src.bot.utils import escape_markdown
+from src.bot.handlers import _escape_html
 from src.knowledge_base.mkdocs_configurator import MkDocsConfigurator
 from src.knowledge_base.repository import RepositoryManager
 from src.knowledge_base.user_settings import UserSettings
@@ -131,12 +132,12 @@ class KBHandlers:
  
         menu_text = (
             f"📚 **Текущая база знаний**\n\n"
-            f"{kb_type_emoji} **Название:** {user_kb['kb_name']}\n"
+            f"{kb_type_emoji} **Название:** {_escape_html(user_kb['kb_name'])}\n"
             f"**Тип:** {kb_type_text}\n"
         )
  
         if user_kb["kb_type"] == "github" and user_kb.get("github_url"):
-            menu_text += f"**URL:** {user_kb['github_url']}\n"
+            menu_text += f"**URL:** {_escape_html(user_kb['github_url'])}\n"
  
         if kb_path:
             menu_text += f"**Путь:** `{escape_markdown(str(kb_path))}`\n"
@@ -351,12 +352,12 @@ class KBHandlers:
 
         info_lines = [
             "ℹ️ **Информация о базе знаний**\n",
-            f"{kb_type_emoji} **Название:** {user_kb['kb_name']}",
+            f"{kb_type_emoji} **Название:** {_escape_html(user_kb['kb_name'])}",
             f"**Тип:** {kb_type_text}",
         ]
 
         if user_kb["kb_type"] == "github" and user_kb.get("github_url"):
-            info_lines.append(f"**GitHub URL:** {user_kb['github_url']}")
+            info_lines.append(f"**GitHub URL:** {_escape_html(user_kb['github_url'])}")
 
         if kb_path:
             info_lines.append(f"**Локальный путь:** `{escape_markdown(str(kb_path))}`")
@@ -600,12 +601,12 @@ class KBHandlers:
 
             menu_text = (
                 f"📚 **Текущая база знаний**\n\n"
-                f"{kb_type_emoji} **Название:** {user_kb['kb_name']}\n"
+                f"{kb_type_emoji} **Название:** {_escape_html(user_kb['kb_name'])}\n"
                 f"**Тип:** {kb_type_text}\n"
             )
 
             if user_kb["kb_type"] == "github" and user_kb.get("github_url"):
-                menu_text += f"**URL:** {user_kb['github_url']}\n"
+                menu_text += f"**URL:** {_escape_html(user_kb['github_url'])}\n"
 
             if kb_path:
                 menu_text += f"**Путь:** `{escape_markdown(str(kb_path))}`\n"
