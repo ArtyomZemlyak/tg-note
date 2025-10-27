@@ -73,7 +73,7 @@ class TelegramBot:
 
         # Initialize MCP handlers
         self.mcp_manager = MCPServersManager()
-        self.mcp_handlers = MCPHandlers(self.bot, self.mcp_manager)
+        self.mcp_handlers = MCPHandlers(self.bot, self.mcp_manager, self.handlers)
         # Update the mcp_handlers reference in handlers
         self.handlers.mcp_handlers = self.mcp_handlers
 
@@ -82,6 +82,7 @@ class TelegramBot:
             bot=self.bot,
             repo_manager=repo_manager,
             user_settings=user_settings,
+            handlers=self.handlers,
         )
         # Update the kb_handlers reference in handlers
         self.handlers.kb_handlers = self.kb_handlers

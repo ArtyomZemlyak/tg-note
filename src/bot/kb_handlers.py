@@ -24,6 +24,7 @@ class KBHandlers:
         bot: AsyncTeleBot,
         repo_manager: RepositoryManager,
         user_settings: UserSettings,
+        handlers = None,
     ):
         """
         Initialize KB handlers
@@ -40,6 +41,8 @@ class KBHandlers:
 
         # Track users waiting for input: user_id -> waiting_for_type
         self.waiting_for_input: Dict[int, str] = {}
+
+        self.handlers = handlers
 
     async def register_handlers_async(self):
         """Register all KB handlers"""

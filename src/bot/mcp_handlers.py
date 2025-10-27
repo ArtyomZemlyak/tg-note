@@ -22,7 +22,7 @@ from .mcp_hub_client import MCPHubClient, MCPHubError
 class MCPHandlers:
     """Telegram handlers for MCP server management"""
 
-    def __init__(self, bot: AsyncTeleBot, mcp_manager: Optional[MCPServersManager] = None):
+    def __init__(self, bot: AsyncTeleBot, mcp_manager: Optional[MCPServersManager] = None, handlers=None):
         """
         Initialize MCP handlers
 
@@ -42,6 +42,7 @@ class MCPHandlers:
             parts = urlsplit(mcp_hub_url)
             self._hub_base = urlunsplit((parts.scheme, parts.netloc, "", "", ""))
             self._mcp_client = MCPHubClient(self._hub_base)
+        self.handlers = handlers
 
     async def register_handlers_async(self):
         """Register all MCP handlers"""
