@@ -25,17 +25,37 @@ def escape_markdown_v2(text: str) -> str:
 def escape_markdown(text: str) -> str:
     """
     Escape special characters for Telegram Markdown format
-
+    
     Args:
         text: Text to escape
-
+        
     Returns:
         Escaped text safe for Markdown
     """
+    if not text:
+        return ""
+    
     # Characters that need to be escaped in Telegram Markdown (legacy)
-    # Do NOT escape square brackets here, as they are required for link syntax [text](url)
     special_chars = r"_*`"
-    return re.sub(f"([{re.escape(special_chars)}])", r"\\\1", text)
+    
+    # Pattern to match markdown links [text](url)
+    link_pattern = r'\[([^\]]*)\]\(([^\)]*)\)'
+    
+    # Find all markdown links and store them
+    links = re.findall(link_pattern, text)
+    
+    # Replace links with placeholders
+    placeholder_text = re.sub(link_pattern, "%%LINK_PLACEHOLDER%%", text)
+    
+    # Escape special characters in the text with placeholders
+    escaped_text = re.sub(f"([{re.escape(special_chars)}])", r"\\\1", placeholder_text)
+    
+    # Restore the original links
+    for link_text, link_url in links:
+        escaped_text = escaped_text.replace("%%LINK_PLACEHOLDER%%", f"[{link_text}]({link_url})", 1)
+    
+    return escaped_text
+
 
 
 def escape_markdown_url(url: str) -> str:

@@ -196,13 +196,6 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
             original_instruction = user_agent.get_instruction()
             ask_instr = get_ask_mode_instruction("ru")
 
-            from src.bot.response_formatter import ResponseFormatter
-            response_formatter = ResponseFormatter()
-            response_formatter_prompt = response_formatter.generate_prompt_text()
-
-            # Combine the default instruction with the ResponseFormatter prompt
-            ask_instr = ask_instr.format(response_format=response_formatter_prompt)
-
             user_agent.set_instruction(ask_instr)
             self.logger.debug(f"Temporarily changed agent instruction to ask mode")
 
@@ -211,11 +204,19 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
 
         # Prepare query prompt with appropriate path (based on KB_TOPICS_ONLY setting)
         # Include context if available
+
+        from src.bot.response_formatter import ResponseFormatter
+        response_formatter = ResponseFormatter()
+        response_formatter_prompt = response_formatter.generate_prompt_text()
+
+        # Combine the default instruction with the ResponseFormatter prompt
+        ask_instr = ask_instr.format(response_format=response_formatter_prompt)
+
         if context:
-            query_prompt = f"{context}\n\n{get_kb_query_template('ru').format(kb_path=str(agent_working_dir), question=question)}"
+            query_prompt = f"{context}\n\n{get_kb_query_template('ru').format(kb_path=str(agent_working_dir), question=question, response_format=response_formatter_prompt)}"
         else:
             query_prompt = get_kb_query_template("ru").format(
-                kb_path=str(agent_working_dir), question=question
+                kb_path=str(agent_working_dir), question=question, response_format=response_formatter_prompt
             )
 
         # Create query content
