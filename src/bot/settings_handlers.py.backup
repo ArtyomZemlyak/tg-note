@@ -83,13 +83,11 @@ class SettingsHandlers:
                 "credentials": "🔑 Credentials",
                 "telegram": "💬 Telegram",
                 "general": "🔧 General",
-            }
+        }
 
             for category in sorted(categories):
                 label = category_labels.get(category, category.title())
-                keyboard.add(
-                    InlineKeyboardButton(label, callback_data=f"settings:category:{category}")
-                )
+                keyboard.add(InlineKeyboardButton(label, callback_data=f"settings:category:{category}"))
 
             menu_text = (
                 "⚙️ **Settings Menu**\n\n"
@@ -98,11 +96,11 @@ class SettingsHandlers:
                 "• You can override global defaults\n"
                 "• Click on any setting to change its value\n"
                 "• Use /resetsetting <name> to restore default"
-            )
+        )
 
             await self.bot.send_message(
                 message.chat.id, menu_text, reply_markup=keyboard, parse_mode="Markdown"
-            )
+        )
 
         except Exception as e:
             logger.error(f"Error showing settings menu: {e}", exc_info=True)
@@ -117,7 +115,7 @@ class SettingsHandlers:
             args = message.text.split(maxsplit=1)
             category = args[1].strip() if len(args) > 1 else None
 
-            # Get settings summary
+        # Get settings summary
             settings_dict = self.settings_manager.get_user_settings_summary(
                 message.from_user.id, category=category
             )
@@ -126,14 +124,14 @@ class SettingsHandlers:
                 await self.bot.reply_to(message, "❌ No settings found for this category")
                 return
 
-            # Format settings display
+        # Format settings display
             lines = []
             if category:
                 lines.append(f"⚙️ **{category.upper()} Settings**\n")
             else:
                 lines.append("⚙️ **All Settings**\n")
 
-            # Group by category
+        # Group by category
             from collections import defaultdict
 
             by_category = defaultdict(list)
@@ -163,7 +161,7 @@ class SettingsHandlers:
             if len(text) > 4000:
                 chunks = self._split_message(text, 4000)
                 for chunk in chunks:
-                    await self.bot.send_message(message.chat.id, chunk, parse_mode="Markdown")
+                        await self.bot.send_message(message.chat.id, chunk, parse_mode="Markdown")
             else:
                 await self.bot.send_message(message.chat.id, text, parse_mode="Markdown")
 
@@ -187,17 +185,15 @@ class SettingsHandlers:
                     "Example:\n"
                     "```\n"
                     "/resetsetting KB_GIT_ENABLED\n"
-                    "```"
-                )
+                "```"
+            )
             await self.bot.reply_to(message, help_text, parse_mode="Markdown")
             return
 
             setting_name = args[1].strip().upper()
 
             # Reset the setting
-            success, msg = self.settings_manager.reset_user_setting(
-                message.from_user.id, setting_name
-            )
+            success, msg = self.settings_manager.reset_user_setting(message.from_user.id, setting_name)
 
             if success:
                 # Invalidate user cache in handlers
@@ -237,13 +233,9 @@ class SettingsHandlers:
             # Add quick actions
             keyboard = InlineKeyboardMarkup()
             keyboard.add(
-                InlineKeyboardButton(
-                    "Enable Git", callback_data="settings:set:KB_GIT_ENABLED:true"
-                ),
-                InlineKeyboardButton(
-                    "Disable Git", callback_data="settings:set:KB_GIT_ENABLED:false"
-                ),
-            )
+            InlineKeyboardButton("Enable Git", callback_data="settings:set:KB_GIT_ENABLED:true"),
+            InlineKeyboardButton("Disable Git", callback_data="settings:set:KB_GIT_ENABLED:false"),
+        )
             keyboard.add(
                 InlineKeyboardButton(
                     "Enable Auto-Push", callback_data="settings:set:KB_GIT_AUTO_PUSH:true"
@@ -256,7 +248,7 @@ class SettingsHandlers:
             text = "\n".join(lines)
 
             await self.bot.send_message(
-                message.chat.id, text, reply_markup=keyboard, parse_mode="Markdown"
+            message.chat.id, text, reply_markup=keyboard, parse_mode="Markdown"
             )
 
         except Exception as e:
@@ -288,13 +280,13 @@ class SettingsHandlers:
             # Add quick actions for common settings
             keyboard = InlineKeyboardMarkup()
             keyboard.add(
-                InlineKeyboardButton(
-                    "Enable Web Search", callback_data="settings:set:AGENT_ENABLE_WEB_SEARCH:true"
-                ),
-                InlineKeyboardButton(
-                    "Disable Web Search", callback_data="settings:set:AGENT_ENABLE_WEB_SEARCH:false"
-                ),
-            )
+            InlineKeyboardButton(
+                "Enable Web Search", callback_data="settings:set:AGENT_ENABLE_WEB_SEARCH:true"
+            ),
+            InlineKeyboardButton(
+                "Disable Web Search", callback_data="settings:set:AGENT_ENABLE_WEB_SEARCH:false"
+            ),
+        )
             keyboard.add(
                 InlineKeyboardButton(
                     "Set Timeout: 300s", callback_data="settings:set:AGENT_TIMEOUT:300"
@@ -307,7 +299,7 @@ class SettingsHandlers:
             text = "\n".join(lines)
 
             await self.bot.send_message(
-                message.chat.id, text, reply_markup=keyboard, parse_mode="Markdown"
+            message.chat.id, text, reply_markup=keyboard, parse_mode="Markdown"
             )
 
         except Exception as e:
@@ -388,22 +380,20 @@ class SettingsHandlers:
                 "credentials": "🔑 Credentials",
                 "telegram": "💬 Telegram",
                 "general": "🔧 General",
-            }
+        }
 
             for category in sorted(categories):
                 label = category_labels.get(category, category.title())
-                keyboard.add(
-                    InlineKeyboardButton(label, callback_data=f"settings:category:{category}")
-                )
+                keyboard.add(InlineKeyboardButton(label, callback_data=f"settings:category:{category}"))
 
             menu_text = (
-                "⚙️ **Settings Menu**\n\n"
-                "Choose a category to view and modify settings:\n\n"
-                "• Settings are stored per-user\n"
-                "• You can override global defaults\n"
-                "• Click on any setting to change its value\n"
-                "• Use /resetsetting <name> to restore default"
-            )
+            "⚙️ **Settings Menu**\n\n"
+            "Choose a category to view and modify settings:\n\n"
+            "• Settings are stored per-user\n"
+            "• You can override global defaults\n"
+            "• Click on any setting to change its value\n"
+            "• Use /resetsetting <name> to restore default"
+        )
 
             try:
                 await self.bot.edit_message_text(
@@ -421,11 +411,11 @@ class SettingsHandlers:
                     )
                     await self.bot.edit_message_text(
                         menu_text,
-                        call.message.chat.id,
-                        call.message.message_id,
-                        reply_markup=keyboard,
-                        parse_mode=None,
-                    )
+                    call.message.chat.id,
+                    call.message.message_id,
+                    reply_markup=keyboard,
+                    parse_mode=None,
+                )
             else:
                 raise
 
@@ -441,9 +431,7 @@ class SettingsHandlers:
         user_id = call.from_user.id
 
         try:
-            settings_dict = self.settings_manager.get_user_settings_summary(
-                user_id, category=category
-            )
+            settings_dict = self.settings_manager.get_user_settings_summary(user_id, category=category)
 
             category_labels = {
                 "knowledge_base": "📚 Knowledge Base",
@@ -454,7 +442,7 @@ class SettingsHandlers:
                 "credentials": "🔑 Credentials",
                 "telegram": "💬 Telegram",
                 "general": "🔧 General",
-            }
+        }
 
             label = category_labels.get(category, category.title())
             lines = [f"{label} Settings\n"]
@@ -486,10 +474,10 @@ class SettingsHandlers:
                 await self.bot.edit_message_text(
                     text,
                     call.message.chat.id,
-                    call.message.message_id,
-                    reply_markup=keyboard,
-                    parse_mode="Markdown",
-                )
+                call.message.message_id,
+                reply_markup=keyboard,
+                parse_mode="Markdown",
+            )
             except Exception as e:
                 # If Markdown parsing fails, send without formatting
                 if "can't parse entities" in str(e).lower():
@@ -498,11 +486,11 @@ class SettingsHandlers:
                     )
                     await self.bot.edit_message_text(
                         text,
-                        call.message.chat.id,
-                        call.message.message_id,
-                        reply_markup=keyboard,
-                        parse_mode=None,
-                    )
+                    call.message.chat.id,
+                    call.message.message_id,
+                    reply_markup=keyboard,
+                    parse_mode=None,
+                )
             else:
                 raise
 
@@ -534,9 +522,7 @@ class SettingsHandlers:
                     if info:
                         await self._show_category_settings(call, info.category)
                 except Exception as e:
-                    logger.warning(
-                        f"Failed to refresh settings display after setting {setting_name}: {e}"
-                    )
+                    logger.warning(f"Failed to refresh settings display after setting {setting_name}: {e}")
             else:
                 await self.bot.answer_callback_query(call.id, f"❌ {msg}", show_alert=True)
 
@@ -563,9 +549,7 @@ class SettingsHandlers:
                     if info:
                         await self._show_category_settings(call, info.category)
                 except Exception as e:
-                    logger.warning(
-                        f"Failed to refresh settings display after resetting {setting_name}: {e}"
-                    )
+                    logger.warning(f"Failed to refresh settings display after resetting {setting_name}: {e}")
             else:
                 await self.bot.answer_callback_query(call.id, f"❌ {msg}", show_alert=True)
 
@@ -586,7 +570,7 @@ class SettingsHandlers:
             # Get current value
             current_value = self.settings_manager.get_setting(user_id, setting_name)
 
-            # Build description text
+        # Build description text
             lines = [f"⚙️ **{setting_name}**\n"]
             lines.append(f"📝 {escape_markdown(info.description)}\n")
 
@@ -603,7 +587,7 @@ class SettingsHandlers:
                 value_str = escape_markdown(str(current_value))
             lines.append(f"**Current value:** `{value_str}`")
 
-            # Add default value
+        # Add default value
             if info.default is None:
                 default_str = "Not set"
             elif isinstance(info.default, bool):
@@ -612,7 +596,7 @@ class SettingsHandlers:
                 default_str = escape_markdown(str(info.default))
             lines.append(f"**Default value:** `{default_str}`\n")
 
-            # Add allowed values or examples
+        # Add allowed values or examples
             if info.type == bool or (
                 hasattr(info.type, "__origin__")
                 and str(info.type).startswith("typing.Union")
@@ -621,87 +605,86 @@ class SettingsHandlers:
                 lines.append("**Allowed values:** `true`, `false`")
             elif info.allowed_values:
                 allowed_str = ", ".join([f"`{v}`" for v in info.allowed_values])
-                lines.append(f"**Allowed values:** {allowed_str}")
-            elif info.min_value is not None or info.max_value is not None:
-                if info.min_value is not None and info.max_value is not None:
-                    lines.append(f"**Range:** `{info.min_value}` to `{info.max_value}`")
-                elif info.min_value is not None:
-                    lines.append(f"**Minimum:** `{info.min_value}`")
-                elif info.max_value is not None:
-                    lines.append(f"**Maximum:** `{info.max_value}`")
+            lines.append(f"**Allowed values:** {allowed_str}")
+        elif info.min_value is not None or info.max_value is not None:
+            if info.min_value is not None and info.max_value is not None:
+                lines.append(f"**Range:** `{info.min_value}` to `{info.max_value}`")
+            elif info.min_value is not None:
+                lines.append(f"**Minimum:** `{info.min_value}`")
+            elif info.max_value is not None:
+                lines.append(f"**Maximum:** `{info.max_value}`")
 
-            text = "\n".join(lines)
+        text = "\n".join(lines)
 
-            # Create keyboard
-            keyboard = InlineKeyboardMarkup()
+        # Create keyboard
+        keyboard = InlineKeyboardMarkup()
 
-            # For boolean settings, add toggle buttons
-            if info.type == bool or (
-                hasattr(info.type, "__origin__")
-                and str(info.type).startswith("typing.Union")
-                and bool in str(info.type)
-            ):
-                keyboard.add(
-                    InlineKeyboardButton(
-                        "✅ Enable", callback_data=f"settings:set:{setting_name}:true"
-                    ),
-                    InlineKeyboardButton(
-                        "❌ Disable", callback_data=f"settings:set:{setting_name}:false"
-                    ),
-                )
-
-            # Add reset and back buttons
+        # For boolean settings, add toggle buttons
+        if info.type == bool or (
+            hasattr(info.type, "__origin__")
+            and str(info.type).startswith("typing.Union")
+            and bool in str(info.type)
+        ):
             keyboard.add(
                 InlineKeyboardButton(
-                    "🔄 Reset to Default", callback_data=f"settings:reset:{setting_name}"
-                )
-            )
-            keyboard.add(
-                InlineKeyboardButton("« Back", callback_data=f"settings:category:{info.category}")
+                    "✅ Enable", callback_data=f"settings:set:{setting_name}:true"
+                ),
+                InlineKeyboardButton(
+                    "❌ Disable", callback_data=f"settings:set:{setting_name}:false"
+                ),
             )
 
-            try:
+        # Add reset and back buttons
+        keyboard.add(
+            InlineKeyboardButton(
+                "🔄 Reset to Default", callback_data=f"settings:reset:{setting_name}"
+            )
+        )
+        keyboard.add(
+            InlineKeyboardButton("« Back", callback_data=f"settings:category:{info.category}")
+        )
+
+        try:
+            await self.bot.edit_message_text(
+                text,
+                call.message.chat.id,
+                call.message.message_id,
+                reply_markup=keyboard,
+                parse_mode="Markdown",
+            )
+        except Exception as e:
+            # If Markdown parsing fails, send without formatting
+            if "can't parse entities" in str(e).lower():
+                logger.warning(
+                    f"Markdown parsing failed in setting detail, sending without formatting: {e}"
+                )
                 await self.bot.edit_message_text(
                     text,
                     call.message.chat.id,
                     call.message.message_id,
                     reply_markup=keyboard,
-                    parse_mode="Markdown",
+                    parse_mode=None,
                 )
-            except Exception as e:
-                # If Markdown parsing fails, send without formatting
-                if "can't parse entities" in str(e).lower():
-                    logger.warning(
-                        f"Markdown parsing failed in setting detail, sending without formatting: {e}"
-                    )
-                    await self.bot.edit_message_text(
-                        text,
-                        call.message.chat.id,
-                        call.message.message_id,
-                        reply_markup=keyboard,
-                        parse_mode=None,
-                    )
             else:
                 raise
 
-            # If not a boolean, prompt for text input
-            if info.type != bool and not (
-                hasattr(info.type, "__origin__")
-                and str(info.type).startswith("typing.Union")
-                and bool in str(info.type)
-            ):
-                # Store that we're waiting for input
-                self.waiting_for_input[user_id] = (setting_name, info.category)
+        # If not a boolean, prompt for text input
+        if info.type != bool and not (
+            hasattr(info.type, "__origin__")
+            and str(info.type).startswith("typing.Union")
+            and bool in str(info.type)
+        ):
+            # Store that we're waiting for input
+            self.waiting_for_input[user_id] = (setting_name, info.category)
 
-                # Send a prompt message
-                prompt_text = (
-                    f"💬 Please send the new value for `{setting_name}`\n\n"
-                    f"Note: Forwarded messages will be added to knowledge base instead.\n"
-                    f"Send /cancel to cancel."
-                )
-                await self.bot.send_message(
-                    call.message.chat.id, prompt_text, parse_mode="Markdown"
-                )
+            # Send a prompt message
+            prompt_text = (
+                f"💬 Please send the new value for `{setting_name}`\n\n"
+                f"Note: Forwarded messages will be added to knowledge base instead.\n"
+                f"Send /cancel to cancel."
+            )
+                await self.bot.send_message(call.message.chat.id, prompt_text, parse_mode="Markdown")
+
         except Exception as e:
             logger.error(f"Error showing setting detail for {setting_name}: {e}", exc_info=True)
             await self.bot.answer_callback_query(call.id, f"Error: {str(e)}", show_alert=True)

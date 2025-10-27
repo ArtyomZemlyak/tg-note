@@ -306,7 +306,9 @@ class BotHandlers:
                 if self.mcp_handlers:
                     await self.mcp_handlers.handle_list_mcp_servers(message)
                 else:
-                    await self.bot.send_message(call.message.chat.id, "MCP handlers not initialized")
+                    await self.bot.send_message(
+                        call.message.chat.id, "MCP handlers not initialized"
+                    )
 
             elif action == "context":
                 # Show context management menu
