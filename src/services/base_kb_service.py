@@ -410,7 +410,8 @@ class BaseKBService:
 
         # Normalize paths for reliable comparison
         def _normalize_path_str(p: str) -> str:
-            return str(Path(p).as_posix()).lstrip("./")
+            # Normalize path separators to forward slashes and remove leading ./ or .\
+            return str(Path(p).as_posix()).replace("\\", "/").lstrip("./").lstrip(".\\")
 
         files_created_norm = {_normalize_path_str(p) for p in files_created}
 

@@ -87,13 +87,13 @@ class MCPHandlers:
             self.waiting_for_json[message.from_user.id] = True
 
             help_text = (
-                "🔧 **Add MCP Server**\n\n"
-                "Please send the MCP server configuration in JSON format.\n\n"
-                "**Example:**\n"
+                "🔧 **Добавить MCP сервер**\n\n"
+                "Пожалуйста, отправьте конфигурацию MCP сервера в формате JSON.\n\n"
+                "**Пример:**\n"
                 "```json\n"
                 "{\n"
                 '  "name": "my-mcp-server",\n'
-                '  "description": "My custom MCP server",\n'
+                '  "description": "Мой пользовательский MCP сервер",\n'
                 '  "command": "python",\n'
                 '  "args": ["-m", "my_package.server"],\n'
                 '  "env": {\n'
@@ -102,23 +102,23 @@ class MCPHandlers:
                 '  "enabled": true\n'
                 "}\n"
                 "```\n\n"
-                "**Required fields:**\n"
-                "• `name` - Unique server name\n"
-                "• `description` - Server description\n"
-                "• `command` - Executable command\n"
-                "• `args` - Command arguments (array)\n\n"
-                "**Optional fields:**\n"
-                "• `env` - Environment variables (object)\n"
-                "• `working_dir` - Working directory\n"
-                "• `enabled` - Enable immediately (default: true)\n\n"
-                "Send /cancel to cancel."
+                "**Обязательные поля:**\n"
+                "• `name` - Уникальное имя сервера\n"
+                "• `description` - Описание сервера\n"
+                "• `command` - Команда для запуска\n"
+                "• `args` - Аргументы команды (массив)\n\n"
+                "**Необязательные поля:**\n"
+                "• `env` - Переменные окружения (объект)\n"
+                "• `working_dir` - Рабочая директория\n"
+                "• `enabled` - Включить сразу (по умолчанию: true)\n\n"
+                "Отправьте /cancel для отмены."
             )
 
             await self.bot.reply_to(message, help_text, parse_mode="Markdown")
             if self._hub_base:
                 await self.bot.send_message(
                     message.chat.id,
-                    f"Hub mode detected. You can also upload a .json file to register via hub.",
+                    f"Обнаружен режим Hub. Вы также можете загрузить .json файл для регистрации через hub.",
                 )
 
     async def handle_json_input(self, message: Message) -> None:
@@ -132,7 +132,7 @@ class MCPHandlers:
         # Check for cancel
         if message.text and message.text.strip().lower() in ["/cancel", "cancel"]:
             del self.waiting_for_json[user_id]
-            await self.bot.reply_to(message, "❌ Cancelled")
+            await self.bot.reply_to(message, "❌ Отменено")
             return
 
         json_content = message.text.strip()
@@ -166,6 +166,7 @@ class MCPHandlers:
                     )
                     if result.get("success"):
                         success = True
+                        server_name = json.loads(json_content).get("name", "unknown")
                         logger.info(f"✅ [HTTP] Registered server via API: {server_name}")
                     else:
                         # Fall back to local manager on failure
@@ -182,25 +183,25 @@ class MCPHandlers:
             if success:
                 await self.bot.reply_to(
                     message,
-                    "✅ MCP server configuration added successfully!\n\n"
-                    "Use /listmcpservers to see all servers.",
+                    "✅ Конфигурация MCP сервера успешно добавлена!\n\n"
+                    "Используйте /listmcpservers для просмотра всех серверов.",
                 )
             else:
                 await self.bot.reply_to(
                     message,
-                    "❌ Failed to add MCP server. Please check:\n"
-                    "• JSON format is valid\n"
-                    "• Server name is unique\n"
-                    "• Required fields are present\n\n"
-                    "Use /addmcpserver to try again.",
+                    "❌ Не удалось добавить MCP сервер. Пожалуйста, проверьте:\n"
+                    "• Формат JSON корректен\n"
+                    "• Имя сервера уникально\n"
+                    "• Все обязательные поля заполнены\n\n"
+                    "Используйте /addmcpserver для повторной попытки.",
                 )
 
         except Exception as e:
             logger.error(f"Error processing MCP JSON config: {e}", exc_info=True)
             await self.bot.reply_to(
                 message,
-                f"❌ Error: {escape_markdown(str(e))}\n\n"
-                "Please check your JSON syntax and try again.",
+                f"❌ Ошибка: {escape_markdown(str(e))}\n\n"
+                "Пожалуйста, проверьте синтаксис JSON и попробуйте снова.",
                 parse_mode="Markdown",
             )
 
@@ -249,12 +250,12 @@ class MCPHandlers:
         if not all_servers:
             await self.bot.reply_to(
                 message,
-                "📋 No MCP servers configured.\n\n" "Use /addmcpserver to add a new server.",
+                "📋 Нет настроенных MCP серверов.\n\n" "Используйте /addmcpserver для добавления нового сервера.",
             )
             return
 
         # Build server list
-        lines = ["🔧 **MCP Servers**\n"]
+        lines = ["🔧 **MCP Серверы**\n"]
 
         # Create inline keyboard for actions
         keyboard = InlineKeyboardMarkup()
@@ -262,7 +263,7 @@ class MCPHandlers:
 
         for server in sorted(all_servers, key=lambda s: s.name):
             status_icon = "✅" if server.enabled else "❌"
-            status_text = "enabled" if server.enabled else "disabled"
+            status_text = "включен" if server.enabled else "отключен"
 
             lines.append(
                 f"{status_icon} **{escape_markdown(server.name)}**\n"
@@ -275,20 +276,20 @@ class MCPHandlers:
             if server.enabled:
                 keyboard.add(
                     InlineKeyboardButton(
-                        f"🔴 Disable {server.name}", callback_data=f"mcp:disable:{server.name}"
+                        f"🔴 Отключить {server.name}", callback_data=f"mcp:disable:{server.name}"
                     )
                 )
             else:
                 keyboard.add(
                     InlineKeyboardButton(
-                        f"🟢 Enable {server.name}", callback_data=f"mcp:enable:{server.name}"
+                        f"🟢 Включить {server.name}", callback_data=f"mcp:enable:{server.name}"
                     )
                 )
 
         # Add refresh and add buttons
         keyboard.add(
-            InlineKeyboardButton("🔄 Refresh", callback_data="mcp:list"),
-            InlineKeyboardButton("➕ Add New", callback_data="mcp:add"),
+            InlineKeyboardButton("🔄 Обновить", callback_data="mcp:list"),
+            InlineKeyboardButton("➕ Добавить новый", callback_data="mcp:add"),
         )
 
         text = "\n".join(lines)
@@ -323,11 +324,11 @@ class MCPHandlers:
             summary = self.mcp_manager.get_servers_summary()
 
         status_text = (
-            "📊 **MCP Servers Status**\n\n"
-            f"Total servers: {summary['total']}\n"
-            f"✅ Enabled: {summary['enabled']}\n"
-            f"❌ Disabled: {summary['disabled']}\n\n"
-            "Use /listmcpservers to see details."
+            "📊 **Статус MCP серверов**\n\n"
+            f"Всего серверов: {summary['total']}\n"
+            f"✅ Включено: {summary['enabled']}\n"
+            f"❌ Отключено: {summary['disabled']}\n\n"
+            "Используйте /listmcpservers для просмотра деталей."
         )
 
         await self.bot.reply_to(message, status_text, parse_mode="Markdown")
@@ -341,9 +342,9 @@ class MCPHandlers:
         if len(args) < 2:
             await self.bot.reply_to(
                 message,
-                "❌ Usage: `/enablemcp <server_name>`\n\n"
-                "Example: `/enablemcp my-server`\n\n"
-                "Use /listmcpservers to see available servers.",
+                "❌ Использование: `/enablemcp <имя_сервера>`\n\n"
+                "Пример: `/enablemcp my-server`\n\n"
+                "Используйте /listmcpservers для просмотра доступных серверов.",
                 parse_mode="Markdown",
             )
             return
@@ -373,8 +374,8 @@ class MCPHandlers:
         else:
             await self.bot.reply_to(
                 message,
-                f"❌ Failed to enable server `{escape_markdown(server_name)}`.\n"
-                f"Server may not exist. Use /listmcpservers to see available servers.",
+                f"❌ Не удалось включить сервер `{escape_markdown(server_name)}`.\n"
+                f"Сервер может не существовать. Используйте /listmcpservers для просмотра доступных серверов.",
                 parse_mode="Markdown",
             )
 
@@ -387,9 +388,9 @@ class MCPHandlers:
         if len(args) < 2:
             await self.bot.reply_to(
                 message,
-                "❌ Usage: `/disablemcp <server_name>`\n\n"
-                "Example: `/disablemcp my-server`\n\n"
-                "Use /listmcpservers to see available servers.",
+                "❌ Использование: `/disablemcp <имя_сервера>`\n\n"
+                "Пример: `/disablemcp my-server`\n\n"
+                "Используйте /listmcpservers для просмотра доступных серверов.",
                 parse_mode="Markdown",
             )
             return
@@ -419,8 +420,8 @@ class MCPHandlers:
         else:
             await self.bot.reply_to(
                 message,
-                f"❌ Failed to disable server `{escape_markdown(server_name)}`.\n"
-                f"Server may not exist. Use /listmcpservers to see available servers.",
+                f"❌ Не удалось отключить сервер `{escape_markdown(server_name)}`.\n"
+                f"Сервер может не существовать. Используйте /listmcpservers для просмотра доступных серверов.",
                 parse_mode="Markdown",
             )
 
@@ -433,10 +434,10 @@ class MCPHandlers:
         if len(args) < 2:
             await self.bot.reply_to(
                 message,
-                "❌ Usage: `/removemcp <server_name>`\n\n"
-                "Example: `/removemcp my-server`\n\n"
-                "⚠️ This will permanently delete the server configuration.\n"
-                "Use /listmcpservers to see available servers.",
+                "❌ Использование: `/removemcp <имя_сервера>`\n\n"
+                "Пример: `/removemcp my-server`\n\n"
+                "⚠️ Это приведет к безвозвратному удалению конфигурации сервера.\n"
+                "Используйте /listmcpservers для просмотра доступных серверов.",
                 parse_mode="Markdown",
             )
             return
@@ -449,8 +450,8 @@ class MCPHandlers:
         if not server:
             await self.bot.reply_to(
                 message,
-                f"❌ Server `{escape_markdown(server_name)}` not found.\n"
-                f"Use /listmcpservers to see available servers.",
+                f"❌ Сервер `{escape_markdown(server_name)}` не найден.\n"
+                f"Используйте /listmcpservers для просмотра доступных серверов.",
                 parse_mode="Markdown",
             )
             return
@@ -466,10 +467,10 @@ class MCPHandlers:
 
         await self.bot.reply_to(
             message,
-            f"⚠️ **Confirm Deletion**\n\n"
-            f"Are you sure you want to delete MCP server `{escape_markdown(server_name)}`?\n\n"
-            f"Description: {escape_markdown(server.description)}\n"
-            f"This action cannot be undone.",
+            f"⚠️ **Подтверждение удаления**\n\n"
+            f"Вы уверены, что хотите удалить MCP сервер `{escape_markdown(server_name)}`?\n\n"
+            f"Описание: {escape_markdown(server.description)}\n"
+            f"Это действие нельзя отменить.",
             reply_markup=keyboard,
             parse_mode="Markdown",
         )
@@ -481,7 +482,7 @@ class MCPHandlers:
             parts = call.data.split(":", 2)
 
             if len(parts) < 2:
-                await self.bot.answer_callback_query(call.id, "Invalid callback")
+                await self.bot.answer_callback_query(call.id, "Неверный callback")
                 return
 
             action = parts[1]
@@ -494,7 +495,7 @@ class MCPHandlers:
                 # Prompt to add new server
                 await self.bot.answer_callback_query(call.id)
                 await self.bot.send_message(
-                    call.message.chat.id, "Use /addmcpserver to add a new MCP server configuration."
+                    call.message.chat.id, "Используйте /addmcpserver для добавления новой конфигурации MCP сервера."
                 )
 
             elif action == "enable":
@@ -504,12 +505,12 @@ class MCPHandlers:
 
                 if success:
                     await self.bot.answer_callback_query(
-                        call.id, f"✅ Server {server_name} enabled!", show_alert=True
+                        call.id, f"✅ Сервер {server_name} включен!", show_alert=True
                     )
                     await self._refresh_server_list(call)
                 else:
                     await self.bot.answer_callback_query(
-                        call.id, f"❌ Failed to enable {server_name}", show_alert=True
+                        call.id, f"❌ Не удалось включить {server_name}", show_alert=True
                     )
 
             elif action == "disable":
@@ -519,12 +520,12 @@ class MCPHandlers:
 
                 if success:
                     await self.bot.answer_callback_query(
-                        call.id, f"✅ Server {server_name} disabled!", show_alert=True
+                        call.id, f"✅ Сервер {server_name} отключен!", show_alert=True
                     )
                     await self._refresh_server_list(call)
                 else:
                     await self.bot.answer_callback_query(
-                        call.id, f"❌ Failed to disable {server_name}", show_alert=True
+                        call.id, f"❌ Не удалось отключить {server_name}", show_alert=True
                     )
 
             elif action == "confirm_remove":
@@ -546,7 +547,7 @@ class MCPHandlers:
 
                 if success:
                     await self.bot.answer_callback_query(
-                        call.id, f"✅ Server {server_name} deleted!", show_alert=True
+                        call.id, f"✅ Сервер {server_name} удален!", show_alert=True
                     )
                     # Delete confirmation message and show updated list
                     await self.bot.delete_message(call.message.chat.id, call.message.message_id)
@@ -555,20 +556,20 @@ class MCPHandlers:
                     await self.handle_list_mcp_servers(message)
                 else:
                     await self.bot.answer_callback_query(
-                        call.id, f"❌ Failed to delete {server_name}", show_alert=True
+                        call.id, f"❌ Не удалось удалить {server_name}", show_alert=True
                     )
 
             elif action == "cancel_remove":
                 # Cancel removal
-                await self.bot.answer_callback_query(call.id, "Cancelled")
+                await self.bot.answer_callback_query(call.id, "Отменено")
                 await self.bot.delete_message(call.message.chat.id, call.message.message_id)
 
             else:
-                await self.bot.answer_callback_query(call.id, "Unknown action")
+                await self.bot.answer_callback_query(call.id, "Неизвестное действие")
 
         except Exception as e:
             logger.error(f"Error handling MCP callback: {e}", exc_info=True)
-            await self.bot.answer_callback_query(call.id, f"Error: {str(e)}")
+            await self.bot.answer_callback_query(call.id, f"Ошибка: {str(e)}")
 
     async def _refresh_server_list(self, call: CallbackQuery) -> None:
         """Refresh the server list display"""
@@ -576,9 +577,9 @@ class MCPHandlers:
         all_servers = self.mcp_manager.get_all_servers()
 
         if not all_servers:
-            text = "📋 No MCP servers configured."
+            text = "📋 Нет настроенных MCP серверов."
             keyboard = InlineKeyboardMarkup()
-            keyboard.add(InlineKeyboardButton("➕ Add New", callback_data="mcp:add"))
+            keyboard.add(InlineKeyboardButton("➕ Добавить новый", callback_data="mcp:add"))
         else:
             # Build server list
             lines = ["🔧 **MCP Servers**\n"]
@@ -632,7 +633,7 @@ class MCPHandlers:
             # If Markdown parsing fails, send without formatting
             if "can't parse entities" in str(e).lower():
                 logger.warning(
-                    f"Markdown parsing failed in MCP list, sending without formatting: {e}"
+                    f"Ошибка разбора Markdown в списке MCP, отправка без форматирования: {e}"
                 )
                 await self.bot.edit_message_text(
                     text,
@@ -663,4 +664,4 @@ class MCPHandlers:
             json_content = file_bytes.decode("utf-8")
             await self._process_json_config(message, json_content)
         except Exception as e:
-            await self.bot.reply_to(message, f"❌ Error reading uploaded file: {str(e)}")
+            await self.bot.reply_to(message, f"❌ Ошибка чтения загруженного файла: {str(e)}")

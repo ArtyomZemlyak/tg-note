@@ -81,18 +81,18 @@ class CredentialsHandlers:
 
         await self.bot.send_message(
             user_id,
-            "🔐 <b>Установка Git Credentials</b>\n\n"
+            "🔐 *Установка Git Credentials*\n\n"
             "Выберите платформу для которой хотите сохранить токен:\n\n"
-            "<b>⚠️ Безопасность:</b>\n"
+            "*⚠️ Безопасность:*\n"
             "• Токены будут зашифрованы перед сохранением\n"
             "• Используется симметричное шифрование (AES-128)\n"
             "• Токены не видны в логах и истории сообщений\n"
             "• Рекомендуется удалить сообщения с токеном после отправки\n\n"
-            "<i>💡 Как получить токен:</i>\n"
+            "_💡 Как получить токен:_\n"
             "• GitHub: Settings → Developer settings → Personal access tokens\n"
             "• GitLab: Settings → Access Tokens\n\n"
-            "Требуемые права доступа: <code>repo</code> или <code>write_repository</code>",
-            parse_mode="HTML",
+            "Требуемые права доступа: `repo` или `write_repository`",
+            parse_mode="Markdown",
             reply_markup=keyboard,
         )
 
@@ -110,7 +110,7 @@ class CredentialsHandlers:
 
         if not credentials:
             await self.bot.send_message(
-                user_id, "ℹ️ У вас нет сохраненных токенов.", parse_mode="HTML"
+                user_id, "ℹ️ У вас нет сохраненных токенов.", parse_mode="Markdown"
             )
             return
 
@@ -134,9 +134,9 @@ class CredentialsHandlers:
 
         await self.bot.send_message(
             user_id,
-            "🔐 <b>Удаление Git Credentials</b>\n\n"
+            "🔐 *Удаление Git Credentials*\n\n"
             "Выберите платформу, токен которой нужно удалить:",
-            parse_mode="HTML",
+            parse_mode="Markdown",
             reply_markup=keyboard,
         )
 
@@ -156,31 +156,31 @@ class CredentialsHandlers:
             await self.bot.send_message(
                 user_id,
                 "ℹ️ У вас нет сохраненных токенов.\n\n"
-                "Используйте <code>/settoken</code> чтобы добавить токен.",
-                parse_mode="HTML",
+                "Используйте `/settoken` чтобы добавить токен.",
+                parse_mode="Markdown",
             )
             return
 
         # Build credentials info message
-        lines = ["🔐 <b>Сохраненные Git Credentials</b>\n"]
+        lines = ["🔐 *Сохраненные Git Credentials*\n"]
 
         for platform, info in credentials.items():
             platform_emoji = "🐙" if platform == "github" else "🦊"
-            lines.append(f"<b>{platform_emoji} {platform.upper()}</b>")
-            lines.append(f"  • Username: <code>{info['username']}</code>")
+            lines.append(f"*{platform_emoji} {platform.upper()}*")
+            lines.append(f"  • Username: `{info['username']}`")
             lines.append(
                 f"  • Token: {'✅ Установлен' if info['token_set'] else '❌ Не установлен'}"
             )
             if info.get("remote_url"):
-                lines.append(f"  • Remote: <code>{info['remote_url']}</code>")
+                lines.append(f"  • Remote: `{info['remote_url']}`")
             lines.append("")
 
         lines.append(
-            "\n💡 <i>Токены хранятся в зашифрованном виде и используются "
-            "только для Git операций.</i>"
+            "\n💡 _Токены хранятся в зашифрованном виде и используются "
+            "только для Git операций._"
         )
 
-        await self.bot.send_message(user_id, "\n".join(lines), parse_mode="HTML")
+        await self.bot.send_message(user_id, "\n".join(lines), parse_mode="Markdown")
 
     async def handle_credentials_callback(self, call: CallbackQuery) -> None:
         """Handle callback queries for credentials management"""
@@ -223,12 +223,12 @@ class CredentialsHandlers:
 
         # Ask for username
         await self.async_bot.edit_message_text(
-            f"🔐 <b>Установка {platform_emoji} {platform_name} токена</b>\n\n"
-            f"Шаг 1/2: Введите ваш <b>username</b> на {platform_name}:\n\n"
-            f"<i>Пример: john_doe</i>",
+            f"🔐 *Установка {platform_emoji} {platform_name} токена*\n\n"
+            f"Шаг 1/2: Введите ваш *username* на {platform_name}:\n\n"
+            f"_Пример: john_doe_",
             chat_id=call.message.chat.id,
             message_id=call.message.message_id,
-            parse_mode="HTML",
+            parse_mode="Markdown",
         )
 
         await self.async_bot.answer_callback_query(call.id)
@@ -324,17 +324,17 @@ class CredentialsHandlers:
 
             await self.bot.send_message(
                 user_id,
-                f"🔐 <b>Установка {platform_emoji} {platform_name} токена</b>\n\n"
-                f"Username: <code>{username}</code> ✅\n\n"
-                f"Шаг 2/2: Введите ваш <b>Personal Access Token</b>:\n\n"
-                f"<b>⚠️ Важно:</b>\n"
+                f"🔐 *Установка {platform_emoji} {platform_name} токена*\n\n"
+                f"Username: `{username}` ✅\n\n"
+                f"Шаг 2/2: Введите ваш *Personal Access Token*:\n\n"
+                f"*⚠️ Важно:*\n"
                 f"• Токен будет зашифрован и сохранен безопасно\n"
                 f"• После отправки сообщение будет автоматически удалено\n"
                 f"• Токен не будет виден в логах\n\n"
-                f"<i>💡 Где получить токен:</i>\n"
+                f"_💡 Где получить токен:_\n"
                 f"• GitHub: https://github.com/settings/tokens\n"
                 f"• GitLab: https://gitlab.com/-/profile/personal_access_tokens",
-                parse_mode="HTML",
+                parse_mode="Markdown",
             )
 
         elif state == "awaiting_token":
@@ -359,12 +359,12 @@ class CredentialsHandlers:
             if success:
                 await self.bot.send_message(
                     user_id,
-                    f"✅ <b>{platform_emoji} {platform_name} токен успешно сохранен!</b>\n\n"
-                    f"Username: <code>{username}</code>\n"
+                    f"✅ *{platform_emoji} {platform_name} токен успешно сохранен!*\n\n"
+                    f"Username: `{username}`\n"
                     f"Token: ✅ Сохранен и зашифрован\n\n"
                     f"Токен будет автоматически использоваться при работе "
                     f"с Git репозиториями на {platform_name}.",
-                    parse_mode="HTML",
+                    parse_mode="Markdown",
                 )
                 self.logger.info(
                     f"Successfully saved {platform} credentials for user {user_id} "
@@ -374,8 +374,8 @@ class CredentialsHandlers:
                 await self.bot.send_message(
                     user_id,
                     f"❌ Ошибка при сохранении {platform_name} токена.\n\n"
-                    f"Попробуйте еще раз с помощью команды <code>/settoken</code>.",
-                    parse_mode="HTML",
+                    f"Попробуйте еще раз с помощью команды `/settoken`.",
+                    parse_mode="Markdown",
                 )
 
             # Clear pending state
