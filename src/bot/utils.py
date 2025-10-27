@@ -73,8 +73,13 @@ def convert_html_for_telegram(html_text):
     for pattern, replacement in tag_conversions.items():
         converted_text = re.sub(pattern, replacement, converted_text, flags=re.IGNORECASE)
     
+    # Handle lists - convert to plain text with bullet points
+    converted_text = convert_lists_to_telegram(converted_text)
+    
     # Remove any remaining unsupported tags (keep content)
-    converted_text = re.sub(r'<(/)?(main|figure|figcaption|details|summary|mark|small|abbr)[^>]*>', '', converted_text, flags=re.IGNORECASE)
+    unsupported_tags = ['main', 'figure', 'figcaption', 'details', 'summary', 'mark', 'small', 'abbr']
+    for tag in unsupported_tags:
+        converted_text = re.sub(rf'<(/)?{tag}[^>]*>', '', converted_text, flags=re.IGNORECASE)
     
     # Clean up multiple consecutive line breaks
     converted_text = re.sub(r'\n{3,}', '\n\n', converted_text)
@@ -83,6 +88,78 @@ def convert_html_for_telegram(html_text):
     converted_text = re.sub(r'<span[^>]*>\s*</span>', '', converted_text)
     
     return converted_text.strip()
+
+def convert_lists_to_telegram(html_text):
+    """
+    Convert HTML lists to Telegram-compatible format.
+    
+    Args:
+        html_text (str): HTML text containing lists
+        
+    Returns:
+        str: Text with lists converted to plain text format
+    """
+    text = html_text
+    
+    # Handle unordered lists (ul)
+    ul_pattern = r'<ul[^>]*>(.*?)</ul>'
+    while re.search(ul_pattern, text, re.IGNORECASE | re.DOTALL):
+        text = re.sub(ul_pattern, convert_ul_list, text, flags=re.IGNORECASE | re.DOTALL)
+    
+    # Handle ordered lists (ol)
+    ol_pattern = r'<ol[^>]*>(.*?)</ol>'
+    while re.search(ol_pattern, text, re.IGNORECASE | re.DOTALL):
+        text = re.sub(ol_pattern, convert_ol_list, text, flags=re.IGNORECASE | re.DOTALL)
+    
+    # Remove any remaining list item tags and convert to simple lines
+    text = re.sub(r'<li[^>]*>', '• ', text, flags=re.IGNORECASE)
+    text = re.sub(r'</li>', '\n', text, flags=re.IGNORECASE)
+    
+    return text
+
+def convert_ul_list(match):
+    """
+    Convert a single unordered list to Telegram format.
+    
+    Args:
+        match: regex match object containing the list content
+        
+    Returns:
+        str: Converted list text
+    """
+    list_content = match.group(1)
+    # Extract list items
+    li_items = re.findall(r'<li[^>]*>(.*?)</li>', list_content, re.IGNORECASE | re.DOTALL)
+    
+    converted_list = []
+    for item in li_items:
+        # Clean up the item content from any remaining HTML tags we don't want
+        clean_item = re.sub(r'<[^>]+>', '', item)
+        converted_list.append(f"• {clean_item.strip()}")
+    
+    return '\n'.join(converted_list) + '\n'
+
+def convert_ol_list(match):
+    """
+    Convert a single ordered list to Telegram format.
+    
+    Args:
+        match: regex match object containing the list content
+        
+    Returns:
+        str: Converted list text
+    """
+    list_content = match.group(1)
+    # Extract list items
+    li_items = re.findall(r'<li[^>]*>(.*?)</li>', list_content, re.IGNORECASE | re.DOTALL)
+    
+    converted_list = []
+    for i, item in enumerate(li_items, 1):
+        # Clean up the item content from any remaining HTML tags we don't want
+        clean_item = re.sub(r'<[^>]+>', '', item)
+        converted_list.append(f"{i}. {clean_item.strip()}")
+    
+    return '\n'.join(converted_list) + '\n'
 
 
 def escape_html(text: str) -> str:

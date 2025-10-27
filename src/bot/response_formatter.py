@@ -80,6 +80,7 @@ class BaseField:
        """
        return escape_html(text)
 
+
 class SummaryField(BaseField):
     """Summary field for response format."""
     
