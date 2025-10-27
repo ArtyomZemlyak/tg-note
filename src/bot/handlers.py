@@ -534,7 +534,7 @@ class BotHandlers:
             "Бот работает для всех пользователей без ограничений!"
         )
 
-        await self.bot.reply_to(message, help_text, parsing_mode="HTML")
+        await self.bot.reply_to(message, help_text, parse_mode="HTML")
 
     async def handle_status(self, message: Message) -> None:
         """Handle /status command - show bot status and statistics"""
