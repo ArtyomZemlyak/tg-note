@@ -19,7 +19,7 @@ from loguru import logger
 
 from config.agent_prompts import get_qwen_code_agent_instruction
 
-from .base_agent import AgentResult as BaseAgentResult
+# from .base_agent import AgentResult as BaseAgentResult
 from .base_agent import BaseAgent, KBStructure
 from .llm_connectors import BaseLLMConnector, LLMResponse
 from .tools import ToolManager, build_default_tool_manager
