@@ -76,40 +76,6 @@ class KBStructure:
         }
 
 
-@dataclass
-class AgentResult:
-    """
-    Стандартизированный результат работы любого агента
-
-    Все агенты возвращают этот формат:
-    - markdown: Итоговый markdown контент
-    - summary: Краткая суммаризация действий агента
-    - files_created: Список созданных файлов
-    - files_edited: Список отредактированных файлов
-    - folders_created: Список созданных папок
-    - metadata: Дополнительные метаданные
-    - answer: Итоговый ответ пользователю (для режима ask)
-    """
-
-    markdown: str
-    summary: str
-    files_created: List[str] = field(default_factory=list)
-    files_edited: List[str] = field(default_factory=list)
-    folders_created: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    answer: Optional[str] = None  # For ask mode - final answer to user
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary"""
-        return {
-            "markdown": self.markdown,
-            "summary": self.summary,
-            "files_created": self.files_created,
-            "files_edited": self.files_edited,
-            "folders_created": self.folders_created,
-            "metadata": self.metadata,
-            "answer": self.answer,
-        }
 
 
 class BaseAgent(ABC):
@@ -148,127 +114,20 @@ class BaseAgent(ABC):
         """
         pass
 
-    def parse_agent_response(self, response: str) -> AgentResult:
+    def parse_agent_response(self, response: str) -> Dict[str, Any]:
         """
-        Парсит ответ агента в стандартизированном формате
-
-        Ожидаемый формат в markdown:
-        ```agent-result
-        {
-          "summary": "Краткая суммаризация действий",
-          "files_created": ["path/to/file1.md", "path/to/file2.md"],
-          "files_edited": ["path/to/file3.md"],
-          "folders_created": ["path/to/folder1"],
-          "metadata": {
-            ...,
-            "links": [
-              {"file": "path/to/related.md", "description": "Related topic"}
-            ]
-          },
-          "answer": "Итоговый ответ пользователю (для режима ask)"
-        }
-        ```
+        Парсит ответ агента в стандартизированном формате используя ResponseFormatter
 
         Args:
             response: Ответ от агента (markdown)
 
         Returns:
-            AgentResult с распарсенными данными
+            Dict с распарсенными данными
         """
-        # Попытка извлечь JSON блок с результатами
-        files_created = []
-        files_edited = []
-        folders_created = []
-        summary = ""
-        metadata = {}
-        answer = None
-
-        # Ищем блок ```agent-result
-        result_match = re.search(r"```agent-result\s*\n(.*?)\n```", response, re.DOTALL)
-        if result_match:
-            try:
-                json_text = result_match.group(1).strip()
-
-                # AICODE-FIX: Исправляем неэкранированные переносы строк в JSON
-                # Это часто происходит когда агент генерирует многострочный answer
-                json_text = self._fix_json_newlines(json_text)
-
-                result_data = json.loads(json_text)
-
-                # Ensure result_data is a dictionary
-                if not isinstance(result_data, dict):
-                    import logging
-
-                    logging.warning(
-                        f"agent-result JSON is not a dictionary (type: {type(result_data).__name__}). Content: {json_text[:100]}"
-                    )
-                    # Fall back to simple parsing
-                    result_data = {}
-
-                summary = result_data.get("summary", "")
-                files_created = result_data.get("files_created", [])
-                files_edited = result_data.get("files_edited", [])
-                folders_created = result_data.get("folders_created", [])
-                metadata = result_data.get("metadata", {})
-                answer = result_data.get("answer")  # Extract answer for ask mode
-            except (json.JSONDecodeError, ValueError) as e:
-                # Если не удалось распарсить JSON, используем простой парсинг
-                # Log the error for debugging
-                import logging
-
-                logging.warning(
-                    f"Failed to parse agent-result JSON: {e}. Content: {result_match.group(1)[:100]}"
-                )
-                pass
-
-        # Фоллбэк: попытка найти информацию в тексте
-        if not summary:
-            # Ищем секцию Summary
-            summary_match = re.search(r"##\s*Summary\s*\n(.*?)(?=\n##|\Z)", response, re.DOTALL)
-            if summary_match:
-                summary = summary_match.group(1).strip()
-            else:
-                # AICODE-FIX: Если нет summary, генерируем его из содержимого
-                # Берем первые 100 символов ответа как summary
-                summary = (
-                    response.strip()[:100] + "..."
-                    if len(response.strip()) > 100
-                    else response.strip()
-                )
-                if not summary:
-                    summary = "Agent completed processing"
-
-        # AICODE-FIX: Если нет answer, используем весь ответ как answer (для ask mode)
-        if not answer:
-            answer = response.strip()
-
-        # Ищем упоминания созданных файлов
-        if not files_created:
-            files_created = re.findall(
-                r'(?:Created file|✓ Created):?\s*[`"]?([\w\-/.]+\.md)[`"]?', response
-            )
-
-        # Ищем упоминания отредактированных файлов
-        if not files_edited:
-            files_edited = re.findall(
-                r'(?:Edited file|✓ Edited|Updated):?\s*[`"]?([\w\-/.]+\.md)[`"]?', response
-            )
-
-        # Ищем упоминания созданных папок
-        if not folders_created:
-            folders_created = re.findall(
-                r'(?:Created folder|✓ Created folder):?\s*[`"]?([\w\-/]+)[`"]?', response
-            )
-
-        return AgentResult(
-            markdown=response,
-            summary=summary,
-            files_created=files_created,
-            files_edited=files_edited,
-            folders_created=folders_created,
-            metadata=metadata,
-            answer=answer,
-        )
+        # Используем ResponseFormatter для парсинга
+        from src.bot.response_formatter import ResponseFormatter
+        formatter = ResponseFormatter()
+        return formatter.parse(response)
 
     def extract_kb_structure_from_response(
         self, response: str, default_category: str = "general"

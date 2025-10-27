@@ -12,6 +12,7 @@ from typing import Optional
 from loguru import logger
 
 from src.bot.bot_port import BotPort
+from src.bot.response_formatter import ResponseFormatter
 from src.bot.settings_manager import SettingsManager
 from src.bot.utils import escape_markdown, escape_markdown_url, split_long_message, safe_edit_message_text
 from src.core.rate_limiter import RateLimiter
@@ -582,3 +583,55 @@ class BaseKBService:
                 await self.bot.send_message(chat_id=chat_id, text=error_text)
         except Exception as e:
             self.logger.error(f"Failed to send error notification: {e}", exc_info=True)
+
+    async def _send_result(
+        self,
+        processing_msg_id: int,
+        chat_id: int,
+        result: dict,
+        kb_path: Path,
+        user_id: int,
+    ) -> None:
+        """
+        Send task result to user
+
+        Args:
+            processing_msg_id: ID of the processing status message
+            chat_id: Chat ID
+            result: Task execution result
+        """
+        # Use response formatter to format the result
+        github_base = self._get_github_base_url(kb_path, user_id)
+        kb_topics_only = self.settings_manager.get_setting(user_id, "KB_TOPICS_ONLY")
+        if kb_topics_only:
+            github_base = f"{github_base}/topics"
+        
+        response_formatter = ResponseFormatter(github_base)
+        full_message = response_formatter.to_md(result.get("parsed_result"))
+
+        # Handle long messages by splitting them. We avoid pre-escaping here to keep links clickable.
+        message_chunks = split_long_message(full_message)
+
+        edit_succeeded = await self._safe_edit_message(
+            message_chunks[0],
+            chat_id=chat_id,
+            message_id=processing_msg_id,
+            parse_mode="Markdown",
+        )
+
+        # If edit failed (e.g., timeout), send as new message
+        if not edit_succeeded:
+            await self.bot.send_message(
+                chat_id=chat_id,
+                text=f"✅ Результат:\n\n{message_chunks[0]}",
+                parse_mode="Markdown",
+            )
+
+        # If there are more chunks, send them as separate messages
+        for i, chunk in enumerate(message_chunks[1:], start=2):
+            await self.bot.send_message(
+                chat_id=chat_id,
+                text=f"💡 (часть {i}/{len(message_chunks)}):\n\n{chunk}",
+                parse_mode="Markdown",
+            )
+

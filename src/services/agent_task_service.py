@@ -7,8 +7,9 @@ Follows Single Responsibility Principle
 from pathlib import Path
 from typing import Optional
 
-from config.agent_prompts import AGENT_MODE_INSTRUCTION
+from config.agent_prompts import get_qwen_code_agent_instruction
 from src.bot.bot_port import BotPort
+from src.bot.response_formatter import ResponseFormatter
 from src.bot.settings_manager import SettingsManager
 from src.bot.utils import escape_markdown, split_long_message
 from src.core.rate_limiter import RateLimiter
@@ -61,6 +62,7 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
 
         # Agent-specific dependencies
         self.user_context_manager = user_context_manager
+        self.response_formatter = ResponseFormatter()
 
     async def execute_task(
         self, group: MessageGroup, processing_msg_id: int, chat_id: int, user_id: int, user_kb: dict
@@ -159,7 +161,7 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
             "🤖 Выполняю задачу...", chat_id=chat_id, message_id=processing_msg_id
         )
 
-        result = await self._execute_with_agent(
+        processed_content = await self._execute_with_agent(
             kb_path, content, user_id, chat_id, processing_msg_id
         )
 
@@ -168,9 +170,8 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
 
         response_timestamp = int(time.time())
         # Build a simple summary of the response for context
-        response_text = result.get("answer") or result.get("summary", "Задача выполнена")
         self.user_context_manager.add_assistant_message_to_context(
-            user_id, processing_msg_id, response_text, response_timestamp
+            user_id, processing_msg_id, processed_content.get("markdown"), response_timestamp
         )
 
         # AICODE-NOTE: Use base class method for auto-commit and push
@@ -179,7 +180,7 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
         await self._auto_commit_and_push(git_ops, user_id, commit_message)
 
         # Send result to user
-        await self._send_result(processing_msg_id, chat_id, result, kb_path, user_id)
+        await self._send_result(processing_msg_id, chat_id, processed_content, kb_path, user_id)
 
     async def _execute_with_agent(
         self, kb_path: Path, content: dict, user_id: int, chat_id: int, processing_msg_id: int
@@ -213,9 +214,19 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
 
         # Temporarily change agent instruction to agent mode
         original_instruction = None
+        instr = ""
         if hasattr(user_agent, "get_instruction") and hasattr(user_agent, "set_instruction"):
             original_instruction = user_agent.get_instruction()
-            user_agent.set_instruction(AGENT_MODE_INSTRUCTION)
+            instr = get_qwen_code_agent_instruction("ru")
+
+            from src.bot.response_formatter import ResponseFormatter
+            response_formatter = ResponseFormatter()
+            response_formatter_prompt = response_formatter.generate_prompt_text()
+
+            # Combine the default instruction with the ResponseFormatter prompt
+            instr = instr.format(response_format=response_formatter_prompt)
+
+            user_agent.set_instruction(instr)
             self.logger.debug(f"Temporarily changed agent instruction to agent mode")
 
         # Get conversation context
@@ -224,10 +235,10 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
         # Prepare task content with agent mode instruction
         # Include context if available
         if context:
-            task_prompt = f"{context}\n\n{AGENT_MODE_INSTRUCTION}\n\n# Задача от пользователя:\n{content.get('text', '')}"
+            task_prompt = f"{context}\n\n{instr}\n\n# Задача от пользователя:\n{content.get('text', '')}"
         else:
             task_prompt = (
-                f"{AGENT_MODE_INSTRUCTION}\n\n# Задача от пользователя:\n{content.get('text', '')}"
+                f"{instr}\n\n# Задача от пользователя:\n{content.get('text', '')}"
             )
 
         task_content = {
@@ -239,33 +250,12 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
         # AICODE-NOTE: Use base class method for rate limit check
         if not await self._check_rate_limit(user_id, chat_id, processing_msg_id):
             # Return empty result if rate limited
-            return {
-                "answer": None,
-                "summary": "",
-                "metadata": {},
-                "files_created": [],
-                "files_edited": [],
-                "files_deleted": [],
-                "folders_created": [],
-            }
+            return {}
 
         try:
             # Process task with agent
             self.logger.debug(f"[AGENT_SERVICE] Processing task with agent for user {user_id}")
-            response = await user_agent.process(task_content)
-
-            # Extract result from response
-            # Priority: answer field, then metadata, then summary
-            result = {
-                "answer": response.get("answer"),
-                "summary": response.get("summary", ""),
-                "metadata": response.get("metadata", {}),
-                "files_created": response.get("metadata", {}).get("files_created", []),
-                "files_edited": response.get("metadata", {}).get("files_edited", []),
-                "files_deleted": response.get("metadata", {}).get("files_deleted", []),
-                "folders_created": response.get("metadata", {}).get("folders_created", []),
-            }
-
+            result = await user_agent.process(task_content)
             return result
 
         except Exception as agent_error:
@@ -279,136 +269,6 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
             if original_instruction is not None and hasattr(user_agent, "set_instruction"):
                 user_agent.set_instruction(original_instruction)
                 self.logger.debug(f"Restored original agent instruction")
-
-    async def _send_result(
-        self,
-        processing_msg_id: int,
-        chat_id: int,
-        result: dict,
-        kb_path: Path,
-        user_id: int,
-    ) -> None:
-        """
-        Send task result to user
-
-        Args:
-            processing_msg_id: ID of the processing status message
-            chat_id: Chat ID
-            result: Task execution result
-        """
-        # Build result message
-        message_parts = []
-
-        # If there's an answer (e.g., user asked a question)
-        if result.get("answer"):
-            message_parts.append("💡 **Ответ:**\n")
-            message_parts.append(result["answer"])
-            message_parts.append("\n")
-
-        # Add summary
-        if result.get("summary"):
-            message_parts.append(f"📋 **Выполнено:** {result['summary']}\n")
-
-        # Add file operations
-        files_created = result.get("files_created", [])
-        files_edited = result.get("files_edited", [])
-        files_deleted = result.get("files_deleted", [])
-        folders_created = result.get("folders_created", [])
-
-        # AICODE-NOTE: Use base class method for GitHub URL generation
-        github_base = self._get_github_base_url(kb_path, user_id)
-        kb_topics_only = self.settings_manager.get_setting(user_id, "KB_TOPICS_ONLY")
-
-        # AICODE-NOTE: Use base class method for file change formatting
-        file_change_parts = self._format_file_changes(
-            files_created,
-            files_edited,
-            files_deleted,
-            folders_created,
-            github_base,
-            None,
-            kb_topics_only,
-        )
-        # Convert to newline-terminated strings for agent service formatting
-        message_parts.extend(
-            [part + "\n" if not part.endswith("\n") else part for part in file_change_parts]
-        )
-
-        # AICODE-NOTE: Use base class method for links/relations filtering and formatting
-        metadata = result.get("metadata", {}) or {}
-        links = metadata.get("links", []) or metadata.get("relations", [])
-        link_parts = self._filter_and_format_links(
-            links, files_created, kb_path, github_base, kb_topics_only
-        )
-        # Convert to newline-terminated strings for agent service formatting
-        message_parts.extend(
-            [part + "\n" if not part.endswith("\n") else part for part in link_parts]
-        )
-
-        # Build final message
-        full_message = "".join(message_parts)
-        if not full_message.strip():
-            full_message = "✅ Задача выполнена!"
-
-        # Handle long messages by splitting them. We avoid pre-escaping here to keep links clickable.
-        message_chunks = split_long_message(full_message)
-
-        try:
-            # Try to edit the processing message with the first chunk
-            edit_succeeded = await self._safe_edit_message(
-                message_chunks[0],
-                chat_id=chat_id,
-                message_id=processing_msg_id,
-                parse_mode="Markdown",
-            )
-
-            # If edit failed (e.g., timeout), send as new message
-            if not edit_succeeded:
-                await self.bot.send_message(
-                    chat_id=chat_id,
-                    text=f"✅ Результат:\n\n{message_chunks[0]}",
-                    parse_mode="Markdown",
-                )
-
-            # If there are more chunks, send them as separate messages
-            for i, chunk in enumerate(message_chunks[1:], start=2):
-                await self.bot.send_message(
-                    chat_id=chat_id,
-                    text=f"💡 (часть {i}/{len(message_chunks)}):\n\n{chunk}",
-                    parse_mode="Markdown",
-                )
-
-        except Exception as e:
-            # If Markdown parsing fails, send without formatting
-            if "can't parse entities" in str(e).lower():
-                self.logger.warning(f"Markdown parsing failed, sending without formatting: {e}")
-
-                full_message_plain = "".join(message_parts)
-                message_chunks_plain = split_long_message(full_message_plain)
-
-                # Try to edit, fall back to new message if needed
-                edit_succeeded = await self._safe_edit_message(
-                    message_chunks_plain[0],
-                    chat_id=chat_id,
-                    message_id=processing_msg_id,
-                    parse_mode=None,
-                )
-
-                if not edit_succeeded:
-                    await self.bot.send_message(
-                        chat_id=chat_id,
-                        text=f"Результат:\n\n{message_chunks_plain[0]}",
-                        parse_mode=None,
-                    )
-
-                for i, chunk in enumerate(message_chunks_plain[1:], start=2):
-                    await self.bot.send_message(
-                        chat_id=chat_id,
-                        text=f"(часть {i}/{len(message_chunks_plain)}):\n\n{chunk}",
-                        parse_mode=None,
-                    )
-            else:
-                raise
 
     async def _send_error_notification(
         self, processing_msg_id: int, chat_id: int, error_message: str

@@ -4,7 +4,6 @@ Python wrapper for qwen-code CLI tool with autonomous agent capabilities
 """
 
 import asyncio
-import json
 import os
 import subprocess
 import tempfile
@@ -15,19 +14,13 @@ from typing import Any, Dict, List, Optional
 from loguru import logger
 
 from config.agent_prompts import (
-    CATEGORY_KEYWORDS,
-    DEFAULT_CATEGORY,
-    MAX_SUMMARY_LENGTH,
-    MAX_TAG_COUNT,
     MAX_TITLE_LENGTH,
-    MIN_KEYWORD_LENGTH,
-    STOP_WORDS,
     get_content_processing_template,
     get_qwen_code_cli_instruction,
     get_urls_section_template,
 )
 
-from .base_agent import BaseAgent, KBStructure
+from .base_agent import BaseAgent
 
 
 class QwenCodeCLIAgent(BaseAgent):
@@ -43,7 +36,7 @@ class QwenCodeCLIAgent(BaseAgent):
     """
 
     DEFAULT_INSTRUCTION = get_qwen_code_cli_instruction("ru")
-
+ 
     def __init__(
         self,
         config: Optional[Dict] = None,
@@ -69,8 +62,16 @@ class QwenCodeCLIAgent(BaseAgent):
             timeout: Timeout in seconds for CLI commands
         """
         super().__init__(config)
+ 
+        # Initialize ResponseFormatter to get its prompt text
+        from src.bot.response_formatter import ResponseFormatter
+        response_formatter = ResponseFormatter()
+        response_formatter_prompt = response_formatter.generate_prompt_text()
 
-        self.instruction = instruction or self.DEFAULT_INSTRUCTION
+        # Combine the default instruction with the ResponseFormatter prompt
+        default_instruction_with_formatter = self.DEFAULT_INSTRUCTION.format(response_format=response_formatter_prompt)
+        
+        self.instruction = instruction or default_instruction_with_formatter
         self.qwen_cli_path = qwen_cli_path
 
         # Get working directory - handle case where cwd doesn't exist
@@ -258,18 +259,17 @@ class QwenCodeCLIAgent(BaseAgent):
                 f"[QwenCodeCLIAgent] Result text preview (last 500 chars): {result_text[-500:]}"
             )
 
-            try:
-                agent_result = self.parse_agent_response(result_text)
-                logger.info(f"[QwenCodeCLIAgent] Parsed result: {agent_result.summary}")
-                logger.debug(f"[QwenCodeCLIAgent] Files created: {agent_result.files_created}")
-                logger.debug(f"[QwenCodeCLIAgent] Folders created: {agent_result.folders_created}")
-            except Exception as parse_error:
-                logger.error(
-                    f"[QwenCodeCLIAgent] Failed to parse agent response: {parse_error}",
-                    exc_info=True,
-                )
-                logger.debug(f"[QwenCodeCLIAgent] Full response text: {result_text}")
-                raise
+            # Parse response using ResponseFormatter
+            from src.bot.response_formatter import ResponseFormatter
+            formatter = ResponseFormatter()
+            parsed_result = formatter.parse(result_text)
+            
+            # Convert to markdown using ResponseFormatter
+            markdown_result = formatter.to_md(parsed_result)
+            
+            logger.info(f"[QwenCodeCLIAgent] Parsed result: {parsed_result.get('summary', '')}")
+            logger.debug(f"[QwenCodeCLIAgent] Files created: {parsed_result.get('files_created', [])}")
+            logger.debug(f"[QwenCodeCLIAgent] Folders created: {parsed_result.get('folders_created', [])}")
 
             # Step 4: Extract KB structure from response
             logger.debug("[QwenCodeCLIAgent] STEP 4: Extracting KB structure from response")
@@ -280,12 +280,13 @@ class QwenCodeCLIAgent(BaseAgent):
 
             # Step 5: Extract title from markdown
             logger.debug("[QwenCodeCLIAgent] STEP 5: Extracting title from markdown")
-            title = self._extract_title_from_markdown(agent_result.markdown)
+            title = self._extract_title_from_markdown(markdown_result)
 
             # Step 6: Extract TODO plan from markdown
             todo_plan = self._extract_todo_plan(result_text)
 
             # Step 7: Build final metadata
+            # Составляется только из известных значений, из parsed_result ничего не вытаскивается
             metadata = {
                 "processed_at": datetime.now().isoformat(),
                 "agent": "QwenCodeCLIAgent",
@@ -296,30 +297,25 @@ class QwenCodeCLIAgent(BaseAgent):
                     "git": self.enable_git,
                     "github": self.enable_github,
                 },
-                # Добавляем информацию о файлах из AgentResult
-                "files_created": agent_result.files_created,
-                "files_edited": agent_result.files_edited,
-                "folders_created": agent_result.folders_created,
                 "todo_plan": todo_plan,  # Add extracted TODO plan
-                **agent_result.metadata,  # Добавляем метаданные из ответа агента
             }
 
             # Validate we have content
-            if not agent_result.markdown.strip():
+            if not markdown_result.strip():
                 logger.error("No markdown content generated")
                 raise ValueError("Processing failed: no markdown content generated")
 
             result = {
-                "markdown": agent_result.markdown,
+                "markdown": markdown_result,
+                "parsed_result": parsed_result,
                 "metadata": metadata,
                 "title": title,
                 "kb_structure": kb_structure,
-                "answer": agent_result.answer,  # Include answer for ask mode
             }
 
             logger.info(f"[QwenCodeCLIAgent] Successfully processed content: title='{title}'")
-            logger.info(f"[QwenCodeCLIAgent] Summary: {agent_result.summary}")
-            logger.debug(f"[QwenCodeCLIAgent] Markdown preview: {agent_result.markdown[:200]}...")
+            logger.info(f"[QwenCodeCLIAgent] Summary: {parsed_result.get('summary', '')}")
+            logger.debug(f"[QwenCodeCLIAgent] Markdown preview: {markdown_result[:200]}...")
             return result
 
         except ValueError as ve:

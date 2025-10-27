@@ -1,4 +1,5 @@
 """
+# Deprecated!
 Stub Agent
 Simple placeholder agent for MVP testing
 """
@@ -10,7 +11,21 @@ from .base_agent import BaseAgent, KBStructure
 
 
 class StubAgent(BaseAgent):
-    """Stub agent for MVP - minimal processing and formatting"""
+    """Deprecated! Stub agent for MVP - minimal processing and formatting"""
+    
+    def __init__(self):
+        """Initialize StubAgent with ResponseFormatter prompt included in instruction."""
+        super().__init__()
+        
+        # Initialize ResponseFormatter to get its prompt text
+        from src.bot.response_formatter import ResponseFormatter
+        response_formatter = ResponseFormatter()
+        response_formatter_prompt = response_formatter.generate_prompt_text()
+        
+        # Combine the default instruction with the ResponseFormatter prompt
+        default_instruction_with_formatter = f"{self.__doc__}\n\n{response_formatter_prompt}"
+        
+        self.instruction = default_instruction_with_formatter
 
     async def process(self, content: Dict) -> Dict:
         """
@@ -31,7 +46,16 @@ class StubAgent(BaseAgent):
         # Create basic markdown structure
         markdown_content = self._format_markdown(text, urls)
 
+        # Parse the markdown content using ResponseFormatter
+        from src.bot.response_formatter import ResponseFormatter
+        formatter = ResponseFormatter()
+        parsed_result = formatter.parse(markdown_content)
+        
+        # Convert to markdown using ResponseFormatter
+        final_markdown = formatter.to_md(parsed_result)
+
         # Generate metadata
+        # Составляется только из известных значений, из parsed_result ничего не вытаскивается
         metadata = {
             "processed_at": datetime.now().isoformat(),
             "agent": "StubAgent",
@@ -42,7 +66,7 @@ class StubAgent(BaseAgent):
         kb_structure = self._determine_kb_structure(text, urls)
 
         return {
-            "markdown": markdown_content,
+            "markdown": final_markdown,
             "metadata": metadata,
             "title": BaseAgent.generate_title(text),
             "kb_structure": kb_structure,

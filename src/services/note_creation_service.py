@@ -10,6 +10,7 @@ from typing import Optional
 from loguru import logger
 
 from src.bot.bot_port import BotPort
+from src.bot.response_formatter import ResponseFormatter
 from src.bot.settings_manager import SettingsManager
 from src.core.rate_limiter import RateLimiter
 from src.knowledge_base.credentials_manager import CredentialsManager
@@ -218,8 +219,8 @@ class NoteCreationService(BaseKBService, INoteCreationService):
             )
 
             # Send success notification
-            await self._send_success_notification(
-                processing_msg_id, chat_id, kb_path, processed_content, user_id
+            await self._send_result(
+                processing_msg_id, chat_id, processed_content, kb_path, user_id
             )
 
     async def _save_to_kb(
@@ -307,72 +308,6 @@ class NoteCreationService(BaseKBService, INoteCreationService):
                 chat_id=chat_id,
                 status="completed",
             )
-
-    async def _send_success_notification(
-        self,
-        processing_msg_id: int,
-        chat_id: int,
-        kb_path: Path,
-        processed_content: dict,
-        user_id: int,
-    ) -> None:
-        """Send success notification"""
-        kb_structure = processed_content.get("kb_structure")
-        metadata = processed_content.get("metadata", {})
-
-        tags = kb_structure.tags if kb_structure else []
-        tags_str = ", ".join(tags) if tags else "нет"
-
-        # Формируем сообщение
-        message_parts = ["✅ Сообщение успешно обработано!\n", f"🏷 Теги: {tags_str}"]
-
-        # Добавляем информацию о созданных файлах из метаданных агента
-        files_created = metadata.get("files_created", [])
-        files_edited = metadata.get("files_edited", [])
-        folders_created = metadata.get("folders_created", [])
-
-        # AICODE-NOTE: Use base class methods for GitHub URL and file change formatting
-        github_base = self._get_github_base_url(kb_path, user_id)
-        kb_topics_only = self.settings_manager.get_setting(user_id, "KB_TOPICS_ONLY")
-
-        # Normalize created files for duplicate filtering
-        def _normalize_path_str(p: str) -> str:
-            # Normalize path separators to forward slashes and remove leading ./ or .\
-            return str(Path(p).as_posix()).replace("\\", "/").lstrip("./").lstrip(".\\")
-
-        files_created_norm = {_normalize_path_str(p) for p in files_created}
-        files_edited_unique = [
-            f for f in files_edited if _normalize_path_str(f) not in files_created_norm
-        ]
-
-        # AICODE-NOTE: Use base class method for file change formatting
-        file_change_parts = self._format_file_changes(
-            files_created,
-            files_edited_unique,
-            [],
-            folders_created,
-            github_base,
-            files_created_norm,
-            kb_topics_only,
-        )
-        message_parts.extend(file_change_parts)
-
-        # AICODE-NOTE: Use base class method for links/relations filtering and formatting
-        links = metadata.get("links", []) or metadata.get("relations", [])
-        link_parts = self._filter_and_format_links(
-            links, files_created, kb_path, github_base, kb_topics_only
-        )
-        message_parts.extend(link_parts)
-
-        from src.bot.utils import safe_edit_message_text
-        
-        await safe_edit_message_text(
-            self.bot,
-            "\n".join(message_parts),
-            chat_id=chat_id,
-            message_id=processing_msg_id,
-            parse_mode="Markdown",
-        )
 
     async def _send_error_notification(
         self, processing_msg_id: int, chat_id: int, error_message: str

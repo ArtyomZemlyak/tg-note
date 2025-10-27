@@ -11,17 +11,20 @@ from typing import Optional
 from loguru import logger
 
 from config.agent_prompts import get_ask_mode_instruction, get_kb_query_template
+from src.agents.base_agent import BaseAgent
 from src.bot.bot_port import BotPort
+from src.bot.response_formatter import ResponseFormatter
 from src.bot.settings_manager import SettingsManager
 from src.bot.utils import escape_markdown, split_long_message
 from src.core.rate_limiter import RateLimiter
 from src.knowledge_base.repository import RepositoryManager
 from src.processor.content_parser import ContentParser
 from src.processor.message_aggregator import MessageGroup
+from src.services.base_kb_service import BaseKBService
 from src.services.interfaces import IQuestionAnsweringService, IUserContextManager
 
 
-class QuestionAnsweringService(IQuestionAnsweringService):
+class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
     """
     Service for answering questions based on knowledge base (ask mode).
 
@@ -60,6 +63,7 @@ class QuestionAnsweringService(IQuestionAnsweringService):
         self.rate_limiter = rate_limiter
         self.content_parser = ContentParser()
         self.logger = logger
+        self.response_formatter = ResponseFormatter()
 
     async def answer_question(
         self, group: MessageGroup, processing_msg_id: int, chat_id: int, user_id: int, user_kb: dict
@@ -115,71 +119,20 @@ class QuestionAnsweringService(IQuestionAnsweringService):
             self.logger.info(
                 f"[ASK_SERVICE] Querying KB for user {user_id}, question: {question_text[:50]}..."
             )
-            answer = await self._query_kb(kb_path, question_text, user_id)
+            processed_content = await self._query_kb(kb_path, question_text, user_id)
 
             # Save assistant response to context
             import time
 
             response_timestamp = int(time.time())
             self.user_context_manager.add_assistant_message_to_context(
-                user_id, processing_msg_id, answer, response_timestamp
+                user_id, processing_msg_id, processed_content.get("markdown"), response_timestamp
             )
 
-            # Send answer - escape the answer text to prevent Markdown parsing errors
-            # Handle long messages by splitting them. Avoid pre-escaping to keep links clickable.
-            full_message = f"💡 Ответ:\n\n{answer}"
-            message_chunks = split_long_message(full_message)
-
-            try:
-                # Edit the processing message with the first chunk
-                await self.bot.edit_message_text(
-                    message_chunks[0],
-                    chat_id=chat_id,
-                    message_id=processing_msg_id,
-                    parse_mode="Markdown",
-                )
-
-                # If there are more chunks, send them as separate messages
-                for i, chunk in enumerate(message_chunks[1:], start=2):
-                    await self.bot.send_message(
-                        chat_id=chat_id,
-                        text=f"💡 Ответ (часть {i}/{len(message_chunks)}):\n\n{chunk}",
-                        parse_mode="Markdown",
-                    )
-
-            except Exception as e:
-                # If Markdown parsing still fails, send without formatting
-                if "can't parse entities" in str(e).lower():
-                    self.logger.warning(f"Markdown parsing failed, sending without formatting: {e}")
-
-                    # Try again without markdown formatting
-                    full_message_plain = f"💡 Ответ:\n\n{answer}"
-                    message_chunks_plain = split_long_message(full_message_plain)
-
-                    await self.bot.edit_message_text(
-                        message_chunks_plain[0],
-                        chat_id=chat_id,
-                        message_id=processing_msg_id,
-                        parse_mode=None,
-                    )
-
-                    # Send remaining chunks without markdown
-                    for i, chunk in enumerate(message_chunks_plain[1:], start=2):
-                        await self.bot.send_message(
-                            chat_id=chat_id,
-                            text=f"💡 Ответ (часть {i}/{len(message_chunks_plain)}):\n\n{chunk}",
-                            parse_mode=None,
-                        )
-                elif "MESSAGE_TOO_LONG" in str(e):
-                    # This shouldn't happen after splitting, but handle it just in case
-                    self.logger.error(f"Message still too long after splitting: {e}")
-                    await self.bot.edit_message_text(
-                        "❌ Ответ слишком длинный даже после разделения. Пожалуйста, попробуйте задать более конкретный вопрос.",
-                        chat_id=chat_id,
-                        message_id=processing_msg_id,
-                    )
-                else:
-                    raise
+            # Send success notification
+            await self._send_result(
+                processing_msg_id, chat_id, processed_content, kb_path, user_id
+            )
 
         except Exception as e:
             self.logger.error(f"Error in question processing: {e}", exc_info=True)
@@ -207,7 +160,7 @@ class QuestionAnsweringService(IQuestionAnsweringService):
             Answer text formatted for user
         """
         # Get user agent (thread-safe)
-        user_agent = await self.user_context_manager.get_or_create_agent(user_id)
+        user_agent: BaseAgent = await self.user_context_manager.get_or_create_agent(user_id)
 
         # Set working directory to user's KB for qwen-code-cli agent
         # Use KB_TOPICS_ONLY setting to determine if we should restrict to topics/ folder
@@ -241,7 +194,16 @@ class QuestionAnsweringService(IQuestionAnsweringService):
         original_instruction = None
         if hasattr(user_agent, "get_instruction") and hasattr(user_agent, "set_instruction"):
             original_instruction = user_agent.get_instruction()
-            user_agent.set_instruction(get_ask_mode_instruction("ru"))
+            ask_instr = get_ask_mode_instruction("ru")
+
+            from src.bot.response_formatter import ResponseFormatter
+            response_formatter = ResponseFormatter()
+            response_formatter_prompt = response_formatter.generate_prompt_text()
+
+            # Combine the default instruction with the ResponseFormatter prompt
+            ask_instr = ask_instr.format(response_format=response_formatter_prompt)
+
+            user_agent.set_instruction(ask_instr)
             self.logger.debug(f"Temporarily changed agent instruction to ask mode")
 
         # Get conversation context
@@ -281,21 +243,7 @@ class QuestionAnsweringService(IQuestionAnsweringService):
             self.logger.debug(f"[ASK_SERVICE] Processing query with agent for user {user_id}")
             response = await user_agent.process(query_content)
 
-            # Extract answer from response (priority: answer field, then markdown, then text)
-            # The 'answer' field contains the final formatted answer from agent-result block
-            answer = response.get("answer")
-
-            # Fallback to markdown or text if answer is not present
-            if not answer:
-                self.logger.warning(
-                    "Agent did not return 'answer' field, using markdown/text as fallback"
-                )
-                answer = response.get("markdown") or response.get("text", "")
-
-            if not answer:
-                raise ValueError("Agent did not return an answer")
-
-            return answer
+            return response
 
         except Exception as agent_error:
             self.logger.error(f"Agent query processing failed: {agent_error}", exc_info=True)
