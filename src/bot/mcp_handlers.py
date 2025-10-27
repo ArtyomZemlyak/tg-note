@@ -260,18 +260,21 @@ class MCPHandlers:
         # Create inline keyboard for actions
         keyboard = InlineKeyboardMarkup()
         keyboard.row_width = 1
-
+ 
+        # Add back button
+        keyboard.add(InlineKeyboardButton("« Назад", callback_data="mcp:back_to_main"))
+ 
         for server in sorted(all_servers, key=lambda s: s.name):
             status_icon = "✅" if server.enabled else "❌"
             status_text = "включен" if server.enabled else "отключен"
-
+ 
             lines.append(
                 f"{status_icon} **{escape_markdown(server.name)}**\n"
                 f"   {escape_markdown(server.description)}\n"
                 f"   Command: `{escape_markdown(server.command)}`\n"
                 f"   Status: {status_text}\n"
             )
-
+ 
             # Add toggle button
             if server.enabled:
                 keyboard.add(
@@ -285,7 +288,7 @@ class MCPHandlers:
                         f"🟢 Включить {server.name}", callback_data=f"mcp:enable:{server.name}"
                     )
                 )
-
+ 
         # Add refresh and add buttons
         keyboard.add(
             InlineKeyboardButton("🔄 Обновить", callback_data="mcp:list"),
@@ -564,6 +567,17 @@ class MCPHandlers:
                 await self.bot.answer_callback_query(call.id, "Отменено")
                 await self.bot.delete_message(call.message.chat.id, call.message.message_id)
 
+            elif action == "back_to_main":
+                # Return to main menu
+                await self.bot.answer_callback_query(call.id)
+                # Simulate /start command
+                message = call.message
+                message.from_user = call.from_user
+                message.text = "/start"
+                if self.handlers:
+                    await self.handlers.handle_start(message)
+                else:
+                    await self.bot.send_message(call.message.chat.id, "Main handlers not initialized")
             else:
                 await self.bot.answer_callback_query(call.id, "Неизвестное действие")
 

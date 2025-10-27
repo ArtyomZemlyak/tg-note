@@ -318,6 +318,17 @@ class SettingsHandlers:
                 setting_name = parts[2]
                 await self._reset_setting_callback(call, setting_name)
 
+            elif action == "back_to_main":
+                # Return to main menu
+                await self.bot.answer_callback_query(call.id)
+                # Simulate /start command
+                message = call.message
+                message.from_user = call.from_user
+                message.text = "/start"
+                if self.handlers:
+                    await self.handlers.handle_start(message)
+                else:
+                    await self.bot.send_message(call.message.chat.id, "Main handlers not initialized")
             else:
                 await self.bot.answer_callback_query(call.id, "Unknown action")
 
@@ -406,7 +417,10 @@ class SettingsHandlers:
 
         # Create keyboard with setting buttons
         keyboard = InlineKeyboardMarkup()
-
+ 
+        # Add back button
+        keyboard.add(InlineKeyboardButton("« Назад", callback_data="settings:back_to_main"))
+ 
         for name, value in sorted(settings_dict.items()):
             info = self.inspector.get_setting_info(name)
             if info and not info.is_secret and not info.is_readonly:
@@ -414,12 +428,12 @@ class SettingsHandlers:
                     value_str = "✅" if value else "❌"
                 else:
                     value_str = str(value)[:20]  # Truncate long values
-
+ 
                 button_text = f"{name}: {value_str}"
                 keyboard.add(
                     InlineKeyboardButton(button_text, callback_data=f"settings:setting:{name}")
                 )
-
+ 
         keyboard.add(InlineKeyboardButton("« Back to Menu", callback_data="settings:menu"))
 
         text = "\n".join(lines)
@@ -546,7 +560,10 @@ class SettingsHandlers:
 
         # Create keyboard
         keyboard = InlineKeyboardMarkup()
-
+ 
+        # Add back button
+        keyboard.add(InlineKeyboardButton("« Назад", callback_data="settings:back_to_main"))
+ 
         # For boolean settings, add toggle buttons
         if info.type == bool or (
             hasattr(info.type, "__origin__")
@@ -561,7 +578,7 @@ class SettingsHandlers:
                     "❌ Disable", callback_data=f"settings:set:{setting_name}:false"
                 ),
             )
-
+ 
         # Add reset and back buttons
         keyboard.add(
             InlineKeyboardButton(

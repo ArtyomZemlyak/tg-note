@@ -237,10 +237,27 @@ class BotHandlers:
 
         welcome_text += f"{mode_emoji} **Режим:** {mode_name}\n\n"
         welcome_text += "Выберите действие из меню ниже:"
-
-        await self.bot.send_message(
-            message.chat.id, welcome_text, reply_markup=keyboard, parse_mode="Markdown"
-        )
+ 
+        # Store the main menu message ID for future edits
+        self._main_menu_message_id = message.message_id
+        self._main_menu_chat_id = message.chat.id
+ 
+        try:
+            await self.bot.edit_message_text(
+                welcome_text,
+                message.chat.id,
+                message.message_id,
+                reply_markup=keyboard,
+                parse_mode="Markdown",
+            )
+        except Exception:
+            # If editing fails (e.g., message not found), send a new message
+            sent_message = await self.bot.send_message(
+                message.chat.id, welcome_text, reply_markup=keyboard, parse_mode="Markdown"
+            )
+            # Update stored message ID for future edits
+            self._main_menu_message_id = sent_message.message_id
+            self._main_menu_chat_id = sent_message.chat.id
 
     async def handle_start_callback(self, call: CallbackQuery) -> None:
         """Handle callback queries from start menu"""
@@ -323,6 +340,10 @@ class BotHandlers:
                 message.from_user = call.from_user
                 message.text = "/help"
                 await self.handle_help(message)
+            elif action == "back_to_main":
+                # Return to main menu
+                await self.bot.answer_callback_query(call.id)
+                await self.handle_start(call.message)
 
             else:
                 await self.bot.answer_callback_query(call.id, "Unknown action")
@@ -334,18 +355,21 @@ class BotHandlers:
     async def _show_mode_menu(self, call: CallbackQuery) -> None:
         """Show mode selection menu"""
         current_mode = self.user_context_manager.get_user_mode(call.from_user.id)
-
+ 
         keyboard = InlineKeyboardMarkup()
         keyboard.row_width = 1
-
+ 
+        # Add back button
+        keyboard.add(InlineKeyboardButton("« Назад", callback_data="start:back_to_main"))
+ 
         modes = [
             ("note", "📝 Создание базы знаний", "Сообщения анализируются и сохраняются в БЗ"),
             ("ask", "🤔 Вопросы по БЗ", "Задавайте вопросы о содержимом БЗ"),
             ("agent", "🤖 Агент (полный доступ)", "Агент может выполнять любые задачи с БЗ"),
         ]
-
+ 
         text_lines = ["🔄 **Выбор режима работы**\n"]
-
+ 
         for mode_id, mode_name, mode_desc in modes:
             if mode_id == current_mode:
                 text_lines.append(f"✅ **{mode_name}** (текущий)")
@@ -358,9 +382,9 @@ class BotHandlers:
                         f"➡️ {mode_name}", callback_data=f"start:set_mode:{mode_id}"
                     )
                 )
-
+ 
         text = "\n".join(text_lines)
-
+ 
         try:
             await self.bot.edit_message_text(
                 text,
@@ -373,7 +397,7 @@ class BotHandlers:
             await self.bot.send_message(
                 call.message.chat.id, text, reply_markup=keyboard, parse_mode="Markdown"
             )
-
+ 
         await self.bot.answer_callback_query(call.id)
 
     async def _set_mode(self, call: CallbackQuery, mode: str) -> None:
@@ -406,18 +430,21 @@ class BotHandlers:
         """Show context management menu"""
         keyboard = InlineKeyboardMarkup()
         keyboard.row_width = 1
-
+ 
+        # Add back button
+        keyboard.add(InlineKeyboardButton("« Назад", callback_data="start:back_to_main"))
+ 
         keyboard.add(
             InlineKeyboardButton("🔄 Сбросить контекст", callback_data="start:reset_context"),
         )
-
+ 
         menu_text = (
             "💬 **Управление контекстом**\n\n"
             "Бот запоминает предыдущие сообщения для более точных ответов.\n\n"
             "**Сброс контекста** очищает историю разговора и начинает новый диалог с чистого листа.\n\n"
             "Настройки контекста доступны в разделе ⚙️ Настройки."
         )
-
+ 
         try:
             await self.bot.edit_message_text(
                 menu_text,
@@ -430,7 +457,7 @@ class BotHandlers:
             await self.bot.send_message(
                 call.message.chat.id, menu_text, reply_markup=keyboard, parse_mode="Markdown"
             )
-
+ 
         await self.bot.answer_callback_query(call.id)
 
     async def _reset_context(self, call: CallbackQuery) -> None:
