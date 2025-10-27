@@ -19,6 +19,20 @@ from src.services.interfaces import IMessageProcessor, IUserContextManager
 from src.tracker.processing_tracker import ProcessingTracker
 
 
+def _escape_html(text: str) -> str:
+    """Escape HTML special characters for Telegram HTML parsing mode"""
+    if not text:
+        return text
+    
+    # Replace HTML special characters
+    text = text.replace("&", "&amp;")
+    text = text.replace("<", "&lt;")
+    text = text.replace(">", "&gt;")
+    text = text.replace('"', "&quot;")
+    text = text.replace("'", "&#x27;")
+    return text
+
+
 class BotHandlers:
     """
     Telegram bot message handlers (refactored with SOLID principles)
@@ -225,7 +239,7 @@ class BotHandlers:
 
         if user_kb:
             kb_type_emoji = "🌐" if user_kb["kb_type"] == "github" else "📁"
-            welcome_text += f"{kb_type_emoji} **Текущая БЗ:** {user_kb['kb_name']}\n"
+            welcome_text += f"{kb_type_emoji} **Текущая БЗ:** {_escape_html(user_kb['kb_name'])}\n"
         else:
             welcome_text += "⚠️ **База знаний не настроена**\n" "Начните с создания базы знаний!\n\n"
 
