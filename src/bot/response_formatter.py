@@ -316,7 +316,7 @@ class LinksField(BaseField):
 class ResponseFormatter:
     """Class to represent and generate response format for agent prompts."""
     
-    def __init__(self, github_url: str):
+    def __init__(self, github_url: str = None):
         self.fields: list[BaseField] = [
             SummaryField(),
             AnswerField(),
