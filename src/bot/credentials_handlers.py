@@ -92,7 +92,7 @@ class CredentialsHandlers:
             "• GitHub: Settings → Developer settings → Personal access tokens\n"
             "• GitLab: Settings → Access Tokens\n\n"
             "Требуемые права доступа: `repo` или `write_repository`",
-            parse_mode="Markdown",
+            parse_mode="HTML",
             reply_markup=keyboard,
         )
 
@@ -110,7 +110,7 @@ class CredentialsHandlers:
 
         if not credentials:
             await self.bot.send_message(
-                user_id, "ℹ️ У вас нет сохраненных токенов.", parse_mode="Markdown"
+                user_id, "ℹ️ У вас нет сохраненных токенов.", parse_mode="HTML"
             )
             return
 
@@ -136,7 +136,7 @@ class CredentialsHandlers:
             user_id,
             "🔐 *Удаление Git Credentials*\n\n"
             "Выберите платформу, токен которой нужно удалить:",
-            parse_mode="Markdown",
+            parse_mode="HTML",
             reply_markup=keyboard,
         )
 
@@ -157,7 +157,7 @@ class CredentialsHandlers:
                 user_id,
                 "ℹ️ У вас нет сохраненных токенов.\n\n"
                 "Используйте `/settoken` чтобы добавить токен.",
-                parse_mode="Markdown",
+                parse_mode="HTML",
             )
             return
 
@@ -180,7 +180,7 @@ class CredentialsHandlers:
             "только для Git операций._"
         )
 
-        await self.bot.send_message(user_id, "\n".join(lines), parse_mode="Markdown")
+        await self.bot.send_message(user_id, "\n".join(lines), parse_mode="HTML")
 
     async def handle_credentials_callback(self, call: CallbackQuery) -> None:
         """Handle callback queries for credentials management"""
@@ -228,7 +228,7 @@ class CredentialsHandlers:
             f"_Пример: john_doe_",
             chat_id=call.message.chat.id,
             message_id=call.message.message_id,
-            parse_mode="Markdown",
+            parse_mode="HTML",
         )
 
         await self.async_bot.answer_callback_query(call.id)
@@ -334,7 +334,7 @@ class CredentialsHandlers:
                 f"_💡 Где получить токен:_\n"
                 f"• GitHub: https://github.com/settings/tokens\n"
                 f"• GitLab: https://gitlab.com/-/profile/personal_access_tokens",
-                parse_mode="Markdown",
+                parse_mode="HTML",
             )
 
         elif state == "awaiting_token":
@@ -364,7 +364,7 @@ class CredentialsHandlers:
                     f"Token: ✅ Сохранен и зашифрован\n\n"
                     f"Токен будет автоматически использоваться при работе "
                     f"с Git репозиториями на {platform_name}.",
-                    parse_mode="Markdown",
+                    parse_mode="HTML",
                 )
                 self.logger.info(
                     f"Successfully saved {platform} credentials for user {user_id} "
@@ -375,7 +375,7 @@ class CredentialsHandlers:
                     user_id,
                     f"❌ Ошибка при сохранении {platform_name} токена.\n\n"
                     f"Попробуйте еще раз с помощью команды `/settoken`.",
-                    parse_mode="Markdown",
+                    parse_mode="HTML",
                 )
 
             # Clear pending state

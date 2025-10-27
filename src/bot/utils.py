@@ -108,7 +108,7 @@ def sanitize_for_telegram(text: str, parse_mode: str = "Markdown") -> str:
         return text
 
 
-async def safe_send_message(bot, chat_id: int, text: str, parse_mode: str = "Markdown", **kwargs):
+async def safe_send_message(bot, chat_id: int, text: str, parse_mode: str = "HTML", **kwargs):
     """
     Safely send a message, falling back to no parse mode if formatting fails
 
@@ -137,7 +137,7 @@ async def safe_send_message(bot, chat_id: int, text: str, parse_mode: str = "Mar
 
 
 async def safe_edit_message_text(
-    bot, text: str, chat_id: int, message_id: int, parse_mode: str = "Markdown", **kwargs
+    bot, text: str, chat_id: int, message_id: int, parse_mode: str = "HTML", **kwargs
 ):
     """
     Safely edit a message, falling back to no parse mode if formatting fails

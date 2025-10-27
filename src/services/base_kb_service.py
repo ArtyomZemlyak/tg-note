@@ -289,192 +289,6 @@ class BaseKBService:
         except Exception:
             return None
 
-    def _format_file_changes(
-        self,
-        files_created: list,
-        files_edited: list,
-        files_deleted: list,
-        folders_created: list,
-        github_base: Optional[str],
-        files_created_norm: set = None,
-        kb_topics_only: bool = False,
-    ) -> list[str]:
-        """
-        Format file changes for display in user notification.
-
-        Args:
-            files_created: List of created files
-            files_edited: List of edited files
-            files_deleted: List of deleted files
-            folders_created: List of created folders
-            github_base: GitHub base URL for links (optional)
-            files_created_norm: Set of normalized created file paths (to filter duplicates)
-            kb_topics_only: Whether KB_TOPICS_ONLY is enabled (to add topics/ prefix)
-
-        Returns:
-            List of message parts
-        """
-        message_parts = []
-
-        # Remove duplication: if file is created, don't show it in edited
-        if files_created_norm:
-            files_edited = [f for f in files_edited if f not in files_created_norm]
-
-        if files_created or files_edited or files_deleted or folders_created:
-            message_parts.append("\n📝 Изменения:")
-
-            if files_created:
-                message_parts.append(f"  ✨ Создано файлов: {len(files_created)}")
-                for file in files_created[:5]:  # Show first 5
-                    if github_base:
-                        # Add topics/ prefix if KB_TOPICS_ONLY is true
-                        github_path = f"topics/{file}" if kb_topics_only else file
-                        # Escape special characters in the URL for Telegram markdown
-                        escaped_file = escape_markdown(file)
-                        escaped_url = escape_markdown_url(f"{github_base}/{github_path}")
-                        # Use markdown link format for clickable links in Telegram
-                        message_parts.append(f"    • [{escaped_file}]({escaped_url})")
-                    else:
-                        message_parts.append(f"    • {file}")
-                if len(files_created) > 5:
-                    message_parts.append(f"    • ... и ещё {len(files_created) - 5}")
-
-            if files_edited:
-                message_parts.append(f"  ✏️ Изменено файлов: {len(files_edited)}")
-                for file in files_edited[:5]:  # Show first 5
-                    if github_base:
-                        # Add topics/ prefix if KB_TOPICS_ONLY is true
-                        github_path = f"topics/{file}" if kb_topics_only else file
-                        # Escape special characters in the URL for Telegram markdown
-                        escaped_file = escape_markdown(file)
-                        escaped_url = escape_markdown_url(f"{github_base}/{github_path}")
-                        # Use markdown link format for clickable links in Telegram
-                        message_parts.append(f"    • [{escaped_file}]({escaped_url})")
-                    else:
-                        message_parts.append(f"    • {file}")
-                if len(files_edited) > 5:
-                    message_parts.append(f"    • ... и ещё {len(files_edited) - 5}")
-
-            if files_deleted:
-                message_parts.append(f"  🗑️ Удалено файлов: {len(files_deleted)}")
-                for file in files_deleted[:5]:  # Show first 5
-                    message_parts.append(f"    • {file}")
-                if len(files_deleted) > 5:
-                    message_parts.append(f"    • ... и ещё {len(files_deleted) - 5}")
-
-            if folders_created:
-                message_parts.append(f"  📁 Создано папок: {len(folders_created)}")
-                for folder in folders_created[:5]:  # Show first 5
-                    if github_base:
-                        # Add topics/ prefix if KB_TOPICS_ONLY is true
-                        github_path = f"topics/{folder}" if kb_topics_only else folder
-                        # Escape special characters in the URL for Telegram markdown
-                        escaped_folder = escape_markdown(folder)
-                        escaped_url = escape_markdown_url(f"{github_base}/{github_path}")
-                        # Use markdown link format for clickable links in Telegram
-                        message_parts.append(f"    • [{escaped_folder}]({escaped_url})")
-                    else:
-                        message_parts.append(f"    • {folder}")
-                if len(folders_created) > 5:
-                    message_parts.append(f"    • ... и ещё {len(folders_created) - 5}")
-
-        return message_parts
-
-    def _filter_and_format_links(
-        self,
-        links: list,
-        files_created: list,
-        kb_path: Path,
-        github_base: Optional[str],
-        kb_topics_only: bool = False,
-    ) -> list[str]:
-        """
-        Filter and format links/relations for display.
-
-        AICODE-NOTE: Filters out self-references (links to files created in same run)
-        to avoid cluttering the output with redundant information.
-
-        Args:
-            links: List of links/relations
-            files_created: List of created files (to filter out)
-            kb_path: Path to knowledge base
-            github_base: GitHub base URL for links (optional)
-            kb_topics_only: Whether KB_TOPICS_ONLY is enabled (to add topics/ prefix)
-
-        Returns:
-            List of formatted message parts
-        """
-        message_parts = []
-
-        if not links:
-            return message_parts
-
-        # Normalize paths for reliable comparison
-        def _normalize_path_str(p: str) -> str:
-            # Normalize path separators to forward slashes and remove leading ./ or .\
-            return str(Path(p).as_posix()).replace("\\", "/").lstrip("./").lstrip(".\\")
-
-        files_created_norm = {_normalize_path_str(p) for p in files_created}
-
-        def _is_created_here(target: str) -> bool:
-            return _normalize_path_str(target) in files_created_norm
-
-        # Filter out self-references
-        filtered_links = []
-        for link in links:
-            if isinstance(link, dict):
-                target_file = link.get("file", "")
-                if target_file and _is_created_here(target_file):
-                    continue
-                filtered_links.append(link)
-            else:
-                # String links - filter if they explicitly point to created file
-                if isinstance(link, str) and _is_created_here(link):
-                    continue
-                filtered_links.append(link)
-
-        if not filtered_links:
-            return message_parts
-
-        message_parts.append("\n🔗 Связи:")
-        for link in filtered_links[:10]:  # Show first 10
-            if isinstance(link, dict):
-                # If link is dict with 'file' and 'description' fields
-                file_path = link.get("file", "")
-                description = link.get("description", "")
-                if file_path:
-                    if not description:
-                        # Try to extract title from file as brief explanation
-                        try:
-                            abs_path = Path(file_path)
-                            if not abs_path.is_absolute():
-                                abs_path = kb_path / file_path
-                            title = self._extract_title_from_file(abs_path) or abs_path.stem
-                            description = f'связь с "{title}"'
-                        except Exception:
-                            description = "связанная тема"
-                    if github_base:
-                        # Add topics/ prefix if KB_TOPICS_ONLY is true
-                        github_path = f"topics/{file_path}" if kb_topics_only else file_path
-                        # Escape special characters in the URL for Telegram markdown
-                        escaped_file_path = escape_markdown(file_path)
-                        escaped_url = escape_markdown_url(f"{github_base}/{github_path}")
-                        escaped_description = escape_markdown(description)
-                        # Use markdown link format for clickable links in Telegram
-                        message_parts.append(
-                            f"  • [{escaped_file_path}]({escaped_url}) - {escaped_description}"
-                        )
-                    else:
-                        message_parts.append(f"  • {file_path} - {description}")
-            else:
-                # If link is just a string
-                message_parts.append(f"  • {link}")
-
-        if len(filtered_links) > 10:
-            message_parts.append(f"  • ... и ещё {len(filtered_links) - 10}")
-
-        return message_parts
-
     def _extract_title_from_file(self, file_path: Path) -> Optional[str]:
         """
         Extract title from markdown file (first # heading or frontmatter).
@@ -607,7 +421,7 @@ class BaseKBService:
             github_base = f"{github_base}/topics"
         
         response_formatter = ResponseFormatter(github_base)
-        full_message = response_formatter.to_md(result.get("parsed_result"))
+        full_message = response_formatter.to_html(result.get("parsed_result"))
 
         # Handle long messages by splitting them. We avoid pre-escaping here to keep links clickable.
         message_chunks = split_long_message(full_message)
@@ -616,7 +430,7 @@ class BaseKBService:
             message_chunks[0],
             chat_id=chat_id,
             message_id=processing_msg_id,
-            parse_mode="Markdown",
+            parse_mode="HTML",
         )
 
         # If edit failed (e.g., timeout), send as new message
@@ -624,7 +438,7 @@ class BaseKBService:
             await self.bot.send_message(
                 chat_id=chat_id,
                 text=f"✅ Результат:\n\n{message_chunks[0]}",
-                parse_mode="Markdown",
+                parse_mode="HTML",
             )
 
         # If there are more chunks, send them as separate messages
@@ -632,6 +446,6 @@ class BaseKBService:
             await self.bot.send_message(
                 chat_id=chat_id,
                 text=f"💡 (часть {i}/{len(message_chunks)}):\n\n{chunk}",
-                parse_mode="Markdown",
+                parse_mode="HTML",
             )
 

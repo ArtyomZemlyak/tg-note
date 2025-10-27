@@ -98,7 +98,7 @@ class SettingsHandlers:
         )
 
         await self.bot.send_message(
-            message.chat.id, menu_text, reply_markup=keyboard, parse_mode="Markdown"
+            message.chat.id, menu_text, reply_markup=keyboard, parse_mode="HTML"
         )
 
     async def handle_view_settings(self, message: Message) -> None:
@@ -155,9 +155,9 @@ class SettingsHandlers:
         if len(text) > 4000:
             chunks = self._split_message(text, 4000)
             for chunk in chunks:
-                await self.bot.send_message(message.chat.id, chunk, parse_mode="Markdown")
+                await self.bot.send_message(message.chat.id, chunk, parse_mode="HTML")
         else:
-            await self.bot.send_message(message.chat.id, text, parse_mode="Markdown")
+            await self.bot.send_message(message.chat.id, text, parse_mode="HTML")
 
     async def handle_reset_setting(self, message: Message) -> None:
         """Handle /resetsetting command - reset setting to default"""
@@ -176,7 +176,7 @@ class SettingsHandlers:
                 "/resetsetting KB_GIT_ENABLED\n"
                 "```"
             )
-            await self.bot.reply_to(message, help_text, parse_mode="Markdown")
+            await self.bot.reply_to(message, help_text, parse_mode="HTML")
             return
 
         setting_name = args[1].strip().upper()
@@ -232,7 +232,7 @@ class SettingsHandlers:
         text = "\n".join(lines)
 
         await self.bot.send_message(
-            message.chat.id, text, reply_markup=keyboard, parse_mode="Markdown"
+            message.chat.id, text, reply_markup=keyboard, parse_mode="HTML"
         )
 
     async def handle_agent_settings(self, message: Message) -> None:
@@ -278,7 +278,7 @@ class SettingsHandlers:
         text = "\n".join(lines)
 
         await self.bot.send_message(
-            message.chat.id, text, reply_markup=keyboard, parse_mode="Markdown"
+            message.chat.id, text, reply_markup=keyboard, parse_mode="HTML"
         )
 
     async def handle_settings_callback(self, call: CallbackQuery) -> None:
@@ -374,7 +374,7 @@ class SettingsHandlers:
                 call.message.chat.id,
                 call.message.message_id,
                 reply_markup=keyboard,
-                parse_mode="Markdown",
+                parse_mode="HTML",
             )
         except Exception as e:
             # If Markdown parsing fails, send without formatting
@@ -444,7 +444,7 @@ class SettingsHandlers:
                 call.message.chat.id,
                 call.message.message_id,
                 reply_markup=keyboard,
-                parse_mode="Markdown",
+                parse_mode="HTML",
             )
         except Exception as e:
             # If Markdown parsing fails, send without formatting
@@ -595,7 +595,7 @@ class SettingsHandlers:
                 call.message.chat.id,
                 call.message.message_id,
                 reply_markup=keyboard,
-                parse_mode="Markdown",
+                parse_mode="HTML",
             )
         except Exception as e:
             # If Markdown parsing fails, send without formatting
@@ -628,7 +628,7 @@ class SettingsHandlers:
                 f"Note: Forwarded messages will be added to knowledge base instead.\n"
                 f"Send /cancel to cancel."
             )
-            await self.bot.send_message(call.message.chat.id, prompt_text, parse_mode="Markdown")
+            await self.bot.send_message(call.message.chat.id, prompt_text, parse_mode="HTML")
 
         await self.bot.answer_callback_query(call.id)
 

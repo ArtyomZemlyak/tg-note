@@ -263,8 +263,6 @@ class NoteCreationService(BaseKBService, INoteCreationService):
 
         # Get files created/edited by agent
         files_created = metadata.get("files_created", [])
-        files_edited = metadata.get("files_edited", [])
-        folders_created = metadata.get("folders_created", [])
 
         # Agent может ничего не создать - это нормально
         # (например, агент просто проанализировал и решил, что создавать нечего)

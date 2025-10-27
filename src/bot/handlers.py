@@ -248,12 +248,12 @@ class BotHandlers:
                 message.chat.id,
                 message.message_id,
                 reply_markup=keyboard,
-                parse_mode="Markdown",
+                parse_mode="HTML",
             )
         except Exception:
             # If editing fails (e.g., message not found), send a new message
             sent_message = await self.bot.send_message(
-                message.chat.id, welcome_text, reply_markup=keyboard, parse_mode="Markdown"
+                message.chat.id, welcome_text, reply_markup=keyboard, parse_mode="HTML"
             )
             # Update stored message ID for future edits
             self._main_menu_message_id = sent_message.message_id
@@ -391,11 +391,11 @@ class BotHandlers:
                 call.message.chat.id,
                 call.message.message_id,
                 reply_markup=keyboard,
-                parse_mode="Markdown",
+                parse_mode="HTML",
             )
         except Exception:
             await self.bot.send_message(
-                call.message.chat.id, text, reply_markup=keyboard, parse_mode="Markdown"
+                call.message.chat.id, text, reply_markup=keyboard, parse_mode="HTML"
             )
  
         await self.bot.answer_callback_query(call.id)
@@ -451,11 +451,11 @@ class BotHandlers:
                 call.message.chat.id,
                 call.message.message_id,
                 reply_markup=keyboard,
-                parse_mode="Markdown",
+                parse_mode="HTML",
             )
         except Exception:
             await self.bot.send_message(
-                call.message.chat.id, menu_text, reply_markup=keyboard, parse_mode="Markdown"
+                call.message.chat.id, menu_text, reply_markup=keyboard, parse_mode="HTML"
             )
  
         await self.bot.answer_callback_query(call.id)

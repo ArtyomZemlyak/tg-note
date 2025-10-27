@@ -114,7 +114,7 @@ class MCPHandlers:
                 "Отправьте /cancel для отмены."
             )
 
-            await self.bot.reply_to(message, help_text, parse_mode="Markdown")
+            await self.bot.reply_to(message, help_text, parse_mode="HTML")
             if self._hub_base:
                 await self.bot.send_message(
                     message.chat.id,
@@ -202,7 +202,7 @@ class MCPHandlers:
                 message,
                 f"❌ Ошибка: {escape_markdown(str(e))}\n\n"
                 "Пожалуйста, проверьте синтаксис JSON и попробуйте снова.",
-                parse_mode="Markdown",
+                parse_mode="HTML",
             )
 
     async def handle_list_mcp_servers(self, message: Message) -> None:
@@ -298,7 +298,7 @@ class MCPHandlers:
         text = "\n".join(lines)
 
         await self.bot.send_message(
-            message.chat.id, text, reply_markup=keyboard, parse_mode="Markdown"
+            message.chat.id, text, reply_markup=keyboard, parse_mode="HTML"
         )
 
     async def handle_mcp_status(self, message: Message) -> None:
@@ -334,7 +334,7 @@ class MCPHandlers:
             "Используйте /listmcpservers для просмотра деталей."
         )
 
-        await self.bot.reply_to(message, status_text, parse_mode="Markdown")
+        await self.bot.reply_to(message, status_text, parse_mode="HTML")
 
     async def handle_enable_mcp(self, message: Message) -> None:
         """Handle /enablemcp command - enable an MCP server"""
@@ -348,7 +348,7 @@ class MCPHandlers:
                 "❌ Использование: `/enablemcp <имя_сервера>`\n\n"
                 "Пример: `/enablemcp my-server`\n\n"
                 "Используйте /listmcpservers для просмотра доступных серверов.",
-                parse_mode="Markdown",
+                parse_mode="HTML",
             )
             return
 
@@ -372,14 +372,14 @@ class MCPHandlers:
             await self.bot.reply_to(
                 message,
                 f"✅ MCP server `{escape_markdown(server_name)}` enabled!",
-                parse_mode="Markdown",
+                parse_mode="HTML",
             )
         else:
             await self.bot.reply_to(
                 message,
                 f"❌ Не удалось включить сервер `{escape_markdown(server_name)}`.\n"
                 f"Сервер может не существовать. Используйте /listmcpservers для просмотра доступных серверов.",
-                parse_mode="Markdown",
+                parse_mode="HTML",
             )
 
     async def handle_disable_mcp(self, message: Message) -> None:
@@ -425,7 +425,7 @@ class MCPHandlers:
                 message,
                 f"❌ Не удалось отключить сервер `{escape_markdown(server_name)}`.\n"
                 f"Сервер может не существовать. Используйте /listmcpservers для просмотра доступных серверов.",
-                parse_mode="Markdown",
+                parse_mode="HTML",
             )
 
     async def handle_remove_mcp(self, message: Message) -> None:
@@ -441,7 +441,7 @@ class MCPHandlers:
                 "Пример: `/removemcp my-server`\n\n"
                 "⚠️ Это приведет к безвозвратному удалению конфигурации сервера.\n"
                 "Используйте /listmcpservers для просмотра доступных серверов.",
-                parse_mode="Markdown",
+                parse_mode="HTML",
             )
             return
 
@@ -455,7 +455,7 @@ class MCPHandlers:
                 message,
                 f"❌ Сервер `{escape_markdown(server_name)}` не найден.\n"
                 f"Используйте /listmcpservers для просмотра доступных серверов.",
-                parse_mode="Markdown",
+                parse_mode="HTML",
             )
             return
 
@@ -475,7 +475,7 @@ class MCPHandlers:
             f"Описание: {escape_markdown(server.description)}\n"
             f"Это действие нельзя отменить.",
             reply_markup=keyboard,
-            parse_mode="Markdown",
+            parse_mode="HTML",
         )
 
     async def handle_mcp_callback(self, call: CallbackQuery) -> None:
@@ -641,7 +641,7 @@ class MCPHandlers:
                 call.message.chat.id,
                 call.message.message_id,
                 reply_markup=keyboard,
-                parse_mode="Markdown",
+                parse_mode="HTML",
             )
         except Exception as e:
             # If Markdown parsing fails, send without formatting

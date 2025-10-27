@@ -29,20 +29,36 @@ class BaseField:
         """
         return response_data.get(self.name, "")
     
-    def to_md(self, value: Any) -> str:
-        """
-        Convert field value to markdown format.
-        
-        Args:
-            value: Field value to convert
-            
-        Returns:
-            str: Markdown formatted string
-        """
-        if value is None:
-            return ""
-        return str(value)
+    def to_html(self, value: Any) -> str:
+       """
+       Convert field value to HTML format.
+       
+       Args:
+           value: Field value to convert
+           
+       Returns:
+           str: HTML formatted string
+       """
+       if value is None:
+           return ""
+       # For simple text values, we need to escape HTML special characters
+       text_value = str(value)
+       return self._escape_html(text_value)
     
+    def to_md(self, value: Any) -> str:
+       """
+       Convert field value to markdown format.
+       
+       Args:
+           value: Field value to convert
+           
+       Returns:
+           str: Markdown formatted string
+       """
+       if value is None:
+           return ""
+       return str(value)
+     
     def generate_example(self):
         """
         Generate example value for the field.
@@ -51,6 +67,28 @@ class BaseField:
             Example value for the field
         """
         return self.text
+    
+    def _escape_html(self, text: str) -> str:
+       """
+       Escape special HTML characters in text.
+       
+       Args:
+           text: Text to escape
+           
+       Returns:
+           str: Escaped text
+       """
+       if not text:
+           return ""
+       # Escape &, <, >, ", '
+       html_escape_table = {
+           "&": "&",
+           "<": "<",
+           ">": ">",
+           '"': "\"",
+           "'": "&#x27;",
+       }
+       return "".join(html_escape_table.get(c, c) for c in text)
 
 
 class SummaryField(BaseField):
@@ -94,28 +132,55 @@ class FilesCreatedField(BaseField):
         # Implementation will be similar to _format_file_changes for created files
         return files_created
     
+    def to_html(self, value: Any) -> str:
+       """
+       Convert files created list to HTML format.
+       
+       Args:
+           value: List of created files
+           
+       Returns:
+           str: HTML formatted string
+       """
+       if not value:
+           return ""
+       
+       lines = ["<p><strong>✅ Созданные файлы:</strong></p>", "<ul>"]
+       for file_path in value:
+           # For HTML, we need to escape special characters
+           escaped_file_path = self._escape_html(file_path)
+           if self.github_url:
+               url = f"{self.github_url}/{file_path}"
+               # URL should be escaped too
+               escaped_url = self._escape_html(url)
+               lines.append(f'<li><a href="{escaped_url}">{escaped_file_path}</a></li>')
+           else:
+               lines.append(f"<li>{escaped_file_path}</li>")
+       lines.append("</ul>")
+       return "\n".join(lines)
+    
     def to_md(self, value: Any) -> str:
-        """
-        Convert files created list to markdown format.
-        
-        Args:
-            value: List of created files
-            
-        Returns:
-            str: Markdown formatted string
-        """
-        if not value:
-            return ""
-        
-        lines = ["✅ Созданные файлы:"]
-        for file_path in value:
-            file_path = escape_markdown_url(file_path)
-            if self.github_url:
-                url = escape_markdown_url(f"{self.github_url}/{file_path}")
-                lines.append(f"- [{file_path}]({url})")
-            else:
-                lines.append(f"- {file_path}")
-        return "\n".join(lines)
+       """
+       Convert files created list to markdown format.
+       
+       Args:
+           value: List of created files
+           
+       Returns:
+           str: Markdown formatted string
+       """
+       if not value:
+           return ""
+       
+       lines = ["✅ Созданные файлы:"]
+       for file_path in value:
+           file_path = escape_markdown_url(file_path)
+           if self.github_url:
+               url = escape_markdown_url(f"{self.github_url}/{file_path}")
+               lines.append(f"- [{file_path}]({url})")
+           else:
+               lines.append(f"- {file_path}")
+       return "\n".join(lines)
 
 
 class FilesEditedField(BaseField):
@@ -139,28 +204,55 @@ class FilesEditedField(BaseField):
         # Implementation will be similar to _format_file_changes for edited files
         return files_edited
     
+    def to_html(self, value: Any) -> str:
+       """
+       Convert files edited list to HTML format.
+       
+       Args:
+           value: List of edited files
+           
+       Returns:
+           str: HTML formatted string
+       """
+       if not value:
+           return ""
+       
+       lines = ["<p><strong>✏️ Отредактированные файлы:</strong></p>", "<ul>"]
+       for file_path in value:
+           # For HTML, we need to escape special characters
+           escaped_file_path = self._escape_html(file_path)
+           if self.github_url:
+               url = f"{self.github_url}/{file_path}"
+               # URL should be escaped too
+               escaped_url = self._escape_html(url)
+               lines.append(f'<li><a href="{escaped_url}">{escaped_file_path}</a></li>')
+           else:
+               lines.append(f"<li>{escaped_file_path}</li>")
+       lines.append("</ul>")
+       return "\n".join(lines)
+    
     def to_md(self, value: Any) -> str:
-        """
-        Convert files edited list to markdown format.
-        
-        Args:
-            value: List of edited files
-            
-        Returns:
-            str: Markdown formatted string
-        """
-        if not value:
-            return ""
-        
-        lines = ["✏️ Отредактированные файлы:"]
-        for file_path in value:
-            file_path = escape_markdown_url(file_path)
-            if self.github_url:
-                url = escape_markdown_url(f"{self.github_url}/{file_path}")
-                lines.append(f"- [{file_path}]({url})")
-            else:
-                lines.append(f"- {file_path}")
-        return "\n".join(lines)
+       """
+       Convert files edited list to markdown format.
+       
+       Args:
+           value: List of edited files
+           
+       Returns:
+           str: Markdown formatted string
+       """
+       if not value:
+           return ""
+       
+       lines = ["✏️ Отредактированные файлы:"]
+       for file_path in value:
+           file_path = escape_markdown_url(file_path)
+           if self.github_url:
+               url = escape_markdown_url(f"{self.github_url}/{file_path}")
+               lines.append(f"- [{file_path}]({url})")
+           else:
+               lines.append(f"- {file_path}")
+       return "\n".join(lines)
 
 
 class FilesDeletedField(BaseField):
@@ -184,28 +276,55 @@ class FilesDeletedField(BaseField):
         # Implementation will be similar to _format_file_changes for deleted files
         return files_deleted
     
+    def to_html(self, value: Any) -> str:
+       """
+       Convert files deleted list to HTML format.
+       
+       Args:
+           value: List of deleted files
+           
+       Returns:
+           str: HTML formatted string
+       """
+       if not value:
+           return ""
+       
+       lines = ["<p><strong>❌ Удаленные файлы:</strong></p>", "<ul>"]
+       for file_path in value:
+           # For HTML, we need to escape special characters
+           escaped_file_path = self._escape_html(file_path)
+           if self.github_url:
+               url = f"{self.github_url}/{file_path}"
+               # URL should be escaped too
+               escaped_url = self._escape_html(url)
+               lines.append(f'<li><a href="{escaped_url}">{escaped_file_path}</a></li>')
+           else:
+               lines.append(f"<li>{escaped_file_path}</li>")
+       lines.append("</ul>")
+       return "\n".join(lines)
+    
     def to_md(self, value: Any) -> str:
-        """
-        Convert files deleted list to markdown format.
-        
-        Args:
-            value: List of deleted files
-            
-        Returns:
-            str: Markdown formatted string
-        """
-        if not value:
-            return ""
-        
-        lines = ["❌ Удаленные файлы:"]
-        for file_path in value:
-            file_path = escape_markdown_url(file_path)
-            if self.github_url:
-                url = escape_markdown_url(f"{self.github_url}/{file_path}")
-                lines.append(f"- [{file_path}]({url})")
-            else:
-                lines.append(f"- {file_path}")
-        return "\n".join(lines)
+       """
+       Convert files deleted list to markdown format.
+       
+       Args:
+           value: List of deleted files
+           
+       Returns:
+           str: Markdown formatted string
+       """
+       if not value:
+           return ""
+       
+       lines = ["❌ Удаленные файлы:"]
+       for file_path in value:
+           file_path = escape_markdown_url(file_path)
+           if self.github_url:
+               url = escape_markdown_url(f"{self.github_url}/{file_path}")
+               lines.append(f"- [{file_path}]({url})")
+           else:
+               lines.append(f"- {file_path}")
+       return "\n".join(lines)
 
 
 class FoldersCreatedField(BaseField):
@@ -229,28 +348,55 @@ class FoldersCreatedField(BaseField):
         # Implementation will be similar to _format_file_changes for folders
         return folders_created
     
+    def to_html(self, value: Any) -> str:
+       """
+       Convert folders created list to HTML format.
+       
+       Args:
+           value: List of created folders
+           
+       Returns:
+           str: HTML formatted string
+       """
+       if not value:
+           return ""
+       
+       lines = ["<p><strong>📁 Созданные папки:</strong></p>", "<ul>"]
+       for folder_path in value:
+           # For HTML, we need to escape special characters
+           escaped_folder_path = self._escape_html(folder_path)
+           if self.github_url:
+               url = f"{self.github_url}/{folder_path}"
+               # URL should be escaped too
+               escaped_url = self._escape_html(url)
+               lines.append(f'<li><a href="{escaped_url}">{escaped_folder_path}</a></li>')
+           else:
+               lines.append(f"<li>{escaped_folder_path}</li>")
+       lines.append("</ul>")
+       return "\n".join(lines)
+    
     def to_md(self, value: Any) -> str:
-        """
-        Convert folders created list to markdown format.
-        
-        Args:
-            value: List of created folders
-            
-        Returns:
-            str: Markdown formatted string
-        """
-        if not value:
-            return ""
-        
-        lines = ["📁 Созданные папки:"]
-        for folder_path in value:
-            folder_path = escape_markdown_url(folder_path)
-            if self.github_url:
-                url = escape_markdown_url(f"{self.github_url}/{folder_path}")
-                lines.append(f"- [{folder_path}]({url})")
-            else:
-                lines.append(f"- {folder_path}")
-        return "\n".join(lines)
+       """
+       Convert folders created list to markdown format.
+       
+       Args:
+           value: List of created folders
+           
+       Returns:
+           str: Markdown formatted string
+       """
+       if not value:
+           return ""
+       
+       lines = ["📁 Созданные папки:"]
+       for folder_path in value:
+           folder_path = escape_markdown_url(folder_path)
+           if self.github_url:
+               url = escape_markdown_url(f"{self.github_url}/{folder_path}")
+               lines.append(f"- [{folder_path}]({url})")
+           else:
+               lines.append(f"- {folder_path}")
+       return "\n".join(lines)
 
 
 class LinksField(BaseField):
@@ -282,34 +428,68 @@ class LinksField(BaseField):
         links = response_data.get("links", [])
         return links
     
+    def to_html(self, value: Any) -> str:
+       """
+       Convert links list to HTML format.
+       
+       Args:
+           value: List of links
+           
+       Returns:
+           str: HTML formatted string
+       """
+       if not value:
+           return ""
+       
+       lines = ["<p><strong>🔗 Связанные файлы:</strong></p>", "<ul>"]
+       for link in value:
+           if isinstance(link, dict):
+               file_path = link.get("file", "")
+               description = link.get("description", "")
+               # For HTML, we need to escape special characters
+               escaped_file_path = self._escape_html(file_path)
+               escaped_description = self._escape_html(description)
+               if self.github_url:
+                   url = f"{self.github_url}/{file_path}"
+                   # URL should be escaped too
+                   escaped_url = self._escape_html(url)
+                   lines.append(f'<li><a href="{escaped_url}">{escaped_file_path}</a>: {escaped_description}</li>')
+               else:
+                   lines.append(f"<li>{escaped_file_path}: {escaped_description}</li>")
+           else:
+               escaped_link = self._escape_html(str(link))
+               lines.append(f"<li>{escaped_link}</li>")
+       lines.append("</ul>")
+       return "\n".join(lines)
+    
     def to_md(self, value: Any) -> str:
-        """
-        Convert links list to markdown format.
-        
-        Args:
-            value: List of links
-            
-        Returns:
-            str: Markdown formatted string
-        """
-        if not value:
-            return ""
-        
-        lines = ["🔗 Связанные файлы:"]
-        for link in value:
-            if isinstance(link, dict):
-                file_path = link.get("file", "")
-                description = link.get("description", "")
-                file_path = escape_markdown_url(file_path)
-                if self.github_url:
-                    url = escape_markdown_url(f"{self.github_url}/{file_path}")
-                    lines.append(f"- [{file_path}]({url}): {description}")
-                else:
-                    lines.append(f"- {file_path}: {description}")
-            else:
-                link = escape_markdown_url(link)
-                lines.append(f"- {str(link)}")
-        return "\n".join(lines)
+       """
+       Convert links list to markdown format.
+       
+       Args:
+           value: List of links
+           
+       Returns:
+           str: Markdown formatted string
+       """
+       if not value:
+           return ""
+       
+       lines = ["🔗 Связанные файлы:"]
+       for link in value:
+           if isinstance(link, dict):
+               file_path = link.get("file", "")
+               description = link.get("description", "")
+               file_path = escape_markdown_url(file_path)
+               if self.github_url:
+                   url = escape_markdown_url(f"{self.github_url}/{file_path}")
+                   lines.append(f"- [{file_path}]({url}): {description}")
+               else:
+                   lines.append(f"- {file_path}: {description}")
+           else:
+               link = escape_markdown_url(link)
+               lines.append(f"- {str(link)}")
+       return "\n".join(lines)
 
 
 class ResponseFormatter:
@@ -387,35 +567,52 @@ class ResponseFormatter:
         return {}
     
     def _fix_json_newlines(self, json_text: str) -> str:
+       """
+       Fix unescaped newlines in JSON strings.
+       
+       Args:
+           json_text: Raw JSON text
+           
+       Returns:
+           Fixed JSON text
+       """
+       import re
+       
+       # Pattern to match string values and escape newlines
+       def fix_string_value(match):
+           key = match.group(1)
+           value = match.group(2)
+           # Escape newlines, carriage returns, and tabs
+           value = value.replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
+           return f'"{key}": "{value}"'
+       
+       # Pattern for key-value pairs in JSON
+       pattern = r'"([^"]+)":\s*"([^"]*(?:\\.[^"]*)*)"'
+       fixed_json = re.sub(pattern, fix_string_value, json_text)
+       
+       # Remove trailing commas before closing braces/brackets
+       fixed_json = re.sub(r",\s*}", "}", fixed_json)
+       fixed_json = re.sub(r",\s*]", "]", fixed_json)
+       
+       return fixed_json
+
+    def to_html(self, response_data: Dict[str, Any]) -> str:
         """
-        Fix unescaped newlines in JSON strings.
+        Convert response data to HTML format.
         
         Args:
-            json_text: Raw JSON text
+            response_data: Parsed response data
             
         Returns:
-            Fixed JSON text
+            str: HTML formatted string
         """
-        import re
+        lines = [
+            field.to_html(response_data.get(field.name, None))
+            for field in self.fields
+        ]
+
+        return "\n\n".join([l for l in lines if l])
         
-        # Pattern to match string values and escape newlines
-        def fix_string_value(match):
-            key = match.group(1)
-            value = match.group(2)
-            # Escape newlines, carriage returns, and tabs
-            value = value.replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
-            return f'"{key}": "{value}"'
-        
-        # Pattern for key-value pairs in JSON
-        pattern = r'"([^"]+)":\s*"([^"]*(?:\\.[^"]*)*)"'
-        fixed_json = re.sub(pattern, fix_string_value, json_text)
-        
-        # Remove trailing commas before closing braces/brackets
-        fixed_json = re.sub(r",\s*}", "}", fixed_json)
-        fixed_json = re.sub(r",\s*]", "]", fixed_json)
-        
-        return fixed_json
-    
     def to_md(self, response_data: Dict[str, Any]) -> str:
         """
         Convert response data to markdown format.

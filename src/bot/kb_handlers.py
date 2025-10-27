@@ -93,7 +93,7 @@ class KBHandlers:
         )
  
         await self.bot.send_message(
-            message.chat.id, menu_text, reply_markup=keyboard, parse_mode="Markdown"
+            message.chat.id, menu_text, reply_markup=keyboard, parse_mode="HTML"
         )
 
     async def _show_kb_management_menu(self, message: Message, user_kb: Dict) -> None:
@@ -144,7 +144,7 @@ class KBHandlers:
         menu_text += "\nВыберите действие:"
  
         await self.bot.send_message(
-            message.chat.id, menu_text, reply_markup=keyboard, parse_mode="Markdown"
+            message.chat.id, menu_text, reply_markup=keyboard, parse_mode="HTML"
         )
 
     async def handle_kb_callback(self, call: CallbackQuery) -> None:
@@ -223,7 +223,7 @@ class KBHandlers:
             "Отправьте /cancel для отмены."
         )
 
-        await self.bot.send_message(call.message.chat.id, prompt_text, parse_mode="Markdown")
+        await self.bot.send_message(call.message.chat.id, prompt_text, parse_mode="HTML")
         await self.bot.answer_callback_query(call.id)
 
     async def _prompt_for_github_url(self, call: CallbackQuery) -> None:
@@ -242,7 +242,7 @@ class KBHandlers:
             "Отправьте /cancel для отмены."
         )
 
-        await self.bot.send_message(call.message.chat.id, prompt_text, parse_mode="Markdown")
+        await self.bot.send_message(call.message.chat.id, prompt_text, parse_mode="HTML")
         await self.bot.answer_callback_query(call.id)
 
     async def handle_kb_input(self, message: Message) -> None:
@@ -294,7 +294,7 @@ class KBHandlers:
                     f"Теперь можете отправлять сообщения, и они будут сохраняться в эту базу знаний!"
                 )
 
-                await self.bot.reply_to(message, result_text, parse_mode="Markdown")
+                await self.bot.reply_to(message, result_text, parse_mode="HTML")
             else:
                 await self.bot.reply_to(message, f"❌ {msg}")
 
@@ -328,7 +328,7 @@ class KBHandlers:
                     f"Теперь можете отправлять сообщения, и они будут сохраняться в этот репозиторий!"
                 )
 
-                await self.bot.reply_to(message, result_text, parse_mode="Markdown")
+                await self.bot.reply_to(message, result_text, parse_mode="HTML")
             else:
                 await self.bot.reply_to(message, f"❌ {msg}")
 
@@ -380,12 +380,12 @@ class KBHandlers:
                 call.message.chat.id,
                 call.message.message_id,
                 reply_markup=keyboard,
-                parse_mode="Markdown",
+                parse_mode="HTML",
             )
         except Exception:
             # If editing fails, send new message
             await self.bot.send_message(
-                call.message.chat.id, info_text, reply_markup=keyboard, parse_mode="Markdown"
+                call.message.chat.id, info_text, reply_markup=keyboard, parse_mode="HTML"
             )
 
         await self.bot.answer_callback_query(call.id)
@@ -436,11 +436,11 @@ class KBHandlers:
                 call.message.chat.id,
                 call.message.message_id,
                 reply_markup=keyboard,
-                parse_mode="Markdown",
+                parse_mode="HTML",
             )
         except Exception:
             await self.bot.send_message(
-                call.message.chat.id, text, reply_markup=keyboard, parse_mode="Markdown"
+                call.message.chat.id, text, reply_markup=keyboard, parse_mode="HTML"
             )
 
         await self.bot.answer_callback_query(call.id)
@@ -556,11 +556,11 @@ class KBHandlers:
                 call.message.chat.id,
                 call.message.message_id,
                 reply_markup=keyboard,
-                parse_mode="Markdown",
+                parse_mode="HTML",
             )
         except Exception:
             await self.bot.send_message(
-                call.message.chat.id, menu_text, reply_markup=keyboard, parse_mode="Markdown"
+                call.message.chat.id, menu_text, reply_markup=keyboard, parse_mode="HTML"
             )
 
         await self.bot.answer_callback_query(call.id)
@@ -634,11 +634,11 @@ class KBHandlers:
                 call.message.chat.id,
                 call.message.message_id,
                 reply_markup=keyboard,
-                parse_mode="Markdown",
+                parse_mode="HTML",
             )
         except Exception:
             await self.bot.send_message(
-                call.message.chat.id, menu_text, reply_markup=keyboard, parse_mode="Markdown"
+                call.message.chat.id, menu_text, reply_markup=keyboard, parse_mode="HTML"
             )
 
         await self.bot.answer_callback_query(call.id)

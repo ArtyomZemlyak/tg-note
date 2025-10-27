@@ -265,7 +265,7 @@ class QwenCodeCLIAgent(BaseAgent):
             parsed_result = formatter.parse(result_text)
             
             # Convert to markdown using ResponseFormatter
-            markdown_result = formatter.to_md(parsed_result)
+            markdown_result = formatter.to_html(parsed_result)
             
             logger.info(f"[QwenCodeCLIAgent] Parsed result: {parsed_result.get('summary', '')}")
             logger.debug(f"[QwenCodeCLIAgent] Files created: {parsed_result.get('files_created', [])}")
@@ -280,7 +280,11 @@ class QwenCodeCLIAgent(BaseAgent):
 
             # Step 5: Extract title from markdown
             logger.debug("[QwenCodeCLIAgent] STEP 5: Extracting title from markdown")
-            title = self._extract_title_from_markdown(markdown_result)
+            # TODO: Properly handle title
+            if "summary" in parsed_result:
+                title = parsed_result["summary"]
+            else:
+                title = markdown_result[:50]
 
             # Step 6: Extract TODO plan from markdown
             todo_plan = self._extract_todo_plan(result_text)
