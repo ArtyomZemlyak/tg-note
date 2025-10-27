@@ -136,3 +136,21 @@ class TelegramBotAdapter(BotPort):
             Telegram User object representing the bot
         """
         return await self._bot.get_me()
+
+    async def answer_callback_query(self, callback_query_id: str, text: str = None, show_alert: bool = False, url: str = None, cache_time: int = None):
+        """
+        Answer a callback query
+
+        Args:
+            callback_query_id: Callback query identifier
+            text: Text to display to the user (optional)
+            show_alert: If True, show an alert instead of a toast notification (optional)
+            url: URL to redirect the user to (optional)
+            cache_time: Maximum time in seconds for caching the result (optional)
+
+        Returns:
+            True on success
+        """
+        return await self._bot.answer_callback_query(
+            callback_query_id, text=text, show_alert=show_alert, url=url, cache_time=cache_time
+        )
