@@ -83,13 +83,13 @@ class KBHandlers:
                 "🌐 Подключить GitHub репозиторий", callback_data="kb:create_github"
             ),
         )
- 
+
         menu_text = (
-            "📚 **Управление базой знаний**\n\n"
+            "📚 <b>Управление базой знаний</b>\n\n"
             "У вас пока нет настроенной базы знаний.\n\n"
             "Выберите, что хотите сделать:\n"
-            "• **Локальная БЗ** - создается на сервере, можно позже связать с Git\n"
-            "• **GitHub репозиторий** - клонируется с GitHub для совместной работы"
+            "• <b>Локальная БЗ</b> - создается на сервере, можно позже связать с Git\n"
+            "• <b>GitHub репозиторий</b> - клонируется с GitHub для совместной работы"
         )
  
         await self.bot.send_message(
@@ -124,22 +124,22 @@ class KBHandlers:
                         "📖 Настроить документацию (MkDocs)", callback_data="kb:setup_mkdocs"
                     )
                 )
- 
+
         # Prepare KB info text
         kb_type_emoji = "🌐" if user_kb["kb_type"] == "github" else "📁"
         kb_type_text = "GitHub репозиторий" if user_kb["kb_type"] == "github" else "Локальная"
  
         menu_text = (
-            f"📚 **Текущая база знаний**\n\n"
-            f"{kb_type_emoji} **Название:** {user_kb['kb_name']}\n"
-            f"**Тип:** {kb_type_text}\n"
+            f"📚 <b>Текущая база знаний</b>\n\n"
+            f"{kb_type_emoji} <b>Название:</b> {user_kb['kb_name']}\n"
+            f"<b>Тип:</b> {kb_type_text}\n"
         )
  
         if user_kb["kb_type"] == "github" and user_kb.get("github_url"):
-            menu_text += f"**URL:** {user_kb['github_url']}\n"
+            menu_text += f"<b>URL:</b> {user_kb['github_url']}\n"
  
         if kb_path:
-            menu_text += f"**Путь:** `{escape_markdown(str(kb_path))}`\n"
+            menu_text += f"<b>Путь:</b> `{escape_markdown(str(kb_path))}`\n"
  
         menu_text += "\nВыберите действие:"
  
@@ -209,7 +209,9 @@ class KBHandlers:
 
         except Exception as e:
             logger.error(f"Error handling KB callback: {e}", exc_info=True)
-            await self.bot.answer_callback_query(call.id, f"Error: {str(e)}")
+            # Escape any HTML-like characters in the error message to prevent parsing errors
+            error_msg = str(e).replace("&", "&").replace("<", "<").replace(">", ">")
+            await self.bot.answer_callback_query(call.id, f"Error: {error_msg}")
 
     async def _prompt_for_kb_name(self, call: CallbackQuery, kb_type: str) -> None:
         """Prompt user to enter KB name"""
@@ -217,7 +219,7 @@ class KBHandlers:
         self.waiting_for_input[user_id] = f"create_{kb_type}"
 
         prompt_text = (
-            "📝 **Создание локальной базы знаний**\n\n"
+            "📝 <b>Создание локальной базы знаний</b>\n\n"
             "Введите название для новой базы знаний (например: `my-notes`)\n\n"
             "Название может содержать латинские буквы, цифры, дефисы и подчеркивания.\n\n"
             "Отправьте /cancel для отмены."
@@ -232,9 +234,9 @@ class KBHandlers:
         self.waiting_for_input[user_id] = "create_github"
 
         prompt_text = (
-            "🌐 **Подключение GitHub репозитория**\n\n"
+            "🌐 <b>Подключение GitHub репозитория</b>\n\n"
             "Введите URL GitHub репозитория:\n\n"
-            "**Примеры:**\n"
+            "<b>Примеры:</b>\n"
             "```\n"
             "https://github.com/username/repo-name\n"
             "git@github.com:username/repo-name.git\n"
@@ -288,9 +290,9 @@ class KBHandlers:
 
                 result_text = (
                     f"✅ {msg}\n\n"
-                    f"📁 **Название:** {kb_name}\n"
-                    f"📂 **Путь:** `{escape_markdown(str(kb_path))}`\n"
-                    f"🔧 **Git:** Инициализирован\n\n"
+                    f"📁 <b>Название:</b> {kb_name}\n"
+                    f"📂 <b>Путь:</b> `{escape_markdown(str(kb_path))}`\n"
+                    f"🔧 <b>Git:</b> Инициализирован\n\n"
                     f"Теперь можете отправлять сообщения, и они будут сохраняться в эту базу знаний!"
                 )
 
@@ -323,8 +325,8 @@ class KBHandlers:
 
                 result_text = (
                     f"✅ {msg}\n\n"
-                    f"🌐 **Репозиторий:** {github_url}\n"
-                    f"📂 **Локальный путь:** `{escape_markdown(str(kb_path))}`\n\n"
+                    f"🌐 <b>Репозиторий:</b> {github_url}\n"
+                    f"📂 <b>Локальный путь:</b> `{escape_markdown(str(kb_path))}`\n\n"
                     f"Теперь можете отправлять сообщения, и они будут сохраняться в этот репозиторий!"
                 )
 
@@ -350,24 +352,24 @@ class KBHandlers:
         kb_type_text = "GitHub репозиторий" if user_kb["kb_type"] == "github" else "Локальная"
 
         info_lines = [
-            "ℹ️ **Информация о базе знаний**\n",
-            f"{kb_type_emoji} **Название:** {user_kb['kb_name']}",
-            f"**Тип:** {kb_type_text}",
+            "ℹ️ <b>Информация о базе знаний</b>\n",
+            f"{kb_type_emoji} <b>Название:</b> {user_kb['kb_name']}",
+            f"<b>Тип:</b> {kb_type_text}",
         ]
 
         if user_kb["kb_type"] == "github" and user_kb.get("github_url"):
-            info_lines.append(f"**GitHub URL:** {user_kb['github_url']}")
+            info_lines.append(f"<b>GitHub URL:</b> {user_kb['github_url']}")
 
         if kb_path:
-            info_lines.append(f"**Локальный путь:** `{escape_markdown(str(kb_path))}`")
+            info_lines.append(f"<b>Локальный путь:</b> `{escape_markdown(str(kb_path))}`")
 
             # Check if MkDocs is configured
             if user_kb["kb_type"] == "github":
                 is_mkdocs = self.mkdocs_configurator.is_mkdocs_configured(kb_path)
                 mkdocs_status = "✅ Настроен" if is_mkdocs else "❌ Не настроен"
-                info_lines.append(f"**MkDocs:** {mkdocs_status}")
+                info_lines.append(f"<b>MkDocs:</b> {mkdocs_status}")
         else:
-            info_lines.append("⚠️ **Локальная копия не найдена**")
+            info_lines.append("⚠️ <b>Локальная копия не найдена</b>")
 
         keyboard = InlineKeyboardMarkup()
         keyboard.add(InlineKeyboardButton("« Назад", callback_data="kb:back_to_menu"))
@@ -413,11 +415,11 @@ class KBHandlers:
         keyboard = InlineKeyboardMarkup()
         keyboard.row_width = 1
 
-        text_lines = ["📚 **Доступные базы знаний**\n"]
+        text_lines = ["📚 <b>Доступные базы знаний</b>\n"]
 
         for kb_name in sorted(available_kbs):
             if kb_name == current_kb_name:
-                text_lines.append(f"✅ **{kb_name}** (текущая)")
+                text_lines.append(f"✅ <b>{kb_name}</b> (текущая)")
             else:
                 text_lines.append(f"• {kb_name}")
                 keyboard.add(
@@ -544,10 +546,10 @@ class KBHandlers:
         )
 
         menu_text = (
-            "📚 **Создание новой базы знаний**\n\n"
+            "📚 <b>Создание новой базы знаний</b>\n\n"
             "Выберите тип базы знаний:\n"
-            "• **Локальная БЗ** - создается на сервере\n"
-            "• **GitHub репозиторий** - для совместной работы"
+            "• <b>Локальная БЗ</b> - создается на сервере\n"
+            "• <b>GitHub репозиторий</b> - для совместной работы"
         )
 
         try:
@@ -599,16 +601,16 @@ class KBHandlers:
             kb_type_text = "GitHub репозиторий" if user_kb["kb_type"] == "github" else "Локальная"
 
             menu_text = (
-                f"📚 **Текущая база знаний**\n\n"
-                f"{kb_type_emoji} **Название:** {user_kb['kb_name']}\n"
-                f"**Тип:** {kb_type_text}\n"
+                f"📚 <b>Текущая база знаний</b>\n\n"
+                f"{kb_type_emoji} <b>Название:</b> {user_kb['kb_name']}\n"
+                f"<b>Тип:</b> {kb_type_text}\n"
             )
 
             if user_kb["kb_type"] == "github" and user_kb.get("github_url"):
-                menu_text += f"**URL:** {user_kb['github_url']}\n"
+                menu_text += f"<b>URL:</b> {user_kb['github_url']}\n"
 
             if kb_path:
-                menu_text += f"**Путь:** `{escape_markdown(str(kb_path))}`\n"
+                menu_text += f"<b>Путь:</b> `{escape_markdown(str(kb_path))}`\n"
 
             menu_text += "\nВыберите действие:"
         else:
@@ -623,7 +625,7 @@ class KBHandlers:
             )
 
             menu_text = (
-                "📚 **Управление базой знаний**\n\n"
+                "📚 <b>Управление базой знаний</b>\n\n"
                 "У вас пока нет настроенной базы знаний.\n\n"
                 "Выберите, что хотите сделать:"
             )

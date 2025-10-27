@@ -145,7 +145,7 @@ class FilesCreatedField(BaseField):
        if not value:
            return ""
        
-       lines = ["<p><strong>✅ Созданные файлы:</strong></p>", "<ul>"]
+       lines = ["<b>✅ Созданные файлы:</b>"]
        for file_path in value:
            # For HTML, we need to escape special characters
            escaped_file_path = self._escape_html(file_path)
@@ -153,10 +153,9 @@ class FilesCreatedField(BaseField):
                url = f"{self.github_url}/{file_path}"
                # URL should be escaped too
                escaped_url = self._escape_html(url)
-               lines.append(f'<li><a href="{escaped_url}">{escaped_file_path}</a></li>')
+               lines.append(f'- <a href="{escaped_url}">{escaped_file_path}</a>')
            else:
-               lines.append(f"<li>{escaped_file_path}</li>")
-       lines.append("</ul>")
+               lines.append(f"- {escaped_file_path}")
        return "\n".join(lines)
     
     def to_md(self, value: Any) -> str:
@@ -217,7 +216,7 @@ class FilesEditedField(BaseField):
        if not value:
            return ""
        
-       lines = ["<p><strong>✏️ Отредактированные файлы:</strong></p>", "<ul>"]
+       lines = ["<b>✏️ Отредактированные файлы:</b>"]
        for file_path in value:
            # For HTML, we need to escape special characters
            escaped_file_path = self._escape_html(file_path)
@@ -225,10 +224,10 @@ class FilesEditedField(BaseField):
                url = f"{self.github_url}/{file_path}"
                # URL should be escaped too
                escaped_url = self._escape_html(url)
-               lines.append(f'<li><a href="{escaped_url}">{escaped_file_path}</a></li>')
+               lines.append(f'- <a href="{escaped_url}">{escaped_file_path}</a>')
            else:
-               lines.append(f"<li>{escaped_file_path}</li>")
-       lines.append("</ul>")
+               lines.append(f"- {escaped_file_path}")
+       
        return "\n".join(lines)
     
     def to_md(self, value: Any) -> str:
@@ -289,7 +288,7 @@ class FilesDeletedField(BaseField):
        if not value:
            return ""
        
-       lines = ["<p><strong>❌ Удаленные файлы:</strong></p>", "<ul>"]
+       lines = ["<b>❌ Удаленные файлы:</b>"]
        for file_path in value:
            # For HTML, we need to escape special characters
            escaped_file_path = self._escape_html(file_path)
@@ -297,10 +296,10 @@ class FilesDeletedField(BaseField):
                url = f"{self.github_url}/{file_path}"
                # URL should be escaped too
                escaped_url = self._escape_html(url)
-               lines.append(f'<li><a href="{escaped_url}">{escaped_file_path}</a></li>')
+               lines.append(f'- <a href="{escaped_url}">{escaped_file_path}</a>')
            else:
-               lines.append(f"<li>{escaped_file_path}</li>")
-       lines.append("</ul>")
+               lines.append(f"- {escaped_file_path}")
+       
        return "\n".join(lines)
     
     def to_md(self, value: Any) -> str:
@@ -361,7 +360,7 @@ class FoldersCreatedField(BaseField):
        if not value:
            return ""
        
-       lines = ["<p><strong>📁 Созданные папки:</strong></p>", "<ul>"]
+       lines = ["<b>📁 Созданные папки:</b>"]
        for folder_path in value:
            # For HTML, we need to escape special characters
            escaped_folder_path = self._escape_html(folder_path)
@@ -369,10 +368,10 @@ class FoldersCreatedField(BaseField):
                url = f"{self.github_url}/{folder_path}"
                # URL should be escaped too
                escaped_url = self._escape_html(url)
-               lines.append(f'<li><a href="{escaped_url}">{escaped_folder_path}</a></li>')
+               lines.append(f'- <a href="{escaped_url}">{escaped_folder_path}</a>')
            else:
-               lines.append(f"<li>{escaped_folder_path}</li>")
-       lines.append("</ul>")
+               lines.append(f"- {escaped_folder_path}")
+       
        return "\n".join(lines)
     
     def to_md(self, value: Any) -> str:
@@ -441,7 +440,7 @@ class LinksField(BaseField):
        if not value:
            return ""
        
-       lines = ["<p><strong>🔗 Связанные файлы:</strong></p>", "<ul>"]
+       lines = ["<b>🔗 Связанные файлы:</b>"]
        for link in value:
            if isinstance(link, dict):
                file_path = link.get("file", "")
@@ -453,13 +452,13 @@ class LinksField(BaseField):
                    url = f"{self.github_url}/{file_path}"
                    # URL should be escaped too
                    escaped_url = self._escape_html(url)
-                   lines.append(f'<li><a href="{escaped_url}">{escaped_file_path}</a>: {escaped_description}</li>')
+                   lines.append(f'- <a href="{escaped_url}">{escaped_file_path}</a>: {escaped_description}')
                else:
-                   lines.append(f"<li>{escaped_file_path}: {escaped_description}</li>")
+                   lines.append(f"- {escaped_file_path}: {escaped_description}")
            else:
                escaped_link = self._escape_html(str(link))
-               lines.append(f"<li>{escaped_link}</li>")
-       lines.append("</ul>")
+               lines.append(f"- {escaped_link}")
+       
        return "\n".join(lines)
     
     def to_md(self, value: Any) -> str:

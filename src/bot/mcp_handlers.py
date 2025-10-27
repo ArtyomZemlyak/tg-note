@@ -87,9 +87,9 @@ class MCPHandlers:
             self.waiting_for_json[message.from_user.id] = True
 
             help_text = (
-                "🔧 **Добавить MCP сервер**\n\n"
+                "🔧 <b>Добавить MCP сервер</b>\n\n"
                 "Пожалуйста, отправьте конфигурацию MCP сервера в формате JSON.\n\n"
-                "**Пример:**\n"
+                "<b>Пример:</b>\n"
                 "```json\n"
                 "{\n"
                 '  "name": "my-mcp-server",\n'
@@ -102,12 +102,12 @@ class MCPHandlers:
                 '  "enabled": true\n'
                 "}\n"
                 "```\n\n"
-                "**Обязательные поля:**\n"
+                "<b>Обязательные поля:</b>\n"
                 "• `name` - Уникальное имя сервера\n"
                 "• `description` - Описание сервера\n"
                 "• `command` - Команда для запуска\n"
                 "• `args` - Аргументы команды (массив)\n\n"
-                "**Необязательные поля:**\n"
+                "<b>Необязательные поля:</b>\n"
                 "• `env` - Переменные окружения (объект)\n"
                 "• `working_dir` - Рабочая директория\n"
                 "• `enabled` - Включить сразу (по умолчанию: true)\n\n"
@@ -255,7 +255,7 @@ class MCPHandlers:
             return
 
         # Build server list
-        lines = ["🔧 **MCP Серверы**\n"]
+        lines = ["🔧 <b>MCP Серверы</b>\n"]
 
         # Create inline keyboard for actions
         keyboard = InlineKeyboardMarkup()
@@ -269,7 +269,7 @@ class MCPHandlers:
             status_text = "включен" if server.enabled else "отключен"
  
             lines.append(
-                f"{status_icon} **{escape_markdown(server.name)}**\n"
+                f"{status_icon} <b>{escape_markdown(server.name)}</b>\n"
                 f"   {escape_markdown(server.description)}\n"
                 f"   Command: `{escape_markdown(server.command)}`\n"
                 f"   Status: {status_text}\n"
@@ -327,7 +327,7 @@ class MCPHandlers:
             summary = self.mcp_manager.get_servers_summary()
 
         status_text = (
-            "📊 **Статус MCP серверов**\n\n"
+            "📊 <b>Статус MCP серверов</b>\n\n"
             f"Всего серверов: {summary['total']}\n"
             f"✅ Включено: {summary['enabled']}\n"
             f"❌ Отключено: {summary['disabled']}\n\n"
@@ -470,7 +470,7 @@ class MCPHandlers:
 
         await self.bot.reply_to(
             message,
-            f"⚠️ **Подтверждение удаления**\n\n"
+            f"⚠️ <b>Подтверждение удаления</b>\n\n"
             f"Вы уверены, что хотите удалить MCP сервер `{escape_markdown(server_name)}`?\n\n"
             f"Описание: {escape_markdown(server.description)}\n"
             f"Это действие нельзя отменить.",
@@ -583,7 +583,9 @@ class MCPHandlers:
 
         except Exception as e:
             logger.error(f"Error handling MCP callback: {e}", exc_info=True)
-            await self.bot.answer_callback_query(call.id, f"Ошибка: {str(e)}")
+            # Escape any HTML-like characters in the error message to prevent parsing errors
+            error_msg = str(e).replace("&", "&").replace("<", "<").replace(">", ">")
+            await self.bot.answer_callback_query(call.id, f"Ошибка: {error_msg}")
 
     async def _refresh_server_list(self, call: CallbackQuery) -> None:
         """Refresh the server list display"""
@@ -596,7 +598,7 @@ class MCPHandlers:
             keyboard.add(InlineKeyboardButton("➕ Добавить новый", callback_data="mcp:add"))
         else:
             # Build server list
-            lines = ["🔧 **MCP Servers**\n"]
+            lines = ["🔧 <b>MCP Servers</b>\n"]
 
             # Create inline keyboard for actions
             keyboard = InlineKeyboardMarkup()
@@ -607,7 +609,7 @@ class MCPHandlers:
                 status_text = "enabled" if server.enabled else "disabled"
 
                 lines.append(
-                    f"{status_icon} **{escape_markdown(server.name)}**\n"
+                    f"{status_icon} <b>{escape_markdown(server.name)}</b>\n"
                     f"   {escape_markdown(server.description)}\n"
                     f"   Command: `{escape_markdown(server.command)}`\n"
                     f"   Status: {status_text}\n"

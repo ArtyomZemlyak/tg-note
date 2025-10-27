@@ -89,7 +89,7 @@ class SettingsHandlers:
             keyboard.add(InlineKeyboardButton(label, callback_data=f"settings:category:{category}"))
 
         menu_text = (
-            "⚙️ **Settings Menu**\n\n"
+            "⚙️ <b>Settings Menu</b>\n\n"
             "Choose a category to view and modify settings:\n\n"
             "• Settings are stored per-user\n"
             "• You can override global defaults\n"
@@ -121,9 +121,9 @@ class SettingsHandlers:
         # Format settings display
         lines = []
         if category:
-            lines.append(f"⚙️ **{category.upper()} Settings**\n")
+            lines.append(f"⚙️ <b>{category.upper()} Settings</b>\n")
         else:
-            lines.append("⚙️ **All Settings**\n")
+            lines.append("⚙️ <b>All Settings</b>\n")
 
         # Group by category
         from collections import defaultdict
@@ -136,11 +136,11 @@ class SettingsHandlers:
                 by_category[info.category].append((name, value, info))
 
         for cat in sorted(by_category.keys()):
-            lines.append(f"\n**{cat.upper()}:**")
+            lines.append(f"\n<b>{cat.upper()}:</b>")
             for name, value, info in sorted(by_category[cat], key=lambda x: x[0]):
                 # Format value
                 if info.is_secret:
-                    value_str = "***hidden***"
+                    value_str = "<b>*hidden*</b>"
                 elif isinstance(value, bool):
                     value_str = "✅ enabled" if value else "❌ disabled"
                 else:
@@ -168,7 +168,7 @@ class SettingsHandlers:
 
         if len(args) < 2:
             help_text = (
-                "⚙️ **Reset Setting**\n\n"
+                "⚙️ <b>Reset Setting</b>\n\n"
                 "Usage: `/resetsetting <setting_name>`\n\n"
                 "This will reset the setting to the global default value.\n\n"
                 "Example:\n"
@@ -201,7 +201,7 @@ class SettingsHandlers:
             message.from_user.id, category="knowledge_base"
         )
 
-        lines = ["📚 **Knowledge Base Settings**\n"]
+        lines = ["📚 <b>Knowledge Base Settings</b>\n"]
 
         for name, value in sorted(kb_settings.items()):
             info = self.inspector.get_setting_info(name)
@@ -243,7 +243,7 @@ class SettingsHandlers:
             message.from_user.id, category="agent"
         )
 
-        lines = ["🤖 **Agent Settings**\n"]
+        lines = ["🤖 <b>Agent Settings</b>\n"]
 
         for name, value in sorted(agent_settings.items()):
             info = self.inspector.get_setting_info(name)
@@ -334,7 +334,9 @@ class SettingsHandlers:
 
         except Exception as e:
             logger.error(f"Error handling settings callback: {e}", exc_info=True)
-            await self.bot.answer_callback_query(call.id, f"Error: {str(e)}")
+            # Escape any HTML-like characters in the error message to prevent parsing errors
+            error_msg = str(e).replace("&", "&").replace("<", "<").replace(">", ">")
+            await self.bot.answer_callback_query(call.id, f"Error: {error_msg}")
 
     async def _show_main_menu(self, call: CallbackQuery) -> None:
         """Show main settings menu"""
@@ -360,7 +362,7 @@ class SettingsHandlers:
             keyboard.add(InlineKeyboardButton(label, callback_data=f"settings:category:{category}"))
 
         menu_text = (
-            "⚙️ **Settings Menu**\n\n"
+            "⚙️ <b>Settings Menu</b>\n\n"
             "Choose a category to view and modify settings:\n\n"
             "• Settings are stored per-user\n"
             "• You can override global defaults\n"
@@ -517,26 +519,26 @@ class SettingsHandlers:
         current_value = self.settings_manager.get_setting(user_id, setting_name)
 
         # Build description text
-        lines = [f"⚙️ **{setting_name}**\n"]
+        lines = [f"⚙️ <b>{setting_name}</b>\n"]
         lines.append(f"📝 {escape_markdown(info.description)}\n")
 
         # Add type information
         type_str = self._format_type(info.type)
-        lines.append(f"**Type:** `{escape_markdown(type_str)}`")
+        lines.append(f"<b>Type:</b> `{escape_markdown(type_str)}`")
 
         # Add current value
         if isinstance(current_value, bool):
             value_str = "✅ enabled" if current_value else "❌ disabled"
         else:
             value_str = escape_markdown(str(current_value))
-        lines.append(f"**Current value:** `{value_str}`")
+        lines.append(f"<b>Current value:</b> `{value_str}`")
 
         # Add default value
         if isinstance(info.default, bool):
             default_str = "✅ enabled" if info.default else "❌ disabled"
         else:
             default_str = escape_markdown(str(info.default))
-        lines.append(f"**Default value:** `{default_str}`\n")
+        lines.append(f"<b>Default value:</b> `{default_str}`\n")
 
         # Add allowed values or examples
         if info.type == bool or (
@@ -544,17 +546,17 @@ class SettingsHandlers:
             and str(info.type).startswith("typing.Union")
             and bool in str(info.type)
         ):
-            lines.append("**Allowed values:** `true`, `false`")
+            lines.append("<b>Allowed values:</b> `true`, `false`")
         elif info.allowed_values:
             allowed_str = ", ".join([f"`{v}`" for v in info.allowed_values])
-            lines.append(f"**Allowed values:** {allowed_str}")
+            lines.append(f"<b>Allowed values:</b> {allowed_str}")
         elif info.min_value is not None or info.max_value is not None:
             if info.min_value is not None and info.max_value is not None:
-                lines.append(f"**Range:** `{info.min_value}` to `{info.max_value}`")
+                lines.append(f"<b>Range:</b> `{info.min_value}` to `{info.max_value}`")
             elif info.min_value is not None:
-                lines.append(f"**Minimum:** `{info.min_value}`")
+                lines.append(f"<b>Minimum:</b> `{info.min_value}`")
             elif info.max_value is not None:
-                lines.append(f"**Maximum:** `{info.max_value}`")
+                lines.append(f"<b>Maximum:</b> `{info.max_value}`")
 
         text = "\n".join(lines)
 
