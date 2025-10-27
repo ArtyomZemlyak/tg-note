@@ -6,6 +6,85 @@ import re
 from typing import List
 
 
+def convert_html_for_telegram(html_text):
+    """
+    Convert unsupported HTML tags to Telegram-compatible HTML tags.
+    
+    Telegram supports only: 
+    <b>, <i>, <u>, <s>, <a>, <code>, <pre>, <span>, <br>, <strong>, <em>
+    
+    Args:
+        html_text (str): Original HTML text
+        
+    Returns:
+        str: Telegram-compatible HTML text
+    """
+    if not html_text:
+        return html_text
+    
+    # Mapping of unsupported tags to supported alternatives
+    tag_conversions = {
+        # Headings to bold + newline
+        r'<h1[^>]*>': '<b>',
+        r'</h1>': '</b>\n\n',
+        r'<h2[^>]*>': '<b>',
+        r'</h2>': '</b>\n\n',
+        r'<h3[^>]*>': '<b>',
+        r'</h3>': '</b>\n',
+        r'<h4[^>]*>': '<b>',
+        r'</h4>': '</b>\n',
+        r'<h5[^>]*>': '<b>',
+        r'</h5>': '</b>\n',
+        r'<h6[^>]*>': '<b>',
+        r'</h6>': '</b>\n',
+        
+        # Div to paragraph (with line breaks)
+        r'<div[^>]*>': '<span>',
+        r'</div>': '</span>\n',
+        
+        # Paragraph to span + line breaks
+        r'<p[^>]*>': '<span>',
+        r'</p>': '</span>\n\n',
+        
+        # Strong and em are supported, but ensure they're properly closed
+        r'<strong>': '<b>',
+        r'</strong>': '</b>',
+        r'<em>': '<i>',
+        r'</em>': '</i>',
+        
+        # Strike through
+        r'<strike>': '<s>',
+        r'</strike>': '</s>',
+        r'<del>': '<s>',
+        r'</del>': '</s>',
+        
+        # Remove unsupported tags but keep content
+        r'</?section[^>]*>': '',
+        r'</?article[^>]*>': '',
+        r'</?nav[^>]*>': '',
+        r'</?header[^>]*>': '',
+        r'</?footer[^>]*>': '',
+        r'</?aside[^>]*>': '',
+    }
+    
+    converted_text = html_text
+    
+    # Apply tag conversions
+    for pattern, replacement in tag_conversions.items():
+        converted_text = re.sub(pattern, replacement, converted_text, flags=re.IGNORECASE)
+    
+    # Remove any remaining unsupported tags (keep content)
+    converted_text = re.sub(r'<(/)?(main|figure|figcaption|details|summary|mark|small|abbr)[^>]*>', '', converted_text, flags=re.IGNORECASE)
+    
+    # Clean up multiple consecutive line breaks
+    converted_text = re.sub(r'\n{3,}', '\n\n', converted_text)
+    
+    # Remove empty span tags
+    converted_text = re.sub(r'<span[^>]*>\s*</span>', '', converted_text)
+    
+    return converted_text.strip()
+
+
 def escape_html(text: str) -> str:
        """
        Escape special HTML characters in text.
@@ -26,7 +105,9 @@ def escape_html(text: str) -> str:
            '"': "\"",
            "'": "&#x27;",
        }
-       return "".join(html_escape_table.get(c, c) for c in text)
+       text = "".join(html_escape_table.get(c, c) for c in text)
+
+       return convert_html_for_telegram(text)
 
 
 def escape_markdown_v2(text: str) -> str:
