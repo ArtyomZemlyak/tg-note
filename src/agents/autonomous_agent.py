@@ -145,7 +145,7 @@ class AutonomousAgentResult:
             "context": self.context.to_dict(),
         }
 
-    def to_base_agent_result(self) -> BaseAgentResult:
+    def to_base_agent_result(self):
         """Конвертировать в стандартный AgentResult"""
         # Извлекаем информацию о файлах из контекста
         files_created = []
