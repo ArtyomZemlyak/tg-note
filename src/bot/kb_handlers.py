@@ -10,7 +10,7 @@ from loguru import logger
 from telebot.async_telebot import AsyncTeleBot
 from telebot.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
-from src.bot.utils import escape_markdown
+from src.bot.utils import escape_html, escape_html
 from src.knowledge_base.mkdocs_configurator import MkDocsConfigurator
 from src.knowledge_base.repository import RepositoryManager
 from src.knowledge_base.user_settings import UserSettings
@@ -142,7 +142,7 @@ class KBHandlers:
             menu_text += f"<b>URL:</b> {user_kb['github_url']}\n"
  
         if kb_path:
-            menu_text += f"<b>Путь:</b> `{escape_markdown(str(kb_path))}`\n"
+            menu_text += f"<b>Путь:</b> `{escape_html(str(kb_path))}`\n"
  
         menu_text += "\nВыберите действие:"
  
@@ -294,7 +294,7 @@ class KBHandlers:
                 result_text = (
                     f"✅ {msg}\n\n"
                     f"📁 <b>Название:</b> {kb_name}\n"
-                    f"📂 <b>Путь:</b> `{escape_markdown(str(kb_path))}`\n"
+                    f"📂 <b>Путь:</b> `{escape_html(str(kb_path))}`\n"
                     f"🔧 <b>Git:</b> Инициализирован\n\n"
                     f"Теперь можете отправлять сообщения, и они будут сохраняться в эту базу знаний!"
                 )
@@ -329,7 +329,7 @@ class KBHandlers:
                 result_text = (
                     f"✅ {msg}\n\n"
                     f"🌐 <b>Репозиторий:</b> {github_url}\n"
-                    f"📂 <b>Локальный путь:</b> `{escape_markdown(str(kb_path))}`\n\n"
+                    f"📂 <b>Локальный путь:</b> `{escape_html(str(kb_path))}`\n\n"
                     f"Теперь можете отправлять сообщения, и они будут сохраняться в этот репозиторий!"
                 )
 
@@ -364,7 +364,7 @@ class KBHandlers:
             info_lines.append(f"<b>GitHub URL:</b> {user_kb['github_url']}")
 
         if kb_path:
-            info_lines.append(f"<b>Локальный путь:</b> `{escape_markdown(str(kb_path))}`")
+            info_lines.append(f"<b>Локальный путь:</b> `{escape_html(str(kb_path))}`")
 
             # Check if MkDocs is configured
             if user_kb["kb_type"] == "github":
@@ -613,7 +613,7 @@ class KBHandlers:
                 menu_text += f"<b>URL:</b> {user_kb['github_url']}\n"
 
             if kb_path:
-                menu_text += f"<b>Путь:</b> `{escape_markdown(str(kb_path))}`\n"
+                menu_text += f"<b>Путь:</b> `{escape_html(str(kb_path))}`\n"
 
             menu_text += "\nВыберите действие:"
         else:

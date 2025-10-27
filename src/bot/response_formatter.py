@@ -6,7 +6,7 @@ Unified response formatting for all agents in Telegram
 from typing import Dict, List, Optional, Any
 from pathlib import Path
 from src.bot.settings_manager import SettingsManager
-from src.bot.utils import escape_markdown, escape_markdown_url, split_long_message
+from src.bot.utils import escape_markdown_url, escape_html
 
 
 class BaseField:
@@ -78,18 +78,7 @@ class BaseField:
        Returns:
            str: Escaped text
        """
-       if not text:
-           return ""
-       # Escape &, <, >, ", '
-       html_escape_table = {
-           "&": "&",
-           "<": "<",
-           ">": ">",
-           '"': "\"",
-           "'": "&#x27;",
-       }
-       return "".join(html_escape_table.get(c, c) for c in text)
-
+       return escape_html(text)
 
 class SummaryField(BaseField):
     """Summary field for response format."""

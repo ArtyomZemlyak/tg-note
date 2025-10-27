@@ -11,6 +11,7 @@ from telebot.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 from src.bot.bot_port import BotPort
 from src.bot.message_mapper import MessageMapper
 from src.bot.settings_manager import SettingsManager
+from src.bot.utils import escape_html
 from src.knowledge_base.mkdocs_configurator import MkDocsConfigurator
 from src.knowledge_base.repository import RepositoryManager
 from src.knowledge_base.user_settings import UserSettings
@@ -225,7 +226,7 @@ class BotHandlers:
 
         if user_kb:
             kb_type_emoji = "🌐" if user_kb["kb_type"] == "github" else "📁"
-            welcome_text += f"{kb_type_emoji} <b>Текущая БЗ:</b> {user_kb['kb_name']}\n"
+            welcome_text += f"{kb_type_emoji} <b>Текущая БЗ:</b> {escape_html(user_kb['kb_name'])}\n"
         else:
             welcome_text += "⚠️ <b>База знаний не настроена</b>\n" "Начните с создания базы знаний!\n\n"
 
@@ -503,7 +504,7 @@ class BotHandlers:
             "/status - статистика обработки\n"
             "/help - эта справка\n\n"
             "<b>База знаний:</b>\n"
-            "/setkb <name|url> - настроить базу знаний\n"
+            "/setkb -name|url- - настроить базу знаний\n"
             "/kb - информация о базе знаний\n"
             "/setupmkdocs - настроить MkDocs для GitHub репозитория\n\n"
             "<b>Настройки:</b>\n"
@@ -515,9 +516,9 @@ class BotHandlers:
             "/addmcpserver - добавить новый MCP сервер\n"
             "/listmcpservers - список всех MCP серверов\n"
             "/mcpstatus - статус MCP серверов\n"
-            "/enablemcp <name> - включить MCP сервер\n"
-            "/disablemcp <name> - выключить MCP сервер\n"
-            "/removemcp <name> - удалить MCP сервер\n\n"
+            "/enablemcp -name- - включить MCP сервер\n"
+            "/disablemcp -name- - выключить MCP сервер\n"
+            "/removemcp -name- - удалить MCP сервер\n\n"
             "<b>Режимы работы:</b>\n"
             "/note - режим создания базы знаний (по умолчанию)\n"
             "  В этом режиме бот анализирует ваши сообщения и создает заметки\n\n"
@@ -533,7 +534,7 @@ class BotHandlers:
             "Бот работает для всех пользователей без ограничений!"
         )
 
-        await self.bot.reply_to(message, help_text)
+        await self.bot.reply_to(message, help_text, parsing_mode="HTML")
 
     async def handle_status(self, message: Message) -> None:
         """Handle /status command - show bot status and statistics"""
@@ -588,8 +589,8 @@ class BotHandlers:
             help_text = (
                 "📚 Настройка базы знаний\n\n"
                 "Использование:\n"
-                "/setkb <название> - создать локальную базу знаний\n"
-                "/setkb <github_url> - использовать GitHub репозиторий\n\n"
+                "/setkb -название- - создать локальную базу знаний\n"
+                "/setkb -github_url- - использовать GitHub репозиторий\n\n"
                 "Примеры:\n"
                 "/setkb my-notes\n"
                 "/setkb https://github.com/user/knowledge-base\n"
@@ -808,7 +809,7 @@ class BotHandlers:
                 message,
                 "❌ Эта команда работает только с GitHub-репозиториями\n\n"
                 f"Ваша текущая база знаний '{user_kb['kb_name']}' имеет тип: {user_kb['kb_type']}\n\n"
-                "Используйте /setkb <github_url> для настройки GitHub репозитория.",
+                "Используйте /setkb -github_url- для настройки GitHub репозитория.",
             )
             return
 

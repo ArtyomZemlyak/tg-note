@@ -12,7 +12,7 @@ from telebot.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 
 from config import settings
 from src.bot.settings_manager import SettingsInspector, SettingsManager, UserSettingsStorage
-from src.bot.utils import escape_markdown
+from src.bot.utils import escape_html
 
 
 class SettingsHandlers:
@@ -94,7 +94,7 @@ class SettingsHandlers:
             "• Settings are stored per-user\n"
             "• You can override global defaults\n"
             "• Click on any setting to change its value\n"
-            "• Use /resetsetting <name> to restore default"
+            "• Use /resetsetting -name- to restore default"
         )
 
         await self.bot.send_message(
@@ -144,7 +144,7 @@ class SettingsHandlers:
                 elif isinstance(value, bool):
                     value_str = "✅ enabled" if value else "❌ disabled"
                 else:
-                    value_str = escape_markdown(str(value))
+                    value_str = escape_html(str(value))
 
                 readonly_marker = " 🔒" if info.is_readonly else ""
                 lines.append(f"• `{name}`: {value_str}{readonly_marker}")
@@ -169,7 +169,7 @@ class SettingsHandlers:
         if len(args) < 2:
             help_text = (
                 "⚙️ <b>Reset Setting</b>\n\n"
-                "Usage: `/resetsetting <setting_name>`\n\n"
+                "Usage: `/resetsetting -setting_name-`\n\n"
                 "This will reset the setting to the global default value.\n\n"
                 "Example:\n"
                 "```\n"
@@ -209,10 +209,10 @@ class SettingsHandlers:
                 if isinstance(value, bool):
                     value_str = "✅ enabled" if value else "❌ disabled"
                 else:
-                    value_str = escape_markdown(str(value))
+                    value_str = escape_html(str(value))
 
                 lines.append(f"• `{name}`: {value_str}")
-                lines.append(f"  _{escape_markdown(info.description)}_\n")
+                lines.append(f"  _{escape_html(info.description)}_\n")
 
         # Add quick actions
         keyboard = InlineKeyboardMarkup()
@@ -251,10 +251,10 @@ class SettingsHandlers:
                 if isinstance(value, bool):
                     value_str = "✅ enabled" if value else "❌ disabled"
                 else:
-                    value_str = escape_markdown(str(value))
+                    value_str = escape_html(str(value))
 
                 lines.append(f"• `{name}`: {value_str}")
-                lines.append(f"  _{escape_markdown(info.description)}_\n")
+                lines.append(f"  _{escape_html(info.description)}_\n")
 
         # Add quick actions for common settings
         keyboard = InlineKeyboardMarkup()
@@ -367,7 +367,7 @@ class SettingsHandlers:
             "• Settings are stored per-user\n"
             "• You can override global defaults\n"
             "• Click on any setting to change its value\n"
-            "• Use /resetsetting <name> to restore default"
+            "• Use /resetsetting -name- to restore default"
         )
 
         try:
@@ -520,24 +520,24 @@ class SettingsHandlers:
 
         # Build description text
         lines = [f"⚙️ <b>{setting_name}</b>\n"]
-        lines.append(f"📝 {escape_markdown(info.description)}\n")
+        lines.append(f"📝 {escape_html(info.description)}\n")
 
         # Add type information
         type_str = self._format_type(info.type)
-        lines.append(f"<b>Type:</b> `{escape_markdown(type_str)}`")
+        lines.append(f"<b>Type:</b> `{escape_html(type_str)}`")
 
         # Add current value
         if isinstance(current_value, bool):
             value_str = "✅ enabled" if current_value else "❌ disabled"
         else:
-            value_str = escape_markdown(str(current_value))
+            value_str = escape_html(str(current_value))
         lines.append(f"<b>Current value:</b> `{value_str}`")
 
         # Add default value
         if isinstance(info.default, bool):
             default_str = "✅ enabled" if info.default else "❌ disabled"
         else:
-            default_str = escape_markdown(str(info.default))
+            default_str = escape_html(str(info.default))
         lines.append(f"<b>Default value:</b> `{default_str}`\n")
 
         # Add allowed values or examples

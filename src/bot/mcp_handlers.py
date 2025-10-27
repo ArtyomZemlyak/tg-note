@@ -13,7 +13,7 @@ from loguru import logger
 from telebot.async_telebot import AsyncTeleBot
 from telebot.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
-from src.bot.utils import escape_markdown
+from src.bot.utils import escape_html
 from src.mcp.registry.manager import MCPServersManager
 
 from .mcp_hub_client import MCPHubClient, MCPHubError
@@ -72,7 +72,7 @@ class MCPHandlers:
         """
         Handle /addmcpserver command - add a new MCP server configuration
 
-        Usage: /addmcpserver or /addmcpserver <json>
+        Usage: /addmcpserver or /addmcpserver -json-
         """
         logger.info(f"Add MCP server requested by user {message.from_user.id}")
 
@@ -201,7 +201,7 @@ class MCPHandlers:
             logger.error(f"Error processing MCP JSON config: {e}", exc_info=True)
             await self.bot.reply_to(
                 message,
-                f"❌ Ошибка: {escape_markdown(str(e))}\n\n"
+                f"❌ Ошибка: {escape_html(str(e))}\n\n"
                 "Пожалуйста, проверьте синтаксис JSON и попробуйте снова.",
                 parse_mode="HTML",
             )
@@ -270,9 +270,9 @@ class MCPHandlers:
             status_text = "включен" if server.enabled else "отключен"
  
             lines.append(
-                f"{status_icon} <b>{escape_markdown(server.name)}</b>\n"
-                f"   {escape_markdown(server.description)}\n"
-                f"   Command: `{escape_markdown(server.command)}`\n"
+                f"{status_icon} <b>{escape_html(server.name)}</b>\n"
+                f"   {escape_html(server.description)}\n"
+                f"   Command: `{escape_html(server.command)}`\n"
                 f"   Status: {status_text}\n"
             )
  
@@ -372,13 +372,13 @@ class MCPHandlers:
         if success:
             await self.bot.reply_to(
                 message,
-                f"✅ MCP server `{escape_markdown(server_name)}` enabled!",
+                f"✅ MCP server `{escape_html(server_name)}` enabled!",
                 parse_mode="HTML",
             )
         else:
             await self.bot.reply_to(
                 message,
-                f"❌ Не удалось включить сервер `{escape_markdown(server_name)}`.\n"
+                f"❌ Не удалось включить сервер `{escape_html(server_name)}`.\n"
                 f"Сервер может не существовать. Используйте /listmcpservers для просмотра доступных серверов.",
                 parse_mode="HTML",
             )
@@ -392,7 +392,7 @@ class MCPHandlers:
         if len(args) < 2:
             await self.bot.reply_to(
                 message,
-                "❌ Использование: `/disablemcp <имя_сервера>`\n\n"
+                "❌ Использование: `/disablemcp -имя_сервера-`\n\n"
                 "Пример: `/disablemcp my-server`\n\n"
                 "Используйте /listmcpservers для просмотра доступных серверов.",
                 parse_mode="Markdown",
@@ -418,13 +418,13 @@ class MCPHandlers:
         if success:
             await self.bot.reply_to(
                 message,
-                f"✅ MCP server `{escape_markdown(server_name)}` disabled!",
+                f"✅ MCP server `{escape_html(server_name)}` disabled!",
                 parse_mode="Markdown",
             )
         else:
             await self.bot.reply_to(
                 message,
-                f"❌ Не удалось отключить сервер `{escape_markdown(server_name)}`.\n"
+                f"❌ Не удалось отключить сервер `{escape_html(server_name)}`.\n"
                 f"Сервер может не существовать. Используйте /listmcpservers для просмотра доступных серверов.",
                 parse_mode="HTML",
             )
@@ -438,7 +438,7 @@ class MCPHandlers:
         if len(args) < 2:
             await self.bot.reply_to(
                 message,
-                "❌ Использование: `/removemcp <имя_сервера>`\n\n"
+                "❌ Использование: `/removemcp -имя_сервера-`\n\n"
                 "Пример: `/removemcp my-server`\n\n"
                 "⚠️ Это приведет к безвозвратному удалению конфигурации сервера.\n"
                 "Используйте /listmcpservers для просмотра доступных серверов.",
@@ -454,7 +454,7 @@ class MCPHandlers:
         if not server:
             await self.bot.reply_to(
                 message,
-                f"❌ Сервер `{escape_markdown(server_name)}` не найден.\n"
+                f"❌ Сервер `{escape_html(server_name)}` не найден.\n"
                 f"Используйте /listmcpservers для просмотра доступных серверов.",
                 parse_mode="HTML",
             )
@@ -472,8 +472,8 @@ class MCPHandlers:
         await self.bot.reply_to(
             message,
             f"⚠️ <b>Подтверждение удаления</b>\n\n"
-            f"Вы уверены, что хотите удалить MCP сервер `{escape_markdown(server_name)}`?\n\n"
-            f"Описание: {escape_markdown(server.description)}\n"
+            f"Вы уверены, что хотите удалить MCP сервер `{escape_html(server_name)}`?\n\n"
+            f"Описание: {escape_html(server.description)}\n"
             f"Это действие нельзя отменить.",
             reply_markup=keyboard,
             parse_mode="HTML",
@@ -610,9 +610,9 @@ class MCPHandlers:
                 status_text = "enabled" if server.enabled else "disabled"
 
                 lines.append(
-                    f"{status_icon} <b>{escape_markdown(server.name)}</b>\n"
-                    f"   {escape_markdown(server.description)}\n"
-                    f"   Command: `{escape_markdown(server.command)}`\n"
+                    f"{status_icon} <b>{escape_html(server.name)}</b>\n"
+                    f"   {escape_html(server.description)}\n"
+                    f"   Command: `{escape_html(server.command)}`\n"
                     f"   Status: {status_text}\n"
                 )
 

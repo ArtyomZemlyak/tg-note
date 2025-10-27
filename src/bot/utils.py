@@ -6,6 +6,29 @@ import re
 from typing import List
 
 
+def escape_html(text: str) -> str:
+       """
+       Escape special HTML characters in text.
+       
+       Args:
+           text: Text to escape
+           
+       Returns:
+           str: Escaped text
+       """
+       if not text:
+           return ""
+       # Escape &, <, >, ", '
+       html_escape_table = {
+           "&": "&",
+           "<": "<",
+           ">": ">",
+           '"': "\"",
+           "'": "&#x27;",
+       }
+       return "".join(html_escape_table.get(c, c) for c in text)
+
+
 def escape_markdown_v2(text: str) -> str:
     """
     Escape special characters for Telegram MarkdownV2 format
