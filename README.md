@@ -1253,3 +1253,11 @@ This project is built on top of amazing open source projects and wouldn't be pos
 ⭐ Star this repository if you find it helpful!
 
 </div>
+
+#### AI Agent Marketplace Index And Router | [API Doc](https://www.deepnlp.org/doc/ai_agent_marketplace)
+[![AI Agent Marketplace and Router Badge](https://www.deepnlp.org/api/ai_agent_marketplace/svg?name=ArtyomZemlyak/tg-note&badge_type=review)](https://www.deepnlp.org/store/ai-agent/ai-agent/pub-ArtyomZemlyak/tg-note)
+
+```
+curl 'https://www.deepnlp.org/api/ai_agent_marketplace/v2?id=ArtyomZemlyak/tg-note'
+```
+    
