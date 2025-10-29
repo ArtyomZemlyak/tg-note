@@ -1,0 +1,27 @@
+# MCP Hub Server Dependencies
+# Core dependencies
+pydantic==2.10.4
+pydantic-settings==2.7.0
+PyYAML==6.0.1
+loguru>=0.7.2,<0.8.0
+
+# MCP Protocol
+fastmcp>=0.1.0
+
+# Memory Agent (lightweight - no ML models)
+aiofiles>=23.0.0
+jinja2>=3.0.0
+pygments>=2.19.0
+black>=23.0.0
+
+# Vector Search (optional - only if VECTOR_SEARCH_ENABLED=true)
+sentence-transformers>=2.2.0
+faiss-cpu>=1.7.4
+qdrant-client>=1.7.0
+
+# HTTP and networking
+aiohttp>=3.9.1,<4.0.0
+requests>=2.32.2,<3.0.0
+
+# File operations
+filelock>=3.13.1,<4.0.0

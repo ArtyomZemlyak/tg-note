@@ -1,0 +1,37 @@
+# Bot Server Dependencies
+# Core dependencies
+pydantic==2.10.4
+pydantic-settings==2.7.0
+PyYAML==6.0.1
+loguru>=0.7.2,<0.8.0
+
+# Telegram Bot
+pyTelegramBotAPI==4.14.0
+
+# Git operations
+GitPython>=3.1.40,<3.2.0
+
+# File locking for concurrent access
+filelock>=3.13.1,<4.0.0
+
+# Agent system
+qwen-agent>=0.0.31,<0.1.0
+
+# LLM APIs
+openai>=1.0.0,<2.0.0
+
+# HTTP and networking
+aiohttp>=3.9.1,<4.0.0
+requests>=2.32.2,<3.0.0
+
+# Document processing
+docling>=2.0.0,<3.0.0
+
+# HuggingFace for model management
+huggingface-hub>=0.23.0,<1.0.0
+
+# Encryption for secure credentials storage
+cryptography>=41.0.0,<44.0.0
+
+# Vector search (for bot's vector search manager)
+qdrant-client>=1.7.0

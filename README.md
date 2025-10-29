@@ -641,6 +641,15 @@ AGENT_TYPE: "stub"
 └─────────────────┘
 ```
 
+### Container Architecture
+
+The system is designed with separated dependencies for optimal containerization:
+
+- **MCP Hub Server** (`Dockerfile.hub`): Lightweight MCP protocol gateway with memory tools and vector search
+- **Bot Server** (`Dockerfile.bot`): Full-featured Telegram bot with document processing and agent system
+
+See [DEPENDENCIES.md](DEPENDENCIES.md) for detailed dependency separation information.
+
 ### Data Flow
 
 1. **Input**: User sends message/repost to Telegram bot
