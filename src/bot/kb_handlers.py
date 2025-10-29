@@ -10,7 +10,7 @@ from loguru import logger
 from telebot.async_telebot import AsyncTeleBot
 from telebot.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
-from src.bot.utils import escape_html, escape_html
+from src.bot.utils import escape_html
 from src.knowledge_base.mkdocs_configurator import MkDocsConfigurator
 from src.knowledge_base.repository import RepositoryManager
 from src.knowledge_base.user_settings import UserSettings
@@ -24,7 +24,7 @@ class KBHandlers:
         bot: AsyncTeleBot,
         repo_manager: RepositoryManager,
         user_settings: UserSettings,
-        handlers = None,
+        handlers=None,
     ):
         """
         Initialize KB handlers
@@ -76,10 +76,10 @@ class KBHandlers:
         """Show menu for creating a new knowledge base"""
         keyboard = InlineKeyboardMarkup()
         keyboard.row_width = 1
- 
+
         # Add back button
         keyboard.add(InlineKeyboardButton("« Назад", callback_data="kb:back_to_main"))
- 
+
         keyboard.add(
             InlineKeyboardButton("📁 Создать локальную БЗ", callback_data="kb:create_local"),
             InlineKeyboardButton(
@@ -94,7 +94,7 @@ class KBHandlers:
             "• <b>Локальная БЗ</b> - создается на сервере, можно позже связать с Git\n"
             "• <b>GitHub репозиторий</b> - клонируется с GitHub для совместной работы"
         )
- 
+
         await self.bot.send_message(
             message.chat.id, menu_text, reply_markup=keyboard, parse_mode="HTML"
         )
@@ -102,25 +102,25 @@ class KBHandlers:
     async def _show_kb_management_menu(self, message: Message, user_kb: Dict) -> None:
         """Show management menu for existing knowledge base"""
         kb_path = self.repo_manager.get_kb_path(user_kb["kb_name"])
- 
+
         keyboard = InlineKeyboardMarkup()
         keyboard.row_width = 1
- 
+
         # Add back button
         keyboard.add(InlineKeyboardButton("« Назад", callback_data="kb:back_to_main"))
- 
+
         keyboard.add(
             InlineKeyboardButton("ℹ️ Информация о БЗ", callback_data="kb:info"),
             InlineKeyboardButton("🔄 Переключить на другую БЗ", callback_data="kb:switch"),
             InlineKeyboardButton("➕ Создать новую БЗ", callback_data="kb:create_new"),
         )
- 
+
         # Add MkDocs setup button for GitHub repos
         if user_kb["kb_type"] == "github":
             is_mkdocs_configured = False
             if kb_path and self.mkdocs_configurator.is_mkdocs_configured(kb_path):
                 is_mkdocs_configured = True
- 
+
             if not is_mkdocs_configured:
                 keyboard.add(
                     InlineKeyboardButton(
@@ -131,21 +131,21 @@ class KBHandlers:
         # Prepare KB info text
         kb_type_emoji = "🌐" if user_kb["kb_type"] == "github" else "📁"
         kb_type_text = "GitHub репозиторий" if user_kb["kb_type"] == "github" else "Локальная"
- 
+
         menu_text = (
             f"📚 <b>Текущая база знаний</b>\n\n"
             f"{kb_type_emoji} <b>Название:</b> {user_kb['kb_name']}\n"
             f"<b>Тип:</b> {kb_type_text}\n"
         )
- 
+
         if user_kb["kb_type"] == "github" and user_kb.get("github_url"):
             menu_text += f"<b>URL:</b> {user_kb['github_url']}\n"
- 
+
         if kb_path:
             menu_text += f"<b>Путь:</b> `{escape_html(str(kb_path))}`\n"
- 
+
         menu_text += "\nВыберите действие:"
- 
+
         await self.bot.send_message(
             message.chat.id, menu_text, reply_markup=keyboard, parse_mode="HTML"
         )
@@ -205,7 +205,9 @@ class KBHandlers:
                 if self.handlers:
                     await self.handlers.handle_start(message)
                 else:
-                    await self.bot.send_message(call.message.chat.id, "Main handlers not initialized")
+                    await self.bot.send_message(
+                        call.message.chat.id, "Main handlers not initialized"
+                    )
 
             else:
                 await self.bot.answer_callback_query(call.id, "Unknown action")

@@ -220,6 +220,7 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
             instr = get_qwen_code_agent_instruction("ru")
 
             from src.bot.response_formatter import ResponseFormatter
+
             response_formatter = ResponseFormatter()
             response_formatter_prompt = response_formatter.generate_prompt_text()
 
@@ -235,11 +236,11 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
         # Prepare task content with agent mode instruction
         # Include context if available
         if context:
-            task_prompt = f"{context}\n\n{instr}\n\n# Задача от пользователя:\n{content.get('text', '')}"
-        else:
             task_prompt = (
-                f"{instr}\n\n# Задача от пользователя:\n{content.get('text', '')}"
+                f"{context}\n\n{instr}\n\n# Задача от пользователя:\n{content.get('text', '')}"
             )
+        else:
+            task_prompt = f"{instr}\n\n# Задача от пользователя:\n{content.get('text', '')}"
 
         task_content = {
             "text": content.get("text", ""),

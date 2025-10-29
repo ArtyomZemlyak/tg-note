@@ -226,9 +226,13 @@ class BotHandlers:
 
         if user_kb:
             kb_type_emoji = "🌐" if user_kb["kb_type"] == "github" else "📁"
-            welcome_text += f"{kb_type_emoji} <b>Текущая БЗ:</b> {escape_html(user_kb['kb_name'])}\n"
+            welcome_text += (
+                f"{kb_type_emoji} <b>Текущая БЗ:</b> {escape_html(user_kb['kb_name'])}\n"
+            )
         else:
-            welcome_text += "⚠️ <b>База знаний не настроена</b>\n" "Начните с создания базы знаний!\n\n"
+            welcome_text += (
+                "⚠️ <b>База знаний не настроена</b>\n" "Начните с создания базы знаний!\n\n"
+            )
 
         current_mode = self.user_context_manager.get_user_mode(message.from_user.id)
         mode_emoji = {"note": "📝", "ask": "🤔", "agent": "🤖"}.get(current_mode, "📝")
@@ -238,11 +242,11 @@ class BotHandlers:
 
         welcome_text += f"{mode_emoji} <b>Режим:</b> {mode_name}\n\n"
         welcome_text += "Выберите действие из меню ниже:"
- 
+
         # Store the main menu message ID for future edits
         self._main_menu_message_id = message.message_id
         self._main_menu_chat_id = message.chat.id
- 
+
         try:
             await self.bot.edit_message_text(
                 welcome_text,
@@ -324,7 +328,9 @@ class BotHandlers:
                 if self.mcp_handlers:
                     await self.mcp_handlers.handle_list_mcp_servers(message)
                 else:
-                    await self.bot.send_message(call.message.chat.id, "MCP handlers not initialized")
+                    await self.bot.send_message(
+                        call.message.chat.id, "MCP handlers not initialized"
+                    )
 
             elif action == "context":
                 # Show context management menu
@@ -358,21 +364,21 @@ class BotHandlers:
     async def _show_mode_menu(self, call: CallbackQuery) -> None:
         """Show mode selection menu"""
         current_mode = self.user_context_manager.get_user_mode(call.from_user.id)
- 
+
         keyboard = InlineKeyboardMarkup()
         keyboard.row_width = 1
- 
+
         # Add back button
         keyboard.add(InlineKeyboardButton("« Назад", callback_data="start:back_to_main"))
- 
+
         modes = [
             ("note", "📝 Создание базы знаний", "Сообщения анализируются и сохраняются в БЗ"),
             ("ask", "🤔 Вопросы по БЗ", "Задавайте вопросы о содержимом БЗ"),
             ("agent", "🤖 Агент (полный доступ)", "Агент может выполнять любые задачи с БЗ"),
         ]
- 
+
         text_lines = ["🔄 <b>Выбор режима работы</b>\n"]
- 
+
         for mode_id, mode_name, mode_desc in modes:
             if mode_id == current_mode:
                 text_lines.append(f"✅ <b>{mode_name}</b> (текущий)")
@@ -385,9 +391,9 @@ class BotHandlers:
                         f"➡️ {mode_name}", callback_data=f"start:set_mode:{mode_id}"
                     )
                 )
- 
+
         text = "\n".join(text_lines)
- 
+
         try:
             await self.bot.edit_message_text(
                 text,
@@ -400,7 +406,7 @@ class BotHandlers:
             await self.bot.send_message(
                 call.message.chat.id, text, reply_markup=keyboard, parse_mode="HTML"
             )
- 
+
         await self.bot.answer_callback_query(call.id)
 
     async def _set_mode(self, call: CallbackQuery, mode: str) -> None:
@@ -433,21 +439,21 @@ class BotHandlers:
         """Show context management menu"""
         keyboard = InlineKeyboardMarkup()
         keyboard.row_width = 1
- 
+
         # Add back button
         keyboard.add(InlineKeyboardButton("« Назад", callback_data="start:back_to_main"))
- 
+
         keyboard.add(
             InlineKeyboardButton("🔄 Сбросить контекст", callback_data="start:reset_context"),
         )
- 
+
         menu_text = (
             "💬 <b>Управление контекстом</b>\n\n"
             "Бот запоминает предыдущие сообщения для более точных ответов.\n\n"
             "<b>Сброс контекста</b> очищает историю разговора и начинает новый диалог с чистого листа.\n\n"
             "Настройки контекста доступны в разделе ⚙️ Настройки."
         )
- 
+
         try:
             await self.bot.edit_message_text(
                 menu_text,
@@ -460,7 +466,7 @@ class BotHandlers:
             await self.bot.send_message(
                 call.message.chat.id, menu_text, reply_markup=keyboard, parse_mode="HTML"
             )
- 
+
         await self.bot.answer_callback_query(call.id)
 
     async def _reset_context(self, call: CallbackQuery) -> None:

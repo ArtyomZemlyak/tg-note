@@ -22,7 +22,9 @@ from .mcp_hub_client import MCPHubClient, MCPHubError
 class MCPHandlers:
     """Telegram handlers for MCP server management"""
 
-    def __init__(self, bot: AsyncTeleBot, mcp_manager: Optional[MCPServersManager] = None, handlers=None):
+    def __init__(
+        self, bot: AsyncTeleBot, mcp_manager: Optional[MCPServersManager] = None, handlers=None
+    ):
         """
         Initialize MCP handlers
 
@@ -251,7 +253,8 @@ class MCPHandlers:
         if not all_servers:
             await self.bot.reply_to(
                 message,
-                "📋 Нет настроенных MCP серверов.\n\n" "Используйте /addmcpserver для добавления нового сервера.",
+                "📋 Нет настроенных MCP серверов.\n\n"
+                "Используйте /addmcpserver для добавления нового сервера.",
             )
             return
 
@@ -261,21 +264,21 @@ class MCPHandlers:
         # Create inline keyboard for actions
         keyboard = InlineKeyboardMarkup()
         keyboard.row_width = 1
- 
+
         # Add back button
         keyboard.add(InlineKeyboardButton("« Назад", callback_data="mcp:back_to_main"))
- 
+
         for server in sorted(all_servers, key=lambda s: s.name):
             status_icon = "✅" if server.enabled else "❌"
             status_text = "включен" if server.enabled else "отключен"
- 
+
             lines.append(
                 f"{status_icon} <b>{escape_html(server.name)}</b>\n"
                 f"   {escape_html(server.description)}\n"
                 f"   Command: `{escape_html(server.command)}`\n"
                 f"   Status: {status_text}\n"
             )
- 
+
             # Add toggle button
             if server.enabled:
                 keyboard.add(
@@ -289,7 +292,7 @@ class MCPHandlers:
                         f"🟢 Включить {server.name}", callback_data=f"mcp:enable:{server.name}"
                     )
                 )
- 
+
         # Add refresh and add buttons
         keyboard.add(
             InlineKeyboardButton("🔄 Обновить", callback_data="mcp:list"),
@@ -298,9 +301,7 @@ class MCPHandlers:
 
         text = "\n".join(lines)
 
-        await self.bot.send_message(
-            message.chat.id, text, reply_markup=keyboard, parse_mode="HTML"
-        )
+        await self.bot.send_message(message.chat.id, text, reply_markup=keyboard, parse_mode="HTML")
 
     async def handle_mcp_status(self, message: Message) -> None:
         """Handle /mcpstatus command - show MCP servers summary"""
@@ -499,7 +500,8 @@ class MCPHandlers:
                 # Prompt to add new server
                 await self.bot.answer_callback_query(call.id)
                 await self.bot.send_message(
-                    call.message.chat.id, "Используйте /addmcpserver для добавления новой конфигурации MCP сервера."
+                    call.message.chat.id,
+                    "Используйте /addmcpserver для добавления новой конфигурации MCP сервера.",
                 )
 
             elif action == "enable":
@@ -578,7 +580,9 @@ class MCPHandlers:
                 if self.handlers:
                     await self.handlers.handle_start(message)
                 else:
-                    await self.bot.send_message(call.message.chat.id, "Main handlers not initialized")
+                    await self.bot.send_message(
+                        call.message.chat.id, "Main handlers not initialized"
+                    )
             else:
                 await self.bot.answer_callback_query(call.id, "Неизвестное действие")
 

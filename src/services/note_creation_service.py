@@ -219,9 +219,7 @@ class NoteCreationService(BaseKBService, INoteCreationService):
             )
 
             # Send success notification
-            await self._send_result(
-                processing_msg_id, chat_id, processed_content, kb_path, user_id
-            )
+            await self._send_result(processing_msg_id, chat_id, processed_content, kb_path, user_id)
 
     async def _save_to_kb(
         self,

@@ -137,7 +137,14 @@ class TelegramBotAdapter(BotPort):
         """
         return await self._bot.get_me()
 
-    async def answer_callback_query(self, callback_query_id: str, text: str = None, show_alert: bool = False, url: str = None, cache_time: int = None):
+    async def answer_callback_query(
+        self,
+        callback_query_id: str,
+        text: str = None,
+        show_alert: bool = False,
+        url: str = None,
+        cache_time: int = None,
+    ):
         """
         Answer a callback query
 

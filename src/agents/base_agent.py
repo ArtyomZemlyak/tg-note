@@ -76,8 +76,6 @@ class KBStructure:
         }
 
 
-
-
 class BaseAgent(ABC):
     """Abstract base class for content processing agents"""
 
@@ -126,6 +124,7 @@ class BaseAgent(ABC):
         """
         # Используем ResponseFormatter для парсинга
         from src.bot.response_formatter import ResponseFormatter
+
         formatter = ResponseFormatter()
         return formatter.parse(response)
 

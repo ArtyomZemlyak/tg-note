@@ -12,19 +12,20 @@ from .base_agent import BaseAgent, KBStructure
 
 class StubAgent(BaseAgent):
     """Deprecated! Stub agent for MVP - minimal processing and formatting"""
-    
+
     def __init__(self):
         """Initialize StubAgent with ResponseFormatter prompt included in instruction."""
         super().__init__()
-        
+
         # Initialize ResponseFormatter to get its prompt text
         from src.bot.response_formatter import ResponseFormatter
+
         response_formatter = ResponseFormatter()
         response_formatter_prompt = response_formatter.generate_prompt_text()
-        
+
         # Combine the default instruction with the ResponseFormatter prompt
         default_instruction_with_formatter = f"{self.__doc__}\n\n{response_formatter_prompt}"
-        
+
         self.instruction = default_instruction_with_formatter
 
     async def process(self, content: Dict) -> Dict:
@@ -48,9 +49,10 @@ class StubAgent(BaseAgent):
 
         # Parse the markdown content using ResponseFormatter
         from src.bot.response_formatter import ResponseFormatter
+
         formatter = ResponseFormatter()
         parsed_result = formatter.parse(markdown_content)
-        
+
         # Convert to markdown using ResponseFormatter
         final_markdown = formatter.to_md(parsed_result)
 

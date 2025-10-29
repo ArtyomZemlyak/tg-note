@@ -232,7 +232,7 @@ class AutonomousAgent(BaseAgent):
     """
 
     DEFAULT_INSTRUCTION = get_qwen_code_agent_instruction("en")
- 
+
     def __init__(
         self,
         llm_connector: Optional[BaseLLMConnector] = None,
@@ -276,12 +276,15 @@ class AutonomousAgent(BaseAgent):
 
         # Initialize ResponseFormatter to get its prompt text
         from src.bot.response_formatter import ResponseFormatter
+
         response_formatter = ResponseFormatter()
         response_formatter_prompt = response_formatter.generate_prompt_text()
 
         # Combine the default instruction with the ResponseFormatter prompt
-        default_instruction_with_formatter = f"{self.DEFAULT_INSTRUCTION}\n\n{response_formatter_prompt}"
-        
+        default_instruction_with_formatter = (
+            f"{self.DEFAULT_INSTRUCTION}\n\n{response_formatter_prompt}"
+        )
+
         self.instruction = instruction or default_instruction_with_formatter
         self.llm_connector = llm_connector
         self.max_iterations = max_iterations
@@ -456,9 +459,10 @@ class AutonomousAgent(BaseAgent):
 
         # Parse the result using ResponseFormatter
         from src.bot.response_formatter import ResponseFormatter
+
         formatter = ResponseFormatter()
         parsed_result = formatter.parse(result.markdown)
-        
+
         # Convert to markdown using ResponseFormatter
         final_markdown = formatter.to_md(parsed_result)
 

@@ -36,7 +36,7 @@ class QwenCodeCLIAgent(BaseAgent):
     """
 
     DEFAULT_INSTRUCTION = get_qwen_code_cli_instruction("ru")
- 
+
     def __init__(
         self,
         config: Optional[Dict] = None,
@@ -62,15 +62,18 @@ class QwenCodeCLIAgent(BaseAgent):
             timeout: Timeout in seconds for CLI commands
         """
         super().__init__(config)
- 
+
         # Initialize ResponseFormatter to get its prompt text
         from src.bot.response_formatter import ResponseFormatter
+
         response_formatter = ResponseFormatter()
         response_formatter_prompt = response_formatter.generate_prompt_text()
 
         # Combine the default instruction with the ResponseFormatter prompt
-        default_instruction_with_formatter = self.DEFAULT_INSTRUCTION.format(response_format=response_formatter_prompt)
-        
+        default_instruction_with_formatter = self.DEFAULT_INSTRUCTION.format(
+            response_format=response_formatter_prompt
+        )
+
         self.instruction = instruction or default_instruction_with_formatter
         self.qwen_cli_path = qwen_cli_path
 
@@ -261,15 +264,20 @@ class QwenCodeCLIAgent(BaseAgent):
 
             # Parse response using ResponseFormatter
             from src.bot.response_formatter import ResponseFormatter
+
             formatter = ResponseFormatter()
             parsed_result = formatter.parse(result_text)
-            
+
             # Convert to markdown using ResponseFormatter
             markdown_result = formatter.to_html(parsed_result)
-            
+
             logger.info(f"[QwenCodeCLIAgent] Parsed result: {parsed_result.get('summary', '')}")
-            logger.debug(f"[QwenCodeCLIAgent] Files created: {parsed_result.get('files_created', [])}")
-            logger.debug(f"[QwenCodeCLIAgent] Folders created: {parsed_result.get('folders_created', [])}")
+            logger.debug(
+                f"[QwenCodeCLIAgent] Files created: {parsed_result.get('files_created', [])}"
+            )
+            logger.debug(
+                f"[QwenCodeCLIAgent] Folders created: {parsed_result.get('folders_created', [])}"
+            )
 
             # Step 4: Extract KB structure from response
             logger.debug("[QwenCodeCLIAgent] STEP 4: Extracting KB structure from response")

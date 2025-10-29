@@ -14,7 +14,12 @@ from loguru import logger
 from src.bot.bot_port import BotPort
 from src.bot.response_formatter import ResponseFormatter
 from src.bot.settings_manager import SettingsManager
-from src.bot.utils import escape_markdown, escape_markdown_url, split_long_message, safe_edit_message_text
+from src.bot.utils import (
+    escape_markdown,
+    escape_markdown_url,
+    safe_edit_message_text,
+    split_long_message,
+)
 from src.core.rate_limiter import RateLimiter
 from src.knowledge_base.credentials_manager import CredentialsManager
 from src.knowledge_base.git_ops import GitOperations
@@ -419,7 +424,7 @@ class BaseKBService:
         kb_topics_only = self.settings_manager.get_setting(user_id, "KB_TOPICS_ONLY")
         if kb_topics_only:
             github_base = f"{github_base}/topics"
-        
+
         response_formatter = ResponseFormatter(github_base)
         full_message = response_formatter.to_html(result.get("parsed_result"))
 
@@ -448,4 +453,3 @@ class BaseKBService:
                 text=f"💡 (часть {i}/{len(message_chunks)}):\n\n{chunk}",
                 parse_mode="HTML",
             )
-

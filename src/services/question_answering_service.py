@@ -130,9 +130,7 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
             )
 
             # Send success notification
-            await self._send_result(
-                processing_msg_id, chat_id, processed_content, kb_path, user_id
-            )
+            await self._send_result(processing_msg_id, chat_id, processed_content, kb_path, user_id)
 
         except Exception as e:
             self.logger.error(f"Error in question processing: {e}", exc_info=True)
@@ -206,6 +204,7 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
         # Include context if available
 
         from src.bot.response_formatter import ResponseFormatter
+
         response_formatter = ResponseFormatter()
         response_formatter_prompt = response_formatter.generate_prompt_text()
 
@@ -216,7 +215,9 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
             query_prompt = f"{context}\n\n{get_kb_query_template('ru').format(kb_path=str(agent_working_dir), question=question, response_format=response_formatter_prompt)}"
         else:
             query_prompt = get_kb_query_template("ru").format(
-                kb_path=str(agent_working_dir), question=question, response_format=response_formatter_prompt
+                kb_path=str(agent_working_dir),
+                question=question,
+                response_format=response_formatter_prompt,
             )
 
         # Create query content
