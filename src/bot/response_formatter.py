@@ -82,7 +82,43 @@ class BaseField:
         return escape_html(text)
 
 
-class SummaryField(BaseField):
+class TextField(BaseField):
+    """Base class for text fields with HTML formatting support."""
+
+    def __init__(self, name: str, text: str):
+        super().__init__(name, text)
+
+    def to_html(self, value: Any) -> str:
+        """
+        Convert field value to HTML format.
+
+        Args:
+            value: Field value to convert
+
+        Returns:
+            str: HTML formatted string
+        """
+        if value is None:
+            return ""
+        # For text fields, we don't escape HTML as they may contain valid HTML tags
+        return str(value)
+
+    def to_md(self, value: Any) -> str:
+        """
+        Convert field value to markdown format.
+
+        Args:
+            value: Field value to convert
+
+        Returns:
+            str: Markdown formatted string
+        """
+        if value is None:
+            return ""
+        return str(value)
+
+
+class SummaryField(TextField):
     """Summary field for response format."""
 
     def __init__(self):
@@ -100,7 +136,7 @@ class SummaryField(BaseField):
         )
 
 
-class AnswerField(BaseField):
+class AnswerField(TextField):
     """Answer field for response format."""
 
     def __init__(self):
@@ -118,32 +154,29 @@ class AnswerField(BaseField):
         )
 
 
-class FilesCreatedField(BaseField):
-    """Files created field for response format."""
+class FileListField(BaseField):
+    """Base class for file list fields (created, edited, deleted, folders)."""
 
-    def __init__(self, github_url: str = None):
-        super().__init__(
-            "files_created", "Список созданных файлов (пустой массив, если ничего не создано)"
-        )
+    def __init__(self, name: str, text: str, icon: str, github_url: str = None):
+        super().__init__(name, text)
+        self.icon = icon
         self.github_url = github_url
 
     def generate_example(self):
-        """Generate example value for files created field."""
+        """Generate example value for file list field."""
         ex = ["относительный_путь/к/файлу1.md", "относительный_путь/к/файлу2.md"]
         return f"{ex}  # {self.text}"
 
     def parse(self, response_data: Dict, **kwargs) -> Any:
-        """Parse files created field with formatting."""
-        files_created = response_data.get("files_created", [])
-        # Implementation will be similar to _format_file_changes for created files
-        return files_created
+        """Parse file list field with formatting."""
+        return response_data.get(self.name, [])
 
     def to_html(self, value: Any) -> str:
         """
-        Convert files created list to HTML format.
+        Convert file list to HTML format.
 
         Args:
-            value: List of created files
+            value: List of files
 
         Returns:
             str: HTML formatted string
@@ -151,13 +184,11 @@ class FilesCreatedField(BaseField):
         if not value:
             return ""
 
-        lines = ["<b>✅ Созданные файлы:</b>"]
+        lines = [f"<b>{self.icon} {self._get_display_name()}:</b>"]
         for file_path in value:
-            # For HTML, we need to escape special characters
             escaped_file_path = self._escape_html(file_path)
             if self.github_url:
                 url = f"{self.github_url}/{file_path}"
-                # URL should be escaped too
                 escaped_url = self._escape_html(url)
                 lines.append(f'- <a href="{escaped_url}">{escaped_file_path}</a>')
             else:
@@ -166,10 +197,10 @@ class FilesCreatedField(BaseField):
 
     def to_md(self, value: Any) -> str:
         """
-        Convert files created list to markdown format.
+        Convert file list to markdown format.
 
         Args:
-            value: List of created files
+            value: List of files
 
         Returns:
             str: Markdown formatted string
@@ -177,7 +208,7 @@ class FilesCreatedField(BaseField):
         if not value:
             return ""
 
-        lines = ["✅ Созданные файлы:"]
+        lines = [f"{self.icon} {self._get_display_name()}:"]
         for file_path in value:
             file_path = escape_markdown_url(file_path)
             if self.github_url:
@@ -187,219 +218,69 @@ class FilesCreatedField(BaseField):
                 lines.append(f"- {file_path}")
         return "\n".join(lines)
 
+    def _get_display_name(self) -> str:
+        """Get display name for the field type."""
+        return self.name.replace("_", " ").title()
 
-class FilesEditedField(BaseField):
+
+class FilesCreatedField(FileListField):
+    """Files created field for response format."""
+
+    def __init__(self, github_url: str = None):
+        super().__init__(
+            "files_created",
+            "Список созданных файлов (пустой массив, если ничего не создано)",
+            "✅",
+            github_url,
+        )
+
+    def _get_display_name(self) -> str:
+        return "Созданные файлы"
+
+
+class FilesEditedField(FileListField):
     """Files edited field for response format."""
 
     def __init__(self, github_url: str = None):
         super().__init__(
             "files_edited",
             "Список отредактированных файлов (пустой массив, если ничего не отредактировано)",
+            "✏️",
+            github_url,
         )
-        self.github_url = github_url
 
-    def generate_example(self):
-        """Generate example value for files edited field."""
-        ex = ["относительный_путь/к/файлу3.md"]
-        return f"{ex}  # {self.text}"
-
-    def parse(self, response_data: Dict, **kwargs) -> Any:
-        """Parse files edited field with formatting."""
-        files_edited = response_data.get("files_edited", [])
-        # Implementation will be similar to _format_file_changes for edited files
-        return files_edited
-
-    def to_html(self, value: Any) -> str:
-        """
-        Convert files edited list to HTML format.
-
-        Args:
-            value: List of edited files
-
-        Returns:
-            str: HTML formatted string
-        """
-        if not value:
-            return ""
-
-        lines = ["<b>✏️ Отредактированные файлы:</b>"]
-        for file_path in value:
-            # For HTML, we need to escape special characters
-            escaped_file_path = self._escape_html(file_path)
-            if self.github_url:
-                url = f"{self.github_url}/{file_path}"
-                # URL should be escaped too
-                escaped_url = self._escape_html(url)
-                lines.append(f'- <a href="{escaped_url}">{escaped_file_path}</a>')
-            else:
-                lines.append(f"- {escaped_file_path}")
-
-        return "\n".join(lines)
-
-    def to_md(self, value: Any) -> str:
-        """
-        Convert files edited list to markdown format.
-
-        Args:
-            value: List of edited files
-
-        Returns:
-            str: Markdown formatted string
-        """
-        if not value:
-            return ""
-
-        lines = ["✏️ Отредактированные файлы:"]
-        for file_path in value:
-            file_path = escape_markdown_url(file_path)
-            if self.github_url:
-                url = escape_markdown_url(f"{self.github_url}/{file_path}")
-                lines.append(f"- [{file_path}]({url})")
-            else:
-                lines.append(f"- {file_path}")
-        return "\n".join(lines)
+    def _get_display_name(self) -> str:
+        return "Отредактированные файлы"
 
 
-class FilesDeletedField(BaseField):
+class FilesDeletedField(FileListField):
     """Files deleted field for response format."""
 
     def __init__(self, github_url: str = None):
         super().__init__(
-            "files_deleted", "Список удаленных файлов (пустой массив, если ничего не удалено)"
+            "files_deleted",
+            "Список удаленных файлов (пустой массив, если ничего не удалено)",
+            "❌",
+            github_url,
         )
-        self.github_url = github_url
 
-    def generate_example(self):
-        """Generate example value for files deleted field."""
-        ex = ["относительный_путь/к/файлу4.md"]
-        return f"{ex}  # {self.text}"
-
-    def parse(self, response_data: Dict, **kwargs) -> Any:
-        """Parse files deleted field with formatting."""
-        files_deleted = response_data.get("files_deleted", [])
-        # Implementation will be similar to _format_file_changes for deleted files
-        return files_deleted
-
-    def to_html(self, value: Any) -> str:
-        """
-        Convert files deleted list to HTML format.
-
-        Args:
-            value: List of deleted files
-
-        Returns:
-            str: HTML formatted string
-        """
-        if not value:
-            return ""
-
-        lines = ["<b>❌ Удаленные файлы:</b>"]
-        for file_path in value:
-            # For HTML, we need to escape special characters
-            escaped_file_path = self._escape_html(file_path)
-            if self.github_url:
-                url = f"{self.github_url}/{file_path}"
-                # URL should be escaped too
-                escaped_url = self._escape_html(url)
-                lines.append(f'- <a href="{escaped_url}">{escaped_file_path}</a>')
-            else:
-                lines.append(f"- {escaped_file_path}")
-
-        return "\n".join(lines)
-
-    def to_md(self, value: Any) -> str:
-        """
-        Convert files deleted list to markdown format.
-
-        Args:
-            value: List of deleted files
-
-        Returns:
-            str: Markdown formatted string
-        """
-        if not value:
-            return ""
-
-        lines = ["❌ Удаленные файлы:"]
-        for file_path in value:
-            file_path = escape_markdown_url(file_path)
-            if self.github_url:
-                url = escape_markdown_url(f"{self.github_url}/{file_path}")
-                lines.append(f"- [{file_path}]({url})")
-            else:
-                lines.append(f"- {file_path}")
-        return "\n".join(lines)
+    def _get_display_name(self) -> str:
+        return "Удаленные файлы"
 
 
-class FoldersCreatedField(BaseField):
+class FoldersCreatedField(FileListField):
     """Folders created field for response format."""
 
     def __init__(self, github_url: str = None):
         super().__init__(
-            "folders_created", "Список созданных папок (пустой массив, если ничего не создано)"
+            "folders_created",
+            "Список созданных папок (пустой массив, если ничего не создано)",
+            "📁",
+            github_url,
         )
-        self.github_url = github_url
 
-    def generate_example(self):
-        """Generate example value for folders created field."""
-        ex = ["относительный_путь/к/папке"]
-        return f"{ex}  # {self.text}"
-
-    def parse(self, response_data: Dict, **kwargs) -> Any:
-        """Parse folders created field with formatting."""
-        folders_created = response_data.get("folders_created", [])
-        # Implementation will be similar to _format_file_changes for folders
-        return folders_created
-
-    def to_html(self, value: Any) -> str:
-        """
-        Convert folders created list to HTML format.
-
-        Args:
-            value: List of created folders
-
-        Returns:
-            str: HTML formatted string
-        """
-        if not value:
-            return ""
-
-        lines = ["<b>📁 Созданные папки:</b>"]
-        for folder_path in value:
-            # For HTML, we need to escape special characters
-            escaped_folder_path = self._escape_html(folder_path)
-            if self.github_url:
-                url = f"{self.github_url}/{folder_path}"
-                # URL should be escaped too
-                escaped_url = self._escape_html(url)
-                lines.append(f'- <a href="{escaped_url}">{escaped_folder_path}</a>')
-            else:
-                lines.append(f"- {escaped_folder_path}")
-
-        return "\n".join(lines)
-
-    def to_md(self, value: Any) -> str:
-        """
-        Convert folders created list to markdown format.
-
-        Args:
-            value: List of created folders
-
-        Returns:
-            str: Markdown formatted string
-        """
-        if not value:
-            return ""
-
-        lines = ["📁 Созданные папки:"]
-        for folder_path in value:
-            folder_path = escape_markdown_url(folder_path)
-            if self.github_url:
-                url = escape_markdown_url(f"{self.github_url}/{folder_path}")
-                lines.append(f"- [{folder_path}]({url})")
-            else:
-                lines.append(f"- {folder_path}")
-        return "\n".join(lines)
+    def _get_display_name(self) -> str:
+        return "Созданные папки"
 
 
 class LinksField(BaseField):
@@ -436,8 +317,7 @@ class LinksField(BaseField):
 
     def parse(self, response_data: Dict, **kwargs) -> Any:
         """Parse links field with formatting."""
-        links = response_data.get("links", [])
-        return links
+        return response_data.get("links", [])
 
     def to_html(self, value: Any) -> str:
         """
@@ -457,12 +337,10 @@ class LinksField(BaseField):
             if isinstance(link, dict):
                 file_path = link.get("file", "")
                 description = link.get("description", "")
-                # For HTML, we need to escape special characters
                 escaped_file_path = self._escape_html(file_path)
                 escaped_description = self._escape_html(description)
                 if self.github_url:
                     url = f"{self.github_url}/{file_path}"
-                    # URL should be escaped too
                     escaped_url = self._escape_html(url)
                     lines.append(
                         f'- <a href="{escaped_url}">{escaped_file_path}</a>: {escaped_description}'
