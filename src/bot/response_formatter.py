@@ -346,6 +346,22 @@ class InsiteField(BaseField):
             "почему именно эта комбинация работает, какие ограничения она снимает, какие новые степени свободы открывает."
         )
 
+    def to_html(self, value: Any) -> str:
+        """
+        Convert field value to HTML format.
+
+        Args:
+            value: Field value to convert
+
+        Returns:
+            str: HTML formatted string
+        """
+        if value is None:
+            return ""
+        # For simple text values, we need to escape HTML special characters
+        text_value = f"<b>💡 Инсайты:</b>\n{value}"
+        return self._escape_html(text_value)
+
 
 class ResponseFormatter:
     """Class to represent and generate response format for agent prompts."""
