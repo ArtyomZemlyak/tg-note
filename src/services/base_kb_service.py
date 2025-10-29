@@ -15,8 +15,6 @@ from src.bot.bot_port import BotPort
 from src.bot.response_formatter import ResponseFormatter
 from src.bot.settings_manager import SettingsManager
 from src.bot.utils import (
-    escape_markdown,
-    escape_markdown_url,
     safe_edit_message_text,
     split_long_message,
 )

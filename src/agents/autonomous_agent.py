@@ -4,24 +4,19 @@ Autonomous Agent
 Использует LLM коннекторы для взаимодействия с различными LLM API
 """
 
-import json
-import subprocess
-from abc import abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
-import aiohttp
-import requests
 from loguru import logger
 
 from config.agent_prompts import get_qwen_code_agent_instruction
 
 # from .base_agent import AgentResult as BaseAgentResult
 from .base_agent import BaseAgent, KBStructure
-from .llm_connectors import BaseLLMConnector, LLMResponse
+from .llm_connectors import BaseLLMConnector
 from .tools import ToolManager, build_default_tool_manager
 
 

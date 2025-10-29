@@ -4,7 +4,6 @@ Defines abstract interfaces for services (Dependency Inversion Principle)
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
 
 from src.bot.dto import IncomingMessageDTO
 from src.processor.message_aggregator import MessageGroup

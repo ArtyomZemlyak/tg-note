@@ -4,8 +4,6 @@ Handles message processing and routing
 Follows Single Responsibility Principle
 """
 
-from typing import Any, Dict
-
 from loguru import logger
 
 from src.bot.bot_port import BotPort

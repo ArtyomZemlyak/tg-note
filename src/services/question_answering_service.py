@@ -15,7 +15,6 @@ from src.agents.base_agent import BaseAgent
 from src.bot.bot_port import BotPort
 from src.bot.response_formatter import ResponseFormatter
 from src.bot.settings_manager import SettingsManager
-from src.bot.utils import escape_markdown, split_long_message
 from src.core.rate_limiter import RateLimiter
 from src.knowledge_base.repository import RepositoryManager
 from src.processor.content_parser import ContentParser

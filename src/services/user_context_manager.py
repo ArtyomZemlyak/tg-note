@@ -5,7 +5,7 @@ Follows Single Responsibility Principle
 """
 
 import asyncio
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
 from loguru import logger
 

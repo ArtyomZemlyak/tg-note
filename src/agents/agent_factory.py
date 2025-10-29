@@ -9,7 +9,7 @@ from typing import Dict, Optional
 
 from loguru import logger
 
-from .agent_registry import get_registry, register_agent
+from .agent_registry import get_registry
 from .autonomous_agent import AutonomousAgent
 from .base_agent import BaseAgent
 from .llm_connectors import OpenAIConnector

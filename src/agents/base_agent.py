@@ -3,10 +3,8 @@ Base Agent
 Abstract base class for all agents
 """
 
-import json
 import re
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from config.agent_prompts import (
