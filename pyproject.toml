@@ -21,32 +21,31 @@ classifiers = [
 ]
 requires-python = ">=3.11"
 dependencies = [
-    # Core dependencies
+    # AICODE-NOTE: This is the combined dependencies list for development
+    # For production deployment, use separate requirements files:
+    # - requirements-mcp-hub.txt (for MCP Hub server)
+    # - requirements-bot.txt (for Bot server)
+    
+    # Core dependencies (shared)
     "pydantic==2.10.4",
     "pydantic-settings==2.7.0",
     "PyYAML==6.0.1",
-    # Telegram Bot
-    "pyTelegramBotAPI==4.14.0",
-    # Git operations
-    "GitPython>=3.1.40,<3.2.0",
-    # File locking for concurrent access
+    "loguru>=0.7.2,<0.8.0",
     "filelock>=3.13.1,<4.0.0",
-    # Agent system
-    "qwen-agent>=0.0.31,<0.1.0",
-    # LLM APIs
-    "openai>=1.0.0,<2.0.0",
-    # Utilities
     "aiohttp>=3.9.1,<4.0.0",
     "requests>=2.32.2,<3.0.0",
-    # Logging
-    "loguru>=0.7.2,<0.8.0",
-    # Document processing
+    
+    # Bot server specific
+    "pyTelegramBotAPI==4.14.0",
+    "GitPython>=3.1.40,<3.2.0",
+    "qwen-agent>=0.0.31,<0.1.0",
+    "openai>=1.0.0,<2.0.0",
     "docling>=2.0.0,<3.0.0",
-    # HuggingFace for model management
     "huggingface-hub>=0.23.0,<1.0.0",
-    # Encryption for secure credentials storage
     "cryptography>=41.0.0,<44.0.0",
     "qdrant-client>=1.7.0",
+    
+    # MCP Hub server specific
     "fastmcp>=0.1.0",
 ]
 

@@ -13,17 +13,14 @@ RUN apt-get update && apt-get install -y \
 # Create app directory
 WORKDIR /app
 
-# Copy dependency files (include README to satisfy pyproject readme)
-COPY pyproject.toml poetry.lock* README.md ./
+# Copy dependency files
+COPY requirements-mcp-hub.txt ./
 
-# Install dependencies with Poetry (no virtualenv)
-# Install base app with extras for mcp and mem-agent (lightweight - no ML models)
-# AICODE-NOTE: mem-agent now uses lightweight dependencies
+# Install dependencies with pip
+# AICODE-NOTE: MCP Hub uses lightweight dependencies only
 # Model inference is handled by external containers (vLLM/SGLang/LM Studio)
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir poetry && \
-    poetry config virtualenvs.create false && \
-    poetry install --no-interaction --no-ansi -E mcp -E mem-agent --no-root
+    pip install --no-cache-dir -r requirements-mcp-hub.txt
 
 # Runtime stage
 FROM python:3.11-slim
