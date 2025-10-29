@@ -332,12 +332,12 @@ class LinksField(BaseField):
         return "\n".join(lines)
 
 
-class InsideField(BaseField):
+class InsiteField(BaseField):
     """Answer field for response format."""
 
     def __init__(self):
         super().__init__(
-            "inside",
+            "insite",
             'Проанализируй контент сообщения, найденные тобой связи, информацию в базе знаний.'
             "И выведи по настоящему интересные инсайты:"
             "- потенциальные мощные прорывы"
@@ -358,7 +358,7 @@ class ResponseFormatter:
             FilesEditedField(github_url),
             FilesDeletedField(github_url),
             LinksField(github_url),
-            InsideField(),
+            InsiteField(),
 
         ]
 
