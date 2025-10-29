@@ -82,43 +82,7 @@ class BaseField:
         return escape_html(text)
 
 
-class TextField(BaseField):
-    """Base class for text fields with HTML formatting support."""
-
-    def __init__(self, name: str, text: str):
-        super().__init__(name, text)
-
-    def to_html(self, value: Any) -> str:
-        """
-        Convert field value to HTML format.
-
-        Args:
-            value: Field value to convert
-
-        Returns:
-            str: HTML formatted string
-        """
-        if value is None:
-            return ""
-        # For text fields, we don't escape HTML as they may contain valid HTML tags
-        return str(value)
-
-    def to_md(self, value: Any) -> str:
-        """
-        Convert field value to markdown format.
-
-        Args:
-            value: Field value to convert
-
-        Returns:
-            str: Markdown formatted string
-        """
-        if value is None:
-            return ""
-        return str(value)
-
-
-class SummaryField(TextField):
+class SummaryField(BaseField):
     """Summary field for response format."""
 
     def __init__(self):
@@ -136,7 +100,7 @@ class SummaryField(TextField):
         )
 
 
-class AnswerField(TextField):
+class AnswerField(BaseField):
     """Answer field for response format."""
 
     def __init__(self):
@@ -164,7 +128,7 @@ class FileListField(BaseField):
 
     def generate_example(self):
         """Generate example value for file list field."""
-        ex = ["относительный_путь/к/файлу1.md", "относительный_путь/к/файлу2.md"]
+        ex = ["относительный_путь/к/файлу1.md", "относительный_путь/к/файлу2.md", "относительный_путь/к/папке"]
         return f"{ex}  # {self.text}"
 
     def parse(self, response_data: Dict, **kwargs) -> Any:
@@ -228,14 +192,14 @@ class FilesCreatedField(FileListField):
 
     def __init__(self, github_url: str = None):
         super().__init__(
-            "files_created",
-            "Список созданных файлов (пустой массив, если ничего не создано)",
+            "created",
+            "Список созданных файлов и папок (пустой массив, если ничего не создано)",
             "✅",
             github_url,
         )
 
     def _get_display_name(self) -> str:
-        return "Созданные файлы"
+        return "Создано:"
 
 
 class FilesEditedField(FileListField):
@@ -243,14 +207,14 @@ class FilesEditedField(FileListField):
 
     def __init__(self, github_url: str = None):
         super().__init__(
-            "files_edited",
-            "Список отредактированных файлов (пустой массив, если ничего не отредактировано)",
+            "edited",
+            "Список отредактированных файлов и папок (пустой массив, если ничего не отредактировано)",
             "✏️",
             github_url,
         )
 
     def _get_display_name(self) -> str:
-        return "Отредактированные файлы"
+        return "Отредактировано:"
 
 
 class FilesDeletedField(FileListField):
@@ -258,29 +222,14 @@ class FilesDeletedField(FileListField):
 
     def __init__(self, github_url: str = None):
         super().__init__(
-            "files_deleted",
-            "Список удаленных файлов (пустой массив, если ничего не удалено)",
+            "deleted",
+            "Список удаленных файлов и папок (пустой массив, если ничего не удалено)",
             "❌",
             github_url,
         )
 
     def _get_display_name(self) -> str:
-        return "Удаленные файлы"
-
-
-class FoldersCreatedField(FileListField):
-    """Folders created field for response format."""
-
-    def __init__(self, github_url: str = None):
-        super().__init__(
-            "folders_created",
-            "Список созданных папок (пустой массив, если ничего не создано)",
-            "📁",
-            github_url,
-        )
-
-    def _get_display_name(self) -> str:
-        return "Созданные папки"
+        return "Удалено:"
 
 
 class LinksField(BaseField):
@@ -383,6 +332,21 @@ class LinksField(BaseField):
         return "\n".join(lines)
 
 
+class InsideField(BaseField):
+    """Answer field for response format."""
+
+    def __init__(self):
+        super().__init__(
+            "inside",
+            'Проанализируй контент сообщения, найденные тобой связи, информацию в базе знаний.'
+            "И выведи по настоящему интересные инсайты:"
+            "- потенциальные мощные прорывы"
+            "- применение нескольких технологий вместе, которые дополняют друг друга"
+            "- Каждый инсайт должен быть подкреплён чёткой причинно-следственной логикой:"
+            "почему именно эта комбинация работает, какие ограничения она снимает, какие новые степени свободы открывает."
+        )
+
+
 class ResponseFormatter:
     """Class to represent and generate response format for agent prompts."""
 
@@ -393,8 +357,9 @@ class ResponseFormatter:
             FilesCreatedField(github_url),
             FilesEditedField(github_url),
             FilesDeletedField(github_url),
-            FoldersCreatedField(github_url),
             LinksField(github_url),
+            InsideField(),
+
         ]
 
     def generate_prompt_text(self) -> str:
