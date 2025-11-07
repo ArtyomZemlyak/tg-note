@@ -42,11 +42,20 @@ class SettingsInspector:
         "ANTHROPIC_": "credentials",
         "QWEN_": "credentials",
         "GITHUB_": "credentials",
+        "GITLAB_": "credentials",
+        "OPENROUTER_": "credentials",
         "AGENT_": "agent",
         "KB_": "knowledge_base",
         "MESSAGE_": "processing",
         "PROCESSED_": "processing",
         "LOG_": "logging",
+        "VECTOR_": "vector_search",
+        "MEM_AGENT_": "memory_agent",
+        "MCP_": "mcp",
+        "MEDIA_": "media",
+        "CONTEXT_": "context",
+        "RATE_LIMIT_": "rate_limiting",
+        "HEALTH_CHECK_": "health_check",
     }
 
     # Credentials and readonly fields
@@ -59,6 +68,10 @@ class SettingsInspector:
         "GITHUB_USERNAME",
         "GITLAB_TOKEN",
         "GITLAB_USERNAME",
+        "OPENROUTER_API_KEY",
+        "MEM_AGENT_OPENAI_API_KEY",
+        "VECTOR_INFINITY_API_KEY",
+        "VECTOR_QDRANT_API_KEY",
     }
 
     READONLY_FIELDS = {

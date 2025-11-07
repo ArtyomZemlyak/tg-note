@@ -81,6 +81,13 @@ class SettingsHandlers:
             "security": "🔒 Security",
             "credentials": "🔑 Credentials",
             "telegram": "💬 Telegram",
+            "vector_search": "🔍 Vector Search",
+            "memory_agent": "🧠 Memory Agent",
+            "mcp": "🔌 MCP",
+            "media": "📎 Media",
+            "context": "💭 Context",
+            "rate_limiting": "⏱️ Rate Limiting",
+            "health_check": "🏥 Health Check",
             "general": "🔧 General",
         }
 
@@ -176,22 +183,47 @@ class SettingsHandlers:
                 "/resetsetting KB_GIT_ENABLED\n"
                 "```"
             )
-            await self.bot.reply_to(message, help_text, parse_mode="HTML")
+            try:
+                await self.bot.reply_to(message, help_text, parse_mode="HTML")
+            except Exception as e:
+                logger.error(f"Error sending help text: {e}", exc_info=True)
             return
 
         setting_name = args[1].strip().upper()
 
         # Reset the setting
-        success, msg = self.settings_manager.reset_user_setting(message.from_user.id, setting_name)
+        try:
+            success, msg = self.settings_manager.reset_user_setting(
+                message.from_user.id, setting_name
+            )
+        except Exception as e:
+            logger.error(f"Error resetting user setting {setting_name}: {e}", exc_info=True)
+            success = False
+            msg = f"Ошибка при сбросе настройки: {str(e)}"
 
-        if success:
-            # Invalidate user cache in handlers
-            if self.handlers:
-                await self.handlers.invalidate_user_cache(message.from_user.id)
+        # Always send notification, even if there was an error
+        try:
+            if success:
+                # Invalidate user cache in handlers
+                if self.handlers:
+                    try:
+                        await self.handlers.invalidate_user_cache(message.from_user.id)
+                    except Exception as e:
+                        logger.warning(f"Error invalidating user cache: {e}", exc_info=True)
 
-            await self.bot.reply_to(message, f"✅ {msg}")
-        else:
-            await self.bot.reply_to(message, f"❌ {msg}")
+                await self.bot.reply_to(message, f"✅ {msg}")
+            else:
+                await self.bot.reply_to(message, f"❌ {msg}")
+        except Exception as e:
+            logger.error(f"Error sending setting reset notification: {e}", exc_info=True)
+            # Try to send a simple error message
+            try:
+                await self.bot.reply_to(
+                    message,
+                    f"❌ Ошибка при отправке уведомления о сбросе настройки {setting_name}",
+                )
+            except Exception:
+                logger.error("Failed to send error notification", exc_info=True)
 
     async def handle_kb_settings(self, message: Message) -> None:
         """Handle /kbsettings - show KB-specific settings"""
@@ -352,6 +384,13 @@ class SettingsHandlers:
             "security": "🔒 Security",
             "credentials": "🔑 Credentials",
             "telegram": "💬 Telegram",
+            "vector_search": "🔍 Vector Search",
+            "memory_agent": "🧠 Memory Agent",
+            "mcp": "🔌 MCP",
+            "media": "📎 Media",
+            "context": "💭 Context",
+            "rate_limiting": "⏱️ Rate Limiting",
+            "health_check": "🏥 Health Check",
             "general": "🔧 General",
         }
 
@@ -408,6 +447,13 @@ class SettingsHandlers:
             "security": "🔒 Security",
             "credentials": "🔑 Credentials",
             "telegram": "💬 Telegram",
+            "vector_search": "🔍 Vector Search",
+            "memory_agent": "🧠 Memory Agent",
+            "mcp": "🔌 MCP",
+            "media": "📎 Media",
+            "context": "💭 Context",
+            "rate_limiting": "⏱️ Rate Limiting",
+            "health_check": "🏥 Health Check",
             "general": "🔧 General",
         }
 
@@ -470,39 +516,87 @@ class SettingsHandlers:
         """Set a setting from callback"""
         user_id = call.from_user.id
 
-        success, msg = self.settings_manager.set_user_setting(user_id, setting_name, value)
+        try:
+            success, msg = self.settings_manager.set_user_setting(user_id, setting_name, value)
+        except Exception as e:
+            logger.error(f"Error setting user setting {setting_name}: {e}", exc_info=True)
+            success = False
+            msg = f"Ошибка при изменении настройки: {str(e)}"
 
-        if success:
-            # Invalidate user cache in handlers
-            if self.handlers:
-                await self.handlers.invalidate_user_cache(user_id)
+        # Always send notification, even if there was an error
+        try:
+            if success:
+                # Invalidate user cache in handlers
+                if self.handlers:
+                    try:
+                        await self.handlers.invalidate_user_cache(user_id)
+                    except Exception as e:
+                        logger.warning(f"Error invalidating user cache: {e}", exc_info=True)
 
-            await self.bot.answer_callback_query(call.id, f"✅ {msg}", show_alert=True)
-            # Refresh the display
-            info = self.inspector.get_setting_info(setting_name)
-            if info:
-                await self._show_category_settings(call, info.category)
-        else:
-            await self.bot.answer_callback_query(call.id, f"❌ {msg}", show_alert=True)
+                await self.bot.answer_callback_query(call.id, f"✅ {msg}", show_alert=True)
+                # Refresh the display
+                try:
+                    info = self.inspector.get_setting_info(setting_name)
+                    if info:
+                        await self._show_category_settings(call, info.category)
+                except Exception as e:
+                    logger.warning(f"Error refreshing category settings: {e}", exc_info=True)
+            else:
+                await self.bot.answer_callback_query(call.id, f"❌ {msg}", show_alert=True)
+        except Exception as e:
+            logger.error(f"Error sending setting change notification: {e}", exc_info=True)
+            # Try to send a simple error message
+            try:
+                await self.bot.answer_callback_query(
+                    call.id,
+                    f"❌ Ошибка при изменении настройки {setting_name}",
+                    show_alert=True,
+                )
+            except Exception:
+                logger.error("Failed to send error notification", exc_info=True)
 
     async def _reset_setting_callback(self, call: CallbackQuery, setting_name: str) -> None:
         """Reset a setting from callback"""
         user_id = call.from_user.id
 
-        success, msg = self.settings_manager.reset_user_setting(user_id, setting_name)
+        try:
+            success, msg = self.settings_manager.reset_user_setting(user_id, setting_name)
+        except Exception as e:
+            logger.error(f"Error resetting user setting {setting_name}: {e}", exc_info=True)
+            success = False
+            msg = f"Ошибка при сбросе настройки: {str(e)}"
 
-        if success:
-            # Invalidate user cache in handlers
-            if self.handlers:
-                await self.handlers.invalidate_user_cache(user_id)
+        # Always send notification, even if there was an error
+        try:
+            if success:
+                # Invalidate user cache in handlers
+                if self.handlers:
+                    try:
+                        await self.handlers.invalidate_user_cache(user_id)
+                    except Exception as e:
+                        logger.warning(f"Error invalidating user cache: {e}", exc_info=True)
 
-            await self.bot.answer_callback_query(call.id, f"✅ {msg}", show_alert=True)
-            # Refresh the display
-            info = self.inspector.get_setting_info(setting_name)
-            if info:
-                await self._show_category_settings(call, info.category)
-        else:
-            await self.bot.answer_callback_query(call.id, f"❌ {msg}", show_alert=True)
+                await self.bot.answer_callback_query(call.id, f"✅ {msg}", show_alert=True)
+                # Refresh the display
+                try:
+                    info = self.inspector.get_setting_info(setting_name)
+                    if info:
+                        await self._show_category_settings(call, info.category)
+                except Exception as e:
+                    logger.warning(f"Error refreshing category settings: {e}", exc_info=True)
+            else:
+                await self.bot.answer_callback_query(call.id, f"❌ {msg}", show_alert=True)
+        except Exception as e:
+            logger.error(f"Error sending setting reset notification: {e}", exc_info=True)
+            # Try to send a simple error message
+            try:
+                await self.bot.answer_callback_query(
+                    call.id,
+                    f"❌ Ошибка при сбросе настройки {setting_name}",
+                    show_alert=True,
+                )
+            except Exception:
+                logger.error("Failed to send error notification", exc_info=True)
 
     async def _show_setting_detail(self, call: CallbackQuery, setting_name: str) -> None:
         """Show detailed information about a setting and prompt for input"""
@@ -643,26 +737,49 @@ class SettingsHandlers:
         # Check for cancel
         if message.text and message.text.strip().lower() in ["/cancel", "cancel"]:
             del self.waiting_for_input[user_id]
-            await self.bot.reply_to(message, "❌ Cancelled")
+            try:
+                await self.bot.reply_to(message, "❌ Cancelled")
+            except Exception as e:
+                logger.error(f"Error sending cancel message: {e}", exc_info=True)
             return
 
         setting_name, category = self.waiting_for_input[user_id]
         value_str = message.text.strip()
 
         # Set the setting
-        success, msg = self.settings_manager.set_user_setting(user_id, setting_name, value_str)
+        try:
+            success, msg = self.settings_manager.set_user_setting(user_id, setting_name, value_str)
+        except Exception as e:
+            logger.error(f"Error setting user setting {setting_name}: {e}", exc_info=True)
+            success = False
+            msg = f"Ошибка при изменении настройки: {str(e)}"
 
         # Clear waiting state
         del self.waiting_for_input[user_id]
 
-        if success:
-            # Invalidate user cache in handlers
-            if self.handlers:
-                await self.handlers.invalidate_user_cache(user_id)
+        # Always send notification, even if there was an error
+        try:
+            if success:
+                # Invalidate user cache in handlers
+                if self.handlers:
+                    try:
+                        await self.handlers.invalidate_user_cache(user_id)
+                    except Exception as e:
+                        logger.warning(f"Error invalidating user cache: {e}", exc_info=True)
 
-            await self.bot.reply_to(message, f"✅ {msg}")
-        else:
-            await self.bot.reply_to(message, f"❌ {msg}")
+                await self.bot.reply_to(message, f"✅ {msg}")
+            else:
+                await self.bot.reply_to(message, f"❌ {msg}")
+        except Exception as e:
+            logger.error(f"Error sending setting change notification: {e}", exc_info=True)
+            # Try to send a simple error message
+            try:
+                await self.bot.reply_to(
+                    message,
+                    f"❌ Ошибка при отправке уведомления об изменении настройки {setting_name}",
+                )
+            except Exception:
+                logger.error("Failed to send error notification", exc_info=True)
 
     def _format_type(self, type_annotation) -> str:
         """Format type annotation as a readable string"""
