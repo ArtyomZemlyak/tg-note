@@ -84,6 +84,12 @@ Use the interactive menu and inline buttons:
 - `LOG_LEVEL` - Logging level (DEBUG, INFO, WARNING, ERROR)
 - `LOG_FILE` - Log file path
 
+### 🔑 Credentials
+
+Credentials category contains API keys and authentication tokens. These settings are **read-only** via the settings menu for security reasons. Use the `/settoken` command to manage Git credentials (GitHub/GitLab tokens).
+
+**Note:** Credentials cannot be changed through `/settings` menu. Use `/settoken` command for Git credentials or set them in `.env` file for global defaults.
+
 ---
 
 ## Interactive Menu
