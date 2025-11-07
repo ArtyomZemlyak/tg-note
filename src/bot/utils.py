@@ -76,14 +76,9 @@ class _TelegramHTMLValidator(HTMLParser):
                     break
 
             if href:
-                # Escape href to prevent XSS
-                escaped_href = (
-                    href.replace("&", "&amp;")
-                    .replace("<", "&lt;")
-                    .replace(">", "&gt;")
-                    .replace('"', "&quot;")
-                )
-                self.result.append(f'<a href="{escaped_href}">')
+                # Don't escape here - it will be done in _validate_html_content
+                # to avoid double-escaping
+                self.result.append(f'<a href="{href}">')
                 self.tag_stack.append(("a", False))
             # If no href, ignore the tag but keep content
             return
@@ -154,6 +149,32 @@ class _TelegramHTMLValidator(HTMLParser):
             # This removes empty tags like <b></b>
             if has_content:
                 self.result.append(f"</{closed_tag}>")
+            else:
+                # Remove the opening tag from result if no content
+                opening_tag = f"<{closed_tag}>"
+                # Also check for link tags with href
+                if closed_tag == "a":
+                    # Find and remove the last <a href="..."> tag
+                    for i in range(len(self.result) - 1, -1, -1):
+                        if self.result[i].startswith("<a href="):
+                            self.result.pop(i)
+                            break
+                elif closed_tag == "span":
+                    # Find and remove the last <span class="tg-spoiler"> tag
+                    for i in range(len(self.result) - 1, -1, -1):
+                        if self.result[i].startswith('<span class="tg-spoiler">'):
+                            self.result.pop(i)
+                            break
+                else:
+                    # For simple tags, remove from the end
+                    if self.result and self.result[-1] == opening_tag:
+                        self.result.pop()
+                    else:
+                        # Search backwards if not at the end
+                        for i in range(len(self.result) - 1, -1, -1):
+                            if self.result[i] == opening_tag:
+                                self.result.pop(i)
+                                break
 
     def handle_data(self, data: str):
         if data:
@@ -240,11 +261,15 @@ def _validate_html_content(text: str, skip_links_and_spoilers: bool = False) -> 
             validated_text = _validate_html_content(link_text, skip_links_and_spoilers=True)
             placeholder = f"__TELEGRAM_LINK_PLACEHOLDER_{link_counter}__"
             # Escape URL to prevent XSS
+            # Use a more careful approach to avoid double-escaping
+            escaped_url = url
+            # Escape & that are not part of HTML entities (like &amp;, &lt;, etc.)
+            escaped_url = re.sub(
+                r"&(?!(?:[a-zA-Z]+|#[0-9]+|#x[0-9a-fA-F]+);)", "&amp;", escaped_url
+            )
+            # Now escape other special characters
             escaped_url = (
-                url.replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace('"', "&quot;")
+                escaped_url.replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
             )
             links_map[placeholder] = f'<a href="{escaped_url}">{validated_text}</a>'
             link_counter += 1
