@@ -31,7 +31,7 @@ Query: "How does GPT-4 work?"
 
 Stage 1: Search files by pattern "*gpt*.md" → finds gpt4.md, gpt-models.md
 Stage 2: Semantic search "GPT-4 architecture and capabilities" → finds ai/models/gpt4.md, ai/transformers/attention.md
-Stage 3: 
+Stage 3:
   - Search content for "architecture" in gpt*.md files
   - Read files: ai/models/gpt4.md, ai/transformers/attention.md
   - If needed: another semantic search "GPT-4 training data parameters" for deeper details
