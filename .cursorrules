@@ -1,0 +1,243 @@
+# Cursor Rules for tg-note Project
+
+## Project Context
+
+This is **tg-note**, a Telegram bot that automatically transforms messages into a structured knowledge base using AI agents. The project uses Python 3.11+, Poetry for dependency management, and follows strict code quality standards.
+
+## Code Style & Formatting
+
+- **Formatter**: Use Black with line length 100
+- **Python Version**: 3.11+ (use modern Python features)
+- **Type Hints**: Always add type hints for function parameters and return values
+- **Async/Await**: Use async/await for all I/O operations (Telegram API, file operations, network requests)
+
+## File Organization
+
+- **Never create** `.md` or `.txt` summarization files in the repo root
+- **Always update** `docs_site/` documentation after new implementations
+- **Always update** `tests/` after new implementations
+- **Use pre-commit** hooks after committing
+
+## Special Comments for AI Agents
+
+Use these comment prefixes for AI/agent communication:
+
+```python
+# AICODE-NOTE: Explanation for AI agents or other AI+Code systems
+# AICODE-TODO: Tasks for AI agents or other AI+Code systems  
+# AICODE-ASK: Questions for user (after resolving, write answer as AICODE-NOTE)
+```
+
+## Architecture Patterns
+
+### Agent System
+
+- All agents inherit from `BaseAgent` in `src/agents/base_agent.py`
+- Use `AgentFactory.from_settings()` to create agents
+- Agents must implement `async def process(content: Dict) -> Dict`
+- Agent responses should include `kb_structure: KBStructure` for file organization
+
+### Service Container
+
+- Use dependency injection via `ServiceContainer` from `src/core/service_container.py`
+- Get services: `container.get_repository_manager()`, `container.get_agent_task_service()`
+
+### Knowledge Base Structure
+
+- Default path: `topics/{category}/{subcategory}/`
+- Use `KBStructure` class to define where files should be saved
+- Agents can specify custom paths via `custom_path` in `KBStructure`
+
+## Configuration
+
+- Settings priority: Environment Variables > `.env` > `config.yaml`
+- Never hardcode API keys or secrets
+- Use `config.settings` for accessing configuration
+- Per-user settings override global settings (stored in `data/user_settings_overrides.json`)
+
+## Error Handling
+
+- Always handle errors gracefully with try/except
+- Log errors using `loguru.logger`
+- Provide meaningful error messages to users
+- Don't expose internal errors or stack traces to Telegram users
+
+## Testing
+
+- Write tests for all new features in `tests/`
+- Test files: `test_*.py`, Test classes: `Test*`, Test functions: `test_*`
+- Run tests: `poetry run pytest`
+- Ensure tests pass before committing
+
+## Git Operations
+
+- Git operations are handled by `src/knowledge_base/git_ops.py`
+- Always check `KB_GIT_ENABLED` before performing Git operations
+- Use `GitOps.commit_and_push()` for commits
+- Handle Git errors gracefully (e.g., no changes to commit)
+
+## Agent Tools
+
+- Tools are in `src/agents/tools/`
+- All tools inherit from `BaseTool`
+- Tools are auto-registered via `ToolManager`
+- Enable/disable tools via `AGENT_ENABLE_*` settings
+
+## MCP (Model Context Protocol)
+
+- AutonomousAgent uses Python MCP client (`DynamicMCPTool`)
+- QwenCodeCLIAgent uses Qwen's native MCP (via `.qwen/settings.json`)
+- MCP Hub runs on port 8765
+- Enable MCP via `AGENT_ENABLE_MCP` setting
+
+## Import Organization
+
+1. Standard library imports
+2. Third-party packages
+3. Local application imports (`src/`, `config/`)
+
+Example:
+```python
+import asyncio
+from pathlib import Path
+from typing import Dict, Optional
+
+from loguru import logger
+
+from config import settings
+from src.agents import BaseAgent, AgentFactory
+```
+
+## Common Patterns
+
+### Creating an Agent
+
+```python
+from src.agents import AgentFactory
+from config import settings
+
+agent = AgentFactory.from_settings(settings, user_id=user_id)
+result = await agent.process(content_dict)
+```
+
+### Saving to Knowledge Base
+
+```python
+from src.knowledge_base.manager import KnowledgeBaseManager
+from src.agents.base_agent import KBStructure
+
+kb_manager = KnowledgeBaseManager(kb_path)
+kb_structure = KBStructure(category="ai", subcategory="ml")
+kb_manager.save_note(
+    title="Title",
+    content="# Content",
+    kb_structure=kb_structure
+)
+```
+
+### Logging
+
+```python
+from loguru import logger
+
+logger.info("Information message")
+logger.warning("Warning message")
+logger.error("Error message")
+logger.debug("Debug message")  # Only in DEBUG mode
+```
+
+## Security
+
+- Never commit credentials or secrets
+- Use `.env` file for sensitive data (git-ignored)
+- Encrypt user credentials (GitHub tokens) using Fernet
+- Validate user input before processing
+- Check `ALLOWED_USER_IDS` for access control
+
+## Documentation
+
+- Update `docs_site/` after adding features
+- Follow MkDocs format (Markdown)
+- Document configuration options
+- Include examples in documentation
+
+## Docker
+
+- Use `docker-compose.yml` for full stack
+- Use `docker-compose.simple.yml` for lightweight deployment
+- Services: bot, mcp-hub, vllm-server, qdrant, infinity
+- Environment variables in `.env` are passed to containers
+
+## When Making Changes
+
+1. **Read** the relevant code first
+2. **Understand** the architecture and patterns
+3. **Write** code following conventions
+4. **Test** your changes (`poetry run pytest`)
+5. **Format** code (`poetry run black src/ tests/`)
+6. **Update** documentation (`docs_site/`)
+7. **Update** tests if needed
+8. **Commit** with descriptive messages
+
+## Agent Types
+
+- **stub**: Simple stub for testing (no external dependencies)
+- **autonomous**: Python agent with OpenAI-compatible API and MCP support
+- **qwen_code_cli**: Qwen Code CLI integration (Node.js subprocess)
+
+Choose the appropriate agent type based on requirements:
+- Testing/MVP → `stub`
+- MCP tools needed → `autonomous`
+- Free tier needed → `qwen_code_cli`
+
+## Knowledge Base Paths
+
+- Global KB path: `KB_PATH` setting (default: `./knowledge_base`)
+- Per-user KB: `{KB_PATH}/{user_id}/` or `{KB_PATH}/{kb_name}/`
+- Topics folder: `{kb_path}/topics/`
+- Agent access: Controlled by `KB_TOPICS_ONLY` setting
+
+## File Processing
+
+- Supported formats: PDF, DOCX, PPTX, XLSX, MD, HTML, TXT
+- Uses Docling for format recognition
+- Content extracted and passed to agents
+- Media files (images) handled separately
+
+## Message Processing
+
+- Messages are aggregated (30s timeout by default)
+- Deduplication via `ProcessingTracker`
+- Content parsed via `ContentParser`
+- Processed content passed to agents
+
+## Important Files
+
+- `main.py`: Entry point
+- `config/settings.py`: Configuration management
+- `src/agents/base_agent.py`: Agent base class
+- `src/agents/agent_factory.py`: Agent creation
+- `src/bot/handlers.py`: Telegram handlers
+- `src/knowledge_base/manager.py`: KB operations
+- `src/knowledge_base/git_ops.py`: Git operations
+
+## Questions to Ask
+
+If unsure about:
+- **Architecture**: Check `AGENTS.md` and `docs_site/architecture/`
+- **Configuration**: Check `config/settings.py` and `config.example.yaml`
+- **Agent behavior**: Check agent implementation files
+- **KB structure**: Check `src/knowledge_base/manager.py`
+- **Git operations**: Check `src/knowledge_base/git_ops.py`
+
+## Code Quality Checklist
+
+Before committing:
+- [ ] Code formatted with Black
+- [ ] Type hints added
+- [ ] Tests written and passing
+- [ ] Documentation updated
+- [ ] No linter errors
+- [ ] Error handling added
+- [ ] Logging added where appropriate
+- [ ] No hardcoded secrets or paths
