@@ -49,3 +49,18 @@ Backward-compatible constants are preserved for existing imports:
 1. Create a new file with incremented version, e.g. `instruction.ru.v2.md`
 2. Update code to pin a specific version if needed: `get_qwen_code_cli_instruction("ru", version="v2")`
 3. Run tests
+
+## Recent Updates
+
+### v3/v4 - Source Citation Requirements (2025-11)
+
+Added mandatory source citation instructions to agent prompts:
+
+- **autonomous_agent.instruction** (ru/en v3) - Added detailed section on source citations
+- **qwen_code_cli.instruction** (ru v4) - Added source citation requirements
+- **AGENT_MODE_INSTRUCTION** - Updated with source citation rules
+
+All agents now MUST include:
+- Inline citations throughout the text
+- "Sources" section at the end of every created document
+- Preservation of all source URLs from original materials

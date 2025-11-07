@@ -453,6 +453,28 @@ AGENT_INSTRUCTION: |
   Use clear, academic language.
 ```
 
+### Source Citations (Ссылки на источники)
+
+**NEW REQUIREMENT (v3+):** The autonomous agent now ALWAYS includes source references in created documents:
+
+- **Inline citations** - Links directly in text next to specific facts/concepts
+  - Format: `According to [source name](URL), ...` or `... as described in [source](URL)`
+  - Example: `GPT-4 uses transformer architecture ([OpenAI Report](https://openai.com/research/gpt-4))`
+
+- **"Sources" section** - Mandatory section at the end of EVERY created file
+  - Lists all sources with URLs and brief descriptions
+  - Example:
+    ```markdown
+    ## Источники
+    
+    1. [Source Name](URL) - brief description why this source is important
+    2. [Another Source](URL) - brief description
+    ```
+
+- **Additional materials** - Optional section for supplementary resources found via web_search
+
+This ensures all knowledge base entries maintain proper attribution and traceability.
+
 ### Connections (Связи)
 
 - When creating relations, link only to existing files from the KB (skip files created in the same run).
