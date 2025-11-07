@@ -144,8 +144,6 @@ class BotPort(ABC):
     async def send_message(self, chat_id: int, text: str, **kwargs) -> Any:
         """
         Send a message to a chat (с retry и throttling)
-        
-        Automatically validates HTML tags for Telegram compatibility when parse_mode is "HTML".
 
         Args:
             chat_id: Chat identifier
@@ -155,12 +153,6 @@ class BotPort(ABC):
         Returns:
             Message object (transport-specific)
         """
-        # Validate HTML if parse_mode is HTML
-        parse_mode = kwargs.get("parse_mode")
-        if parse_mode == "HTML" and text:
-            from src.bot.utils import validate_telegram_html
-            text = validate_telegram_html(text)
-        
         return await self._with_retry_and_throttle(
             self._send_message_impl, f"send_message(chat_id={chat_id})", chat_id, text, **kwargs
         )
@@ -202,8 +194,6 @@ class BotPort(ABC):
     async def edit_message_text(self, text: str, chat_id: int, message_id: int, **kwargs) -> Any:
         """
         Edit a message text (с retry и throttling)
-        
-        Automatically validates HTML tags for Telegram compatibility when parse_mode is "HTML".
 
         Args:
             text: New message text
@@ -214,12 +204,6 @@ class BotPort(ABC):
         Returns:
             Updated message object (transport-specific)
         """
-        # Validate HTML if parse_mode is HTML
-        parse_mode = kwargs.get("parse_mode")
-        if parse_mode == "HTML" and text:
-            from src.bot.utils import validate_telegram_html
-            text = validate_telegram_html(text)
-        
         return await self._with_retry_and_throttle(
             self._edit_message_text_impl,
             f"edit_message_text(chat_id={chat_id}, message_id={message_id})",
