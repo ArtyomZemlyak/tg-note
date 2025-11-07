@@ -208,6 +208,56 @@ Whitelist of allowed Telegram user IDs. When set via environment variables, it a
 
 ---
 
+## Credentials Settings
+
+### GITHUB_TOKEN
+
+GitHub personal access token for API operations and Git authentication.
+
+- **Type:** `Optional[str]`
+- **Default:** `None`
+- **Description:** Used for GitHub API calls and HTTPS Git authentication
+- **Security:** Should be stored in `.env` file, not in `config.yaml`
+
+### GITHUB_USERNAME
+
+GitHub username for HTTPS authentication.
+
+- **Type:** `Optional[str]`
+- **Default:** `None`
+- **Description:** Required when using HTTPS Git remotes with GitHub
+- **Note:** Can be set per-user via Telegram `/settoken` command
+
+### GITLAB_TOKEN
+
+GitLab personal access token for API operations and Git authentication.
+
+- **Type:** `Optional[str]`
+- **Default:** `None`
+- **Description:** Used for GitLab API calls and HTTPS Git authentication
+- **Security:** Should be stored in `.env` file, not in `config.yaml`
+- **Get token:** https://gitlab.com/-/profile/personal_access_tokens
+
+### GITLAB_USERNAME
+
+GitLab username for HTTPS authentication.
+
+- **Type:** `Optional[str]`
+- **Default:** `None`
+- **Description:** Required when using HTTPS Git remotes with GitLab
+- **Note:** Can be set per-user via Telegram `/settoken` command
+
+### OPENROUTER_API_KEY
+
+OpenRouter API key for backward compatibility.
+
+- **Type:** `Optional[str]`
+- **Default:** `None`
+- **Description:** Used for OpenRouter API access (backward compatibility)
+- **Note:** Can also be used with memory agent for cloud LLM access
+
+---
+
 ## Environment Variables (.env)
 
 ### Required
@@ -231,6 +281,14 @@ ANTHROPIC_API_KEY=sk-ant-...
 
 # GitHub
 GITHUB_TOKEN=ghp_...
+GITHUB_USERNAME=your_username  # Optional, for HTTPS authentication
+
+# GitLab
+GITLAB_TOKEN=glpat-...
+GITLAB_USERNAME=your_username  # Optional, for HTTPS authentication
+
+# OpenRouter (for backward compatibility)
+OPENROUTER_API_KEY=your_openrouter_key
 ```
 
 ---

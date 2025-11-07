@@ -18,6 +18,18 @@ The Bot Port defines a stable interface between the bot layer and services, enab
 - Edit message text by `chat_id` and `message_id`
 - Send messages and documents
 - Answer callback queries
+- Automatic HTML validation for Telegram compatibility
+
+## HTML Validation
+
+The Telegram adapter (`TelegramBotAdapter`) automatically validates HTML content when sending messages with `parse_mode="HTML"`. This ensures:
+
+- Only Telegram-supported HTML tags are used
+- Unsupported tags are converted or removed
+- Links and spoilers are properly preserved
+- XSS vulnerabilities are prevented through URL escaping
+
+The validation is performed transparently before sending messages, ensuring compatibility with Telegram's HTML parsing requirements.
 
 ## See also
 
