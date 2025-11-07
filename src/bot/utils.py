@@ -3,6 +3,7 @@ Bot utility functions
 """
 
 import re
+from html.parser import HTMLParser
 from typing import List
 
 
@@ -275,79 +276,156 @@ def convert_html_for_telegram(html_text):
     return validate_telegram_html(html_text)
 
 
-def convert_lists_to_telegram(html_text):
+def convert_lists_to_telegram(html_text: str) -> str:
     """
-    Convert HTML lists to Telegram-compatible format.
+    Convert HTML lists to Telegram-compatible plain-text representation.
 
     Args:
-        html_text (str): HTML text containing lists
+        html_text: HTML text that may include ordered or unordered lists.
 
     Returns:
-        str: Text with lists converted to plain text format
+        Text with lists converted to plain text format compatible with Telegram.
     """
-    text = html_text
 
-    # Handle unordered lists (ul)
-    ul_pattern = r"<ul[^>]*>(.*?)</ul>"
-    while re.search(ul_pattern, text, re.IGNORECASE | re.DOTALL):
-        text = re.sub(ul_pattern, convert_ul_list, text, flags=re.IGNORECASE | re.DOTALL)
+    class _TelegramListConverter(HTMLParser):
+        def __init__(self):
+            super().__init__(convert_charrefs=False)
+            self.result_segments: List[str] = []
+            self.list_stack: List[dict] = []
 
-    # Handle ordered lists (ol)
-    ol_pattern = r"<ol[^>]*>(.*?)</ol>"
-    while re.search(ol_pattern, text, re.IGNORECASE | re.DOTALL):
-        text = re.sub(ol_pattern, convert_ol_list, text, flags=re.IGNORECASE | re.DOTALL)
+        def _append_text(self, text: str) -> None:
+            if text is None or text == "":
+                return
 
-    # Remove any remaining list item tags and convert to simple lines
-    text = re.sub(r"<li[^>]*>", "• ", text, flags=re.IGNORECASE)
-    text = re.sub(r"</li>", "\n", text, flags=re.IGNORECASE)
+            if self.list_stack:
+                ctx = self.list_stack[-1]
+                if ctx["current_item"] is None:
+                    # Ignore whitespace between list tags; append non-whitespace to result.
+                    if text.strip():
+                        self.result_segments.append(text)
+                    return
+                ctx["current_item"]["parts"].append(text)
+            else:
+                self.result_segments.append(text)
 
-    return text
+        def handle_starttag(self, tag: str, attrs):
+            tag_lower = tag.lower()
+            if tag_lower in {"ul", "ol"}:
+                self.list_stack.append(
+                    {
+                        "type": tag_lower,
+                        "items": [],
+                        "current_item": None,
+                        "counter": 0,
+                        "level": len(self.list_stack),
+                    }
+                )
+                return
 
+            if tag_lower == "li":
+                if self.list_stack:
+                    ctx = self.list_stack[-1]
+                    ctx["counter"] += 1
+                    item = {"parts": [], "index": ctx["counter"]}
+                    ctx["items"].append(item)
+                    ctx["current_item"] = item
+                    return
 
-def convert_ul_list(match):
-    """
-    Convert a single unordered list to Telegram format.
+            # Preserve original representation for non-list tags
+            self._append_text(self.get_starttag_text())
 
-    Args:
-        match: regex match object containing the list content
+        def handle_endtag(self, tag: str):
+            tag_lower = tag.lower()
+            if tag_lower in {"ul", "ol"}:
+                if not self.list_stack:
+                    return
+                ctx = self.list_stack.pop()
+                list_text = self._render_list(ctx)
+                if not list_text:
+                    return
 
-    Returns:
-        str: Converted list text
-    """
-    list_content = match.group(1)
-    # Extract list items
-    li_items = re.findall(r"<li[^>]*>(.*?)</li>", list_content, re.IGNORECASE | re.DOTALL)
+                if self.list_stack:
+                    parent_ctx = self.list_stack[-1]
+                    target_item = parent_ctx.get("current_item")
+                    if target_item is None and parent_ctx["items"]:
+                        target_item = parent_ctx["items"][-1]
 
-    converted_list = []
-    for item in li_items:
-        # Clean up the item content from any remaining HTML tags we don't want
-        clean_item = re.sub(r"<[^>]+>", "", item)
-        converted_list.append(f"• {clean_item.strip()}")
+                    if target_item is not None:
+                        if target_item["parts"] and not target_item["parts"][-1].endswith("\n"):
+                            target_item["parts"].append("\n")
+                        target_item["parts"].append(list_text)
+                    else:
+                        self.result_segments.append(list_text)
+                else:
+                    self.result_segments.append(list_text)
+                return
 
-    return "\n".join(converted_list) + "\n"
+            if tag_lower == "li":
+                if self.list_stack:
+                    ctx = self.list_stack[-1]
+                    current_item = ctx.get("current_item")
+                    if current_item is not None:
+                        current_item["parts"] = ["".join(current_item["parts"]).strip()]
+                        ctx["current_item"] = None
+                return
 
+            self._append_text(f"</{tag_lower}>")
 
-def convert_ol_list(match):
-    """
-    Convert a single ordered list to Telegram format.
+        def handle_startendtag(self, tag: str, attrs):
+            # Self-closing tags (e.g., <br/>)
+            self._append_text(self.get_starttag_text())
 
-    Args:
-        match: regex match object containing the list content
+        def handle_data(self, data: str):
+            if not data:
+                return
+            if self.list_stack:
+                ctx = self.list_stack[-1]
+                if ctx["current_item"] is None and not data.strip():
+                    return
+            self._append_text(data)
 
-    Returns:
-        str: Converted list text
-    """
-    list_content = match.group(1)
-    # Extract list items
-    li_items = re.findall(r"<li[^>]*>(.*?)</li>", list_content, re.IGNORECASE | re.DOTALL)
+        def handle_entityref(self, name: str):
+            self._append_text(f"&{name};")
 
-    converted_list = []
-    for i, item in enumerate(li_items, 1):
-        # Clean up the item content from any remaining HTML tags we don't want
-        clean_item = re.sub(r"<[^>]+>", "", item)
-        converted_list.append(f"{i}. {clean_item.strip()}")
+        def handle_charref(self, name: str):
+            self._append_text(f"&#{name};")
 
-    return "\n".join(converted_list) + "\n"
+        def _render_list(self, ctx: dict) -> str:
+            lines: List[str] = []
+            indent = "  " * ctx["level"]
+
+            for item in ctx["items"]:
+                parts = item.get("parts", [])
+                if not parts:
+                    continue
+                text = "".join(parts).strip()
+                if not text:
+                    continue
+
+                bullet = "• " if ctx["type"] == "ul" else f"{item['index']}. "
+                item_lines = text.splitlines()
+                if not item_lines:
+                    continue
+
+                first_line = item_lines[0].strip()
+                lines.append(f"{indent}{bullet}{first_line}")
+
+                for continuation in item_lines[1:]:
+                    continuation_text = continuation.rstrip()
+                    if continuation_text:
+                        lines.append(f"{indent}  {continuation_text}")
+                    else:
+                        lines.append("")
+
+            if not lines:
+                return ""
+
+            return "\n".join(lines) + "\n"
+
+    parser = _TelegramListConverter()
+    parser.feed(html_text)
+    parser.close()
+    return "".join(parser.result_segments)
 
 
 def escape_html(text: str) -> str:
