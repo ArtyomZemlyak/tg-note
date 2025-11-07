@@ -42,6 +42,8 @@ class SettingsInspector:
         "ANTHROPIC_": "credentials",
         "QWEN_": "credentials",
         "GITHUB_": "credentials",
+        "GITLAB_": "credentials",
+        "OPENROUTER_": "credentials",
         "AGENT_": "agent",
         "KB_": "knowledge_base",
         "MESSAGE_": "processing",
@@ -66,6 +68,10 @@ class SettingsInspector:
         "GITHUB_USERNAME",
         "GITLAB_TOKEN",
         "GITLAB_USERNAME",
+        "OPENROUTER_API_KEY",
+        "MEM_AGENT_OPENAI_API_KEY",
+        "VECTOR_INFINITY_API_KEY",
+        "VECTOR_QDRANT_API_KEY",
     }
 
     READONLY_FIELDS = {
