@@ -582,29 +582,45 @@ Knowledge base structure:
 
 #### 6. KB Reading Tools (`src/agents/tools/kb_reading_tools.py`)
 
-**Purpose**: Knowledge base search and reading
+**Purpose**: Knowledge base search and reading with multi-stage search strategy
+
+**Multi-Stage Search Strategy**:
+
+The agent uses a 3-stage search approach:
+
+1. **Stage 1: File Search** - `kb_search_files`: Find files by name/pattern
+2. **Stage 2: Vector Search** - `kb_vector_search`: Semantic search across KB
+3. **Stage 3: Refined Search** - `kb_search_content` + `kb_read_file`: Detailed content search
 
 **Available Tools**:
 
-- `search_kb(query)`: Search KB content
-- `list_kb_files(path)`: List files in KB
+- `kb_search_files(pattern)`: Search files by name/pattern (Stage 1)
+- `kb_vector_search(query, top_k)`: Semantic vector search (Stage 2)
+- `kb_search_content(query)`: Search KB content (Stage 3)
+- `kb_read_file(paths)`: Read one or multiple files (Stage 3)
+- `kb_list_directory(path)`: List files in directory
 - `get_kb_structure()`: Get KB directory structure
 
-**Integration**: Direct access to KB file system
+**Integration**: Direct access to KB file system + vector search manager
 
 #### 7. Vector Search Tools (`src/agents/tools/vector_search_tools.py`)
 
-**Purpose**: Semantic search in KB
+**Purpose**: Semantic search in KB (Part of multi-stage search strategy)
 
 **Available Tools**:
 
-- `vector_search(query, top_k)`: Semantic search
-- `similarity_search(text, threshold)`: Find similar content
+- `kb_vector_search(query, top_k)`: Semantic search (Stage 2 of multi-stage search)
 
 **Backends**:
 
 - FAISS (local)
 - Qdrant (server-based)
+
+**Multi-Stage Integration**:
+
+Vector search is part of the 3-stage search strategy:
+- Used in Stage 2 for semantic content discovery
+- Can be used again in Stage 3 for refined searches with specific queries
 
 #### 8. MCP Tools (Dynamic)
 

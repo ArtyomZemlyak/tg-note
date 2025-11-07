@@ -23,12 +23,14 @@ Unlike the Qwen Code CLI agent (which uses Node.js), the autonomous agent is pur
 
 ### 🔧 Built-in Tools
 
+- **Multi-Stage Search** - 3-stage search strategy (file → vector → refined)
 - **Web Search** - Search the internet for additional context
 - **Git Operations** - Version control for knowledge base
 - **GitHub API** - Repository management
 - **File Management** - Create, read, update files in KB
 - **Folder Management** - Organize KB structure
 - **Shell Commands** - Execute safe shell operations (optional)
+- **Vector Search** - Semantic search across knowledge base
 
 ### 🔌 LLM Flexibility
 
@@ -256,6 +258,47 @@ graph LR
 
 ## Available Tools
 
+### Multi-Stage Search Strategy
+
+The agent uses a 3-stage search approach to find information in the knowledge base:
+
+**Stage 1: File Search** (`kb_search_files`)
+- Search files by name patterns based on keywords
+- Quick discovery of relevant files by filename
+
+```python
+tool: kb_search_files
+params:
+  pattern: "*gpt*.md"
+```
+
+**Stage 2: Vector Search** (`kb_vector_search`)
+- Semantic search across entire knowledge base
+- Finds semantically similar content
+
+```python
+tool: kb_vector_search
+params:
+  query: "GPT-4 architecture and capabilities"
+  top_k: 7
+```
+
+**Stage 3: Refined Search** (`kb_search_content` + `kb_read_file`)
+- Search specific terms in promising files
+- Read most relevant files
+- Optional: Another targeted vector search with refined query
+
+```python
+tool: kb_search_content
+params:
+  query: "architecture"
+  file_pattern: "gpt*.md"
+
+tool: kb_read_file
+params:
+  paths: ["ai/models/gpt4.md"]
+```
+
 ### Web Search Tool
 
 Search the internet for additional context.
@@ -370,6 +413,7 @@ AGENT_ENABLE_WEB_SEARCH: true
 AGENT_ENABLE_GIT: true
 AGENT_ENABLE_FILE_MANAGEMENT: true
 AGENT_ENABLE_FOLDER_MANAGEMENT: true
+VECTOR_SEARCH_ENABLED: true  # Enable vector search for multi-stage retrieval
 ```
 
 **Disable for Security:**
@@ -377,6 +421,19 @@ AGENT_ENABLE_FOLDER_MANAGEMENT: true
 ```yaml
 AGENT_ENABLE_SHELL: false  # Keep disabled unless needed
 AGENT_ENABLE_GITHUB: false  # If not using GitHub API
+```
+
+### Multi-Stage Search Configuration
+
+For optimal search performance, configure vector search:
+
+```yaml
+# Vector search settings
+VECTOR_SEARCH_ENABLED: true
+VECTOR_SEARCH_PROVIDER: "sentence_transformers"  # or "openai"
+VECTOR_SEARCH_MODEL: "all-MiniLM-L6-v2"  # or "text-embedding-3-small"
+VECTOR_SEARCH_BACKEND: "faiss"  # or "qdrant"
+VECTOR_SEARCH_TOP_K: 7  # Number of results to return
 ```
 
 ### Custom Instructions
