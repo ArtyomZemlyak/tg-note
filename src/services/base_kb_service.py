@@ -14,10 +14,7 @@ from loguru import logger
 from src.bot.bot_port import BotPort
 from src.bot.response_formatter import ResponseFormatter
 from src.bot.settings_manager import SettingsManager
-from src.bot.utils import (
-    safe_edit_message_text,
-    split_long_message,
-)
+from src.bot.utils import safe_edit_message_text, split_long_message
 from src.core.rate_limiter import RateLimiter
 from src.knowledge_base.credentials_manager import CredentialsManager
 from src.knowledge_base.git_ops import GitOperations

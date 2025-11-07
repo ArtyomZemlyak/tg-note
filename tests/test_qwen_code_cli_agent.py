@@ -193,7 +193,7 @@ Main content here.
         )
         todo_plan = agent._extract_todo_plan(result_text)
 
-        assert agent_result.summary == "Test article processed"
+        assert agent_result["summary"] == "Test article processed"
         assert kb_structure.category == "ai"
         assert kb_structure.subcategory == "machine-learning"
         assert "ml" in kb_structure.tags
@@ -221,7 +221,7 @@ Some content"""
             result_text, default_category="general"
         )
 
-        assert agent_result.summary == "Minimal content"
+        assert agent_result["summary"] == "Minimal content"
         assert kb_structure.category == "general"  # default category
         # Tags are extracted from content, not from missing metadata
         assert isinstance(kb_structure.tags, list)
@@ -280,8 +280,18 @@ Process this content.
     @pytest.mark.asyncio
     async def test_process_full_workflow(self, agent, sample_content):
         """Test full process workflow"""
-        # Mock CLI execution
+        # Mock CLI execution - ResponseFormatter needs agent-result block
         mock_cli_result = """# Machine Learning Article
+
+```agent-result
+{
+  "summary": "This article discusses machine learning and neural networks.",
+  "files_created": [],
+  "files_edited": [],
+  "folders_created": [],
+  "metadata": {}
+}
+```
 
 ```metadata
 category: ai

@@ -126,9 +126,12 @@ class TestHandlersAsync:
     @pytest.mark.asyncio
     async def test_handle_start_async(self, handlers, test_message, mock_bot):
         """Test that /start command works with async and shows menu"""
+        # Make edit_message_text fail so it falls back to send_message
+        mock_bot.edit_message_text.side_effect = Exception("Message not found")
+
         await handlers.handle_start(test_message)
 
-        # Verify send_message was called (now it's send_message with keyboard)
+        # Verify send_message was called (fallback when edit fails)
         mock_bot.send_message.assert_called_once()
         call_args = mock_bot.send_message.call_args
         assert call_args[0][0] == test_message.chat.id
