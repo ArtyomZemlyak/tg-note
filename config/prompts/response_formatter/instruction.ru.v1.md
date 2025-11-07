@@ -52,7 +52,7 @@ Telegram Bot API поддерживает **ТОЛЬКО** следующие HT
   Пример: `<code>print("Hello")</code>` → `print("Hello")`
 
 - **`<pre>код</pre>`** - блок кода (преформатированный, многострочный)
-  Пример: 
+  Пример:
   ```
   <pre>def function():
     return True</pre>

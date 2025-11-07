@@ -9,24 +9,24 @@ from typing import List
 def _validate_html_content(text: str, skip_links_and_spoilers: bool = False) -> str:
     """
     Internal function to validate HTML content.
-    
+
     Args:
         text: HTML text to validate
         skip_links_and_spoilers: If True, skip processing links and spoilers (for nested content)
-        
+
     Returns:
         Validated HTML text
     """
     if not text:
         return text
-    
+
     if not skip_links_and_spoilers:
         # First, extract and preserve valid links before processing
         # Pattern to match <a href="...">...</a>
         link_pattern = r'<a\s+href=["\']([^"\']+)["\'][^>]*>(.*?)</a>'
         links_map = {}
         link_counter = 0
-        
+
         def replace_link(match):
             nonlocal link_counter
             url = match.group(1)
@@ -35,19 +35,24 @@ def _validate_html_content(text: str, skip_links_and_spoilers: bool = False) -> 
             validated_text = _validate_html_content(link_text, skip_links_and_spoilers=True)
             placeholder = f"__TELEGRAM_LINK_PLACEHOLDER_{link_counter}__"
             # Escape URL to prevent XSS
-            escaped_url = url.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+            escaped_url = (
+                url.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace('"', "&quot;")
+            )
             links_map[placeholder] = f'<a href="{escaped_url}">{validated_text}</a>'
             link_counter += 1
             return placeholder
-        
+
         # Replace links with placeholders
         text = re.sub(link_pattern, replace_link, text, flags=re.IGNORECASE | re.DOTALL)
-        
+
         # Extract and preserve valid spoiler tags
         spoiler_pattern = r'<span\s+class=["\']tg-spoiler["\'][^>]*>(.*?)</span>'
         spoilers_map = {}
         spoiler_counter = 0
-        
+
         def replace_spoiler(match):
             nonlocal spoiler_counter
             content = match.group(1)
@@ -57,19 +62,30 @@ def _validate_html_content(text: str, skip_links_and_spoilers: bool = False) -> 
             spoilers_map[placeholder] = f'<span class="tg-spoiler">{validated_content}</span>'
             spoiler_counter += 1
             return placeholder
-        
+
         # Replace valid spoilers with placeholders
         text = re.sub(spoiler_pattern, replace_spoiler, text, flags=re.IGNORECASE | re.DOTALL)
     else:
         links_map = {}
         spoilers_map = {}
-    
+
     # Remove all table-related tags (table, tr, td, th, tbody, thead, tfoot, caption, colgroup, col)
-    table_tags = ["table", "tr", "td", "th", "tbody", "thead", "tfoot", "caption", "colgroup", "col"]
+    table_tags = [
+        "table",
+        "tr",
+        "td",
+        "th",
+        "tbody",
+        "thead",
+        "tfoot",
+        "caption",
+        "colgroup",
+        "col",
+    ]
     for tag in table_tags:
         text = re.sub(rf"<{tag}[^>]*>", "", text, flags=re.IGNORECASE)
         text = re.sub(rf"</{tag}>", "", text, flags=re.IGNORECASE)
-    
+
     # Convert headings to bold with line breaks
     heading_conversions = {
         r"<h1[^>]*>": "<b>",
@@ -85,10 +101,10 @@ def _validate_html_content(text: str, skip_links_and_spoilers: bool = False) -> 
         r"<h6[^>]*>": "<b>",
         r"</h6>": "</b>\n",
     }
-    
+
     for pattern, replacement in heading_conversions.items():
         text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
-    
+
     # Convert supported tags to their canonical forms
     tag_conversions = {
         r"<strong[^>]*>": "<b>",
@@ -102,46 +118,87 @@ def _validate_html_content(text: str, skip_links_and_spoilers: bool = False) -> 
         r"<del[^>]*>": "<s>",
         r"</del>": "</s>",
     }
-    
+
     for pattern, replacement in tag_conversions.items():
         text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
-    
+
     # Remove div, p, span (without tg-spoiler class) - convert to line breaks
     text = re.sub(r"<div[^>]*>", "\n", text, flags=re.IGNORECASE)
     text = re.sub(r"</div>", "\n", text, flags=re.IGNORECASE)
     text = re.sub(r"<p[^>]*>", "\n", text, flags=re.IGNORECASE)
     text = re.sub(r"</p>", "\n\n", text, flags=re.IGNORECASE)
-    
+
     # Remove span tags that don't have tg-spoiler class (they were already replaced)
     # This catches any remaining span tags
     text = re.sub(r"<span[^>]*>", "", text, flags=re.IGNORECASE)
     text = re.sub(r"</span>", "", text, flags=re.IGNORECASE)
-    
+
     # Handle lists - convert to plain text
     text = convert_lists_to_telegram(text)
-    
+
     # Remove all other unsupported tags but keep content
     # List of unsupported tags to remove
     unsupported_tags = [
-        "section", "article", "nav", "header", "footer", "aside",
-        "main", "figure", "figcaption", "details", "summary",
-        "mark", "small", "abbr", "sub", "sup", "time", "var",
-        "kbd", "samp", "output", "progress", "meter",
-        "canvas", "svg", "iframe", "object", "embed", "video", "audio",
-        "source", "track", "map", "area", "form", "input", "button",
-        "select", "datalist", "optgroup", "option", "textarea",
-        "label", "fieldset", "legend", "output", "dialog",
+        "section",
+        "article",
+        "nav",
+        "header",
+        "footer",
+        "aside",
+        "main",
+        "figure",
+        "figcaption",
+        "details",
+        "summary",
+        "mark",
+        "small",
+        "abbr",
+        "sub",
+        "sup",
+        "time",
+        "var",
+        "kbd",
+        "samp",
+        "output",
+        "progress",
+        "meter",
+        "canvas",
+        "svg",
+        "iframe",
+        "object",
+        "embed",
+        "video",
+        "audio",
+        "source",
+        "track",
+        "map",
+        "area",
+        "form",
+        "input",
+        "button",
+        "select",
+        "datalist",
+        "optgroup",
+        "option",
+        "textarea",
+        "label",
+        "fieldset",
+        "legend",
+        "output",
+        "dialog",
     ]
-    
+
     for tag in unsupported_tags:
         text = re.sub(rf"<{tag}[^>]*>", "", text, flags=re.IGNORECASE)
         text = re.sub(rf"</{tag}>", "", text, flags=re.IGNORECASE)
-    
+
     # Remove any remaining HTML tags that are not in the allowed list
     # Allowed tags: b, strong, i, em, u, ins, s, strike, del, a, code, pre, span (with tg-spoiler), blockquote, br
     # We'll be conservative and remove anything that looks like a tag but isn't in our allowed list
-    allowed_tags_pattern = r"</?(?:b|strong|i|em|u|ins|s|strike|del|a|code|pre|span|blockquote|br)(?:\s[^>]*)?>"
-    
+    allowed_tags_pattern = (
+        r"</?(?:b|strong|i|em|u|ins|s|strike|del|a|code|pre|span|blockquote|br)(?:\s[^>]*)?>"
+    )
+
     # Find all tags
     all_tags = re.findall(r"<[^>]+>", text)
     for tag in all_tags:
@@ -149,37 +206,37 @@ def _validate_html_content(text: str, skip_links_and_spoilers: bool = False) -> 
         if not re.match(allowed_tags_pattern, tag, re.IGNORECASE):
             # Remove the tag but keep content
             text = text.replace(tag, "")
-    
+
     # Restore placeholders
     for placeholder, original in spoilers_map.items():
         text = text.replace(placeholder, original)
-    
+
     for placeholder, original in links_map.items():
         text = text.replace(placeholder, original)
-    
+
     # Clean up multiple consecutive line breaks
     text = re.sub(r"\n{3,}", "\n\n", text)
-    
+
     # Remove empty tags
     text = re.sub(r"<b>\s*</b>", "", text, flags=re.IGNORECASE)
     text = re.sub(r"<i>\s*</i>", "", text, flags=re.IGNORECASE)
     text = re.sub(r"<u>\s*</u>", "", text, flags=re.IGNORECASE)
     text = re.sub(r"<s>\s*</s>", "", text, flags=re.IGNORECASE)
     text = re.sub(r"<code>\s*</code>", "", text, flags=re.IGNORECASE)
-    
+
     # Fix nested duplicate tags
     text = re.sub(r"<b><b>", "<b>", text, flags=re.IGNORECASE)
     text = re.sub(r"</b></b>", "</b>", text, flags=re.IGNORECASE)
     text = re.sub(r"<i><i>", "<i>", text, flags=re.IGNORECASE)
     text = re.sub(r"</i></i>", "</i>", text, flags=re.IGNORECASE)
-    
+
     return text.strip()
 
 
 def validate_telegram_html(html_text: str) -> str:
     """
     Validate and sanitize HTML for Telegram compatibility.
-    
+
     Telegram supports only these HTML tags:
     - <b>, <strong> - bold
     - <i>, <em> - italic
@@ -191,12 +248,12 @@ def validate_telegram_html(html_text: str) -> str:
     - <span class="tg-spoiler"> - spoiler (only with tg-spoiler class!)
     - <blockquote> - blockquote
     - <br> - line break
-    
+
     All other tags are removed, but their content is preserved.
-    
+
     Args:
         html_text: HTML text to validate
-        
+
     Returns:
         str: Validated Telegram-compatible HTML text
     """
@@ -206,7 +263,7 @@ def validate_telegram_html(html_text: str) -> str:
 def convert_html_for_telegram(html_text):
     """
     Convert unsupported HTML tags to Telegram-compatible HTML tags.
-    
+
     This is a wrapper around validate_telegram_html for backward compatibility.
 
     Args:
@@ -296,7 +353,7 @@ def convert_ol_list(match):
 def escape_html(text: str) -> str:
     """
     Escape special HTML characters in plain text.
-    
+
     This function is used to escape plain text that will be inserted into HTML,
     preventing XSS attacks. It does NOT validate HTML tags - use validate_telegram_html
     for that purpose.
@@ -425,7 +482,7 @@ def sanitize_for_telegram(text: str, parse_mode: str = "Markdown") -> str:
 async def safe_send_message(bot, chat_id: int, text: str, parse_mode: str = "HTML", **kwargs):
     """
     Safely send a message, falling back to no parse mode if formatting fails.
-    
+
     Automatically validates HTML tags for Telegram compatibility when parse_mode is "HTML".
 
     Args:
@@ -443,7 +500,7 @@ async def safe_send_message(bot, chat_id: int, text: str, parse_mode: str = "HTM
     # Validate HTML if parse_mode is HTML
     if parse_mode == "HTML" and text:
         text = validate_telegram_html(text)
-    
+
     try:
         return await bot.send_message(chat_id, text, parse_mode=parse_mode, **kwargs)
     except Exception as e:
@@ -461,7 +518,7 @@ async def safe_edit_message_text(
 ):
     """
     Safely edit a message, falling back to no parse mode if formatting fails.
-    
+
     Automatically validates HTML tags for Telegram compatibility when parse_mode is "HTML".
 
     Args:
@@ -480,7 +537,7 @@ async def safe_edit_message_text(
     # Validate HTML if parse_mode is HTML
     if parse_mode == "HTML" and text:
         text = validate_telegram_html(text)
-    
+
     try:
         return await bot.edit_message_text(
             text, chat_id, message_id, parse_mode=parse_mode, **kwargs

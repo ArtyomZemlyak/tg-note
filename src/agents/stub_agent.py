@@ -5,7 +5,7 @@ Simple placeholder agent for MVP testing
 """
 
 from datetime import datetime
-from typing import Dict
+from typing import Dict, Optional
 
 from .base_agent import BaseAgent, KBStructure
 
@@ -13,9 +13,9 @@ from .base_agent import BaseAgent, KBStructure
 class StubAgent(BaseAgent):
     """Deprecated! Stub agent for MVP - minimal processing and formatting"""
 
-    def __init__(self):
+    def __init__(self, config: Optional[Dict] = None):
         """Initialize StubAgent with ResponseFormatter prompt included in instruction."""
-        super().__init__()
+        super().__init__(config)
 
         # Initialize ResponseFormatter to get its prompt text
         from src.bot.response_formatter import ResponseFormatter

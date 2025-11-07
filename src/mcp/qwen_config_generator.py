@@ -126,7 +126,7 @@ class QwenMCPConfigGenerator:
                 tools = get_builtin_tools()
                 logger.info(f"[QwenMCPConfig] Detected {len(tools)} available tools: {tools}")
                 return tools
-            except ImportError as import_err:
+            except (ImportError, SystemExit) as import_err:
                 logger.warning(
                     f"[QwenMCPConfig] Cannot import mcp_hub_server (missing dependencies: {import_err}). "
                     f"Using fallback tool list. Install with: pip install fastmcp"
