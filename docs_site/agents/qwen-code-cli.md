@@ -134,6 +134,28 @@ Tip: The CLI path is configurable via `AGENT_QWEN_CLI_PATH` and defaults to `qwe
 
 **Important:** The CLI automatically runs inside your knowledge base directory (`knowledge_bases/your-kb-name/`). This ensures that any files created by the agent are saved to the correct location in your knowledge base structure.
 
+### Source Citations (Ссылки на источники)
+
+**NEW REQUIREMENT (v4+):** The Qwen CLI agent now ALWAYS includes source references in created documents:
+
+- **Inline citations** - Links directly in text next to specific facts/concepts
+  - Format: `Согласно [название источника](URL), ...` or `... как описано в [источнике](URL)`
+  - Example: `Модель GPT-4 использует архитектуру трансформера ([OpenAI Technical Report](https://openai.com/research/gpt-4))`
+
+- **"Источники" section** - Mandatory section at the end of EVERY created file
+  - Lists all sources with URLs and brief descriptions
+  - Format:
+    ```markdown
+    ## Источники
+    
+    1. [Название источника](URL) - краткое описание
+    2. [Другой источник](URL) - краткое описание
+    ```
+
+- **Additional materials** - Optional "См. также" section for supplementary resources
+
+This ensures all knowledge base entries maintain proper attribution and traceability.
+
 ### Connection Descriptions (Связи)
 
 - Agent must add links only to EXISTING KB files (not those created in the same run).
