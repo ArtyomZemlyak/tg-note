@@ -60,6 +60,8 @@ class TelegramBotAdapter(BotPort):
     async def _send_message_impl(self, chat_id: int, text: str, **kwargs) -> Message:
         """
         Реализация отправки сообщения (без retry/throttling)
+        
+        Automatically validates HTML tags for Telegram compatibility when parse_mode is "HTML".
 
         Args:
             chat_id: Chat identifier
@@ -69,11 +71,19 @@ class TelegramBotAdapter(BotPort):
         Returns:
             Telegram Message object
         """
+        # Validate HTML if parse_mode is HTML
+        parse_mode = kwargs.get("parse_mode")
+        if parse_mode == "HTML" and text:
+            from src.bot.utils import validate_telegram_html
+            text = validate_telegram_html(text)
+        
         return await self._bot.send_message(chat_id, text, **kwargs)
 
     async def _reply_to_impl(self, message: Message, text: str, **kwargs) -> Message:
         """
         Реализация ответа на сообщение (без retry/throttling)
+        
+        Automatically validates HTML tags for Telegram compatibility when parse_mode is "HTML".
 
         Args:
             message: Original Telegram message to reply to
@@ -83,6 +93,12 @@ class TelegramBotAdapter(BotPort):
         Returns:
             Telegram Message object
         """
+        # Validate HTML if parse_mode is HTML
+        parse_mode = kwargs.get("parse_mode")
+        if parse_mode == "HTML" and text:
+            from src.bot.utils import validate_telegram_html
+            text = validate_telegram_html(text)
+        
         return await self._bot.reply_to(message, text, **kwargs)
 
     async def _edit_message_text_impl(
@@ -90,6 +106,8 @@ class TelegramBotAdapter(BotPort):
     ) -> Any:
         """
         Реализация редактирования сообщения (без retry/throttling)
+        
+        Automatically validates HTML tags for Telegram compatibility when parse_mode is "HTML".
 
         Args:
             text: New message text
@@ -100,6 +118,12 @@ class TelegramBotAdapter(BotPort):
         Returns:
             Updated Telegram Message object
         """
+        # Validate HTML if parse_mode is HTML
+        parse_mode = kwargs.get("parse_mode")
+        if parse_mode == "HTML" and text:
+            from src.bot.utils import validate_telegram_html
+            text = validate_telegram_html(text)
+        
         return await self._bot.edit_message_text(
             text, chat_id=chat_id, message_id=message_id, **kwargs
         )
