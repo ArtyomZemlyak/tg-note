@@ -47,6 +47,13 @@ class SettingsInspector:
         "MESSAGE_": "processing",
         "PROCESSED_": "processing",
         "LOG_": "logging",
+        "VECTOR_": "vector_search",
+        "MEM_AGENT_": "memory_agent",
+        "MCP_": "mcp",
+        "MEDIA_": "media",
+        "CONTEXT_": "context",
+        "RATE_LIMIT_": "rate_limiting",
+        "HEALTH_CHECK_": "health_check",
     }
 
     # Credentials and readonly fields
