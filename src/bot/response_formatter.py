@@ -88,15 +88,9 @@ class SummaryField(BaseField):
     def __init__(self):
         super().__init__(
             "summary",
-            "Краткое описание выполненной работы (3-5 предложений)."
-            "Если нужно форматирование - то в HTML для телеграм. Можно использовать только следующие теги: <b> or <strong> for bold text"
-            "<i> or <em> for italic text"
-            "<u> or <ins> for underlined text"
-            "<s>, <strike>, or <del> for strikethrough text"
-            '<span class="tg-spoiler"> or <tg-spoiler> for spoiler text'
-            '<a href="URL"> for inline links'
-            "<code> for inline fixed-width code"
-            "<pre> for pre-formatted fixed-width code blocks",
+            "Краткое описание выполненной работы (3-5 предложений). "
+            "Для форматирования используй HTML теги для Telegram: <b>, <i>, <u>, <s>, <a href='URL'>, <code>, <pre>, <blockquote>, <br>, <span class='tg-spoiler'>. "
+            "Полный список доступных тегов и правила использования указаны в инструкции ResponseFormatter.",
         )
 
 
@@ -106,15 +100,9 @@ class AnswerField(BaseField):
     def __init__(self):
         super().__init__(
             "answer",
-            'Ответ на вопрос пользователя, если это был вопросный запрос. Поле "answer" заполняй только если пользователь задал вопрос.'
-            "Если нужно форматирование - то в HTML для телеграм. Можно использовать только следующие теги: <b> or <strong> for bold text"
-            "<i> or <em> for italic text"
-            "<u> or <ins> for underlined text"
-            "<s>, <strike>, or <del> for strikethrough text"
-            '<span class="tg-spoiler"> or <tg-spoiler> for spoiler text'
-            '<a href="URL"> for inline links'
-            "<code> for inline fixed-width code"
-            "<pre> for pre-formatted fixed-width code blocks",
+            'Ответ на вопрос пользователя, если это был вопросный запрос. Поле "answer" заполняй только если пользователь задал вопрос. '
+            "Для форматирования используй HTML теги для Telegram: <b>, <i>, <u>, <s>, <a href='URL'>, <code>, <pre>, <blockquote>, <br>, <span class='tg-spoiler'>. "
+            "Полный список доступных тегов и правила использования указаны в инструкции ResponseFormatter.",
         )
 
 
