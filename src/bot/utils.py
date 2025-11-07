@@ -2,9 +2,213 @@
 Bot utility functions
 """
 
+import html
 import re
 from html.parser import HTMLParser
-from typing import List
+from typing import Dict, List, Optional
+
+
+class _TelegramHTMLValidator(HTMLParser):
+    """
+    HTML parser that validates and fixes HTML structure for Telegram compatibility.
+
+    This parser:
+    1. Tracks all opened tags and automatically closes unclosed tags
+    2. Fixes improperly nested tags
+    3. Converts unsupported tags to Telegram-compatible equivalents
+    4. Removes invalid tags while preserving content
+    5. Ensures proper tag structure
+    """
+
+    # Tags that Telegram supports (we'll convert others)
+    # Note: ul, ol, li are kept here for later conversion by convert_lists_to_telegram
+    TELEGRAM_TAGS = {
+        "b",
+        "strong",
+        "i",
+        "em",
+        "u",
+        "ins",
+        "s",
+        "strike",
+        "del",
+        "a",
+        "code",
+        "pre",
+        "span",
+        "blockquote",
+        "br",
+        "ul",
+        "ol",
+        "li",  # Keep for list conversion
+    }
+
+    # Self-closing tags that don't need closing
+    SELF_CLOSING = {"br"}
+
+    # Tag conversions to Telegram-compatible tags
+    TAG_CONVERSIONS = {
+        "strong": "b",
+        "em": "i",
+        "ins": "u",
+        "strike": "s",
+        "del": "s",
+    }
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.result = []
+        self.tag_stack = []  # Stack to track opened tags: [(tag_name, has_content), ...]
+
+    def handle_starttag(self, tag: str, attrs):
+        tag_lower = tag.lower()
+
+        # Convert tag if needed
+        if tag_lower in self.TAG_CONVERSIONS:
+            tag_lower = self.TAG_CONVERSIONS[tag_lower]
+
+        # Handle <a> tags with href
+        if tag_lower == "a":
+            href = None
+            for attr_name, attr_value in attrs:
+                if attr_name.lower() == "href":
+                    href = attr_value
+                    break
+
+            if href:
+                # Escape href to prevent XSS
+                escaped_href = (
+                    href.replace("&", "&amp;")
+                    .replace("<", "&lt;")
+                    .replace(">", "&gt;")
+                    .replace('"', "&quot;")
+                )
+                self.result.append(f'<a href="{escaped_href}">')
+                self.tag_stack.append(("a", False))
+            # If no href, ignore the tag but keep content
+            return
+
+        # Handle <span> tags - only allow tg-spoiler
+        if tag_lower == "span":
+            is_spoiler = False
+            for attr_name, attr_value in attrs:
+                if attr_name.lower() == "class" and "tg-spoiler" in attr_value.lower():
+                    is_spoiler = True
+                    break
+
+            if is_spoiler:
+                self.result.append('<span class="tg-spoiler">')
+                self.tag_stack.append(("span", False))
+            # If not a spoiler, ignore the tag but keep content
+            return
+
+        # Handle self-closing tags
+        if tag_lower in self.SELF_CLOSING:
+            self.result.append(f"<{tag_lower}>")
+            return
+
+        # Handle other supported tags
+        if tag_lower in self.TELEGRAM_TAGS:
+            self.result.append(f"<{tag_lower}>")
+            self.tag_stack.append((tag_lower, False))
+
+        # For unsupported tags, we just ignore them and keep the content
+
+    def handle_endtag(self, tag: str):
+        tag_lower = tag.lower()
+
+        # Convert tag if needed
+        if tag_lower in self.TAG_CONVERSIONS:
+            tag_lower = self.TAG_CONVERSIONS[tag_lower]
+
+        # Don't close self-closing tags
+        if tag_lower in self.SELF_CLOSING:
+            return
+
+        # Try to find this tag in the stack
+        if not self.tag_stack:
+            # No open tags, ignore the closing tag
+            return
+
+        # Check if this tag is in the stack
+        tag_index = None
+        for i in range(len(self.tag_stack) - 1, -1, -1):
+            if self.tag_stack[i][0] == tag_lower:
+                tag_index = i
+                break
+
+        if tag_index is None:
+            # Tag not in stack, ignore it
+            return
+
+        # Close all tags from current position down to the found tag
+        # This fixes improperly nested tags
+        tags_to_close = []
+        while len(self.tag_stack) > tag_index:
+            closed_tag, has_content = self.tag_stack.pop()
+            tags_to_close.append((closed_tag, has_content))
+
+        # Close the tags
+        for closed_tag, has_content in tags_to_close:
+            # Only add closing tag if the tag had content
+            # This removes empty tags like <b></b>
+            if has_content:
+                self.result.append(f"</{closed_tag}>")
+
+    def handle_data(self, data: str):
+        if data:
+            # Mark that the current tag has content
+            if self.tag_stack:
+                # Update the top tag to mark it has content
+                tag_name, _ = self.tag_stack[-1]
+                self.tag_stack[-1] = (tag_name, True)
+
+            self.result.append(data)
+
+    def handle_startendtag(self, tag: str, attrs):
+        # Handle self-closing tags like <br/>
+        tag_lower = tag.lower()
+        if tag_lower in self.SELF_CLOSING:
+            self.result.append(f"<{tag_lower}>")
+
+    def close(self):
+        # Close all unclosed tags at the end
+        while self.tag_stack:
+            tag_name, has_content = self.tag_stack.pop()
+            if has_content:
+                self.result.append(f"</{tag_name}>")
+        super().close()
+
+    def get_result(self) -> str:
+        return "".join(self.result)
+
+
+def _fix_html_structure(text: str) -> str:
+    """
+    Fix HTML structure by properly closing unclosed tags and fixing nesting.
+
+    Args:
+        text: HTML text that may have structural issues
+
+    Returns:
+        Fixed HTML text with proper structure
+    """
+    if not text:
+        return text
+
+    # First, decode HTML entities like &lt;b&gt; to <b>
+    # This is crucial - if the text has escaped HTML, we need to unescape it first
+    decoded_text = html.unescape(text)
+
+    try:
+        parser = _TelegramHTMLValidator()
+        parser.feed(decoded_text)
+        parser.close()
+        return parser.get_result()
+    except Exception:
+        # If parsing fails, return the decoded text
+        # This is a fallback - better to have decoded text than broken HTML
+        return decoded_text
 
 
 def _validate_html_content(text: str, skip_links_and_spoilers: bool = False) -> str:
@@ -250,7 +454,11 @@ def validate_telegram_html(html_text: str) -> str:
     - <blockquote> - blockquote
     - <br> - line break
 
-    All other tags are removed, but their content is preserved.
+    This function:
+    1. Decodes HTML entities (e.g., &lt;b&gt; becomes <b>)
+    2. Fixes HTML structure (closes unclosed tags, fixes nesting)
+    3. Converts unsupported tags to Telegram-compatible equivalents
+    4. Removes invalid tags while preserving content
 
     Args:
         html_text: HTML text to validate
@@ -258,7 +466,15 @@ def validate_telegram_html(html_text: str) -> str:
     Returns:
         str: Validated Telegram-compatible HTML text
     """
-    return _validate_html_content(html_text, skip_links_and_spoilers=False)
+    if not html_text:
+        return html_text
+
+    # Step 1: Fix HTML structure first (decode entities, close tags, fix nesting)
+    # AICODE-NOTE: This step is crucial for handling escaped HTML and malformed tags
+    fixed_html = _fix_html_structure(html_text)
+
+    # Step 2: Apply additional transformations (lists, headings, etc.)
+    return _validate_html_content(fixed_html, skip_links_and_spoilers=False)
 
 
 def convert_html_for_telegram(html_text):
