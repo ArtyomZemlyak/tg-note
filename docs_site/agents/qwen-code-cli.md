@@ -147,7 +147,7 @@ Tip: The CLI path is configurable via `AGENT_QWEN_CLI_PATH` and defaults to `qwe
   - Format:
     ```markdown
     ## Источники
-    
+
     1. [Название источника](URL) - краткое описание
     2. [Другой источник](URL) - краткое описание
     ```

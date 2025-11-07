@@ -7,11 +7,11 @@ These tools are designed to work together in a 3-stage search approach:
 Stage 1: File Search (kb_search_files)
   - Search files by name patterns based on keywords
   - Quick discovery of relevant files by filename
-  
+
 Stage 2: Vector Search (kb_vector_search)
   - Semantic search across entire knowledge base
   - Finds semantically similar content
-  
+
 Stage 3: Refined Search (kb_search_content + kb_read_file)
   - Search specific terms in promising files
   - Read most relevant files
@@ -182,7 +182,7 @@ async def test_kb_search_content(tool_context):
 async def test_multi_stage_search_workflow(tool_context):
     """
     Test multi-stage search workflow integration
-    
+
     AICODE-NOTE: This test demonstrates the complete 3-stage search strategy:
     Stage 1: File search by pattern
     Stage 2: Vector search (mocked, as it requires embeddings)
@@ -191,32 +191,31 @@ async def test_multi_stage_search_workflow(tool_context):
     # Stage 1: File search - find files by name pattern
     search_files_tool = KBSearchFilesTool()
     stage1_result = await search_files_tool.execute({"pattern": "*neural*"}, tool_context)
-    
+
     assert stage1_result["success"] is True
     assert stage1_result["file_count"] >= 1
     stage1_files = [f["path"] for f in stage1_result["files"]]
-    
+
     # Stage 2 would normally use vector search (kb_vector_search)
     # Skipped in this test as it requires vector embeddings setup
     # In real usage: kb_vector_search(query="neural networks deep learning", top_k=5)
-    
+
     # Stage 3a: Content search in promising files
     search_content_tool = KBSearchContentTool()
     stage3a_result = await search_content_tool.execute(
-        {"query": "deep learning", "file_pattern": "*.md"},
-        tool_context
+        {"query": "deep learning", "file_pattern": "*.md"}, tool_context
     )
-    
+
     assert stage3a_result["success"] is True
-    
+
     # Stage 3b: Read most relevant files
     read_tool = KBReadFileTool()
     if stage1_files:
         stage3b_result = await read_tool.execute({"paths": stage1_files[:2]}, tool_context)
-        
+
         assert stage3b_result["success"] is True
         assert stage3b_result["files_read"] >= 1
-        
+
         # Verify we got actual content
         assert len(stage3b_result["results"]) >= 1
         assert len(stage3b_result["results"][0]["content"]) > 0

@@ -466,7 +466,7 @@ AGENT_INSTRUCTION: |
   - Example:
     ```markdown
     ## Источники
-    
+
     1. [Source Name](URL) - brief description why this source is important
     2. [Another Source](URL) - brief description
     ```
