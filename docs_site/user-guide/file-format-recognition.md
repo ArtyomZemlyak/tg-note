@@ -111,6 +111,32 @@ docker compose up -d docling-mcp mcp-hub bot
 The hub registers the Docling MCP server automatically. If you run the server outside of Docker,
 set `MEDIA_PROCESSING_DOCLING.mcp.url` to the appropriate endpoint.
 
+The Docling container is built from the repository (`docker/docling-mcp/Dockerfile`) with GPU support.
+Model artefacts and configuration are persisted under:
+
+- `data/docling/config` – rendered container configuration (`docling-config.json`)
+- `data/docling/models` – downloaded OCR/VLM models
+- `data/docling/cache` – HuggingFace / ModelScope caches
+- `logs/docling` – container logs
+
+If you change OCR providers or model parameters in `config.yaml`, the container will be reconfigured
+automatically. Use the `/doclingsync` command in Telegram to trigger model downloads on-demand:
+
+```
+/doclingsync         # download new artefacts (skips existing ones)
+/doclingsync force   # force redownload of all configured models
+```
+
+Docling settings expose detailed controls under `MEDIA_PROCESSING_DOCLING`:
+
+- `startup_sync`: enable/disable automatic downloads on container start
+- `keep_images` / `generate_page_images`: embed page snapshots in the output
+- `ocr_config`: choose between `rapidocr`, `easyocr`, `tesseract`, `tesseract_cli`, or `onnxtr`
+- `model_cache.downloads`: list of model artefacts fetched from HuggingFace or ModelScope
+
+The default configuration ships with RapidOCR (GPU-enabled via ONNX Runtime). Switch to EasyOCR
+or Tesseract by updating `ocr_config.backend` and adjusting backend-specific sections.
+
 ### Local fallback (optional)
 
 If you prefer to run Docling inside the bot process, install the Python package manually and set the

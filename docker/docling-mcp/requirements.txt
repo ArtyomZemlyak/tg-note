@@ -1,0 +1,12 @@
+docling-mcp==1.3.2
+docling[vlm,asr,easyocr,tesserocr,rapidocr]
+rapidocr-onnxruntime
+rapidocr-onnxruntime-gpu
+onnxruntime-gpu
+onnxruntime
+modelscope
+easyocr
+huggingface-hub>=0.26.0
+docling-ocr-onnxtr[cpu]
+tesserocr
+PyYAML>=6.0.1

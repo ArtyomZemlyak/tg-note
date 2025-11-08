@@ -7,20 +7,31 @@ version: '3.8'
 services:
   # Docling MCP server (Dockerized Docling toolchain)
   docling-mcp:
-    image: ${DOCLING_MCP_IMAGE:-ghcr.io/docling/docling-mcp:latest}
+    build:
+      context: .
+      dockerfile: docker/docling-mcp/Dockerfile
+    image: tg-note-docling-mcp:latest
     container_name: tg-note-docling
     restart: unless-stopped
     env_file: .env
     environment:
-      - LOG_LEVEL=info
+      - DOCLING_LOG_LEVEL=${DOCLING_LOG_LEVEL:-INFO}
+      - DOCLING_MODELS_DIR=/opt/docling-mcp/models
+      - DOCLING_CACHE_DIR=/opt/docling-mcp/cache
+      - HF_HOME=/opt/docling-mcp/cache/huggingface
     ports:
       - "${DOCLING_MCP_PORT:-8077}:8077"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8077/health"]
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/8077'"]
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 30s
+    volumes:
+      - ./data/docling/config:/opt/docling-mcp/config
+      - ./data/docling/models:/opt/docling-mcp/models
+      - ./data/docling/cache:/opt/docling-mcp/cache
+      - ./logs/docling:/opt/docling-mcp/logs
     networks:
       - tg-note-network
 

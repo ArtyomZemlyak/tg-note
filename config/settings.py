@@ -163,6 +163,12 @@ class DoclingMCPSettings(BaseModel):
         default_factory=dict,
         description="Environment variables to include when launching Docling MCP via stdio.",
     )
+    listen_host: str = Field(
+        default="0.0.0.0", description="Host interface for the Docling MCP container."
+    )
+    listen_port: int = Field(
+        default=8077, description="Port for the Docling MCP container."
+    )
     working_dir: Optional[str] = Field(
         default=None,
         description="Working directory for launching Docling MCP server (stdio transport).",
@@ -192,6 +198,13 @@ class DoclingMCPSettings(BaseModel):
         default_factory=dict,
         description="Additional static arguments forwarded to Docling MCP tool calls.",
     )
+    tool_groups: List[str] = Field(
+        default_factory=lambda: ["conversion", "generation", "manipulation"],
+        description=(
+            "List of Docling MCP tool groups to enable in the container "
+            "(conversion, generation, manipulation, llama-index-rag, llama-stack-rag, llama-stack-ie)."
+        ),
+    )
 
     def resolve_url(self) -> Optional[str]:
         """Resolve the effective MCP URL for Docling based on configuration and environment."""
@@ -213,6 +226,170 @@ class DoclingMCPSettings(BaseModel):
             pass
 
         return self.host_url
+
+
+class DoclingModelDownloadSettings(BaseModel):
+    """Model artefact download configuration for Docling container."""
+
+    model_config = ConfigDict(extra="allow")
+
+    name: str = Field(default="rapidocr-default", description="Friendly name for the download entry.")
+    type: Literal["huggingface", "modelscope"] = Field(
+        default="huggingface", description="Downloader backend to use."
+    )
+    repo_id: Optional[str] = Field(default=None, description="Repository identifier (HuggingFace or ModelScope).")
+    revision: Optional[str] = Field(default=None, description="Optional repo revision/tag.")
+    local_dir: Optional[str] = Field(
+        default=None,
+        description="Directory inside the container models volume to place artefacts (relative).",
+    )
+    allow_patterns: List[str] = Field(
+        default_factory=list,
+        description="Glob patterns of files to download (include list).",
+    )
+    ignore_patterns: List[str] = Field(
+        default_factory=list,
+        description="Glob patterns of files to skip during download.",
+    )
+    files: List[str] = Field(
+        default_factory=list,
+        description="Explicit list of files to download (alternative to allow_patterns).",
+    )
+    extra: Dict[str, Any] = Field(default_factory=dict, description="Extra backend-specific download parameters.")
+
+
+class DoclingModelCacheSettings(BaseModel):
+    """Model cache configuration for Docling container."""
+
+    model_config = ConfigDict(extra="allow")
+
+    base_dir: str = Field(
+        default="/opt/docling-mcp/models",
+        description="Default models directory inside the container.",
+    )
+    downloads: List[DoclingModelDownloadSettings] = Field(
+        default_factory=lambda: [
+            DoclingModelDownloadSettings(
+                name="rapidocr-default",
+                type="huggingface",
+                repo_id="RapidAI/RapidOCR",
+                local_dir="rapidocr",
+                allow_patterns=[
+                    "onnx/PP-OCRv5/det/ch_PP-OCRv5_server_det.onnx",
+                    "onnx/PP-OCRv5/rec/ch_PP-OCRv5_rec_server_infer.onnx",
+                    "onnx/PP-OCRv4/cls/ch_ppocr_mobile_v2.0_cls_infer.onnx",
+                ],
+            )
+        ],
+        description="List of model downloads to ensure on startup.",
+    )
+
+
+class DoclingRapidOCRSettings(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    enabled: bool = Field(default=True, description="Enable RapidOCR pipeline.")
+    backend: Literal["onnxruntime", "openvino", "paddle", "torch"] = Field(
+        default="onnxruntime", description="RapidOCR backend type."
+    )
+    providers: List[str] = Field(
+        default_factory=lambda: ["CUDAExecutionProvider", "CPUExecutionProvider"],
+        description="Preferred ONNX runtime providers.",
+    )
+    repo_id: Optional[str] = Field(
+        default="RapidAI/RapidOCR", description="Repository used for RapidOCR models."
+    )
+    revision: Optional[str] = Field(default=None, description="Optional RapidOCR repo revision.")
+    det_model_path: Optional[str] = Field(
+        default="rapidocr/onnx/PP-OCRv5/det/ch_PP-OCRv5_server_det.onnx",
+        description="Detector model path relative to models base.",
+    )
+    rec_model_path: Optional[str] = Field(
+        default="rapidocr/onnx/PP-OCRv5/rec/ch_PP-OCRv5_rec_server_infer.onnx",
+        description="Recognizer model path relative to models base.",
+    )
+    cls_model_path: Optional[str] = Field(
+        default="rapidocr/onnx/PP-OCRv4/cls/ch_ppocr_mobile_v2.0_cls_infer.onnx",
+        description="Classifier model path relative to models base.",
+    )
+    rec_keys_path: Optional[str] = Field(default=None, description="Optional keys file for recognition.")
+    rapidocr_params: Dict[str, Any] = Field(default_factory=dict, description="Additional RapidOCR parameters.")
+
+
+class DoclingEasyOCRSettings(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    enabled: bool = Field(default=False, description="Enable EasyOCR backend.")
+    languages: List[str] = Field(default_factory=lambda: ["en"], description="EasyOCR language codes.")
+    gpu: Literal["auto", "cuda", "cpu"] = Field(default="auto", description="Preferred EasyOCR device.")
+    recog_network: Optional[str] = Field(default="standard", description="EasyOCR recognition network.")
+    model_storage_dir: Optional[str] = Field(
+        default=None, description="Override model storage directory relative to container base."
+    )
+    download_enabled: bool = Field(default=True, description="Allow EasyOCR to download missing models.")
+    extra: Dict[str, Any] = Field(default_factory=dict, description="Additional EasyOCR reader parameters.")
+
+
+class DoclingTesseractSettings(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    enabled: bool = Field(default=False, description="Enable Tesseract (tesserocr) backend.")
+    languages: List[str] = Field(default_factory=lambda: ["eng"], description="Language packs for Tesseract.")
+    tessdata_prefix: Optional[str] = Field(
+        default=None,
+        description="Optional custom tessdata directory path.",
+    )
+    psm: Optional[int] = Field(
+        default=None,
+        description="Tesseract page segmentation mode.",
+    )
+    extra: Dict[str, Any] = Field(default_factory=dict, description="Additional options for the backend.")
+
+
+class DoclingOnnxtrSettings(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    enabled: bool = Field(default=False, description="Enable Docling OnnxTR OCR backend.")
+    repo_id: Optional[str] = Field(default=None, description="Model repository for OnnxTR artefacts.")
+    revision: Optional[str] = Field(default=None, description="Optional OnnxTR repo revision.")
+    det_model_path: Optional[str] = Field(default=None, description="Detector model path relative to models base.")
+    rec_model_path: Optional[str] = Field(default=None, description="Recognizer model path relative to models base.")
+    cls_model_path: Optional[str] = Field(default=None, description="Classifier model path relative to models base.")
+    providers: List[str] = Field(
+        default_factory=lambda: ["CUDAExecutionProvider", "CPUExecutionProvider"],
+        description="Preferred providers for OnnxTR onnxruntime.",
+    )
+    extra: Dict[str, Any] = Field(default_factory=dict, description="Additional backend parameters.")
+
+
+class DoclingOCRSettings(BaseModel):
+    """Unified OCR configuration for Docling."""
+
+    model_config = ConfigDict(extra="allow")
+
+    backend: Literal["rapidocr", "easyocr", "tesseract", "tesseract_cli", "onnxtr", "none"] = Field(
+        default="rapidocr", description="Primary OCR backend to use."
+    )
+    languages: List[str] = Field(
+        default_factory=list,
+        description="Override OCR languages (falls back to DoclingSettings.ocr_languages when empty).",
+    )
+    force_full_page_ocr: bool = Field(
+        default=False,
+        description="Force OCR on full pages even when vector text is available.",
+    )
+    rapidocr: DoclingRapidOCRSettings = Field(
+        default_factory=DoclingRapidOCRSettings, description="RapidOCR backend configuration."
+    )
+    easyocr: DoclingEasyOCRSettings = Field(
+        default_factory=DoclingEasyOCRSettings, description="EasyOCR backend configuration."
+    )
+    tesseract: DoclingTesseractSettings = Field(
+        default_factory=DoclingTesseractSettings, description="Tesseract backend configuration."
+    )
+    onnxtr: DoclingOnnxtrSettings = Field(
+        default_factory=DoclingOnnxtrSettings, description="OnnxTR backend configuration."
+    )
 
 
 class DoclingSettings(BaseModel):
@@ -270,6 +447,26 @@ class DoclingSettings(BaseModel):
     mcp: DoclingMCPSettings = Field(
         default_factory=DoclingMCPSettings,
         description="Docling MCP integration settings.",
+    )
+    keep_images: bool = Field(
+        default=False,
+        description="Keep generated page images in Docling output when supported.",
+    )
+    generate_page_images: bool = Field(
+        default=False,
+        description="Generate page images during conversion (may increase processing time).",
+    )
+    startup_sync: bool = Field(
+        default=True,
+        description="Automatically synchronise Docling models in the container on startup.",
+    )
+    ocr_config: DoclingOCRSettings = Field(
+        default_factory=DoclingOCRSettings,
+        description="Detailed OCR backend configuration for the Docling container.",
+    )
+    model_cache: DoclingModelCacheSettings = Field(
+        default_factory=DoclingModelCacheSettings,
+        description="Model download instructions for the Docling container.",
     )
 
     @field_validator("formats", mode="before")
@@ -381,6 +578,55 @@ class DoclingSettings(BaseModel):
         if not self.use_mcp():
             return None
         return self.mcp.resolve_url()
+
+    def to_container_config(self, log_level: str = "INFO") -> Dict[str, Any]:
+        """Convert settings to container-friendly configuration structure."""
+        languages = self.ocr_config.languages or self.ocr_languages
+        ocr_section = {
+            "backend": self.ocr_config.backend,
+            "languages": list(languages),
+            "force_full_page_ocr": self.ocr_config.force_full_page_ocr,
+            "rapidocr": self.ocr_config.rapidocr.model_dump(
+                mode="json", exclude_none=True
+            ),
+            "easyocr": self.ocr_config.easyocr.model_dump(
+                mode="json", exclude_none=True
+            ),
+            "tesseract": self.ocr_config.tesseract.model_dump(
+                mode="json", exclude_none=True
+            ),
+            "onnxtr": self.ocr_config.onnxtr.model_dump(
+                mode="json", exclude_none=True
+            ),
+        }
+
+        downloads = [
+            download.model_dump(mode="json", exclude_none=True)
+            for download in self.model_cache.downloads
+        ]
+
+        return {
+            "log_level": log_level,
+            "startup_sync": self.startup_sync,
+            "mcp": {
+                "transport": self.mcp.transport,
+                "host": self.mcp.listen_host,
+                "port": self.mcp.listen_port,
+                "tools": list(self.mcp.tool_groups),
+            },
+            "converter": {
+                "keep_images": self.keep_images,
+                "prefer_markdown_output": self.prefer_markdown_output,
+                "fallback_plain_text": self.fallback_plain_text,
+                "image_ocr_enabled": self.image_ocr_enabled,
+                "generate_page_images": self.generate_page_images,
+                "ocr": ocr_section,
+            },
+            "model_cache": {
+                "base_dir": self.model_cache.base_dir,
+                "downloads": downloads,
+            },
+        }
 
 
 class Settings(BaseSettings):

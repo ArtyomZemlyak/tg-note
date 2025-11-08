@@ -13,6 +13,8 @@ from telebot.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 from config import settings
 from src.bot.settings_manager import SettingsInspector, SettingsManager, UserSettingsStorage
 from src.bot.utils import escape_html
+from src.mcp.docling_integration import ensure_docling_mcp_spec
+from src.processor.docling_runtime import sync_models
 
 
 class SettingsHandlers:
@@ -47,6 +49,7 @@ class SettingsHandlers:
         self.bot.message_handler(commands=["settings"])(self.handle_settings_menu)
         self.bot.message_handler(commands=["viewsettings"])(self.handle_view_settings)
         self.bot.message_handler(commands=["resetsetting"])(self.handle_reset_setting)
+        self.bot.message_handler(commands=["doclingsync"])(self.handle_docling_sync)
 
         # Category-specific commands
         self.bot.message_handler(commands=["kbsettings"])(self.handle_kb_settings)
@@ -224,6 +227,80 @@ class SettingsHandlers:
                 )
             except Exception:
                 logger.error("Failed to send error notification", exc_info=True)
+
+    async def handle_docling_sync(self, message: Message) -> None:
+        """Handle /doclingsync command to refresh Docling container models."""
+        user_id = message.from_user.id
+        logger.info(f"Docling sync requested by user {user_id}")
+
+        args = message.text.split()
+        force = any(arg.lower() == "force" for arg in args[1:])
+
+        try:
+            ensure_docling_mcp_spec(settings.MEDIA_PROCESSING_DOCLING)
+        except Exception as exc:
+            logger.error(f"Failed to update Docling MCP configuration: {exc}", exc_info=True)
+            await self.bot.reply_to(
+                message,
+                "❌ Не удалось обновить конфигурацию Docling перед синхронизацией. "
+                "Проверьте логи и попробуйте снова.",
+            )
+            return
+
+        progress_msg = await self.bot.reply_to(
+            message,
+            "🔄 Запускаю синхронизацию моделей Docling... Это может занять несколько минут.",
+        )
+
+        try:
+            result = await sync_models(force=force)
+        except Exception as exc:
+            logger.error(f"Docling sync command failed: {exc}", exc_info=True)
+            await self.bot.edit_message_text(
+                "❌ Ошибка: не удалось синхронизировать модели Docling. Подробности в логах.",
+                progress_msg.chat.id,
+                progress_msg.message_id,
+            )
+            return
+
+        if not result:
+            await self.bot.edit_message_text(
+                "⚠️ Синхронизация не была выполнена (Docling MCP недоступен).",
+                progress_msg.chat.id,
+                progress_msg.message_id,
+            )
+            return
+
+        success = result.get("success", True)
+        payload = result.get("result") or {}
+        items = payload.get("items", [])
+
+        lines = []
+        for item in items:
+            status = item.get("status", "unknown")
+            name = item.get("name", item.get("repo_id", "artefact"))
+            lines.append(f"• {escape_html(name)} — {escape_html(status)}")
+
+        summary = "\n".join(lines) if lines else "Нет изменений (модели уже в актуальном состоянии)."
+
+        text = (
+            "✅ Синхронизация Docling завершена.\n\n"
+            f"{summary}\n\n"
+            f"{'Принудительная перезагрузка моделей.' if force else ''}"
+        )
+
+        if not success:
+            text = (
+                "⚠️ Синхронизация Docling завершилась с ошибками. Проверьте логи контейнера.\n\n"
+                f"{summary}"
+            )
+
+        await self.bot.edit_message_text(
+            text,
+            progress_msg.chat.id,
+            progress_msg.message_id,
+            parse_mode="HTML",
+        )
 
     async def handle_kb_settings(self, message: Message) -> None:
         """Handle /kbsettings - show KB-specific settings"""
