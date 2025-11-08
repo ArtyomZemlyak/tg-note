@@ -123,13 +123,13 @@ services:
       - VECTOR_STORE_PROVIDER=qdrant
       - VECTOR_QDRANT_URL=http://qdrant:6333
       - VECTOR_QDRANT_COLLECTION=${QDRANT_COLLECTION:-knowledge_base}
-      depends_on:
-        qdrant:
-          condition: service_healthy
-        infinity:
-          condition: service_healthy
-        docling-mcp:
-          condition: service_healthy
+    depends_on:
+      qdrant:
+        condition: service_healthy
+      infinity:
+        condition: service_healthy
+      docling-mcp:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8765/health"]
       interval: 30s

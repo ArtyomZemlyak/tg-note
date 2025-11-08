@@ -91,7 +91,8 @@ class MCPRegistryClient:
                 url = spec.url or config_url
                 if not url:
                     logger.warning(
-                        "[MCPRegistryClient] Cannot create SSE client for %s: missing URL", spec.name
+                        "[MCPRegistryClient] Cannot create SSE client for %s: missing URL",
+                        spec.name,
                     )
                     return None
                 config = MCPServerConfig(

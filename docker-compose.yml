@@ -81,11 +81,11 @@ services:
       - ./config.yaml:/app/config.yaml:ro
       # Shared HuggingFace cache for embeddings (bind host cache)
       - ~/.cache/huggingface:/root/.cache/huggingface
-      depends_on:
-        vllm-server:
-          condition: service_healthy
-        docling-mcp:
-          condition: service_healthy
+    depends_on:
+      vllm-server:
+        condition: service_healthy
+      docling-mcp:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8765/health"]
       interval: 30s

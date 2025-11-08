@@ -38,13 +38,14 @@ except ImportError:
     print("Error: fastmcp not installed. Install with: pip install fastmcp")
     sys.exit(1)
 
+from src.mcp.docling_integration import ensure_docling_mcp_spec
+
 # Import memory storage components
 from src.mcp.memory.memory_factory import MemoryStorageFactory
 from src.mcp.memory.memory_storage import MemoryStorage
 
 # Import registry components
 from src.mcp.registry.registry import MCPServerRegistry, MCPServerSpec
-from src.mcp.docling_integration import ensure_docling_mcp_spec
 
 # Import vector search components
 from src.mcp.vector_search import VectorSearchManager

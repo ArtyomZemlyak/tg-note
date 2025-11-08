@@ -120,4 +120,3 @@ def ensure_docling_mcp_spec(
     spec_path = servers_dir / f"{spec['name']}.json"
     _write_json_if_changed(spec_path, spec)
     return spec_path
-

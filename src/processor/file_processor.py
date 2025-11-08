@@ -186,7 +186,9 @@ class FileProcessor:
 
         return tools[0]
 
-    async def _process_with_mcp(self, file_path: Path, file_format: str) -> Optional[Dict[str, Any]]:
+    async def _process_with_mcp(
+        self, file_path: Path, file_format: str
+    ) -> Optional[Dict[str, Any]]:
         """Process file using Docling MCP server."""
         client = await self._get_docling_client()
         if not client:
@@ -538,7 +540,9 @@ class FileProcessor:
 
         return ""
 
-    async def _process_with_local(self, file_path: Path, file_format: str) -> Optional[Dict[str, Any]]:
+    async def _process_with_local(
+        self, file_path: Path, file_format: str
+    ) -> Optional[Dict[str, Any]]:
         """Process file using local Docling converter."""
         if not self.converter:
             self.logger.warning("Local Docling converter unavailable.")
