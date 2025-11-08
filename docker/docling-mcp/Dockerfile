@@ -1,9 +1,11 @@
-FROM nvidia/cuda:12.1.0-cudnn8-runtime-ubuntu22.04
+# AICODE-NOTE: Base CUDA image version can be customized via build args
+ARG CUDA_VERSION=12.1.0
+FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-runtime-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
     TZ=UTC
 
-# System dependencies
+# System dependencies for all OCR backends and VLM
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     python3.11 \
@@ -16,17 +18,33 @@ RUN apt-get update && \
     ca-certificates \
     pkg-config \
     cmake \
-    libgl1 \
+    # OpenCV and image processing dependencies
+    libgl1-mesa-glx \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
     libxrender1 \
     libgomp1 \
+    libgeos-dev \
+    # Tesseract OCR
     libtesseract-dev \
     libleptonica-dev \
     tesseract-ocr \
     tesseract-ocr-eng \
     tesseract-ocr-rus \
+    tesseract-ocr-deu \
+    tesseract-ocr-fra \
+    tesseract-ocr-spa \
+    tesseract-ocr-chi-sim \
+    tesseract-ocr-chi-tra \
+    tesseract-ocr-jpn \
+    tesseract-ocr-kor \
+    # Additional libs for deep learning
+    libopenblas-dev \
+    liblapack-dev \
+    # ONNX Runtime dependencies
+    libprotobuf-dev \
+    protobuf-compiler \
     && rm -rf /var/lib/apt/lists/*
 
 # Ensure python alias and install pip tooling

@@ -7,19 +7,18 @@ import os
 from pathlib import Path
 from typing import List
 
-from mcp.types import ToolAnnotations
-
 from docling_mcp.servers.mcp_server import (
     ToolGroups,
     TransportType,
-    main as mcp_main,
 )
+from docling_mcp.servers.mcp_server import main as mcp_main
 from docling_mcp.shared import mcp
-
 from tg_docling.config import ContainerConfig, ensure_config_file, load_config
 from tg_docling.converter import install_converter
 from tg_docling.logging import configure_logging
 from tg_docling.model_sync import sync_models
+
+from mcp.types import ToolAnnotations
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +116,9 @@ def main() -> None:
     tool_names = config.mcp.tools
     selected_tools = _normalise_tool_names(tool_names)
     if not selected_tools:
-        logger.warning("No valid tool groups configured, defaulting to conversion/generation/manipulation")
+        logger.warning(
+            "No valid tool groups configured, defaulting to conversion/generation/manipulation"
+        )
         selected_tools = _normalise_tool_names(["conversion", "generation", "manipulation"])
 
     logger.info(
@@ -131,9 +132,7 @@ def main() -> None:
     try:
         transport = TransportType(config.mcp.transport)
     except ValueError:
-        logger.warning(
-            "Unknown transport '%s', defaulting to 'sse'", config.mcp.transport
-        )
+        logger.warning("Unknown transport '%s', defaulting to 'sse'", config.mcp.transport)
         transport = TransportType.SSE
 
     mcp_main(

@@ -6,7 +6,14 @@ from pathlib import Path
 from typing import Dict, Optional
 
 from docling.datamodel.base_models import InputFormat
-from docling.datamodel.pipeline_options import EasyOcrOptions, OcrOptions, PdfPipelineOptions, RapidOcrOptions, TesseractCliOcrOptions, TesseractOcrOptions
+from docling.datamodel.pipeline_options import (
+    EasyOcrOptions,
+    OcrOptions,
+    PdfPipelineOptions,
+    RapidOcrOptions,
+    TesseractCliOcrOptions,
+    TesseractOcrOptions,
+)
 from docling.document_converter import DocumentConverter, PdfFormatOption
 from docling_mcp.settings import conversion as conversion_settings
 from docling_mcp.tools import conversion as conversion_tools
@@ -43,14 +50,10 @@ def _apply_optional_attributes(obj: object, values: Dict[str, object]) -> None:
         if hasattr(obj, key):
             setattr(obj, key, value)
         else:
-            logger.debug(
-                "Skipping unsupported attribute '%s' for %s", key, type(obj).__name__
-            )
+            logger.debug("Skipping unsupported attribute '%s' for %s", key, type(obj).__name__)
 
 
-def _build_ocr_options(
-    config: ContainerConfig, models_base: Path
-) -> Optional[OcrOptions]:
+def _build_ocr_options(config: ContainerConfig, models_base: Path) -> Optional[OcrOptions]:
     """Construct OCR options based on container configuration."""
     ocr_cfg = config.converter.ocr
     languages = ocr_cfg.languages
