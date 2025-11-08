@@ -6,14 +6,13 @@ Handles various file formats using docling for content extraction
 import os
 import tempfile
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from loguru import logger
 
-from config.settings import settings
+from config.settings import DoclingSettings, settings
 
 try:
-    from docling.datamodel.base_models import InputFormat
     from docling.document_converter import DocumentConverter
 
     DOCLING_AVAILABLE = True
@@ -39,6 +38,11 @@ class FileProcessor:
         else:
             self.converter = None
 
+    @property
+    def docling_config(self) -> DoclingSettings:
+        """Return current Docling configuration."""
+        return self.settings.MEDIA_PROCESSING_DOCLING
+
     def is_available(self) -> bool:
         """
         Check if docling is available and media processing is enabled
@@ -48,6 +52,7 @@ class FileProcessor:
         """
         return (
             self.settings.is_media_processing_enabled()
+            and self.docling_config.enabled
             and DOCLING_AVAILABLE
             and self.converter is not None
         )
@@ -63,7 +68,7 @@ class FileProcessor:
             return []
 
         # Get enabled formats from settings
-        return self.settings.get_media_processing_formats("docling")
+        return self.docling_config.get_enabled_formats()
 
     def detect_file_format(self, file_path: Path) -> Optional[str]:
         """
@@ -81,7 +86,63 @@ class FileProcessor:
         if self.settings.is_format_enabled(extension, "docling"):
             return extension
 
+        self.logger.debug("Docling format disabled in settings: %s", extension)
         return None
+
+    def _extract_document_text(self, document: Any, config: DoclingSettings) -> str:
+        """
+        Export document content using configured preference with graceful fallback.
+
+        Args:
+            document: Docling document object
+            config: Docling configuration settings
+
+        Returns:
+            Extracted text content (may be empty string if export fails)
+        """
+        if document is None:
+            return ""
+
+        export_order: List[Tuple[str, Callable[[], str]]] = []
+        seen: Set[str] = set()
+
+        def add_export(name: str, attribute: str) -> None:
+            if name in seen:
+                return
+            if hasattr(document, attribute):
+                method = getattr(document, attribute)
+                if callable(method):
+                    export_order.append((name, method))
+                    seen.add(name)
+
+        if config.prefer_markdown_output:
+            add_export("markdown", "export_to_markdown")
+        else:
+            add_export("text", "export_to_text")
+
+        # Ensure we attempt both exporters if available
+        add_export("text", "export_to_text")
+        add_export("markdown", "export_to_markdown")
+
+        if config.fallback_plain_text:
+            add_export("text", "export_to_text")
+            add_export("markdown", "export_to_markdown")
+
+        for name, exporter in export_order:
+            try:
+                content = exporter()
+                if content:
+                    if name != "markdown" and config.prefer_markdown_output:
+                        self.logger.debug(
+                            "Docling used %s export due to fallback configuration", name
+                        )
+                    return content
+            except Exception as export_error:
+                self.logger.debug(
+                    "Docling export via %s failed: %s", name, export_error, exc_info=True
+                )
+
+        return ""
 
     async def process_file(self, file_path: Path) -> Optional[Dict]:
         """
@@ -93,8 +154,14 @@ class FileProcessor:
         Returns:
             Dictionary with extracted content and metadata, or None on failure
         """
+        docling_config = self.docling_config
+
         if not self.settings.is_media_processing_enabled():
             self.logger.info("Media processing is disabled in settings")
+            return None
+
+        if not docling_config.enabled:
+            self.logger.info("Docling processing disabled in settings")
             return None
 
         if not self.is_available():
@@ -105,10 +172,38 @@ class FileProcessor:
             self.logger.error(f"File not found: {file_path}")
             return None
 
+        raw_extension = file_path.suffix.lower().lstrip(".")
         file_format = self.detect_file_format(file_path)
 
         if not file_format:
-            self.logger.warning(f"Unsupported file format: {file_path.suffix}")
+            normalized_formats = docling_config.normalized_formats()
+            if raw_extension and raw_extension in normalized_formats:
+                self.logger.info(
+                    "Docling format %s is disabled in configuration; skipping file %s",
+                    raw_extension,
+                    file_path.name,
+                )
+            else:
+                self.logger.warning(f"Unsupported file format: {file_path.suffix}")
+            return None
+
+        if not docling_config.is_format_enabled(file_format):
+            self.logger.info(
+                "Docling configuration currently skips format %s; file %s will not be processed",
+                file_format,
+                file_path.name,
+            )
+            return None
+
+        file_stats = file_path.stat()
+
+        if docling_config.exceeds_size_limit(file_stats.st_size):
+            self.logger.warning(
+                "Skipping file %s (%s bytes) because it exceeds Docling limit of %s MB",
+                file_path.name,
+                file_stats.st_size,
+                docling_config.max_file_size_mb,
+            )
             return None
 
         try:
@@ -120,25 +215,37 @@ class FileProcessor:
             result = self.converter.convert(str(file_path))
 
             # Extract text content
-            text_content = ""
-            if hasattr(result, "document") and result.document:
-                # Get markdown representation
-                text_content = result.document.export_to_markdown()
+            document = getattr(result, "document", None)
+            text_content = self._extract_document_text(document, docling_config)
 
             # Extract metadata
             metadata = {
                 "file_name": file_path.name,
                 "file_format": file_format,
-                "file_size": file_path.stat().st_size,
+                "file_size": file_stats.st_size,
             }
 
             # Add document-specific metadata if available
-            if hasattr(result, "document") and result.document:
-                doc = result.document
-                if hasattr(doc, "name") and doc.name:
-                    metadata["document_title"] = doc.name
-                if hasattr(doc, "origin") and doc.origin:
-                    metadata["document_origin"] = str(doc.origin)
+            if document:
+                if hasattr(document, "name") and document.name:
+                    metadata["document_title"] = document.name
+                if hasattr(document, "origin") and document.origin:
+                    metadata["document_origin"] = str(document.origin)
+
+            metadata["docling"] = {
+                "prefer_markdown_output": docling_config.prefer_markdown_output,
+                "fallback_plain_text": docling_config.fallback_plain_text,
+                "image_ocr_enabled": docling_config.image_ocr_enabled,
+                "max_file_size_mb": docling_config.max_file_size_mb,
+                "ocr_languages": list(docling_config.ocr_languages),
+            }
+
+            if not text_content:
+                self.logger.debug(
+                    "Docling returned empty content for file: %s (format: %s)",
+                    file_path.name,
+                    file_format,
+                )
 
             self.logger.info(
                 f"Successfully processed file: {file_path.name}, extracted {len(text_content)} characters"
@@ -171,6 +278,18 @@ class FileProcessor:
         Returns:
             Dictionary with extracted content and metadata, or None on failure
         """
+        if not self.settings.is_media_processing_enabled():
+            self.logger.info("Media processing disabled; skipping Telegram file download")
+            return None
+
+        if not self.docling_config.enabled:
+            self.logger.info("Docling disabled; skipping Telegram file download")
+            return None
+
+        if not self.is_available():
+            self.logger.warning("Docling not available; skipping Telegram file download")
+            return None
+
         temp_dir = None
         temp_file = None
 
@@ -188,6 +307,15 @@ class FileProcessor:
             # Create temporary file path
             temp_filename = f"telegram_file{file_extension}"
             temp_file = Path(temp_dir) / temp_filename
+
+            extension = file_extension.lower().lstrip(".")
+            if extension and not self.settings.is_format_enabled(extension, "docling"):
+                self.logger.info(
+                    "Skipping Telegram file %s because format %s is disabled for Docling",
+                    original_filename or file_info.file_path,
+                    extension,
+                )
+                return None
 
             # Download file from Telegram
             self.logger.info(f"Downloading Telegram file: {original_filename or 'unknown'}")

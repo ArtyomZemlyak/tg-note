@@ -131,3 +131,37 @@ def test_media_processing_disabled_returns_empty_formats():
     assert test_settings.get_media_processing_formats("docling") == []
     assert not test_settings.is_format_enabled("pdf", "docling")
     assert not test_settings.is_format_enabled("jpg", "docling")
+
+
+def test_docling_settings_legacy_formats_compatibility():
+    """Legacy MEDIA_PROCESSING_DOCLING_FORMATS should populate new Docling configuration."""
+    from config.settings import Settings
+
+    legacy_settings = Settings(MEDIA_PROCESSING_DOCLING_FORMATS=["pdf", "docx", "jpg"])
+
+    assert legacy_settings.MEDIA_PROCESSING_DOCLING.formats == ["pdf", "docx", "jpg"]
+    assert legacy_settings.get_media_processing_formats("docling") == ["pdf", "docx", "jpg"]
+
+
+def test_docling_settings_image_ocr_toggle():
+    """Image OCR toggle should exclude image formats when disabled."""
+    from config.settings import Settings
+
+    updated_settings = Settings(
+        MEDIA_PROCESSING_DOCLING={"formats": ["pdf", "jpg"], "image_ocr_enabled": False}
+    )
+
+    assert updated_settings.MEDIA_PROCESSING_DOCLING.is_format_enabled("pdf")
+    assert not updated_settings.MEDIA_PROCESSING_DOCLING.is_format_enabled("jpg")
+    assert updated_settings.get_media_processing_formats("docling") == ["pdf"]
+
+
+def test_docling_settings_file_size_limit_conversion():
+    """Ensure max file size limit converts to bytes correctly."""
+    from config.settings import Settings
+
+    unlimited = Settings(MEDIA_PROCESSING_DOCLING={"max_file_size_mb": 0})
+    assert unlimited.MEDIA_PROCESSING_DOCLING.max_file_size_bytes is None
+
+    limited = Settings(MEDIA_PROCESSING_DOCLING={"max_file_size_mb": 5})
+    assert limited.MEDIA_PROCESSING_DOCLING.max_file_size_bytes == 5 * 1024 * 1024
