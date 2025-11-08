@@ -227,16 +227,23 @@ class FilesDeletedField(FileListField):
 class LinksField(BaseField):
     """Links field for response format."""
 
-    def __init__(self, github_url: str = None):
+    def __init__(self, github_url: str = None, min_description_length: int = 30):
         super().__init__(
             "links",
-            "# Список связей с другими файлами или папками или сущностями внутри файлов в базе знаний (только с СУЩЕСТВУЮЩИМИ сущностями, не с сущностями, созданными в текущем запуске)."
-            '# Для каждой связи в "links" обязательно добавляй содержательное описание (1-2 предложения), объясняющее природу связи'
-            "# `description` ДОЛЖЕН быть содержательным (1–2 предложения): объясни природу связи (общее, различия, зависимость, часть-целое, альтернатива, последовательность, перекрывающиеся теги/понятия)."
-            '# Избегай шаблонов вроде "Связанная тема" или однословных описаний.'
-            "# Очень важно чтобы связи были не просто вида -О, тут тоже говорится об ЛЛМ вот это да- , а чтобы связи отражали какие-то прям инсайты и глубинные связи",
+            "# Список связей с другими файлами или папками или сущностями внутри файлов в базе знаний."
+            "# ❌ ВАЖНО: НЕ добавляй связи с файлами, которые были ТОЛЬКО ЧТО СОЗДАНЫ в текущем запросе (из списка 'created')!"
+            "# ✅ Добавляй связи ТОЛЬКО с СУЩЕСТВУЮЩИМИ ранее файлами и сущностями."
+            '# Для каждой связи в "links" обязательно добавляй СОДЕРЖАТЕЛЬНОЕ описание (минимум 30 символов, лучше 50-100).'
+            "# `description` ДОЛЖЕН раскрывать СУТЬ связи и давать ИНСАЙТ:"
+            "#   - Что ОБЩЕГО между сущностями? Какая ЗАВИСИМОСТЬ?"
+            "#   - Это часть-целое? Альтернативы? Последовательность этапов?"
+            "#   - Какие КОНКРЕТНЫЕ концепции/технологии/идеи пересекаются?"
+            "#   - Какой ПРАКТИЧЕСКИЙ вывод можно сделать из этой связи?"
+            '# ❌ Избегай шаблонных фраз: "Связанная тема", "Похожий контент", "Тоже про ЛЛМ".'
+            '# ✅ Пиши конкретно: "Оба файла описывают архитектуру трансформеров, но этот фокусируется на attention mechanism, а связанный - на positional encoding."',
         )
         self.github_url = github_url
+        self.min_description_length = min_description_length
 
     def generate_example(self):
         """Generate example value for links field."""
@@ -257,8 +264,62 @@ class LinksField(BaseField):
         return f"""{ex} {self.text}"""
 
     def parse(self, response_data: Dict, **kwargs) -> Any:
-        """Parse links field with formatting."""
-        return response_data.get("links", [])
+        """
+        Parse links field with filtering.
+
+        Filters out:
+        1. Links to files that were just created (from 'created' list)
+        2. Links with descriptions shorter than min_description_length
+        3. Links with template-like descriptions
+
+        Args:
+            response_data: Response data from agent
+            **kwargs: Additional arguments (unused)
+
+        Returns:
+            Filtered list of links
+        """
+        # AICODE-NOTE: Filter out "garbage" links to keep only meaningful connections
+        links = response_data.get("links", [])
+        created_files = response_data.get("created", [])
+
+        # Template phrases to detect low-quality descriptions
+        template_phrases = [
+            "связанная тема",
+            "связанный файл",
+            "похожий контент",
+            "схожая тема",
+            "related topic",
+            "similar content",
+            "тоже про",
+            "также о",
+        ]
+
+        filtered_links = []
+        for link in links:
+            if not isinstance(link, dict):
+                continue
+
+            file_path = link.get("file", "")
+            description = link.get("description", "")
+
+            # Filter 1: Skip links to just-created files
+            if file_path in created_files:
+                continue
+
+            # Filter 2: Skip links with too short descriptions
+            if len(description.strip()) < self.min_description_length:
+                continue
+
+            # Filter 3: Skip template-like descriptions
+            description_lower = description.lower()
+            is_template = any(phrase in description_lower for phrase in template_phrases)
+            if is_template:
+                continue
+
+            filtered_links.append(link)
+
+        return filtered_links
 
     def to_html(self, value: Any) -> str:
         """
@@ -358,14 +419,14 @@ class InsiteField(BaseField):
 class ResponseFormatter:
     """Class to represent and generate response format for agent prompts."""
 
-    def __init__(self, github_url: str = None):
+    def __init__(self, github_url: str = None, min_link_description_length: int = 30):
         self.fields: list[BaseField] = [
             SummaryField(),
             AnswerField(),
             FilesCreatedField(github_url),
             FilesEditedField(github_url),
             FilesDeletedField(github_url),
-            LinksField(github_url),
+            LinksField(github_url, min_link_description_length),
             InsiteField(),
         ]
 

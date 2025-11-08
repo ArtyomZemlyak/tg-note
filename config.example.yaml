@@ -52,6 +52,16 @@ KB_GIT_REMOTE: origin
 # - Make sure the branch exists or will be created
 KB_GIT_BRANCH: main
 
+# KB_LINKS_MIN_DESCRIPTION_LENGTH: Minimum length for link descriptions
+# - Filters out low-quality connections with short or template-like descriptions
+# - Links to just-created files in the same request are also filtered
+# - Purpose: Ensures only meaningful, insightful connections are displayed
+# - Recommended values:
+#   * 20-30: Minimal filtering, allows brief descriptions
+#   * 30-50: Balanced filtering (default)
+#   * 50-100: Strict filtering, only detailed descriptions
+KB_LINKS_MIN_DESCRIPTION_LENGTH: 30
+
 
 # ───────────────────────────────────────────────────────────────────────────────
 # Processing Settings

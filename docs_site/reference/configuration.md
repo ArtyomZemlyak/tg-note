@@ -65,6 +65,28 @@ Restrict agents to work only in `topics/` folder.
 - **When true:** Agents can only access `KB_PATH/topics/`
 - **When false:** Agents have full access to entire KB directory
 
+### KB_LINKS_MIN_DESCRIPTION_LENGTH
+
+Minimum length for link descriptions to filter out low-quality connections.
+
+- **Type:** `int`
+- **Default:** `30`
+- **Description:** Filters out links with:
+  - Descriptions shorter than this length (in characters)
+  - Links to just-created files in the same request
+  - Template-like phrases (e.g., "related topic", "similar content")
+- **Purpose:** Ensures only meaningful, insightful connections are displayed
+- **Recommended values:**
+  - `20-30` - Minimal filtering, allows brief descriptions
+  - `30-50` - Balanced filtering (default)
+  - `50-100` - Strict filtering, only detailed descriptions
+
+**Example:**
+```yaml
+# config.yaml
+KB_LINKS_MIN_DESCRIPTION_LENGTH: 40  # Require at least 40 characters
+```
+
 ---
 
 ## Agent Settings

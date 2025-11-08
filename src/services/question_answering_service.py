@@ -62,7 +62,6 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
         self.rate_limiter = rate_limiter
         self.content_parser = ContentParser()
         self.logger = logger
-        self.response_formatter = ResponseFormatter()
 
     async def answer_question(
         self, group: MessageGroup, processing_msg_id: int, chat_id: int, user_id: int, user_kb: dict
