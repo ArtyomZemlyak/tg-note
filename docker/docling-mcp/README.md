@@ -1,0 +1,344 @@
+# Docling MCP Container
+
+Docker container for Docling document processing with MCP (Model Context Protocol) server integration.
+
+## Features
+
+- **Multiple OCR Backends**: RapidOCR (default), EasyOCR, Tesseract, OnnxTR
+- **VLM Support**: Vision-Language Models for advanced document understanding
+- **GPU Acceleration**: CUDA support for faster processing
+- **Configurable**: Full control over OCR settings, models, and parameters
+- **Model Management**: Automatic model download and caching
+- **MCP Integration**: Seamless integration with tg-note via MCP protocol
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Docling MCP Container                     │
+├─────────────────────────────────────────────────────────────┤
+│                                                               │
+│  ┌─────────────────┐      ┌──────────────────────────┐     │
+│  │  MCP Server     │◄─────┤  Document Converter       │     │
+│  │  (FastMCP/SSE)  │      │  (docling core)           │     │
+│  └────────┬────────┘      └──────────┬───────────────┘     │
+│           │                           │                      │
+│           │                           ▼                      │
+│           │                  ┌────────────────┐             │
+│           │                  │  OCR Backends  │             │
+│           │                  ├────────────────┤             │
+│           │                  │  • RapidOCR    │             │
+│           │                  │  • EasyOCR     │             │
+│           │                  │  • Tesseract   │             │
+│           │                  │  • OnnxTR      │             │
+│           │                  └────────────────┘             │
+│           │                                                  │
+│           ▼                                                  │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │           Model Cache & Download Manager             │   │
+│  │  (HuggingFace, ModelScope, local cache)              │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                               │
+└─────────────────────────────────────────────────────────────┘
+         ▲                                    ▲
+         │ HTTP/SSE                          │ Volume Mounts
+         │ (Port 8077)                       │
+         │                                   │
+    ┌────┴──────┐                     ┌─────┴────────┐
+    │  tg-note  │                     │  Host Data   │
+    │    Bot    │                     │  Directories │
+    └───────────┘                     └──────────────┘
+```
+
+## Directory Structure
+
+```
+/opt/docling-mcp/
+├── app/                      # Application code
+│   └── tg_docling/
+│       ├── config.py        # Configuration management
+│       ├── converter.py     # Document converter integration
+│       ├── model_sync.py    # Model download & sync
+│       └── server.py        # MCP server entrypoint
+├── config/                  # Configuration directory (volume)
+│   └── docling-config.json # Runtime configuration
+├── models/                  # Model cache (volume)
+│   ├── rapidocr/           # RapidOCR models
+│   ├── easyocr/            # EasyOCR models
+│   └── ...
+├── cache/                   # General cache (volume)
+│   └── huggingface/        # HuggingFace model cache
+└── logs/                    # Log files (volume)
+    └── docling-mcp.log
+```
+
+## Configuration
+
+Configuration is managed through `docling-config.json` which is automatically generated and updated by tg-note based on settings in `config/settings.py`.
+
+### Configuration Structure
+
+```json
+{
+  "log_level": "INFO",
+  "startup_sync": true,
+  "mcp": {
+    "transport": "sse",
+    "host": "0.0.0.0",
+    "port": 8077,
+    "tools": ["conversion", "generation", "manipulation"]
+  },
+  "converter": {
+    "keep_images": false,
+    "prefer_markdown_output": true,
+    "fallback_plain_text": true,
+    "image_ocr_enabled": true,
+    "generate_page_images": false,
+    "ocr": {
+      "backend": "rapidocr",
+      "languages": ["eng"],
+      "force_full_page_ocr": false,
+      "rapidocr": {
+        "enabled": true,
+        "backend": "onnxruntime",
+        "providers": ["CUDAExecutionProvider", "CPUExecutionProvider"],
+        "det_model_path": "rapidocr/onnx/PP-OCRv5/det/ch_PP-OCRv5_server_det.onnx",
+        "rec_model_path": "rapidocr/onnx/PP-OCRv5/rec/ch_PP-OCRv5_rec_server_infer.onnx",
+        "cls_model_path": "rapidocr/onnx/PP-OCRv4/cls/ch_ppocr_mobile_v2.0_cls_infer.onnx"
+      },
+      "easyocr": {
+        "enabled": false,
+        "languages": ["en"],
+        "gpu": "auto"
+      },
+      "tesseract": {
+        "enabled": false,
+        "languages": ["eng"]
+      },
+      "onnxtr": {
+        "enabled": false
+      }
+    }
+  },
+  "model_cache": {
+    "base_dir": "/opt/docling-mcp/models",
+    "downloads": [
+      {
+        "name": "rapidocr-default",
+        "type": "huggingface",
+        "repo_id": "RapidAI/RapidOCR",
+        "local_dir": "rapidocr",
+        "allow_patterns": [
+          "onnx/PP-OCRv5/det/ch_PP-OCRv5_server_det.onnx",
+          "onnx/PP-OCRv5/rec/ch_PP-OCRv5_rec_server_infer.onnx",
+          "onnx/PP-OCRv4/cls/ch_ppocr_mobile_v2.0_cls_infer.onnx"
+        ]
+      }
+    ]
+  }
+}
+```
+
+## OCR Backends
+
+### RapidOCR (Default)
+- **Pros**: Fast, lightweight, good accuracy, GPU support
+- **Use case**: General document OCR, Chinese/English documents
+- **Models**: PP-OCRv5 (detection), PP-OCRv5 (recognition), PP-OCRv4 (classification)
+
+### EasyOCR
+- **Pros**: Support for 80+ languages, good accuracy
+- **Use case**: Multilingual documents
+- **Models**: Automatically downloaded based on language selection
+
+### Tesseract
+- **Pros**: Mature, stable, wide language support
+- **Use case**: Legacy documents, offline processing
+- **Models**: Installed via apt packages
+
+### OnnxTR
+- **Pros**: ONNX-based, customizable, GPU support
+- **Use case**: Custom OCR pipelines
+- **Models**: Custom ONNX models
+
+## Model Management
+
+### Automatic Model Download
+
+Models are automatically downloaded on container startup based on configuration. The `sync_docling_models` MCP tool can be called to trigger manual synchronization.
+
+### Model Sources
+
+1. **HuggingFace Hub**: Primary source for pre-trained models
+2. **ModelScope**: Alternative source for Chinese models
+3. **Local Cache**: Persistent storage in `/opt/docling-mcp/models`
+
+### Adding New Models
+
+Add model download entries to `model_cache.downloads` in configuration:
+
+```json
+{
+  "name": "custom-ocr",
+  "type": "huggingface",
+  "repo_id": "organization/model-name",
+  "local_dir": "custom-ocr",
+  "allow_patterns": ["*.onnx", "*.pth"]
+}
+```
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DOCLING_LOG_LEVEL` | `INFO` | Logging level (DEBUG, INFO, WARNING, ERROR) |
+| `DOCLING_MODELS_DIR` | `/opt/docling-mcp/models` | Model cache directory |
+| `DOCLING_CACHE_DIR` | `/opt/docling-mcp/cache` | General cache directory |
+| `DOCLING_LOG_DIR` | `/opt/docling-mcp/logs` | Log files directory |
+| `HF_HOME` | `/opt/docling-mcp/cache/huggingface` | HuggingFace cache location |
+| `HF_HUB_ENABLE_HF_TRANSFER` | `1` | Enable fast HF transfers |
+| `CUDA_VISIBLE_DEVICES` | `all` | GPU device selection |
+| `DOCLING_OCR_BACKEND` | `rapidocr` | Default OCR backend |
+
+## Usage
+
+### Starting the Container
+
+```bash
+docker-compose up -d docling-mcp
+```
+
+### Viewing Logs
+
+```bash
+docker-compose logs -f docling-mcp
+```
+
+### Manual Model Sync
+
+Via MCP tool (from tg-note):
+```python
+from src.processor.docling_runtime import sync_models
+
+result = await sync_models(force=True)
+```
+
+Via Docker exec:
+```bash
+docker exec tg-note-docling python -m tg_docling.model_sync --force
+```
+
+### Testing OCR
+
+```bash
+# Convert a PDF
+docker exec tg-note-docling python -c "
+from docling.document_converter import DocumentConverter
+converter = DocumentConverter()
+result = converter.convert('/path/to/document.pdf')
+print(result.document.export_to_markdown())
+"
+```
+
+## GPU Support
+
+### Requirements
+
+- NVIDIA GPU with CUDA support
+- nvidia-docker2 installed
+- CUDA 12.1 or compatible version
+
+### Verifying GPU Access
+
+```bash
+docker exec tg-note-docling nvidia-smi
+```
+
+### GPU Memory Management
+
+- Default GPU memory utilization: 80%
+- Can be adjusted via CUDA runtime environment variables
+- Multiple containers can share GPUs
+
+## Troubleshooting
+
+### Container Fails to Start
+
+1. Check logs: `docker-compose logs docling-mcp`
+2. Verify GPU access: `docker exec tg-note-docling nvidia-smi`
+3. Check disk space for model downloads
+4. Verify configuration file is valid JSON
+
+### Model Download Fails
+
+1. Check HuggingFace connectivity
+2. Verify HF_TOKEN if using private models
+3. Check disk space in models directory
+4. Review logs for specific error messages
+
+### OCR Not Working
+
+1. Verify OCR backend is enabled in configuration
+2. Check that required models are downloaded
+3. Verify GPU access (for CUDA providers)
+4. Try fallback to CPU provider
+
+### Performance Issues
+
+1. Check GPU utilization: `nvidia-smi`
+2. Verify CUDA providers are being used
+3. Consider using lighter OCR models
+4. Increase container memory if needed
+
+## Development
+
+### Building Locally
+
+```bash
+docker build -t tg-note-docling-mcp:local \
+  -f docker/docling-mcp/Dockerfile \
+  --build-arg CUDA_VERSION=12.1.0 \
+  .
+```
+
+### Running Tests
+
+```bash
+docker exec tg-note-docling pytest /opt/docling-mcp/tests/
+```
+
+### Adding New OCR Backend
+
+1. Update `requirements.txt` with dependencies
+2. Add configuration class to `config.py`
+3. Implement OCR options builder in `converter.py`
+4. Update documentation
+
+## Integration with tg-note
+
+The container is automatically integrated with tg-note through:
+
+1. **MCP Protocol**: SSE transport on port 8077
+2. **Configuration Sync**: Settings automatically update container config
+3. **Model Management**: Models sync when settings change
+4. **Notifications**: Progress updates sent to Telegram (when callback is set)
+
+### Changing Settings via Telegram
+
+1. Use `/settings` command
+2. Navigate to Media Processing → Docling
+3. Change OCR backend, languages, or models
+4. Models automatically download if needed
+5. Progress notifications sent to chat
+
+## License
+
+Follows tg-note project license (MIT).
+
+## References
+
+- [Docling Documentation](https://docling-project.github.io/docling/)
+- [Docling MCP GitHub](https://github.com/docling-project/docling-mcp)
+- [RapidOCR](https://github.com/RapidAI/RapidOCR)
+- [EasyOCR](https://github.com/JaidedAI/EasyOCR)
+- [Tesseract](https://github.com/tesseract-ocr/tesseract)

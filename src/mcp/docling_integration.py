@@ -12,11 +12,35 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 from loguru import logger
 
 from config.settings import DoclingSettings
+
+# AICODE-NOTE: Global callback for sending model sync progress to external systems (e.g., Telegram)
+_docling_sync_notification_callback: Optional[Callable[[str, Dict[str, Any]], None]] = None
+
+
+def set_docling_sync_notification_callback(
+    callback: Optional[Callable[[str, Dict[str, Any]], None]],
+) -> None:
+    """
+    Register a callback to receive Docling model sync notifications.
+
+    The callback receives:
+        - message (str): Human-readable progress message
+        - data (Dict[str, Any]): Structured data about the sync operation
+
+    This is used to forward model download progress to external systems like Telegram.
+    """
+    global _docling_sync_notification_callback
+    _docling_sync_notification_callback = callback
+
+
+def get_docling_sync_notification_callback() -> Optional[Callable[[str, Dict[str, Any]], None]]:
+    """Return the currently registered Docling sync notification callback."""
+    return _docling_sync_notification_callback
 
 
 def _build_docling_mcp_spec(docling_settings: DoclingSettings) -> Optional[Dict[str, Any]]:
@@ -112,7 +136,9 @@ def write_docling_container_config(
     try:
         config_dir.mkdir(parents=True, exist_ok=True)
     except Exception as exc:
-        logger.error("[DoclingMCP] Failed to prepare container config directory %s: %s", config_dir, exc)
+        logger.error(
+            "[DoclingMCP] Failed to prepare container config directory %s: %s", config_dir, exc
+        )
         return None
 
     config_path = config_dir / "docling-config.json"

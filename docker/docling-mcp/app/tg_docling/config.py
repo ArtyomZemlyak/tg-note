@@ -14,9 +14,7 @@ class MCPConfig(BaseModel):
     transport: Literal["stdio", "sse", "streamable-http"] = "sse"
     host: str = "0.0.0.0"
     port: int = 8077
-    tools: List[str] = Field(
-        default_factory=lambda: ["conversion", "generation", "manipulation"]
-    )
+    tools: List[str] = Field(default_factory=lambda: ["conversion", "generation", "manipulation"])
 
 
 class ModelDownloadConfig(BaseModel):
@@ -111,9 +109,9 @@ class OnnxTRConfig(BaseModel):
 class OCRConfig(BaseModel):
     """Unified OCR configuration."""
 
-    backend: Literal[
-        "rapidocr", "easyocr", "tesseract", "tesseract_cli", "onnxtr", "none"
-    ] = "rapidocr"
+    backend: Literal["rapidocr", "easyocr", "tesseract", "tesseract_cli", "onnxtr", "none"] = (
+        "rapidocr"
+    )
     languages: List[str] = Field(default_factory=lambda: ["eng"])
     force_full_page_ocr: bool = False
     rapidocr: RapidOCRConfig = Field(default_factory=RapidOCRConfig)

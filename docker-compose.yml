@@ -37,41 +37,60 @@ services:
     shm_size: '2gb'
 
   # Docling MCP server (Dockerized Docling toolchain)
+  # Provides document processing with multiple OCR backends (RapidOCR, EasyOCR, Tesseract, OnnxTR)
+  # and VLM support with GPU acceleration
   docling-mcp:
     build:
       context: .
       dockerfile: docker/docling-mcp/Dockerfile
+      args:
+        - CUDA_VERSION=${CUDA_VERSION:-12.1.0}
     image: tg-note-docling-mcp:latest
     container_name: tg-note-docling
     restart: unless-stopped
     env_file: .env
     environment:
+      # Logging configuration
       - DOCLING_LOG_LEVEL=${DOCLING_LOG_LEVEL:-INFO}
+      # Directory paths inside container
       - DOCLING_MODELS_DIR=/opt/docling-mcp/models
       - DOCLING_CACHE_DIR=/opt/docling-mcp/cache
+      - DOCLING_LOG_DIR=/opt/docling-mcp/logs
+      # HuggingFace cache for model downloads
       - HF_HOME=/opt/docling-mcp/cache/huggingface
+      - HF_HUB_ENABLE_HF_TRANSFER=1
+      # GPU configuration
+      - CUDA_VISIBLE_DEVICES=${DOCLING_CUDA_VISIBLE_DEVICES:-all}
+      - NVIDIA_VISIBLE_DEVICES=${DOCLING_CUDA_VISIBLE_DEVICES:-all}
+      # OCR backend configuration (can be overridden by config file)
+      - DOCLING_OCR_BACKEND=${DOCLING_OCR_BACKEND:-rapidocr}
     ports:
       - "${DOCLING_MCP_PORT:-8077}:8077"
     healthcheck:
-      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/8077'"]
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/8077' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 30s
+      start_period: 60s
     volumes:
+      # Configuration directory (managed by tg-note settings)
       - ./data/docling/config:/opt/docling-mcp/config
+      # Models cache directory (persistent across restarts)
       - ./data/docling/models:/opt/docling-mcp/models
+      # General cache directory (HuggingFace, ModelScope, etc.)
       - ./data/docling/cache:/opt/docling-mcp/cache
+      # Logs directory
       - ./logs/docling:/opt/docling-mcp/logs
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              count: all
+              count: ${DOCLING_GPU_COUNT:-all}
               capabilities: [gpu]
     networks:
       - tg-note-network
+    shm_size: '2gb'
 
   # MCP Hub Server (Unified MCP Gateway)
   # Provides:
