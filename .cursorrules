@@ -1,0 +1,64 @@
+# Cursor Rules for tg-note project
+
+## 🚨 CRITICAL: ALWAYS READ AGENTS.MD FIRST
+
+Before doing ANY work in this project, you MUST:
+
+1. **READ `/workspace/AGENTS.md` COMPLETELY**
+   - This is NOT optional
+   - This is NOT a suggestion
+   - This is MANDATORY
+
+2. **FOLLOW ALL INSTRUCTIONS IN AGENTS.MD**
+   - Install dependencies if missing (pre-commit, black, isort, pytest)
+   - Use proper code formatting
+   - Update tests
+   - Update documentation
+   - Run pre-commit before any git commit
+
+3. **NEVER SAY "tool is not available"**
+   - If pre-commit is missing → INSTALL IT: `pip install pre-commit && pre-commit install`
+   - If pytest is missing → INSTALL IT: `pip install pytest pytest-asyncio`
+   - If black is missing → INSTALL IT: `pip install black isort`
+   - Add `/home/ubuntu/.local/bin` to PATH: `export PATH="/home/ubuntu/.local/bin:$PATH"`
+
+## Quick Pre-Commit Command
+
+```bash
+export PATH="/home/ubuntu/.local/bin:$PATH" && pre-commit run --all-files
+```
+
+## Project Standards
+
+- **Formatting**: Black with line-length=100
+- **Import sorting**: isort with --profile=black
+- **Comments**: Use AICODE-NOTE, AICODE-TODO, AICODE-ASK
+- **Testing**: Always update/add tests for code changes
+- **Documentation**: Update docs_site/ after new features
+- **Pre-commit**: ALWAYS run before committing - NO EXCEPTIONS
+
+## Forbidden Actions
+
+- ❌ Commit without running pre-commit
+- ❌ Create .md or .txt summary files in repo root
+- ❌ Ignore Black formatting
+- ❌ Skip tests updates
+- ❌ Claim tools are unavailable without trying to install them
+
+## What This Means
+
+If the user says "you ignored AGENTS.md":
+- You did not read it at the start
+- You did not follow the instructions
+- You need to apologize and actually follow the workflow
+
+If the user says "you didn't run pre-commit":
+- You claimed it wasn't available
+- You should have installed it
+- Install it now and run it
+
+## Bottom Line
+
+**AGENTS.md is the source of truth. This .cursorrules file just reminds you to read it.**
+
+**Go read AGENTS.md now if you haven't already! →** `/workspace/AGENTS.md`
