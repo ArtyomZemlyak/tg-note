@@ -188,3 +188,21 @@ def test_self_closing_br_tags():
     sanitized = bot_utils.validate_telegram_html(html)
 
     assert "Line 1<br>Line 2<br>Line 3" in sanitized
+
+
+def test_literal_angle_brackets_are_preserved():
+    """Text containing escaped angle brackets should remain intact"""
+    html = "Expression: a &lt; b &amp;&amp; c &gt; d"
+
+    sanitized = bot_utils.validate_telegram_html(html)
+
+    assert sanitized == "Expression: a &lt; b &amp;&amp; c &gt; d"
+
+
+def test_literal_angle_brackets_inside_tags():
+    """Escaped comparisons inside formatting tags should remain escaped"""
+    html = "<b>Value &lt;= threshold &amp;&amp; value &gt; 0</b>"
+
+    sanitized = bot_utils.validate_telegram_html(html)
+
+    assert sanitized == "<b>Value &lt;= threshold &amp;&amp; value &gt; 0</b>"
