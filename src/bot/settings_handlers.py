@@ -13,6 +13,8 @@ from telebot.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 from config import settings
 from src.bot.settings_manager import SettingsInspector, SettingsManager, UserSettingsStorage
 from src.bot.utils import escape_html
+from src.mcp.docling_integration import ensure_docling_mcp_spec
+from src.processor.docling_runtime import sync_models
 
 
 class SettingsHandlers:
@@ -26,6 +28,80 @@ class SettingsHandlers:
         self.waiting_for_input: Dict[int, tuple[str, str]] = {}
         # Reference to bot handlers for cache invalidation
         self.handlers = handlers
+
+    @staticmethod
+    def _is_docling_setting(setting_name: str) -> bool:
+        """Return True if the setting impacts Docling configuration."""
+        return setting_name.upper().startswith("MEDIA_PROCESSING_DOCLING")
+
+    async def _refresh_docling_after_setting(self, chat_id: int, setting_name: str) -> None:
+        """Regenerate Docling configuration and trigger model sync when relevant settings change."""
+        if not self._is_docling_setting(setting_name):
+            return
+
+        try:
+            ensure_docling_mcp_spec(settings.MEDIA_PROCESSING_DOCLING)
+        except Exception as exc:
+            logger.error(f"Failed to update Docling MCP configuration: {exc}", exc_info=True)
+            await self.bot.send_message(
+                chat_id,
+                "⚠️ Не удалось обновить конфигурацию Docling. Проверьте логи контейнера.",
+            )
+            return
+
+        progress_msg = await self.bot.send_message(
+            chat_id,
+            "🔄 Обновляю Docling (загрузка моделей может занять несколько минут)...",
+        )
+
+        try:
+            result = await sync_models(force=False)
+        except Exception as exc:
+            logger.error(f"Docling model sync failed: {exc}", exc_info=True)
+            await self.bot.edit_message_text(
+                "❌ Ошибка: не удалось синхронизировать модели Docling. Подробности в логах контейнера.",
+                chat_id,
+                progress_msg.message_id,
+            )
+            return
+
+        if not result:
+            await self.bot.edit_message_text(
+                "⚠️ Docling MCP недоступен, синхронизация пропущена.",
+                chat_id,
+                progress_msg.message_id,
+            )
+            return
+
+        payload = result.get("result") or {}
+        items = payload.get("items", [])
+        success = result.get("success", True)
+
+        if items:
+            lines = [
+                f"• {escape_html(item.get('name', item.get('repo_id', 'artefact')))} — "
+                f"{escape_html(item.get('status', 'unknown'))}"
+                for item in items
+            ]
+            summary = "\n".join(lines)
+        else:
+            summary = "Нет изменений (модели уже актуальны)."
+
+        if success:
+            text = f"✅ Docling обновлён.\n\n{summary}"
+        else:
+            text = (
+                "⚠️ Синхронизация Docling завершилась с ошибками. "
+                "Подробности см. в логах контейнера.\n\n"
+                f"{summary}"
+            )
+
+        await self.bot.edit_message_text(
+            text,
+            chat_id,
+            progress_msg.message_id,
+            parse_mode="HTML",
+        )
 
     def _is_forwarded_message(self, message: Message) -> bool:
         """Check if message is forwarded from any source"""
@@ -523,10 +599,8 @@ class SettingsHandlers:
             success = False
             msg = f"Ошибка при изменении настройки: {str(e)}"
 
-        # Always send notification, even if there was an error
         try:
             if success:
-                # Invalidate user cache in handlers
                 if self.handlers:
                     try:
                         await self.handlers.invalidate_user_cache(user_id)
@@ -534,18 +608,18 @@ class SettingsHandlers:
                         logger.warning(f"Error invalidating user cache: {e}", exc_info=True)
 
                 await self.bot.answer_callback_query(call.id, f"✅ {msg}", show_alert=True)
-                # Refresh the display
                 try:
                     info = self.inspector.get_setting_info(setting_name)
                     if info:
                         await self._show_category_settings(call, info.category)
                 except Exception as e:
                     logger.warning(f"Error refreshing category settings: {e}", exc_info=True)
+
+                await self._refresh_docling_after_setting(call.message.chat.id, setting_name)
             else:
                 await self.bot.answer_callback_query(call.id, f"❌ {msg}", show_alert=True)
         except Exception as e:
             logger.error(f"Error sending setting change notification: {e}", exc_info=True)
-            # Try to send a simple error message
             try:
                 await self.bot.answer_callback_query(
                     call.id,
@@ -757,10 +831,8 @@ class SettingsHandlers:
         # Clear waiting state
         del self.waiting_for_input[user_id]
 
-        # Always send notification, even if there was an error
         try:
             if success:
-                # Invalidate user cache in handlers
                 if self.handlers:
                     try:
                         await self.handlers.invalidate_user_cache(user_id)
@@ -768,11 +840,11 @@ class SettingsHandlers:
                         logger.warning(f"Error invalidating user cache: {e}", exc_info=True)
 
                 await self.bot.reply_to(message, f"✅ {msg}")
+                await self._refresh_docling_after_setting(message.chat.id, setting_name)
             else:
                 await self.bot.reply_to(message, f"❌ {msg}")
         except Exception as e:
             logger.error(f"Error sending setting change notification: {e}", exc_info=True)
-            # Try to send a simple error message
             try:
                 await self.bot.reply_to(
                     message,

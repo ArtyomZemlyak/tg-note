@@ -40,8 +40,6 @@ dependencies = [
     "requests>=2.32.2,<3.0.0",
     # Logging
     "loguru>=0.7.2,<0.8.0",
-    # Document processing
-    "docling>=2.0.0,<3.0.0",
     # HuggingFace for model management
     "huggingface-hub>=0.23.0,<1.0.0",
     # Encryption for secure credentials storage

@@ -175,8 +175,16 @@ def test_docling_settings_defaults():
     assert cfg.backend == "mcp"
     assert cfg.use_mcp()
     assert cfg.mcp.transport == "sse"
+    assert cfg.mcp.listen_host == "0.0.0.0"
+    assert cfg.mcp.listen_port == 8077
     assert cfg.mcp.server_name == "docling"
     assert cfg.mcp.resolve_url() is not None
+    assert cfg.keep_images is False
+    assert cfg.generate_page_images is False
+    assert cfg.startup_sync is True
+    assert cfg.ocr_config.backend == "rapidocr"
+    assert cfg.model_cache.downloads
+    assert cfg.model_cache.downloads[0].repo_id == "RapidAI/RapidOCR"
 
 
 def test_docling_settings_local_backend_toggle():
@@ -186,3 +194,17 @@ def test_docling_settings_local_backend_toggle():
     cfg = DoclingSettings(backend="local")
     assert cfg.use_local()
     assert not cfg.use_mcp()
+
+
+def test_docling_settings_container_config():
+    """Ensure container config projection is well-formed."""
+    from config.settings import DoclingSettings
+
+    cfg = DoclingSettings()
+    container_cfg = cfg.to_container_config()
+
+    assert container_cfg["converter"]["ocr"]["backend"] == "rapidocr"
+    assert container_cfg["model_cache"]["downloads"][0]["repo_id"] == "RapidAI/RapidOCR"
+    assert container_cfg["mcp"]["transport"] == "sse"
+    assert container_cfg["mcp"]["port"] == 8077
+    assert container_cfg["startup_sync"] is True

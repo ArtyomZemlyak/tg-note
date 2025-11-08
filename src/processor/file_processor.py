@@ -247,6 +247,38 @@ class FileProcessor:
             "file_name": file_path.name,
         }
 
+    async def sync_docling_models(self, force: bool = False) -> Optional[Dict[str, Any]]:
+        """Trigger Docling container model synchronisation via MCP tool."""
+        client = await self._get_docling_client()
+        if not client:
+            self.logger.warning("[FileProcessor] Docling MCP client unavailable for sync.")
+            return None
+
+        tool_name = "sync_docling_models"
+
+        try:
+            available_tools = await client.list_tools()
+        except Exception as exc:
+            self.logger.error("[FileProcessor] Failed to list Docling MCP tools: %s", exc)
+            return None
+
+        if not any(tool.get("name") == tool_name for tool in available_tools):
+            self.logger.warning("[FileProcessor] Docling MCP server does not expose '%s' tool.", tool_name)
+            return None
+
+        try:
+            response = await client.call_tool(tool_name, {"force": force})
+            if not response.get("success", True):
+                self.logger.error("[FileProcessor] Docling model sync reported failure: %s", response)
+            else:
+                self.logger.info(
+                    "[FileProcessor] Docling model sync completed (force=%s).", force
+                )
+            return response
+        except Exception as exc:
+            self.logger.error("[FileProcessor] Docling model sync failed: %s", exc)
+            return None
+
     def _build_mcp_arguments(
         self, tool_schema: Dict[str, Any], file_path: Path, file_format: str
     ) -> Optional[Dict[str, Any]]:
