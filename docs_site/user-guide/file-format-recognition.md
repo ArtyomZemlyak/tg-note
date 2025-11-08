@@ -119,13 +119,9 @@ Model artefacts and configuration are persisted under:
 - `data/docling/cache` – HuggingFace / ModelScope caches
 - `logs/docling` – container logs
 
-If you change OCR providers or model parameters in `config.yaml`, the container will be reconfigured
-automatically. Use the `/doclingsync` command in Telegram to trigger model downloads on-demand:
-
-```
-/doclingsync         # download new artefacts (skips existing ones)
-/doclingsync force   # force redownload of all configured models
-```
+Changing Docling settings via `/settings` regenerates the container configuration and automatically
+kicks off model downloads. Progress updates are sent back to the Telegram chat, so no separate command
+is required.
 
 Docling settings expose detailed controls under `MEDIA_PROCESSING_DOCLING`:
 
