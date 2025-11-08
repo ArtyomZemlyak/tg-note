@@ -61,7 +61,6 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
 
         # Agent-specific dependencies
         self.user_context_manager = user_context_manager
-        self.response_formatter = ResponseFormatter()
 
     async def execute_task(
         self, group: MessageGroup, processing_msg_id: int, chat_id: int, user_id: int, user_kb: dict

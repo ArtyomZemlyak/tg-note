@@ -420,7 +420,12 @@ class BaseKBService:
         if kb_topics_only:
             github_base = f"{github_base}/topics"
 
-        response_formatter = ResponseFormatter(github_base)
+        # AICODE-NOTE: Get min description length for link filtering
+        min_link_desc_length = self.settings_manager.get_setting(
+            user_id, "KB_LINKS_MIN_DESCRIPTION_LENGTH"
+        )
+
+        response_formatter = ResponseFormatter(github_base, min_link_desc_length)
         full_message = response_formatter.to_html(result.get("parsed_result"))
 
         # Handle long messages by splitting them. We avoid pre-escaping here to keep links clickable.

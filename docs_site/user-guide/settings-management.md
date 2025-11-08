@@ -59,6 +59,7 @@ Use the interactive menu and inline buttons:
 - `KB_GIT_AUTO_PUSH` - Auto-push changes
 - `KB_GIT_REMOTE` - Git remote name
 - `KB_GIT_BRANCH` - Git branch
+- `KB_LINKS_MIN_DESCRIPTION_LENGTH` - Minimum length for link descriptions (filters out low-quality connections)
 
 ### 🤖 Agent
 

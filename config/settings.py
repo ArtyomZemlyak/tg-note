@@ -575,6 +575,10 @@ class Settings(BaseSettings):
     KB_GIT_AUTO_PUSH: bool = Field(default=True, description="Auto-push to remote")
     KB_GIT_REMOTE: str = Field(default="origin", description="Git remote name")
     KB_GIT_BRANCH: str = Field(default="main", description="Git branch name")
+    KB_LINKS_MIN_DESCRIPTION_LENGTH: int = Field(
+        default=30,
+        description="Minimum length for link descriptions to filter out low-quality connections",
+    )
 
     # Conversation Context Settings (can be in YAML)
     CONTEXT_ENABLED: bool = Field(
