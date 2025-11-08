@@ -184,7 +184,12 @@ class _TelegramHTMLValidator(HTMLParser):
                 tag_name, _ = self.tag_stack[-1]
                 self.tag_stack[-1] = (tag_name, True)
 
-            self.result.append(data)
+            # Escape HTML special characters in text nodes to keep literal symbols
+            escaped_data = (
+                data.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            )
+
+            self.result.append(escaped_data)
 
     def handle_startendtag(self, tag: str, attrs):
         # Handle self-closing tags like <br/>
