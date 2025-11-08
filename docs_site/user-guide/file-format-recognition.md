@@ -100,14 +100,24 @@ tg-note supports automatic recognition and processing of various file formats us
 
 ## Installation
 
-Docling is installed as a dependency.
+Docling now runs as an MCP server. Docker Compose includes the `docling-mcp` service by default, so
+starting the stack is enough to enable document processing.
 
 ```bash
-# Poetry
-poetry install
+# Start Docling MCP together with the hub and bot
+docker compose up -d docling-mcp mcp-hub bot
+```
 
-# Or pip
-pip install -e "."
+The hub registers the Docling MCP server automatically. If you run the server outside of Docker,
+set `MEDIA_PROCESSING_DOCLING.mcp.url` to the appropriate endpoint.
+
+### Local fallback (optional)
+
+If you prefer to run Docling inside the bot process, install the Python package manually and set the
+backend to `local` in `config.yaml`:
+
+```bash
+pip install docling
 ```
 
 ### Verify installation
@@ -192,18 +202,21 @@ When `MEDIA_PROCESSING_ENABLED` is set to `false`, all file processing is disabl
 Docling behaviour is configured via the `MEDIA_PROCESSING_DOCLING` block in `config.yaml`. Key options:
 
 - `enabled`: Docling master switch (in addition to `MEDIA_PROCESSING_ENABLED`)
+- `backend`: `"mcp"` (default) or `"local"` to force the in-process DocumentConverter
 - `formats`: list of allowed file extensions (lowercase, no dots)
 - `max_file_size_mb`: per-file size limit (set to `0` to disable the limit)
 - `prefer_markdown_output`: prefer Markdown export when possible
 - `fallback_plain_text`: automatically fallback to text export when preferred export fails
 - `image_ocr_enabled`: allow OCR for image formats (`jpg`, `jpeg`, `png`, `tiff`)
 - `ocr_languages`: OCR language hints (ISO 639-3 codes such as `eng`, `deu`)
+- `mcp`: nested MCP configuration (`server_name`, `url`, `tool_name`, `auto_detect_tool`, etc.)
 
 ```yaml
 # config.yaml
 
 MEDIA_PROCESSING_DOCLING:
   enabled: true
+  backend: mcp
   max_file_size_mb: 25
   prefer_markdown_output: true
   fallback_plain_text: true
@@ -222,6 +235,12 @@ MEDIA_PROCESSING_DOCLING:
     - jpeg
     - png
     - tiff
+  mcp:
+    server_name: docling
+    transport: sse
+    url: http://docling-mcp:8077/sse   # Override for custom deployments
+    tool_name: convert_document
+    auto_detect_tool: true
 ```
 
 #### Enabling/Disabling specific formats

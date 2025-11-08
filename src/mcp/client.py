@@ -495,24 +495,31 @@ class MCPClient:
                 return {
                     "success": False,
                     "error": f"{error.get('message', 'Unknown error')} (code: {error.get('code', -1)})",
+                    "response": response,
                 }
 
             # Extract result from response
-            result = response.get("result", {})
-            content = result.get("content", [])
+            result = response.get("result", {}) or {}
+            content = result.get("content", []) or []
 
-            # Parse content based on type
+            # Parse content based on type for convenience string output
             output = []
             for item in content:
-                if item.get("type") == "text":
+                item_type = item.get("type")
+                if item_type == "text":
                     output.append(item.get("text", ""))
-                elif item.get("type") == "resource":
+                elif item_type == "resource":
                     output.append(f"Resource: {item.get('resource', {}).get('uri', '')}")
+                elif item_type == "markdown":
+                    output.append(item.get("text") or item.get("markdown", ""))
 
             return {
                 "success": True,
-                "output": "\n".join(output) if output else "Tool executed successfully",
+                "output": "\n".join(output).strip() if output else "Tool executed successfully",
                 "is_error": result.get("isError", False),
+                "result": result,
+                "content": content,
+                "response": response,
             }
 
         except Exception as e:

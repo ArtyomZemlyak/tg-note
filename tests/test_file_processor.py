@@ -165,3 +165,24 @@ def test_docling_settings_file_size_limit_conversion():
 
     limited = Settings(MEDIA_PROCESSING_DOCLING={"max_file_size_mb": 5})
     assert limited.MEDIA_PROCESSING_DOCLING.max_file_size_bytes == 5 * 1024 * 1024
+
+
+def test_docling_settings_defaults():
+    """Docling settings should default to MCP backend with sane defaults."""
+    from config.settings import DoclingSettings
+
+    cfg = DoclingSettings()
+    assert cfg.backend == "mcp"
+    assert cfg.use_mcp()
+    assert cfg.mcp.transport == "sse"
+    assert cfg.mcp.server_name == "docling"
+    assert cfg.mcp.resolve_url() is not None
+
+
+def test_docling_settings_local_backend_toggle():
+    """Switching to local backend should disable MCP usage."""
+    from config.settings import DoclingSettings
+
+    cfg = DoclingSettings(backend="local")
+    assert cfg.use_local()
+    assert not cfg.use_mcp()

@@ -38,6 +38,8 @@ except ImportError:
     print("Error: fastmcp not installed. Install with: pip install fastmcp")
     sys.exit(1)
 
+from src.mcp.docling_integration import ensure_docling_mcp_spec
+
 # Import memory storage components
 from src.mcp.memory.memory_factory import MemoryStorageFactory
 from src.mcp.memory.memory_storage import MemoryStorage
@@ -301,6 +303,15 @@ def get_registry() -> MCPServerRegistry:
     global _registry
     if _registry is None:
         servers_dir = Path("data/mcp_servers")
+
+        # Ensure Docling MCP server specification is up to date before discovery
+        try:
+            from config import settings as app_settings
+
+            ensure_docling_mcp_spec(app_settings.MEDIA_PROCESSING_DOCLING, servers_dir=servers_dir)
+        except Exception as e:
+            logger.warning(f"[MCPHub] Failed to prepare Docling MCP spec: {e}")
+
         _registry = MCPServerRegistry(servers_dir, user_id=None)
         _registry.discover_servers()
         logger.info(

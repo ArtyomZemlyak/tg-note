@@ -185,9 +185,7 @@ class _TelegramHTMLValidator(HTMLParser):
                 self.tag_stack[-1] = (tag_name, True)
 
             # Escape HTML special characters in text nodes to keep literal symbols
-            escaped_data = (
-                data.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-            )
+            escaped_data = data.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
             self.result.append(escaped_data)
 

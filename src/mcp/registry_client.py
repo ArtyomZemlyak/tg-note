@@ -71,41 +71,55 @@ class MCPRegistryClient:
             MCP client or None if creation failed
         """
         try:
-            # Check if this is HTTP/SSE transport (look for URL in spec)
-            # First check if config file has URL
+            transport = (spec.transport or "stdio").lower()
+
+            # Fallback: try to read URL from config file if not provided
             config_url = None
-            if spec.config_file and spec.config_file.exists():
+            if not spec.url and spec.config_file and spec.config_file.exists():
                 try:
-                    with open(spec.config_file, "r") as f:
+                    with open(spec.config_file, "r", encoding="utf-8") as f:
                         config_data = json.load(f)
-                        # Extract URL from mcpServers section
                         servers = config_data.get("mcpServers", {})
                         if spec.name in servers:
                             config_url = servers[spec.name].get("url")
-                except:
-                    pass
+                except Exception:
+                    logger.debug(
+                        "[MCPRegistryClient] Failed to parse MCP config file for %s", spec.name
+                    )
 
-            # Create config based on transport type
-            if config_url:
-                # HTTP/SSE transport
+            if transport == "sse":
+                url = spec.url or config_url
+                if not url:
+                    logger.warning(
+                        "[MCPRegistryClient] Cannot create SSE client for %s: missing URL",
+                        spec.name,
+                    )
+                    return None
                 config = MCPServerConfig(
                     transport="sse",
-                    url=config_url,
+                    url=url,
                 )
                 logger.debug(f"[MCPRegistryClient] Created HTTP/SSE client for: {spec.name}")
             else:
-                # stdio transport
+                if not spec.command:
+                    logger.warning(
+                        "[MCPRegistryClient] Cannot create stdio client for %s: missing command",
+                        spec.name,
+                    )
+                    return None
                 config = MCPServerConfig(
                     command=spec.command,
-                    args=spec.args,
+                    args=spec.args or [],
                     env=spec.env,
                     cwd=Path(spec.working_dir) if spec.working_dir else None,
                     transport="stdio",
                 )
                 logger.debug(f"[MCPRegistryClient] Created stdio client for: {spec.name}")
 
+            timeout = spec.timeout or settings.MCP_TIMEOUT
+
             # Create and return client
-            client = MCPClient(config, timeout=settings.MCP_TIMEOUT)
+            client = MCPClient(config, timeout=timeout)
             return client
 
         except Exception as e:

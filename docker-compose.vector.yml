@@ -72,6 +72,25 @@ services:
     networks:
       - tg-note-network
 
+  # Docling MCP server (Dockerized Docling toolchain)
+  docling-mcp:
+    image: ${DOCLING_MCP_IMAGE:-ghcr.io/docling/docling-mcp:latest}
+    container_name: tg-note-docling
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - LOG_LEVEL=info
+    ports:
+      - "${DOCLING_MCP_PORT:-8077}:8077"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8077/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - tg-note-network
+
   # MCP Hub Server (Unified Gateway)
   # With vector search support enabled
   mcp-hub:
@@ -108,6 +127,8 @@ services:
       qdrant:
         condition: service_healthy
       infinity:
+        condition: service_healthy
+      docling-mcp:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8765/health"]
