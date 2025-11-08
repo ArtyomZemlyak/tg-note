@@ -123,7 +123,8 @@ knowledge_base/
 
 ## Connections and Summaries
 
-- The bot now shows a Connections section (Связи) after processing.
-- New files created in the same run are excluded from Connections to reduce noise.
-- Each connection includes a brief explanation (derived from the target file title when available).
-- In the summary of changes, file entries include GitHub links when your KB is linked to a GitHub remote and branch.
+- После обработки появляется секция «Связанные сущности», где можно увидеть файлы, папки и конкретные фрагменты, связанные с результатом.
+- Новые материалы из текущего запуска автоматически исключаются, поэтому раздел показывает только уже существующие элементы базы знаний.
+- Поддерживаются агрегированные связи (`granularity: summary`) — одна запись может ссылаться сразу на несколько файлов или целую папку. Для точечных ссылок используйте `granularity: detailed` и добавляйте `file` + `anchor`.
+- Каждая запись сопровождается чётким описанием связи (1–2 предложения), чтобы быстро понять, зачем этот объект важен.
+- В секции с изменениями по-прежнему отображаются GitHub-ссылки, если база знаний подключена к репозиторию.
