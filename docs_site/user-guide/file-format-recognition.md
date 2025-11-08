@@ -187,43 +187,71 @@ MEDIA_PROCESSING_ENABLED: false
 
 When `MEDIA_PROCESSING_ENABLED` is set to `false`, all file processing is disabled regardless of other settings.
 
-### Enabling/Disabling specific formats
+### Docling configuration
 
-You can control which file formats are processed by configuring `MEDIA_PROCESSING_DOCLING_FORMATS` in `config.yaml`:
+Docling behaviour is configured via the `MEDIA_PROCESSING_DOCLING` block in `config.yaml`. Key options:
+
+- `enabled`: Docling master switch (in addition to `MEDIA_PROCESSING_ENABLED`)
+- `formats`: list of allowed file extensions (lowercase, no dots)
+- `max_file_size_mb`: per-file size limit (set to `0` to disable the limit)
+- `prefer_markdown_output`: prefer Markdown export when possible
+- `fallback_plain_text`: automatically fallback to text export when preferred export fails
+- `image_ocr_enabled`: allow OCR for image formats (`jpg`, `jpeg`, `png`, `tiff`)
+- `ocr_languages`: OCR language hints (ISO 639-3 codes such as `eng`, `deu`)
 
 ```yaml
 # config.yaml
 
-# Enable all formats (default)
-MEDIA_PROCESSING_DOCLING_FORMATS:
-  - pdf
-  - docx
-  - pptx
-  - xlsx
-  - html
-  - md
-  - txt
-  - jpg
-  - jpeg
-  - png
-  - tiff
+MEDIA_PROCESSING_DOCLING:
+  enabled: true
+  max_file_size_mb: 25
+  prefer_markdown_output: true
+  fallback_plain_text: true
+  image_ocr_enabled: true
+  ocr_languages:
+    - eng
+  formats:
+    - pdf
+    - docx
+    - pptx
+    - xlsx
+    - html
+    - md
+    - txt
+    - jpg
+    - jpeg
+    - png
+    - tiff
+```
 
+#### Enabling/Disabling specific formats
+
+Customise the `formats` list (and optionally `image_ocr_enabled`) to restrict Docling:
+
+```yaml
 # Enable only documents (no images)
-MEDIA_PROCESSING_DOCLING_FORMATS:
-  - pdf
-  - docx
-  - pptx
-  - xlsx
+MEDIA_PROCESSING_DOCLING:
+  enabled: true
+  image_ocr_enabled: false
+  formats:
+    - pdf
+    - docx
+    - pptx
+    - xlsx
 
 # Enable only specific formats
-MEDIA_PROCESSING_DOCLING_FORMATS:
-  - pdf
-  - jpg
-  - png
+MEDIA_PROCESSING_DOCLING:
+  formats:
+    - pdf
+    - jpg
+    - png
 
-# Disable all media processing
-MEDIA_PROCESSING_DOCLING_FORMATS: []
+# Disable Docling entirely
+MEDIA_PROCESSING_DOCLING:
+  enabled: false
 ```
+
+> Legacy note: The older `MEDIA_PROCESSING_DOCLING_FORMATS` list is still supported for backward compatibility, but new deployments should migrate to the richer `MEDIA_PROCESSING_DOCLING` configuration block.
 
 ### Message grouping timeout
 ```yaml
@@ -239,16 +267,24 @@ The media processing configuration has a hierarchical structure:
 # Master switch - controls all media processing
 MEDIA_PROCESSING_ENABLED: true
 
-# Per-framework format configuration
-MEDIA_PROCESSING_DOCLING_FORMATS:
-  - pdf
-  - jpg
-  - ...
+# Per-framework format configuration (new structure)
+MEDIA_PROCESSING_DOCLING:
+  enabled: true
+  formats:
+    - pdf
+    - jpg
+    - ...
 
 # Future frameworks can be added
 # MEDIA_PROCESSING_SOME_OTHER_FRAMEWORK_FORMATS:
 #   - mp3
 #   - mp4
+#   - ...
+
+# (Deprecated) Older list-only syntax is still recognised:
+# MEDIA_PROCESSING_DOCLING_FORMATS:
+#   - pdf
+#   - jpg
 #   - ...
 ```
 
@@ -261,24 +297,28 @@ MEDIA_PROCESSING_ENABLED: false
 
 # Example 2: Enable only PDF processing
 MEDIA_PROCESSING_ENABLED: true
-MEDIA_PROCESSING_DOCLING_FORMATS:
-  - pdf
+MEDIA_PROCESSING_DOCLING:
+  formats:
+    - pdf
 
 # Example 3: Enable documents but not images
 MEDIA_PROCESSING_ENABLED: true
-MEDIA_PROCESSING_DOCLING_FORMATS:
-  - pdf
-  - docx
-  - pptx
-  - xlsx
+MEDIA_PROCESSING_DOCLING:
+  image_ocr_enabled: false
+  formats:
+    - pdf
+    - docx
+    - pptx
+    - xlsx
 
 # Example 4: Enable only images (OCR)
 MEDIA_PROCESSING_ENABLED: true
-MEDIA_PROCESSING_DOCLING_FORMATS:
-  - jpg
-  - jpeg
-  - png
-  - tiff
+MEDIA_PROCESSING_DOCLING:
+  formats:
+    - jpg
+    - jpeg
+    - png
+    - tiff
 ```
 
 ## Advanced usage

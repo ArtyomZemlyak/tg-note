@@ -125,60 +125,65 @@ LOG_FILE: ./logs/bot.log
 # NOTE: When disabled, MEDIA_PROCESSING_*_FORMATS settings are ignored
 MEDIA_PROCESSING_ENABLED: true
 
-# MEDIA_PROCESSING_DOCLING_FORMATS: File formats to process with Docling
+# MEDIA_PROCESSING_DOCLING: Docling-specific configuration (formats, limits, OCR)
 #
-# Docling is a powerful document processing library that extracts text and structure
-# from various file formats including PDFs, Office documents, images, and more.
+# Docling extracts text and structure from PDFs, Office documents, images (OCR), and more.
+# The configuration below allows you to control granular behaviour:
 #
-# Available formats:
-# - Documents: pdf, docx, pptx, xlsx
-# - Text files: html, md, txt
-# - Images: jpg, jpeg, png, tiff (OCR text extraction)
+# enabled:
+#   - true  (default)  — Docling is active when MEDIA_PROCESSING_ENABLED is true
+#   - false            — Docling is completely disabled
 #
-# Usage:
-# - To enable all formats (default):
-#   MEDIA_PROCESSING_DOCLING_FORMATS:
-#     - pdf
-#     - docx
-#     - pptx
-#     - xlsx
-#     - html
-#     - md
-#     - txt
-#     - jpg
-#     - jpeg
-#     - png
-#     - tiff
+# formats:
+#   - List of file extensions Docling should accept (lowercase without dots)
+#   - Default includes documents, text files, and common image formats
 #
-# - To enable only documents (no images):
-#   MEDIA_PROCESSING_DOCLING_FORMATS:
-#     - pdf
-#     - docx
-#     - pptx
-#     - xlsx
+# max_file_size_mb:
+#   - Maximum file size Docling will process (in megabytes)
+#   - Set to 0 to remove the limit
 #
-# - To disable all media processing:
-#   MEDIA_PROCESSING_DOCLING_FORMATS: []
+# prefer_markdown_output:
+#   - true  (default) — Prefer Markdown export when both Markdown and plain text are available
+#   - false           — Prefer plain text export when available
 #
-# - To enable only specific formats:
-#   MEDIA_PROCESSING_DOCLING_FORMATS:
-#     - pdf
-#     - jpg
-#     - png
+# fallback_plain_text:
+#   - true  (default) — If preferred export fails, try the alternative exporter automatically
+#   - false           — Do not fallback; return empty content when preferred export fails
 #
-# Default: All supported formats enabled
-MEDIA_PROCESSING_DOCLING_FORMATS:
-  - pdf
-  - docx
-  - pptx
-  - xlsx
-  - html
-  - md
-  - txt
-  - jpg
-  - jpeg
-  - png
-  - tiff
+# image_ocr_enabled:
+#   - true  (default) — Allow OCR for image formats (jpg/jpeg/png/tiff)
+#   - false           — Skip image files even if listed in formats
+#
+# ocr_languages:
+#   - ISO 639-3 language codes for OCR engine hints (docling passes these to OCR backend)
+#
+# Legacy support: MEDIA_PROCESSING_DOCLING_FORMATS is still recognized but considered deprecated.
+MEDIA_PROCESSING_DOCLING:
+  enabled: true
+  max_file_size_mb: 25
+  prefer_markdown_output: true
+  fallback_plain_text: true
+  image_ocr_enabled: true
+  ocr_languages:
+    - eng
+  formats:
+    - pdf
+    - docx
+    - pptx
+    - xlsx
+    - html
+    - md
+    - txt
+    - jpg
+    - jpeg
+    - png
+    - tiff
+
+# Deprecated but supported legacy structure (list-only configuration):
+# MEDIA_PROCESSING_DOCLING_FORMATS:
+#   - pdf
+#   - docx
+#   - ...
 
 # AICODE-NOTE: Future media processing frameworks can be added here
 # Example structure:

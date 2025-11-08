@@ -9,9 +9,9 @@ Loads configuration from multiple sources with priority:
 
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple, Type, Union
 
-from pydantic import Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 from pydantic_settings.sources import YamlConfigSettingsSource
 
@@ -120,6 +120,152 @@ class EnvOverridesSource(PydanticBaseSettingsSource):
                     ]
 
         return result
+
+
+class DoclingSettings(BaseModel):
+    """Docling-specific media processing configuration."""
+
+    model_config = ConfigDict(extra="allow")
+
+    IMAGE_FORMATS: ClassVar[Set[str]] = {"jpg", "jpeg", "png", "tiff"}
+
+    enabled: bool = Field(
+        default=True,
+        description="Enable Docling media processing when media processing is enabled.",
+    )
+    formats: List[str] = Field(
+        default_factory=lambda: [
+            "pdf",
+            "docx",
+            "pptx",
+            "xlsx",
+            "html",
+            "md",
+            "txt",
+            "jpg",
+            "jpeg",
+            "png",
+            "tiff",
+        ],
+        description="File formats handled by Docling.",
+    )
+    max_file_size_mb: int = Field(
+        default=25,
+        ge=0,
+        description="Maximum file size (in megabytes) to process with Docling. Set to 0 for no limit.",
+    )
+    prefer_markdown_output: bool = Field(
+        default=True,
+        description="Prefer Markdown export when converting documents.",
+    )
+    fallback_plain_text: bool = Field(
+        default=True,
+        description="Fallback to plain text export if Markdown export is not available.",
+    )
+    image_ocr_enabled: bool = Field(
+        default=True,
+        description="Enable OCR for image formats (jpg/jpeg/png/tiff). When disabled, image formats are skipped.",
+    )
+    ocr_languages: List[str] = Field(
+        default_factory=lambda: ["eng"],
+        description="Preferred OCR languages (ISO 639-3 codes) passed to Docling when supported.",
+    )
+
+    @field_validator("formats", mode="before")
+    @classmethod
+    def _normalize_formats(cls, value: Any) -> List[str]:
+        """Normalize list/delimited string of formats to unique lowercase list."""
+        if value is None:
+            return []
+
+        if isinstance(value, str):
+            candidates = [item.strip() for item in value.split(",") if item.strip()]
+        elif isinstance(value, (set, tuple, list)):
+            candidates = [str(item).strip() for item in value if str(item).strip()]
+        else:
+            candidates = [str(value).strip()]
+
+        normalized: List[str] = []
+        seen: Set[str] = set()
+        for candidate in candidates:
+            fmt = candidate.lower()
+            if fmt and fmt not in seen:
+                seen.add(fmt)
+                normalized.append(fmt)
+        return normalized
+
+    @field_validator("ocr_languages", mode="before")
+    @classmethod
+    def _normalize_languages(cls, value: Any) -> List[str]:
+        """Normalize OCR languages to lowercase list."""
+        if value is None:
+            return ["eng"]
+
+        explicit_empty_sequence = isinstance(value, (list, tuple, set)) and not value
+
+        if isinstance(value, str):
+            candidates = [item.strip() for item in value.split(",") if item.strip()]
+        elif isinstance(value, (set, tuple, list)):
+            candidates = [str(item).strip() for item in value if str(item).strip()]
+        else:
+            candidates = [str(value).strip()]
+
+        normalized: List[str] = []
+        seen: Set[str] = set()
+        for candidate in candidates:
+            lang = candidate.lower()
+            if lang and lang not in seen:
+                seen.add(lang)
+                normalized.append(lang)
+        if normalized:
+            return normalized
+        if explicit_empty_sequence:
+            return []
+        return ["eng"]
+
+    @property
+    def max_file_size_bytes(self) -> Optional[int]:
+        """Return file size limit in bytes or None if unlimited."""
+        if self.max_file_size_mb <= 0:
+            return None
+        return self.max_file_size_mb * 1024 * 1024
+
+    def normalized_formats(self) -> List[str]:
+        """Return normalized formats list."""
+        return list(self.formats)
+
+    def get_enabled_formats(self) -> List[str]:
+        """Return formats enabled after applying OCR/image constraints."""
+        if not self.enabled:
+            return []
+
+        if self.image_ocr_enabled:
+            return list(self.formats)
+
+        return [fmt for fmt in self.formats if not self.is_image_format(fmt)]
+
+    def is_image_format(self, fmt: str) -> bool:
+        """Check if format is considered an image format."""
+        return fmt.lower() in self.IMAGE_FORMATS
+
+    def is_format_enabled(self, fmt: str) -> bool:
+        """Check if requested format is enabled under current configuration."""
+        if not self.enabled:
+            return False
+
+        normalized = fmt.lower().lstrip(".")
+        if normalized not in self.formats:
+            return False
+
+        if not self.image_ocr_enabled and self.is_image_format(normalized):
+            return False
+
+        return True
+
+    def exceeds_size_limit(self, file_size_bytes: int) -> bool:
+        """Check if file size is above configured limit."""
+        limit = self.max_file_size_bytes
+        return limit is not None and file_size_bytes > limit
 
 
 class Settings(BaseSettings):
@@ -358,21 +504,13 @@ class Settings(BaseSettings):
     MEDIA_PROCESSING_ENABLED: bool = Field(
         default=True, description="Enable media file processing (master switch)"
     )
-    MEDIA_PROCESSING_DOCLING_FORMATS: List[str] = Field(
-        default_factory=lambda: [
-            "pdf",
-            "docx",
-            "pptx",
-            "xlsx",
-            "html",
-            "md",
-            "txt",
-            "jpg",
-            "jpeg",
-            "png",
-            "tiff",
-        ],
-        description="List of file formats to process with Docling",
+    MEDIA_PROCESSING_DOCLING: DoclingSettings = Field(
+        default_factory=DoclingSettings,
+        description="Docling-specific media processing configuration",
+    )
+    MEDIA_PROCESSING_DOCLING_FORMATS: Optional[List[str]] = Field(
+        default=None,
+        description="Deprecated Docling formats list (use MEDIA_PROCESSING_DOCLING.formats instead)",
     )
 
     @classmethod
@@ -417,6 +555,16 @@ class Settings(BaseSettings):
             dotenv_settings,  # Then .env file
             yaml_settings,  # Finally YAML config
         )
+
+    @model_validator(mode="after")
+    def _apply_legacy_docling_formats(self) -> "Settings":
+        """Support legacy MEDIA_PROCESSING_DOCLING_FORMATS configuration."""
+        legacy_formats = self.MEDIA_PROCESSING_DOCLING_FORMATS
+        if legacy_formats is not None:
+            docling_payload = self.MEDIA_PROCESSING_DOCLING.model_dump()
+            docling_payload["formats"] = legacy_formats
+            self.MEDIA_PROCESSING_DOCLING = DoclingSettings(**docling_payload)
+        return self
 
     @field_validator("ALLOWED_USER_IDS", mode="before")
     @classmethod
@@ -521,7 +669,9 @@ class Settings(BaseSettings):
             return []
 
         if processor == "docling":
-            return self.MEDIA_PROCESSING_DOCLING_FORMATS
+            if not self.MEDIA_PROCESSING_DOCLING.enabled:
+                return []
+            return self.MEDIA_PROCESSING_DOCLING.get_enabled_formats()
         # AICODE-NOTE: Add other processors here in the future
         return []
 
@@ -539,6 +689,11 @@ class Settings(BaseSettings):
         # Check if media processing is enabled globally
         if not self.is_media_processing_enabled():
             return False
+
+        if processor == "docling":
+            if not self.MEDIA_PROCESSING_DOCLING.enabled:
+                return False
+            return self.MEDIA_PROCESSING_DOCLING.is_format_enabled(file_format)
 
         formats = self.get_media_processing_formats(processor)
         return file_format.lower() in [fmt.lower() for fmt in formats]
