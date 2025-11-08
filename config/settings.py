@@ -7,9 +7,11 @@ Loads configuration from multiple sources with priority:
 4. Environment variables - highest priority
 """
 
+import os
 import sys
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple, Type, Union
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
@@ -122,6 +124,98 @@ class EnvOverridesSource(PydanticBaseSettingsSource):
         return result
 
 
+class DoclingMCPSettings(BaseModel):
+    """Docling MCP integration configuration."""
+
+    model_config = ConfigDict(extra="allow")
+
+    enabled: bool = Field(
+        default=True,
+        description="Enable Docling MCP integration when Docling backend is set to 'mcp'.",
+    )
+    server_name: str = Field(
+        default="docling",
+        description="Logical name for the Docling MCP server within the registry.",
+    )
+    transport: Literal["stdio", "sse"] = Field(
+        default="sse",
+        description="Transport type for connecting to the Docling MCP server.",
+    )
+    url: Optional[str] = Field(
+        default=None,
+        description="Explicit URL for Docling MCP server (used when transport is 'sse').",
+    )
+    docker_url: str = Field(
+        default="http://docling-mcp:8077/sse",
+        description="Default Docling MCP URL to use when running inside Docker (auto-detected).",
+    )
+    host_url: str = Field(
+        default="http://127.0.0.1:8077/sse",
+        description="Default Docling MCP URL to use when running on the host machine.",
+    )
+    command: Optional[str] = Field(
+        default=None, description="Command to launch Docling MCP server when using stdio transport."
+    )
+    args: List[str] = Field(
+        default_factory=list,
+        description="Command arguments for launching Docling MCP server (stdio transport).",
+    )
+    env: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Environment variables to include when launching Docling MCP via stdio.",
+    )
+    working_dir: Optional[str] = Field(
+        default=None,
+        description="Working directory for launching Docling MCP server (stdio transport).",
+    )
+    timeout: Optional[int] = Field(
+        default=None, description="Optional per-server timeout override for Docling MCP requests."
+    )
+    tool_name: str = Field(
+        default="convert_document",
+        description=(
+            "Preferred Docling MCP tool name. When not found, auto-detection will attempt to "
+            "select a compatible tool."
+        ),
+    )
+    auto_detect_tool: bool = Field(
+        default=True,
+        description="Attempt to auto-detect Docling tool if the configured tool is unavailable.",
+    )
+    argument_hints: Dict[str, str] = Field(
+        default_factory=dict,
+        description=(
+            "Optional map of semantic placeholders to Docling tool argument names "
+            "(e.g., {'content': 'file_content'})."
+        ),
+    )
+    extra_arguments: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional static arguments forwarded to Docling MCP tool calls.",
+    )
+
+    def resolve_url(self) -> Optional[str]:
+        """Resolve the effective MCP URL for Docling based on configuration and environment."""
+        if self.transport != "sse":
+            return None
+
+        if self.url:
+            return self.url
+
+        env_url = os.getenv("DOCLING_MCP_URL")
+        if env_url:
+            return env_url
+
+        try:
+            if Path("/.dockerenv").exists():
+                return self.docker_url
+        except Exception:
+            # Fallback to host URL when detection fails
+            pass
+
+        return self.host_url
+
+
 class DoclingSettings(BaseModel):
     """Docling-specific media processing configuration."""
 
@@ -129,6 +223,10 @@ class DoclingSettings(BaseModel):
 
     IMAGE_FORMATS: ClassVar[Set[str]] = {"jpg", "jpeg", "png", "tiff"}
 
+    backend: Literal["mcp", "local"] = Field(
+        default="mcp",
+        description="Select Docling backend: 'mcp' for MCP server, 'local' for in-process library.",
+    )
     enabled: bool = Field(
         default=True,
         description="Enable Docling media processing when media processing is enabled.",
@@ -169,6 +267,10 @@ class DoclingSettings(BaseModel):
     ocr_languages: List[str] = Field(
         default_factory=lambda: ["eng"],
         description="Preferred OCR languages (ISO 639-3 codes) passed to Docling when supported.",
+    )
+    mcp: DoclingMCPSettings = Field(
+        default_factory=DoclingMCPSettings,
+        description="Docling MCP integration settings.",
     )
 
     @field_validator("formats", mode="before")
@@ -266,6 +368,20 @@ class DoclingSettings(BaseModel):
         """Check if file size is above configured limit."""
         limit = self.max_file_size_bytes
         return limit is not None and file_size_bytes > limit
+
+    def use_mcp(self) -> bool:
+        """Return True when Docling MCP backend should be used."""
+        return self.backend == "mcp" and self.enabled and self.mcp.enabled
+
+    def use_local(self) -> bool:
+        """Return True when local Docling backend should be used."""
+        return self.backend == "local" and self.enabled
+
+    def resolved_mcp_url(self) -> Optional[str]:
+        """Return resolved Docling MCP URL when using MCP backend."""
+        if not self.use_mcp():
+            return None
+        return self.mcp.resolve_url()
 
 
 class Settings(BaseSettings):

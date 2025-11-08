@@ -1,109 +1,504 @@
 """
 File Format Processor
-Handles various file formats using docling for content extraction
+Handles various file formats using Docling via MCP or local converter.
 """
 
-import os
+import base64
 import tempfile
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from loguru import logger
 
 from config.settings import DoclingSettings, settings
-
-try:
-    from docling.document_converter import DocumentConverter
-
-    DOCLING_AVAILABLE = True
-except ImportError:
-    DOCLING_AVAILABLE = False
-    logger.warning("Docling not available. File format recognition will be limited.")
+from src.mcp.client import MCPClient
+from src.mcp.docling_integration import ensure_docling_mcp_spec
+from src.mcp.registry.registry import MCPServerSpec
+from src.mcp.registry_client import MCPRegistryClient
 
 
 class FileProcessor:
-    """Process various file formats and extract content using docling"""
+    """Process various file formats and extract content using Docling."""
 
-    def __init__(self):
-        """Initialize file processor"""
+    DOCLING_TOOL_CANDIDATES: Tuple[str, ...] = (
+        "convert_document",
+        "process_document",
+        "process_file",
+        "docling_process",
+    )
+
+    def __init__(self) -> None:
+        """Initialize file processor."""
         self.logger = logger
         self.settings = settings
-        if DOCLING_AVAILABLE:
-            try:
-                self.converter = DocumentConverter()
-                self.logger.info("Docling DocumentConverter initialized successfully")
-            except Exception as e:
-                self.logger.error(f"Failed to initialize DocumentConverter: {e}")
-                self.converter = None
-        else:
-            self.converter = None
+
+        # MCP-related attributes
+        self._registry_client: Optional[MCPRegistryClient] = None
+        self._docling_server_spec: Optional[MCPServerSpec] = None
+        self._docling_client: Optional[MCPClient] = None
+        self._docling_tool_schema: Optional[Dict[str, Any]] = None
+        self._docling_tool_name: Optional[str] = None
+
+        # Local converter (fallback/backend option)
+        self.converter = None
+
+        if self.docling_config.use_mcp():
+            self._setup_docling_mcp()
+        elif self.docling_config.use_local():
+            self._setup_docling_local()
 
     @property
     def docling_config(self) -> DoclingSettings:
-        """Return current Docling configuration."""
+        """Return the current Docling configuration."""
         return self.settings.MEDIA_PROCESSING_DOCLING
+
+    def _setup_docling_mcp(self) -> None:
+        """Prepare Docling MCP integration."""
+        try:
+            ensure_docling_mcp_spec(self.docling_config)
+        except Exception as e:
+            self.logger.debug(f"[FileProcessor] Unable to ensure Docling MCP spec: {e}")
+
+        try:
+            self._registry_client = MCPRegistryClient()
+            self._registry_client.initialize()
+            manager = self._registry_client.manager
+            self._docling_server_spec = manager.get_server(self.docling_config.mcp.server_name)
+            if not self._docling_server_spec:
+                self.logger.warning(
+                    "[FileProcessor] Docling MCP server '%s' not found in registry",
+                    self.docling_config.mcp.server_name,
+                )
+        except Exception as e:
+            self.logger.error(f"[FileProcessor] Failed to initialize MCP registry client: {e}")
+            self._registry_client = None
+            self._docling_server_spec = None
+
+    def _setup_docling_local(self) -> None:
+        """Prepare local Docling DocumentConverter fallback."""
+        try:
+            from docling.document_converter import DocumentConverter  # type: ignore
+        except ImportError:
+            self.logger.warning(
+                "[FileProcessor] Docling Python package not available; local backend disabled."
+            )
+            return
+
+        try:
+            self.converter = DocumentConverter()
+            self.logger.info("Docling DocumentConverter initialized successfully")
+        except Exception as e:
+            self.logger.error(f"Failed to initialize DocumentConverter: {e}")
+            self.converter = None
 
     def is_available(self) -> bool:
         """
-        Check if docling is available and media processing is enabled
-
-        Returns:
-            True if docling is available, initialized, and media processing is enabled
+        Check if Docling processing is available and enabled.
         """
-        return (
-            self.settings.is_media_processing_enabled()
-            and self.docling_config.enabled
-            and DOCLING_AVAILABLE
-            and self.converter is not None
-        )
+        if not self.settings.is_media_processing_enabled():
+            return False
+        if not self.docling_config.enabled:
+            return False
+
+        if self.docling_config.use_mcp():
+            return self._docling_server_spec is not None
+
+        if self.docling_config.use_local():
+            return self.converter is not None
+
+        return False
 
     def get_supported_formats(self) -> List[str]:
         """
-        Get list of supported file formats based on configuration
-
-        Returns:
-            List of enabled file format extensions from settings
+        Get list of supported file formats based on configuration.
         """
         if not self.is_available():
             return []
-
-        # Get enabled formats from settings
         return self.docling_config.get_enabled_formats()
 
     def detect_file_format(self, file_path: Path) -> Optional[str]:
         """
-        Detect file format from extension and check if it's enabled in settings
-
-        Args:
-            file_path: Path to the file
-
-        Returns:
-            File format (extension without dot) or None if not supported/enabled
+        Detect file format from extension and check if it's enabled in settings.
         """
         extension = file_path.suffix.lower().lstrip(".")
-
-        # Check if format is enabled in settings
         if self.settings.is_format_enabled(extension, "docling"):
             return extension
-
         self.logger.debug("Docling format disabled in settings: %s", extension)
+        return None
+
+    async def _get_docling_client(self) -> Optional[MCPClient]:
+        """Ensure MCP client for Docling is connected."""
+        if not self._registry_client or not self._docling_server_spec:
+            return None
+
+        if self._docling_client and self._docling_client.is_connected:
+            return self._docling_client
+
+        client = await self._registry_client.connect_to_server(self._docling_server_spec)
+        if client:
+            self._docling_client = client
+        return client
+
+    async def _ensure_docling_tool_schema(self, client: MCPClient) -> bool:
+        """Ensure Docling MCP tool schema is loaded and selected."""
+        if self._docling_tool_schema and self._docling_tool_name:
+            return True
+
+        try:
+            tools = await client.list_tools()
+        except Exception as e:
+            self.logger.error(f"[FileProcessor] Failed to list tools from Docling MCP: {e}")
+            return False
+
+        if not tools:
+            self.logger.warning("[FileProcessor] Docling MCP server returned no tools.")
+            return False
+
+        selected = self._pick_docling_tool(tools)
+        if not selected:
+            self.logger.warning("[FileProcessor] Docling MCP tool could not be determined.")
+            return False
+
+        self._docling_tool_schema = selected
+        self._docling_tool_name = selected.get("name")
+        return True
+
+    def _pick_docling_tool(self, tools: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """Select Docling tool from list based on configuration and heuristics."""
+        if not tools:
+            return None
+
+        preferred = (self.docling_config.mcp.tool_name or "").strip().lower()
+
+        if preferred:
+            for tool in tools:
+                if tool.get("name", "").lower() == preferred:
+                    return tool
+
+        if self.docling_config.mcp.auto_detect_tool:
+            for candidate in self.DOCLING_TOOL_CANDIDATES:
+                for tool in tools:
+                    if candidate in tool.get("name", "").lower():
+                        return tool
+            for tool in tools:
+                if "docling" in tool.get("name", "").lower():
+                    return tool
+
+        return tools[0]
+
+    async def _process_with_mcp(self, file_path: Path, file_format: str) -> Optional[Dict[str, Any]]:
+        """Process file using Docling MCP server."""
+        client = await self._get_docling_client()
+        if not client:
+            self.logger.warning("[FileProcessor] Docling MCP client unavailable.")
+            return None
+
+        if not await self._ensure_docling_tool_schema(client):
+            return None
+
+        arguments = self._build_mcp_arguments(self._docling_tool_schema, file_path, file_format)
+        if arguments is None:
+            self.logger.warning(
+                "[FileProcessor] Unable to build arguments for Docling MCP tool '%s'",
+                self._docling_tool_name,
+            )
+            return None
+
+        self.logger.info(
+            "Processing file via Docling MCP: %s (format: %s, tool: %s)",
+            file_path.name,
+            file_format,
+            self._docling_tool_name,
+        )
+
+        result = await client.call_tool(self._docling_tool_name, arguments)
+        if not result.get("success"):
+            self.logger.error(
+                "Docling MCP tool call failed (%s): %s",
+                self._docling_tool_name,
+                result.get("error"),
+            )
+            return None
+
+        text_content, metadata = await self._extract_text_from_mcp_result(client, result)
+        if text_content is None:
+            text_content = ""
+
+        metadata.setdefault("docling", {})
+        metadata["docling"].update(
+            {
+                "backend": "mcp",
+                "tool": self._docling_tool_name,
+                "server": self.docling_config.mcp.server_name,
+                "prefer_markdown_output": self.docling_config.prefer_markdown_output,
+                "fallback_plain_text": self.docling_config.fallback_plain_text,
+                "image_ocr_enabled": self.docling_config.image_ocr_enabled,
+                "max_file_size_mb": self.docling_config.max_file_size_mb,
+                "ocr_languages": list(self.docling_config.ocr_languages),
+            }
+        )
+
+        return {
+            "text": text_content,
+            "metadata": metadata,
+            "format": file_format,
+            "file_name": file_path.name,
+        }
+
+    def _build_mcp_arguments(
+        self, tool_schema: Dict[str, Any], file_path: Path, file_format: str
+    ) -> Optional[Dict[str, Any]]:
+        """Build arguments for Docling MCP tool based on schema and heuristics."""
+        input_schema = tool_schema.get("inputSchema", {}) or {}
+        properties: Dict[str, Dict[str, Any]] = input_schema.get("properties", {}) or {}
+        required: List[str] = input_schema.get("required", []) or []
+
+        arguments: Dict[str, Any] = {}
+        normalized = {name: name.lower() for name in properties}
+        used: Set[str] = set()
+
+        file_bytes = file_path.read_bytes()
+        base64_content = base64.b64encode(file_bytes).decode("utf-8")
+        file_uri = file_path.as_uri()
+        mime_type = self._guess_mime_type(file_path, file_format)
+
+        # Apply explicit argument hints first
+        semantic_values: Dict[str, Any] = {
+            "content": base64_content,
+            "file_content": base64_content,
+            "bytes": base64_content,
+            "path": str(file_path),
+            "file_path": str(file_path),
+            "uri": file_uri,
+            "url": file_uri,
+            "filename": file_path.name,
+            "file_name": file_path.name,
+            "name": file_path.name,
+            "format": file_format,
+            "extension": file_format,
+            "mime": mime_type,
+            "mime_type": mime_type,
+            "ocr": self.docling_config.image_ocr_enabled,
+            "languages": list(self.docling_config.ocr_languages),
+            "language": list(self.docling_config.ocr_languages),
+            "markdown": self.docling_config.prefer_markdown_output,
+            "fallback": self.docling_config.fallback_plain_text,
+            "max_size": self.docling_config.max_file_size_mb,
+        }
+
+        hints = self.docling_config.mcp.argument_hints or {}
+        for placeholder, field_name in hints.items():
+            value = semantic_values.get(placeholder)
+            if value is None:
+                continue
+            if field_name in properties and field_name not in arguments:
+                arguments[field_name] = value
+                used.add(field_name)
+
+        # Heuristic assignment based on property names
+        for prop, lower_name in normalized.items():
+            if prop in used:
+                continue
+
+            if any(keyword in lower_name for keyword in ("content", "data", "bytes", "payload")):
+                arguments[prop] = base64_content
+                used.add(prop)
+            elif "path" in lower_name and "http" not in lower_name:
+                arguments[prop] = str(file_path)
+                used.add(prop)
+            elif lower_name in {"uri", "url"} or "uri" in lower_name or "url" in lower_name:
+                arguments[prop] = file_uri
+                used.add(prop)
+            elif "filename" in lower_name or "file_name" in lower_name:
+                arguments[prop] = file_path.name
+                used.add(prop)
+            elif "format" in lower_name or "extension" in lower_name:
+                arguments[prop] = file_format
+                used.add(prop)
+            elif "mime" in lower_name:
+                arguments[prop] = mime_type
+                used.add(prop)
+            elif "ocr" in lower_name:
+                arguments[prop] = self.docling_config.image_ocr_enabled
+                used.add(prop)
+            elif "language" in lower_name or lower_name.endswith("langs"):
+                arguments[prop] = list(self.docling_config.ocr_languages)
+                used.add(prop)
+            elif "markdown" in lower_name:
+                arguments[prop] = self.docling_config.prefer_markdown_output
+                used.add(prop)
+            elif "fallback" in lower_name or "plaintext" in lower_name:
+                arguments[prop] = self.docling_config.fallback_plain_text
+                used.add(prop)
+            elif "max" in lower_name and "size" in lower_name:
+                arguments[prop] = self.docling_config.max_file_size_mb
+                used.add(prop)
+            elif lower_name == "name" and prop not in arguments:
+                arguments[prop] = file_path.name
+                used.add(prop)
+
+        # Merge extra arguments from configuration
+        for key, value in (self.docling_config.mcp.extra_arguments or {}).items():
+            if key in properties and key not in arguments:
+                arguments[key] = value
+
+        # Validate required fields
+        missing = [field for field in required if field not in arguments]
+        if missing:
+            self.logger.error(
+                "[FileProcessor] Missing required Docling MCP arguments: %s", ", ".join(missing)
+            )
+            return None
+
+        return arguments
+
+    async def _extract_text_from_mcp_result(
+        self, client: MCPClient, call_result: Dict[str, Any]
+    ) -> Tuple[Optional[str], Dict[str, Any]]:
+        """Extract textual content and metadata from Docling MCP tool result."""
+        raw_result = call_result.get("result") or {}
+        content = call_result.get("content") or raw_result.get("content") or []
+
+        text_fragments: List[str] = []
+        resource_uris: List[str] = []
+        json_payloads: List[Dict[str, Any]] = []
+
+        for item in content:
+            item_type = item.get("type")
+            if item_type == "text":
+                text = item.get("text")
+                if text:
+                    text_fragments.append(text)
+            elif item_type == "markdown":
+                text = item.get("text") or item.get("markdown")
+                if text:
+                    text_fragments.append(text)
+            elif item_type == "html":
+                text = item.get("text") or item.get("html")
+                if text:
+                    text_fragments.append(text)
+            elif item_type == "json":
+                payload = item.get("json")
+                if isinstance(payload, dict):
+                    json_payloads.append(payload)
+                    for key in ("text", "markdown", "content"):
+                        value = payload.get(key)
+                        if isinstance(value, str) and value.strip():
+                            text_fragments.append(value)
+                            break
+            elif item_type == "resource":
+                resource = item.get("resource") or {}
+                uri = resource.get("uri")
+                if uri:
+                    resource_uris.append(uri)
+
+        metadata: Dict[str, Any] = {}
+        metadata["docling_mcp"] = {
+            "tool": self._docling_tool_name,
+            "server": self.docling_config.mcp.server_name,
+            "transport": self.docling_config.mcp.transport,
+        }
+        if raw_result.get("metadata"):
+            metadata["docling_metadata"] = raw_result.get("metadata")
+        if json_payloads:
+            metadata["docling_json"] = json_payloads
+
+        if not text_fragments and resource_uris:
+            fetched_text, resource_info = await self._fetch_resources_text(client, resource_uris)
+            if fetched_text:
+                text_fragments.append(fetched_text)
+            if resource_info:
+                metadata["docling_resources"] = resource_info
+
+        combined_text = "\n\n".join(part.strip() for part in text_fragments if part).strip()
+        return combined_text or None, metadata
+
+    async def _fetch_resources_text(
+        self, client: MCPClient, uris: List[str]
+    ) -> Tuple[Optional[str], List[Dict[str, Any]]]:
+        """Fetch resource contents referenced by Docling MCP result."""
+        collected_text: List[str] = []
+        resources_info: List[Dict[str, Any]] = []
+
+        for uri in uris:
+            try:
+                resource = await client.read_resource(uri)
+            except Exception as e:
+                self.logger.warning("[FileProcessor] Failed to fetch resource %s: %s", uri, e)
+                continue
+
+            if not resource:
+                continue
+
+            info: Dict[str, Any] = {"uri": uri}
+
+            contents = resource.get("contents") or []
+            content_types: List[str] = []
+
+            for entry in contents:
+                if not isinstance(entry, dict):
+                    continue
+                mime = entry.get("mimeType") or entry.get("mediaType")
+                if mime:
+                    content_types.append(mime)
+
+                text_value = entry.get("text") or entry.get("markdown") or entry.get("content")
+                if isinstance(text_value, str) and text_value.strip():
+                    collected_text.append(text_value)
+                    continue
+
+                base64_value = entry.get("data") or entry.get("base64")
+                if base64_value:
+                    decoded = self._decode_base64_text(base64_value, mime)
+                    if decoded:
+                        collected_text.append(decoded)
+
+            if content_types:
+                info["content_types"] = content_types
+            resources_info.append(info)
+
+        joined_text = "\n\n".join(text.strip() for text in collected_text if text).strip()
+        return (joined_text or None, resources_info)
+
+    def _decode_base64_text(self, data: str, mime_type: Optional[str]) -> Optional[str]:
+        """Decode base64 text payload if mime type indicates textual content."""
+        if not data:
+            return None
+        try:
+            decoded_bytes = base64.b64decode(data)
+        except Exception:
+            return None
+
+        if mime_type and not mime_type.startswith("text/") and mime_type != "application/json":
+            return None
+
+        for encoding in ("utf-8", "utf-16", "latin-1"):
+            try:
+                return decoded_bytes.decode(encoding)
+            except Exception:
+                continue
+        return None
+
+    def _guess_mime_type(self, file_path: Path, file_format: str) -> Optional[str]:
+        """Guess MIME type based on file format."""
+        import mimetypes
+
+        mime, _ = mimetypes.guess_type(file_path.name)
+        if mime:
+            return mime
+        if file_format:
+            return f"application/{file_format}"
         return None
 
     def _extract_document_text(self, document: Any, config: DoclingSettings) -> str:
         """
         Export document content using configured preference with graceful fallback.
-
-        Args:
-            document: Docling document object
-            config: Docling configuration settings
-
-        Returns:
-            Extracted text content (may be empty string if export fails)
+        (Used for local Docling backend.)
         """
         if document is None:
             return ""
 
-        export_order: List[Tuple[str, Callable[[], str]]] = []
+        export_order: List[Tuple[str, Any]] = []
         seen: Set[str] = set()
 
         def add_export(name: str, attribute: str) -> None:
@@ -120,7 +515,6 @@ class FileProcessor:
         else:
             add_export("text", "export_to_text")
 
-        # Ensure we attempt both exporters if available
         add_export("text", "export_to_text")
         add_export("markdown", "export_to_markdown")
 
@@ -144,15 +538,59 @@ class FileProcessor:
 
         return ""
 
-    async def process_file(self, file_path: Path) -> Optional[Dict]:
+    async def _process_with_local(self, file_path: Path, file_format: str) -> Optional[Dict[str, Any]]:
+        """Process file using local Docling converter."""
+        if not self.converter:
+            self.logger.warning("Local Docling converter unavailable.")
+            return None
+
+        file_stats = file_path.stat()
+        docling_config = self.docling_config
+
+        try:
+            self.logger.info(
+                "Processing file with local Docling: %s (format: %s)", file_path.name, file_format
+            )
+
+            result = self.converter.convert(str(file_path))
+            document = getattr(result, "document", None)
+            text_content = self._extract_document_text(document, docling_config)
+
+            metadata: Dict[str, Any] = {
+                "file_name": file_path.name,
+                "file_format": file_format,
+                "file_size": file_stats.st_size,
+                "docling": {
+                    "backend": "local",
+                    "prefer_markdown_output": docling_config.prefer_markdown_output,
+                    "fallback_plain_text": docling_config.fallback_plain_text,
+                    "image_ocr_enabled": docling_config.image_ocr_enabled,
+                    "max_file_size_mb": docling_config.max_file_size_mb,
+                    "ocr_languages": list(docling_config.ocr_languages),
+                },
+            }
+
+            if document:
+                if hasattr(document, "name") and document.name:
+                    metadata["document_title"] = document.name
+                if hasattr(document, "origin") and document.origin:
+                    metadata["document_origin"] = str(document.origin)
+
+            return {
+                "text": text_content,
+                "metadata": metadata,
+                "format": file_format,
+                "file_name": file_path.name,
+            }
+        except Exception as e:
+            self.logger.error(
+                f"Error processing file {file_path.name} with local Docling: {e}", exc_info=True
+            )
+            return None
+
+    async def process_file(self, file_path: Path) -> Optional[Dict[str, Any]]:
         """
-        Process file and extract content using docling
-
-        Args:
-            file_path: Path to the file to process
-
-        Returns:
-            Dictionary with extracted content and metadata, or None on failure
+        Process file and extract content using Docling (MCP or local).
         """
         docling_config = self.docling_config
 
@@ -165,7 +603,7 @@ class FileProcessor:
             return None
 
         if not self.is_available():
-            self.logger.warning("Docling not available, cannot process file")
+            self.logger.warning("Docling backend not available, cannot process file")
             return None
 
         if not file_path.exists():
@@ -196,7 +634,6 @@ class FileProcessor:
             return None
 
         file_stats = file_path.stat()
-
         if docling_config.exceeds_size_limit(file_stats.st_size):
             self.logger.warning(
                 "Skipping file %s (%s bytes) because it exceeds Docling limit of %s MB",
@@ -206,77 +643,19 @@ class FileProcessor:
             )
             return None
 
-        try:
-            self.logger.info(
-                f"Processing file with docling: {file_path.name} (format: {file_format})"
-            )
+        if docling_config.use_mcp():
+            return await self._process_with_mcp(file_path, file_format)
+        if docling_config.use_local():
+            return await self._process_with_local(file_path, file_format)
 
-            # Convert document using docling
-            result = self.converter.convert(str(file_path))
-
-            # Extract text content
-            document = getattr(result, "document", None)
-            text_content = self._extract_document_text(document, docling_config)
-
-            # Extract metadata
-            metadata = {
-                "file_name": file_path.name,
-                "file_format": file_format,
-                "file_size": file_stats.st_size,
-            }
-
-            # Add document-specific metadata if available
-            if document:
-                if hasattr(document, "name") and document.name:
-                    metadata["document_title"] = document.name
-                if hasattr(document, "origin") and document.origin:
-                    metadata["document_origin"] = str(document.origin)
-
-            metadata["docling"] = {
-                "prefer_markdown_output": docling_config.prefer_markdown_output,
-                "fallback_plain_text": docling_config.fallback_plain_text,
-                "image_ocr_enabled": docling_config.image_ocr_enabled,
-                "max_file_size_mb": docling_config.max_file_size_mb,
-                "ocr_languages": list(docling_config.ocr_languages),
-            }
-
-            if not text_content:
-                self.logger.debug(
-                    "Docling returned empty content for file: %s (format: %s)",
-                    file_path.name,
-                    file_format,
-                )
-
-            self.logger.info(
-                f"Successfully processed file: {file_path.name}, extracted {len(text_content)} characters"
-            )
-
-            return {
-                "text": text_content,
-                "metadata": metadata,
-                "format": file_format,
-                "file_name": file_path.name,
-            }
-
-        except Exception as e:
-            self.logger.error(
-                f"Error processing file {file_path.name} with docling: {e}", exc_info=True
-            )
-            return None
+        self.logger.warning("No Docling backend configured for processing.")
+        return None
 
     async def download_and_process_telegram_file(
         self, bot, file_info, original_filename: Optional[str] = None
-    ) -> Optional[Dict]:
+    ) -> Optional[Dict[str, Any]]:
         """
-        Download file and process it
-
-        Args:
-            bot: Bot messaging interface
-            file_info: File info object (from bot.get_file)
-            original_filename: Original filename (optional, for extension detection)
-
-        Returns:
-            Dictionary with extracted content and metadata, or None on failure
+        Download file from Telegram and process it through Docling.
         """
         if not self.settings.is_media_processing_enabled():
             self.logger.info("Media processing disabled; skipping Telegram file download")
@@ -287,24 +666,20 @@ class FileProcessor:
             return None
 
         if not self.is_available():
-            self.logger.warning("Docling not available; skipping Telegram file download")
+            self.logger.warning("Docling backend not available; skipping Telegram file download")
             return None
 
         temp_dir = None
         temp_file = None
 
         try:
-            # Create temporary directory
             temp_dir = tempfile.mkdtemp(prefix="tg_note_file_")
-
-            # Determine file extension
             file_extension = ""
             if original_filename:
                 file_extension = Path(original_filename).suffix
             elif hasattr(file_info, "file_path") and file_info.file_path:
                 file_extension = Path(file_info.file_path).suffix
 
-            # Create temporary file path
             temp_filename = f"telegram_file{file_extension}"
             temp_file = Path(temp_dir) / temp_filename
 
@@ -317,33 +692,26 @@ class FileProcessor:
                 )
                 return None
 
-            # Download file from Telegram
             self.logger.info(f"Downloading Telegram file: {original_filename or 'unknown'}")
             downloaded_file = await bot.download_file(file_info.file_path)
 
-            # Save to temporary file
             with open(temp_file, "wb") as f:
                 f.write(downloaded_file)
 
             self.logger.info(f"File downloaded to: {temp_file}")
-
-            # Process the file with docling
-            result = await self.process_file(temp_file)
-
-            return result
+            return await self.process_file(temp_file)
 
         except Exception as e:
             self.logger.error(f"Error downloading and processing Telegram file: {e}", exc_info=True)
             return None
 
         finally:
-            # Cleanup temporary files
             try:
                 if temp_file and temp_file.exists():
-                    os.remove(temp_file)
+                    temp_file.unlink()
                     self.logger.debug(f"Removed temporary file: {temp_file}")
-                if temp_dir and os.path.exists(temp_dir):
-                    os.rmdir(temp_dir)
+                if temp_dir:
+                    Path(temp_dir).rmdir()
                     self.logger.debug(f"Removed temporary directory: {temp_dir}")
             except Exception as cleanup_error:
                 self.logger.warning(f"Error during cleanup: {cleanup_error}")

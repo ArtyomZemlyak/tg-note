@@ -5,7 +5,7 @@ Manages registration and discovery of MCP servers from JSON configuration files.
 """
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -31,10 +31,13 @@ class MCPServerSpec:
     name: str
     description: str
     command: str
-    args: List[str]
+    args: List[str] = field(default_factory=list)
     env: Optional[Dict[str, str]] = None
     working_dir: Optional[str] = None
     enabled: bool = True
+    transport: str = "stdio"
+    url: Optional[str] = None
+    timeout: Optional[int] = None
     config_file: Optional[Path] = None
 
     @classmethod
@@ -44,10 +47,13 @@ class MCPServerSpec:
             name=data.get("name", ""),
             description=data.get("description", ""),
             command=data.get("command", ""),
-            args=data.get("args", []),
+            args=data.get("args", []) or [],
             env=data.get("env"),
             working_dir=data.get("working_dir"),
             enabled=data.get("enabled", True),
+            transport=data.get("transport", data.get("mode", "stdio")),
+            url=data.get("url"),
+            timeout=data.get("timeout"),
             config_file=config_file,
         )
 
@@ -56,14 +62,38 @@ class MCPServerSpec:
         result = {
             "name": self.name,
             "description": self.description,
-            "command": self.command,
-            "args": self.args,
             "enabled": self.enabled,
+            "transport": self.transport,
         }
+        if self.transport == "stdio":
+            result["command"] = self.command
+            result["args"] = self.args
+            if self.env:
+                result["env"] = self.env
+            if self.working_dir:
+                result["working_dir"] = self.working_dir
+        elif self.transport == "sse":
+            if self.url:
+                result["url"] = self.url
+        else:
+            # Preserve any unknown transport details
+            if self.command:
+                result["command"] = self.command
+            if self.args:
+                result["args"] = self.args
+            if self.env:
+                result["env"] = self.env
+            if self.working_dir:
+                result["working_dir"] = self.working_dir
+
         if self.env:
             result["env"] = self.env
         if self.working_dir:
             result["working_dir"] = self.working_dir
+        if self.timeout is not None:
+            result["timeout"] = self.timeout
+        if self.url and self.transport != "sse":
+            result["url"] = self.url
         return result
 
 
@@ -175,19 +205,43 @@ class MCPServerRegistry:
                     logger.warning(f"[MCPRegistry] Skipping {json_file}: missing 'name' field")
                     continue
 
-                if not spec.command:
-                    logger.warning(f"[MCPRegistry] Skipping {json_file}: missing 'command' field")
+                # Normalise transport type
+                transport = (spec.transport or "stdio").lower()
+
+                if transport not in {"stdio", "sse"}:
+                    logger.warning(
+                        f"[MCPRegistry] Skipping {json_file}: unsupported transport '{spec.transport}'"
+                    )
                     continue
+
+                if transport == "stdio":
+                    if not spec.command:
+                        logger.warning(
+                            f"[MCPRegistry] Skipping {json_file}: missing 'command' field for stdio transport"
+                        )
+                        continue
+                elif transport == "sse":
+                    if not spec.url:
+                        if spec.enabled:
+                            logger.warning(
+                                f"[MCPRegistry] Skipping {json_file}: enabled SSE server missing 'url'"
+                            )
+                            continue
+                        logger.info(
+                            f"[MCPRegistry] Loaded disabled SSE server '{spec.name}' without URL (scope={scope})"
+                        )
 
                 # Register server (user-specific servers override shared ones)
                 if spec.name in self.servers:
                     logger.info(
                         f"[MCPRegistry] Overriding server '{spec.name}' with {scope} version"
                     )
+                spec.transport = transport
                 self.servers[spec.name] = spec
                 status = "enabled" if spec.enabled else "disabled"
                 logger.info(
-                    f"[MCPRegistry] ✓ Registered server: {spec.name} ({status}, scope={scope})"
+                    f"[MCPRegistry] ✓ Registered server: {spec.name} "
+                    f"(transport={transport}, {status}, scope={scope})"
                 )
 
             except json.JSONDecodeError as e:

@@ -44,6 +44,7 @@ from src.mcp.memory.memory_storage import MemoryStorage
 
 # Import registry components
 from src.mcp.registry.registry import MCPServerRegistry, MCPServerSpec
+from src.mcp.docling_integration import ensure_docling_mcp_spec
 
 # Import vector search components
 from src.mcp.vector_search import VectorSearchManager
@@ -301,6 +302,15 @@ def get_registry() -> MCPServerRegistry:
     global _registry
     if _registry is None:
         servers_dir = Path("data/mcp_servers")
+
+        # Ensure Docling MCP server specification is up to date before discovery
+        try:
+            from config import settings as app_settings
+
+            ensure_docling_mcp_spec(app_settings.MEDIA_PROCESSING_DOCLING, servers_dir=servers_dir)
+        except Exception as e:
+            logger.warning(f"[MCPHub] Failed to prepare Docling MCP spec: {e}")
+
         _registry = MCPServerRegistry(servers_dir, user_id=None)
         _registry.discover_servers()
         logger.info(
