@@ -4,10 +4,10 @@ Unified response formatting for all agents in Telegram
 """
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from src.bot.settings_manager import SettingsManager
-from src.bot.utils import escape_html, escape_markdown_url
+from src.bot.utils import escape_html, escape_markdown, escape_markdown_url
 
 
 class BaseField:
@@ -230,35 +230,314 @@ class LinksField(BaseField):
     def __init__(self, github_url: str = None):
         super().__init__(
             "links",
-            "# Список связей с другими файлами или папками или сущностями внутри файлов в базе знаний (только с СУЩЕСТВУЮЩИМИ сущностями, не с сущностями, созданными в текущем запуске)."
-            '# Для каждой связи в "links" обязательно добавляй содержательное описание (1-2 предложения), объясняющее природу связи'
-            "# `description` ДОЛЖЕН быть содержательным (1–2 предложения): объясни природу связи (общее, различия, зависимость, часть-целое, альтернатива, последовательность, перекрывающиеся теги/понятия)."
-            '# Избегай шаблонов вроде "Связанная тема" или однословных описаний.'
-            "# Очень важно чтобы связи были не просто вида -О, тут тоже говорится об ЛЛМ вот это да- , а чтобы связи отражали какие-то прям инсайты и глубинные связи",
+            "# Список связей с другими файлами/папками/сущностями в базе знаний. Используй только объекты, "
+            "которые существовали ДО текущего запуска (все, что создано прямо сейчас, перечислено в "
+            "полях created/files_created/folders_created — их нужно исключить). Для каждой связи обязательно "
+            "указывай содержательный `description` (1–2 предложения, объясняющие тип связи: сходство, "
+            "зависимость, часть-целое, альтернатива, последовательность, пересечение тегов и т.п.). "
+            "Можно агрегировать несколько целей в одну связь с помощью `files`, `folder` или массива `targets` "
+            '({"path": "topics/ai/transformers.md", "label": "Обзор трансформеров"}). '
+            'Для обобщённых групп устанавливай `granularity: "summary"`, для точечных ссылок — `granularity: "detailed"` '
+            "и добавляй конкретику (файл + `anchor`, список конкретных сущностей). "
+            "Избегай пустых и шаблонных описаний вроде «Связанная тема».",
         )
         self.github_url = github_url
 
     def generate_example(self):
         """Generate example value for links field."""
-        ex = [
+        example = [
             {
-                "file": "относительный_путь/к/связанному1.md",
-                "description": "Подробное описание связи (1-2 предложения)",
+                "files": [
+                    "topics/ai/transformers.md",
+                    "topics/ai/multi_head_attention.md",
+                ],
+                "granularity": "summary",
+                "description": (
+                    "Сводная связь: обе заметки описывают архитектуру трансформеров и раскрывают разные аспекты "
+                    "механизма внимания. Укажи, как они дополняют друг друга."
+                ),
             },
             {
-                "file": "относительный_путь/к/связанному2.md",
-                "description": "Подробное описание связи (1-2 предложения)",
+                "folder": "topics/ml/practical-cases",
+                "granularity": "summary",
+                "description": (
+                    "Связь на уровне папки: здесь собраны практические кейсы, которые можно использовать как "
+                    "следующий шаг после текущего материала."
+                ),
             },
             {
-                "file": "относительный_путь/к/связанной_папке",
-                "description": "Подробное описание связи (1-2 предложения)",
+                "file": "topics/ai/transformers.md#implementation-notes",
+                "granularity": "detailed",
+                "description": (
+                    "Детализированная связь: секция с заметками по реализации расширяет рекомендации, описанные здесь."
+                ),
             },
         ]
-        return f"""{ex} {self.text}"""
+        return f"""{example} {self.text}"""
 
     def parse(self, response_data: Dict, **kwargs) -> Any:
         """Parse links field with formatting."""
-        return response_data.get("links", [])
+        raw_links = response_data.get("links", [])
+        if not isinstance(raw_links, list):
+            return []
+
+        created_paths = self._collect_created_paths(response_data)
+        normalized_links: List[Dict[str, Any]] = []
+        seen_keys: Set[Tuple] = set()
+
+        for raw_link in raw_links:
+            normalized = self._normalize_raw_link(raw_link)
+            if not normalized:
+                continue
+
+            filtered_targets = self._filter_new_targets(normalized["targets"], created_paths)
+            if not filtered_targets:
+                continue
+
+            normalized_link = {
+                "description": normalized["description"],
+                "granularity": normalized["granularity"],
+                "targets": filtered_targets,
+            }
+
+            dedup_key = self._build_dedup_key(normalized_link)
+            if dedup_key in seen_keys:
+                continue
+
+            seen_keys.add(dedup_key)
+            normalized_links.append(normalized_link)
+
+        return normalized_links
+
+    def _collect_created_paths(self, response_data: Dict) -> Set[str]:
+        """Collect normalized paths of items created in the current run."""
+        created_paths: Set[str] = set()
+        for key in ("created", "files_created", "folders_created"):
+            value = response_data.get(key)
+            if isinstance(value, list):
+                candidates = value
+            elif isinstance(value, str):
+                candidates = [value]
+            else:
+                continue
+
+            for candidate in candidates:
+                normalized = self._normalize_path(candidate)
+                if normalized:
+                    created_paths.add(normalized)
+
+        return created_paths
+
+    def _normalize_raw_link(self, link: Any) -> Optional[Dict[str, Any]]:
+        """Normalize raw link entries to a unified structure."""
+        if isinstance(link, dict):
+            description = str(link.get("description", "") or "").strip()
+            granularity_raw = (
+                link.get("granularity")
+                or link.get("detail_level")
+                or link.get("level")
+                or link.get("mode")
+                or link.get("summary")
+            )
+            granularity = str(granularity_raw or "auto").strip().lower()
+            if granularity in {"summary", "aggregate", "aggregated", "group"}:
+                granularity = "summary"
+            elif granularity in {"detailed", "detail", "precise", "specific"}:
+                granularity = "detailed"
+            else:
+                granularity = "auto"
+
+            targets: List[Dict[str, Any]] = []
+
+            single_mappings = [
+                ("file", "file"),
+                ("folder", "folder"),
+                ("path", link.get("type")),
+                ("target", link.get("target_type")),
+            ]
+            for key, target_type in single_mappings:
+                if key in link:
+                    target = self._normalize_target(link[key], target_type)
+                    if target:
+                        targets.append(target)
+
+            multi_mappings = [
+                ("files", "file"),
+                ("folders", "folder"),
+                ("paths", link.get("type")),
+                ("targets", None),
+                ("items", None),
+                ("entities", None),
+            ]
+            for key, default_type in multi_mappings:
+                if key not in link:
+                    continue
+                value = link[key]
+                if isinstance(value, list):
+                    for item in value:
+                        target = self._normalize_target(item, default_type)
+                        if target:
+                            targets.append(target)
+                else:
+                    target = self._normalize_target(value, default_type)
+                    if target:
+                        targets.append(target)
+
+            if not targets:
+                return None
+
+            unique_targets = []
+            seen_targets: Set[Tuple[str, str, str]] = set()
+            for target in targets:
+                key = (
+                    target.get("type", "file"),
+                    self._normalize_path(target.get("path")),
+                    (target.get("anchor") or "").strip(),
+                )
+                if not key[1] or key in seen_targets:
+                    continue
+                seen_targets.add(key)
+                unique_targets.append(target)
+
+            if not unique_targets:
+                return None
+
+            return {
+                "description": description,
+                "granularity": granularity,
+                "targets": unique_targets,
+            }
+
+        if isinstance(link, str):
+            target = self._normalize_target(link, "file")
+            if not target:
+                return None
+            return {"description": "", "granularity": "auto", "targets": [target]}
+
+        return None
+
+    def _normalize_target(self, item: Any, default_type: Optional[str]) -> Optional[Dict[str, Any]]:
+        """Normalize individual target definitions."""
+        if item is None:
+            return None
+
+        if isinstance(item, dict):
+            target_type = item.get("type") or item.get("scope") or default_type or "file"
+            path = item.get("path") or item.get("file") or item.get("folder")
+            if path is None and isinstance(item.get("target"), str):
+                path = item["target"]
+            anchor = item.get("anchor") or item.get("fragment") or item.get("section")
+            label = item.get("label") or item.get("title") or item.get("name")
+            return self._finalize_target(path, target_type, anchor, label)
+
+        return self._finalize_target(item, default_type, None, None)
+
+    def _finalize_target(
+        self,
+        path: Any,
+        target_type: Optional[str],
+        anchor: Optional[str],
+        label: Optional[str],
+    ) -> Optional[Dict[str, Any]]:
+        """Finalize target normalization."""
+        if path is None:
+            return None
+
+        raw_path = str(path).strip()
+        if not raw_path:
+            return None
+
+        extracted_anchor = None
+        if "#" in raw_path:
+            raw_path, extracted_anchor = raw_path.split("#", 1)
+            extracted_anchor = extracted_anchor.strip()
+
+        anchor_value = (anchor or extracted_anchor or "").strip()
+        if anchor_value.startswith("#"):
+            anchor_value = anchor_value[1:]
+        anchor_value = anchor_value or None
+
+        normalized_path = self._normalize_path(raw_path)
+        if not normalized_path:
+            return None
+
+        normalized_type = (target_type or "file").lower()
+        if normalized_type not in {"file", "folder", "entity", "section"}:
+            normalized_type = "file"
+
+        normalized_label = label.strip() if isinstance(label, str) and label.strip() else None
+
+        return {
+            "path": normalized_path,
+            "type": normalized_type,
+            "anchor": anchor_value,
+            "label": normalized_label,
+        }
+
+    def _normalize_path(self, path: Any) -> str:
+        """Normalize relative paths for comparison."""
+        if not isinstance(path, str):
+            return ""
+        value = path.strip()
+        if not value:
+            return ""
+        if "#" in value:
+            value = value.split("#", 1)[0]
+        while value.startswith("./"):
+            value = value[2:]
+        return value.rstrip()
+
+    def _filter_new_targets(
+        self, targets: List[Dict[str, Any]], created_paths: Set[str]
+    ) -> List[Dict[str, Any]]:
+        """Filter out targets that refer to newly created items."""
+        filtered_targets = []
+        seen_keys: Set[Tuple[str, str, str, str]] = set()
+
+        for target in targets:
+            path = target.get("path")
+            normalized_path = self._normalize_path(path)
+            if not normalized_path or normalized_path in created_paths:
+                continue
+
+            anchor = (target.get("anchor") or "").strip()
+            label = (target.get("label") or "").strip()
+            target_type = target.get("type", "file")
+
+            dedup_key = (target_type, normalized_path, anchor, label)
+            if dedup_key in seen_keys:
+                continue
+            seen_keys.add(dedup_key)
+
+            filtered_targets.append(
+                {
+                    "path": normalized_path,
+                    "type": target_type,
+                    "anchor": anchor or None,
+                    "label": label or None,
+                }
+            )
+
+        return filtered_targets
+
+    def _build_dedup_key(self, link: Dict[str, Any]) -> Tuple:
+        """Build a deduplication key for normalized link entries."""
+        targets_key = tuple(
+            sorted(
+                (
+                    target.get("type", "file"),
+                    target.get("path", ""),
+                    target.get("anchor") or "",
+                    target.get("label") or "",
+                )
+                for target in link.get("targets", [])
+            )
+        )
+        return (
+            targets_key,
+            link.get("granularity", "auto"),
+            link.get("description", "").strip(),
+        )
 
     def to_html(self, value: Any) -> str:
         """
@@ -273,24 +552,30 @@ class LinksField(BaseField):
         if not value:
             return ""
 
-        lines = ["<b>🔗 Связанные файлы:</b>"]
+        lines = ["<b>🔗 Связанные сущности:</b>"]
         for link in value:
-            if isinstance(link, dict):
-                file_path = link.get("file", "")
-                description = link.get("description", "")
-                escaped_file_path = self._escape_html(file_path)
-                escaped_description = self._escape_html(description)
-                if self.github_url:
-                    url = f"{self.github_url}/{file_path}"
-                    escaped_url = self._escape_html(url)
-                    lines.append(
-                        f'- <a href="{escaped_url}">{escaped_file_path}</a>: {escaped_description}'
-                    )
-                else:
-                    lines.append(f"- {escaped_file_path}: {escaped_description}")
-            else:
+            normalized = (
+                link
+                if isinstance(link, dict) and link.get("targets")
+                else self._normalize_raw_link(link)
+            )
+            if not isinstance(normalized, dict):
                 escaped_link = self._escape_html(str(link))
                 lines.append(f"- {escaped_link}")
+                continue
+
+            targets = normalized.get("targets") or []
+            if not targets:
+                continue
+
+            description = self._escape_html(normalized.get("description", ""))
+            targets_html = self._format_targets_html(targets)
+            granularity_suffix = self._granularity_suffix_html(normalized.get("granularity"))
+
+            if description:
+                lines.append(f"- {targets_html}: {description}{granularity_suffix}")
+            else:
+                lines.append(f"- {targets_html}{granularity_suffix}")
 
         return "\n".join(lines)
 
@@ -307,21 +592,103 @@ class LinksField(BaseField):
         if not value:
             return ""
 
-        lines = ["🔗 Связанные файлы:"]
+        lines = ["🔗 Связанные сущности:"]
         for link in value:
-            if isinstance(link, dict):
-                file_path = link.get("file", "")
-                description = link.get("description", "")
-                file_path = escape_markdown_url(file_path)
-                if self.github_url:
-                    url = escape_markdown_url(f"{self.github_url}/{file_path}")
-                    lines.append(f"- [{file_path}]({url}): {description}")
-                else:
-                    lines.append(f"- {file_path}: {description}")
+            normalized = (
+                link
+                if isinstance(link, dict) and link.get("targets")
+                else self._normalize_raw_link(link)
+            )
+            if not isinstance(normalized, dict):
+                escaped_link = escape_markdown(str(link))
+                lines.append(f"- {escaped_link}")
+                continue
+
+            targets = normalized.get("targets") or []
+            if not targets:
+                continue
+
+            description = normalized.get("description", "")
+            targets_md = self._format_targets_md(targets)
+            granularity_suffix = self._granularity_suffix_md(normalized.get("granularity"))
+
+            if description:
+                escaped_description = escape_markdown(description)
+                lines.append(f"- {targets_md}: {escaped_description}{granularity_suffix}")
             else:
-                link = escape_markdown_url(link)
-                lines.append(f"- {str(link)}")
+                lines.append(f"- {targets_md}{granularity_suffix}")
         return "\n".join(lines)
+
+    def _format_targets_html(self, targets: List[Dict[str, Any]]) -> str:
+        """Format targets for HTML output."""
+        formatted_targets = []
+        for target in targets:
+            path = target.get("path", "")
+            if not path:
+                continue
+
+            anchor = target.get("anchor")
+            label = target.get("label")
+            display_path = f"{path}#{anchor}" if anchor else path
+            display_text = label if label else display_path
+            if label and label.strip() != display_path:
+                display_text = f"{label} ({display_path})"
+
+            escaped_display = self._escape_html(display_text)
+
+            if self.github_url:
+                url = f"{self.github_url}/{path}"
+                if anchor:
+                    url = f"{url}#{anchor}"
+                escaped_url = self._escape_html(url)
+                formatted_targets.append(f'<a href="{escaped_url}">{escaped_display}</a>')
+            else:
+                formatted_targets.append(escaped_display)
+
+        return ", ".join(formatted_targets)
+
+    def _format_targets_md(self, targets: List[Dict[str, Any]]) -> str:
+        """Format targets for Markdown output."""
+        formatted_targets = []
+        for target in targets:
+            path = target.get("path", "")
+            if not path:
+                continue
+
+            anchor = target.get("anchor")
+            label = target.get("label")
+            display_path = f"{path}#{anchor}" if anchor else path
+            display_text = label if label else display_path
+            if label and label.strip() != display_path:
+                display_text = f"{label} ({display_path})"
+
+            escaped_display = escape_markdown(display_text)
+            if self.github_url:
+                url = f"{self.github_url}/{path}"
+                if anchor:
+                    url = f"{url}#{anchor}"
+                escaped_url = escape_markdown_url(url)
+                formatted_targets.append(f"[{escaped_display}]({escaped_url})")
+            else:
+                formatted_targets.append(escaped_display)
+
+        return ", ".join(formatted_targets)
+
+    def _granularity_suffix_html(self, granularity: Optional[str]) -> str:
+        """Return HTML suffix for granularity hints."""
+        if granularity == "summary":
+            return " <i>(сводная связь)</i>"
+        if granularity == "detailed":
+            return " <i>(детализированная связь)</i>"
+        return ""
+
+    def _granularity_suffix_md(self, granularity: Optional[str]) -> str:
+        """Return Markdown suffix for granularity hints."""
+        if granularity == "summary":
+            return " (сводная связь)"
+        if granularity == "detailed":
+            return " (детализированная связь)"
+        return ""
 
 
 class InsiteField(BaseField):

@@ -477,8 +477,10 @@ This ensures all knowledge base entries maintain proper attribution and traceabi
 
 ### Connections (Связи)
 
-- When creating relations, link only to existing files from the KB (skip files created in the same run).
-- Provide a short, meaningful description (1–2 sentences) for each relation that explains the connection type (similarity, dependency, part-whole, alternative, sequence, overlapping tags).
+- The agent now renders the section as “Связанные сущности”, подчёркивая, что можно ссылаться не только на файлы, но и на папки или конкретные фрагменты.
+- Связи автоматически фильтруют артефакты текущего запуска: новые файлы и папки из списка `created/files_created/folders_created` не попадут в выдачу.
+- Для групповых связей поддерживается `granularity: summary`, позволяя объединять несколько файлов или папку с общим описанием. Для точечных связей используйте `granularity: detailed` и указывайте конкретные секции (через `file` + `anchor`).
+- Каждый пункт обязан содержать содержательное описание (1–2 предложения), объясняющее природу связи: сходство, зависимость, часть-целое, альтернатива, последовательность, пересечение тегов и т.д.
 
 ---
 
