@@ -262,9 +262,13 @@ MEDIA_PROCESSING_DOCLING:
     server_name: docling
     transport: sse
     url: http://docling-mcp:8077/sse   # Override for custom deployments
-    tool_name: convert_document
+    tool_name: convert_document_from_content
     auto_detect_tool: true
 ```
+
+> 💡 The default tool `convert_document_from_content` accepts base64-encoded payloads, allowing
+> tg-note to send documents directly to the Docling MCP container without relying on shared
+> filesystem paths. The classic `convert_document` tool remains available for path-based workflows.
 
 #### Enabling/Disabling specific formats
 

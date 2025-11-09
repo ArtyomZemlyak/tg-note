@@ -2,6 +2,7 @@
 Tests for FileProcessor
 """
 
+import base64
 from pathlib import Path
 
 import pytest
@@ -178,6 +179,7 @@ def test_docling_settings_defaults():
     assert cfg.mcp.listen_host == "0.0.0.0"
     assert cfg.mcp.listen_port == 8077
     assert cfg.mcp.server_name == "docling"
+    assert cfg.mcp.tool_name == "convert_document_from_content"
     assert cfg.mcp.resolve_url() is not None
     assert cfg.keep_images is False
     assert cfg.generate_page_images is False
@@ -211,3 +213,29 @@ def test_docling_settings_container_config():
     assert container_cfg["mcp"]["transport"] == "sse"
     assert container_cfg["mcp"]["port"] == 8077
     assert container_cfg["startup_sync"] is True
+
+
+def test_build_mcp_arguments_with_base64(tmp_path):
+    """MCP argument builder should populate base64 content when required by the tool schema."""
+    processor = FileProcessor()
+    sample_file = tmp_path / "sample.pdf"
+    payload = b"docling-base64-test"
+    sample_file.write_bytes(payload)
+
+    tool_schema = {
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "content": {"type": "string"},
+                "filename": {"type": "string"},
+                "mime_type": {"type": "string"},
+            },
+            "required": ["content"],
+        }
+    }
+
+    arguments = processor._build_mcp_arguments(tool_schema, sample_file, "pdf")
+    assert arguments is not None
+    assert arguments["content"] == base64.b64encode(payload).decode("utf-8")
+    assert arguments["filename"] == sample_file.name
+    assert arguments["mime_type"] == "application/pdf"

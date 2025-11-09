@@ -170,6 +170,11 @@ docling = [
 - ✅ Manual sync via MCP tool
 - ✅ Progress notifications (callback)
 
+### Document Ingestion
+
+- ✅ Путь к файлу (`convert_document`) — базовый режим Docling MCP
+- ✅ Base64-поток (`convert_document_from_content`) — отправка документов без общих томов, совместимая с tg-note
+
 ### Configuration Methods
 
 1. **Telegram** (recommended) - `/settings` command

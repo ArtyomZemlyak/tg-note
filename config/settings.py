@@ -175,7 +175,7 @@ class DoclingMCPSettings(BaseModel):
         default=None, description="Optional per-server timeout override for Docling MCP requests."
     )
     tool_name: str = Field(
-        default="convert_document",
+        default="convert_document_from_content",
         description=(
             "Preferred Docling MCP tool name. When not found, auto-detection will attempt to "
             "select a compatible tool."

@@ -21,6 +21,7 @@ class FileProcessor:
     """Process various file formats and extract content using Docling."""
 
     DOCLING_TOOL_CANDIDATES: Tuple[str, ...] = (
+        "convert_document_from_content",
         "convert_document",
         "process_document",
         "process_file",
@@ -263,17 +264,19 @@ class FileProcessor:
             return None
 
         if not any(tool.get("name") == tool_name for tool in available_tools):
-            self.logger.warning("[FileProcessor] Docling MCP server does not expose '%s' tool.", tool_name)
+            self.logger.warning(
+                "[FileProcessor] Docling MCP server does not expose '%s' tool.", tool_name
+            )
             return None
 
         try:
             response = await client.call_tool(tool_name, {"force": force})
             if not response.get("success", True):
-                self.logger.error("[FileProcessor] Docling model sync reported failure: %s", response)
-            else:
-                self.logger.info(
-                    "[FileProcessor] Docling model sync completed (force=%s).", force
+                self.logger.error(
+                    "[FileProcessor] Docling model sync reported failure: %s", response
                 )
+            else:
+                self.logger.info("[FileProcessor] Docling model sync completed (force=%s).", force)
             return response
         except Exception as exc:
             self.logger.error("[FileProcessor] Docling model sync failed: %s", exc)
@@ -345,7 +348,9 @@ class FileProcessor:
             elif "source" in lower_name:
                 if "uri" in lower_name or "url" in lower_name:
                     arguments[prop] = file_uri
-                elif any(keyword in lower_name for keyword in ("content", "data", "bytes", "payload")):
+                elif any(
+                    keyword in lower_name for keyword in ("content", "data", "bytes", "payload")
+                ):
                     arguments[prop] = base64_content
                 else:
                     arguments[prop] = str(file_path)
