@@ -61,7 +61,8 @@ Telegram supports only these HTML tags:
 - `<pre>` - code block
 - `<span class="tg-spoiler">` - spoiler (only with tg-spoiler class!)
 - `<blockquote>` - blockquote
-- `<br>` - line break
+
+Для переноса строки используйте символ новой строки (`\n`).
 
 All other tags are removed, but their content is preserved.
 
