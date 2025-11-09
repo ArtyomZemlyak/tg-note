@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 from typing import List
 
+import tg_docling.tools  # noqa: F401  # Register additional MCP tools
 from docling_mcp.servers.mcp_server import ToolGroups, TransportType
 from docling_mcp.servers.mcp_server import main as mcp_main
 from docling_mcp.shared import mcp
