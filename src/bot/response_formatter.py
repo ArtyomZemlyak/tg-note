@@ -89,7 +89,8 @@ class SummaryField(BaseField):
         super().__init__(
             "summary",
             "Краткое описание выполненной работы (3-5 предложений). "
-            "Для форматирования используй HTML теги для Telegram: <b>, <i>, <u>, <s>, <a href='URL'>, <code>, <pre>, <blockquote>, <br>, <span class='tg-spoiler'>. "
+            "Для форматирования используй HTML теги для Telegram: <b>, <i>, <u>, <s>, <a href='URL'>, <code>, <pre>, <blockquote>, <span class='tg-spoiler'>. "
+            "Для переноса строки используй символ новой строки (\\n). "
             "Полный список доступных тегов и правила использования указаны в инструкции ResponseFormatter.",
         )
 
@@ -101,7 +102,8 @@ class AnswerField(BaseField):
         super().__init__(
             "answer",
             'Ответ на вопрос пользователя, если это был вопросный запрос. Поле "answer" заполняй только если пользователь задал вопрос. '
-            "Для форматирования используй HTML теги для Telegram: <b>, <i>, <u>, <s>, <a href='URL'>, <code>, <pre>, <blockquote>, <br>, <span class='tg-spoiler'>. "
+            "Для форматирования используй HTML теги для Telegram: <b>, <i>, <u>, <s>, <a href='URL'>, <code>, <pre>, <blockquote>, <span class='tg-spoiler'>. "
+            "Для переноса строки используй символ новой строки (\\n). "
             "Полный список доступных тегов и правила использования указаны в инструкции ResponseFormatter.",
         )
 

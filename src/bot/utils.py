@@ -360,6 +360,7 @@ def _validate_html_content(text: str, skip_links_and_spoilers: bool = False) -> 
     text = re.sub(r"</div>", "\n", text, flags=re.IGNORECASE)
     text = re.sub(r"<p[^>]*>", "\n", text, flags=re.IGNORECASE)
     text = re.sub(r"</p>", "\n\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"<br\s*/?>", "\n", text, flags=re.IGNORECASE)
 
     # Remove span tags that don't have tg-spoiler class (they were already replaced)
     # This catches any remaining span tags
@@ -426,10 +427,10 @@ def _validate_html_content(text: str, skip_links_and_spoilers: bool = False) -> 
         text = re.sub(rf"</{tag}>", "", text, flags=re.IGNORECASE)
 
     # Remove any remaining HTML tags that are not in the allowed list
-    # Allowed tags: b, strong, i, em, u, ins, s, strike, del, a, code, pre, span (with tg-spoiler), blockquote, br
+    # Allowed tags: b, strong, i, em, u, ins, s, strike, del, a, code, pre, span (with tg-spoiler), blockquote
     # We'll be conservative and remove anything that looks like a tag but isn't in our allowed list
     allowed_tags_pattern = (
-        r"</?(?:b|strong|i|em|u|ins|s|strike|del|a|code|pre|span|blockquote|br)(?:\s[^>]*)?>"
+        r"</?(?:b|strong|i|em|u|ins|s|strike|del|a|code|pre|span|blockquote)(?:\s[^>]*)?>"
     )
 
     # Find all tags
@@ -480,7 +481,6 @@ def validate_telegram_html(html_text: str) -> str:
     - <pre> - code block
     - <span class="tg-spoiler"> - spoiler (only with tg-spoiler class!)
     - <blockquote> - blockquote
-    - <br> - line break
 
     This function:
     1. Decodes HTML entities (e.g., &lt;b&gt; becomes <b>)

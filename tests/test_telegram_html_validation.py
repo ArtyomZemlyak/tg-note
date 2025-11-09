@@ -131,7 +131,8 @@ def test_complex_nested_structure_with_lists():
     sanitized = bot_utils.validate_telegram_html(html)
 
     assert "<b>Основные принципы:</b>" in sanitized
-    assert "<br>" in sanitized
+    assert "<br" not in sanitized
+    assert "<b>Основные принципы:</b>\n" in sanitized
     assert "• <b>Итеративность</b>: разбивать задачи" in sanitized
     assert "• <b>Четкость</b>: формулировать конкретно" in sanitized
     assert "<ul" not in sanitized
@@ -187,7 +188,8 @@ def test_self_closing_br_tags():
 
     sanitized = bot_utils.validate_telegram_html(html)
 
-    assert "Line 1<br>Line 2<br>Line 3" in sanitized
+    assert "Line 1\nLine 2\nLine 3" in sanitized
+    assert "<br" not in sanitized
 
 
 def test_literal_angle_brackets_are_preserved():
