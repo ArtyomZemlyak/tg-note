@@ -104,6 +104,20 @@ def _build_docling_mcp_spec(docling_settings: DoclingSettings) -> Optional[Dict[
     return spec
 
 
+def build_docling_mcp_spec(docling_settings: DoclingSettings) -> Optional[Dict[str, Any]]:
+    """
+    Public wrapper that builds the Docling MCP server specification without writing to disk.
+
+    Args:
+        docling_settings: Resolved Docling configuration object.
+
+    Returns:
+        Specification dictionary or None when configuration is insufficient.
+    """
+
+    return _build_docling_mcp_spec(docling_settings)
+
+
 def _write_json_if_changed(path: Path, payload: Dict[str, Any]) -> None:
     """
     Write JSON payload to path if content differs from existing file.
