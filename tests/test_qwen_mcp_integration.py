@@ -294,8 +294,20 @@ class TestQwenMCPConfigGenerator:
 
         assert "mcpServers" in config
         assert "mcp-hub" in config["mcpServers"]
+        assert "docling" in config["mcpServers"]
         assert "allowMCPServers" in config
         assert "mcp-hub" in config["allowMCPServers"]
+        assert "docling" in config["allowMCPServers"]
+
+    def test_docling_config(self, generator):
+        """Docling MCP configuration should be generated when enabled."""
+        entry = generator._generate_docling_config()
+
+        assert entry is not None
+        server_name, server_config = entry
+        assert server_name == "docling"
+        assert "url" in server_config or "command" in server_config
+        assert server_config["trust"] is True
 
     def test_memory_config(self, generator):
         """Test memory configuration (HTTP mode by default)"""
@@ -359,6 +371,7 @@ class TestQwenMCPConfigGenerator:
 
             assert "mcpServers" in config
             assert "mcp-hub" in config["mcpServers"]
+            assert "docling" in config["mcpServers"]
 
     def test_merge_with_existing_config(self, generator):
         """Test merging with existing configuration"""
@@ -384,8 +397,10 @@ class TestQwenMCPConfigGenerator:
                 config = json.load(f)
 
             assert "mcp-hub" in config["mcpServers"]
+            assert "docling" in config["mcpServers"]
             assert "other-server" in config["mcpServers"]
             assert "mcp-hub" in config["allowMCPServers"]
+            assert "docling" in config["allowMCPServers"]
             assert "other-server" in config["allowMCPServers"]
             assert config["otherSetting"] == "value"
 
@@ -396,6 +411,7 @@ class TestQwenMCPConfigGenerator:
         config = json.loads(json_str)
         assert "mcpServers" in config
         assert "mcp-hub" in config["mcpServers"]
+        assert "docling" in config["mcpServers"]
 
 
 class TestSetupQwenMCPConfig:
@@ -410,3 +426,9 @@ class TestSetupQwenMCPConfig:
 
                 assert path.exists()
                 assert ".qwen" in str(path)
+
+                with open(path) as f:
+                    config = json.load(f)
+
+                assert "mcpServers" in config
+                assert "docling" in config["mcpServers"]

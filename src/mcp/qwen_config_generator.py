@@ -15,7 +15,7 @@ For STDIO mode, set use_http=False
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from loguru import logger
 
@@ -71,6 +71,12 @@ class QwenMCPConfigGenerator:
         memory_config = self._generate_memory_config()
         if memory_config:
             config["mcpServers"]["mcp-hub"] = memory_config
+
+        # Add Docling MCP server when available
+        docling_entry = self._generate_docling_config()
+        if docling_entry:
+            server_name, server_config = docling_entry
+            config["mcpServers"][server_name] = server_config
 
         # Add other MCP servers here in the future
         # config["mcpServers"]["filesystem"] = ...
@@ -207,6 +213,80 @@ class QwenMCPConfigGenerator:
         }
 
         return config
+
+    def _generate_docling_config(self) -> Optional[Tuple[str, Dict[str, Any]]]:
+        """
+        Generate configuration for Docling MCP server when available/enabled.
+
+        Returns:
+            Tuple of (server name, configuration dict) or None when Docling MCP should not be included.
+        """
+
+        try:
+            from config import settings as app_settings  # type: ignore import-not-found
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.debug(f"[QwenMCPConfig] Docling settings unavailable: {exc}")
+            return None
+
+        docling_settings = getattr(app_settings, "MEDIA_PROCESSING_DOCLING", None)
+        if docling_settings is None or not docling_settings.use_mcp():
+            return None
+
+        try:
+            from src.mcp.docling_integration import build_docling_mcp_spec
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.debug(f"[QwenMCPConfig] Unable to import Docling helpers: {exc}")
+            return None
+
+        spec = build_docling_mcp_spec(docling_settings)
+        if spec is None or not spec.get("enabled", True):
+            return None
+
+        server_name = spec.get("name") or docling_settings.mcp.server_name or "docling"
+        transport = (spec.get("transport") or docling_settings.mcp.transport or "sse").lower()
+        description = spec.get("description") or "Docling document processing MCP server"
+        timeout = spec.get("timeout") or docling_settings.mcp.timeout or 99999
+
+        if transport == "sse":
+            url = spec.get("url")
+            if not url:
+                logger.debug("[QwenMCPConfig] Skipping Docling MCP in settings.json: URL missing")
+                return None
+            config: Dict[str, Any] = {
+                "url": url,
+                "timeout": timeout,
+                "trust": True,
+                "description": description,
+            }
+        elif transport == "stdio":
+            command = spec.get("command") or docling_settings.mcp.command
+            if not command:
+                logger.debug(
+                    "[QwenMCPConfig] Skipping Docling MCP in settings.json: stdio command missing"
+                )
+                return None
+            args = spec.get("args", docling_settings.mcp.args or [])
+            env = spec.get("env", docling_settings.mcp.env or None)
+            working_dir = spec.get("working_dir", docling_settings.mcp.working_dir)
+
+            config = {
+                "command": command,
+                "args": args or [],
+                "timeout": timeout,
+                "trust": True,
+                "description": description,
+            }
+            if working_dir:
+                config["cwd"] = working_dir
+            if env:
+                config["env"] = env
+        else:
+            logger.debug(
+                f"[QwenMCPConfig] Skipping Docling MCP in settings.json: unsupported transport {transport}"
+            )
+            return None
+
+        return server_name, config
 
     def save_to_qwen_dir(self, qwen_dir: Optional[Path] = None) -> Path:
         """
