@@ -175,7 +175,7 @@ docling = [
 1. **Telegram** (recommended) - `/settings` command
 2. **config.yaml** - application settings
 3. **Environment variables** - `.env` file
-4. **Container config** - `data/docling/config/docling-config.json`
+4. **Shared config** - `config.yaml` (mounted into container)
 
 Priority: Environment > Telegram > config.yaml > Container defaults
 
@@ -265,7 +265,7 @@ docker exec tg-note-docling nvidia-smi
 ls -lah data/docling/models/
 
 # Проверка конфигурации
-cat data/docling/config/docling-config.json
+cat config.yaml
 
 # Тест OCR
 # Отправьте PDF файл боту в Telegram
@@ -278,7 +278,7 @@ cat data/docling/config/docling-config.json
 1. Проверьте логи: `docker-compose logs docling-mcp`
 2. Убедитесь что GPU доступен: `nvidia-smi`
 3. Проверьте свободное место на диске
-4. Проверьте конфигурацию: `cat data/docling/config/docling-config.json`
+4. Проверьте конфигурацию: `cat config.yaml`
 
 ### Модели не загружаются
 

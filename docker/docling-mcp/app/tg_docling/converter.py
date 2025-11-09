@@ -23,7 +23,7 @@ try:  # Optional dependency
 except Exception:  # pragma: no cover
     OnnxtrOcrOptions = None
 
-from tg_docling.config import ContainerConfig
+from config.settings import DoclingSettings
 
 logger = logging.getLogger(__name__)
 
@@ -53,12 +53,12 @@ def _apply_optional_attributes(obj: object, values: Dict[str, object]) -> None:
             logger.debug("Skipping unsupported attribute '%s' for %s", key, type(obj).__name__)
 
 
-def _build_ocr_options(config: ContainerConfig, models_base: Path) -> Optional[OcrOptions]:
+def _build_ocr_options(settings: DoclingSettings, models_base: Path) -> Optional[OcrOptions]:
     """Construct OCR options based on container configuration."""
-    ocr_cfg = config.converter.ocr
-    languages = ocr_cfg.languages
+    ocr_cfg = settings.ocr_config
+    languages = ocr_cfg.languages or settings.ocr_languages
 
-    if config.converter.image_ocr_enabled is False or ocr_cfg.backend == "none":
+    if settings.image_ocr_enabled is False or ocr_cfg.backend == "none":
         return None
 
     if ocr_cfg.backend == "rapidocr":
@@ -120,20 +120,18 @@ def _build_ocr_options(config: ContainerConfig, models_base: Path) -> Optional[O
     return None
 
 
-def _create_converter(config: ContainerConfig) -> DocumentConverter:
+def _create_converter(settings: DoclingSettings) -> DocumentConverter:
     """Internal factory for DocumentConverter configured according to settings."""
-    models_base = config.model_cache.base_dir
+    models_base = Path(settings.model_cache.base_dir)
     models_base.mkdir(parents=True, exist_ok=True)
 
     pdf_options = PdfPipelineOptions()
     pdf_options.artifacts_path = models_base
-    pdf_options.generate_page_images = (
-        config.converter.generate_page_images or config.converter.keep_images
-    )
-    pdf_options.do_ocr = config.converter.image_ocr_enabled
-    pdf_options.force_full_page_ocr = config.converter.ocr.force_full_page_ocr
+    pdf_options.generate_page_images = settings.generate_page_images or settings.keep_images
+    pdf_options.do_ocr = settings.image_ocr_enabled
+    pdf_options.force_full_page_ocr = settings.ocr_config.force_full_page_ocr
 
-    ocr_options = _build_ocr_options(config, models_base=models_base)
+    ocr_options = _build_ocr_options(settings, models_base=models_base)
     if ocr_options is not None:
         pdf_options.ocr_options = ocr_options
     else:
@@ -147,19 +145,19 @@ def _create_converter(config: ContainerConfig) -> DocumentConverter:
     logger.info(
         "Initialising DocumentConverter (ocr_enabled=%s, backend=%s)",
         pdf_options.do_ocr,
-        config.converter.ocr.backend,
+        settings.ocr_config.backend,
     )
 
     return DocumentConverter(format_options=format_options)
 
 
-def install_converter(config: ContainerConfig) -> None:
+def install_converter(settings: DoclingSettings) -> None:
     """Install a patched converter factory inside docling-mcp."""
-    conversion_settings.settings.keep_images = config.converter.keep_images
+    conversion_settings.settings.keep_images = settings.keep_images
 
     @lru_cache(maxsize=1)
     def _factory() -> DocumentConverter:
-        return _create_converter(config)
+        return _create_converter(settings)
 
     conversion_tools._get_converter.cache_clear()
     conversion_tools._get_converter = _factory  # type: ignore[assignment]

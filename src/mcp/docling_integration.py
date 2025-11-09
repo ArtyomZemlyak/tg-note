@@ -120,35 +120,6 @@ def _write_json_if_changed(path: Path, payload: Dict[str, Any]) -> None:
     logger.info("[DoclingMCP] Wrote MCP server spec: %s", path)
 
 
-def write_docling_container_config(
-    docling_settings: DoclingSettings,
-    config_dir: Optional[Path] = None,
-    log_level: Optional[str] = None,
-) -> Optional[Path]:
-    """
-    Write Docling container configuration JSON based on application settings.
-    """
-
-    if config_dir is None:
-        env_dir = os.getenv("DOCLING_CONTAINER_CONFIG_DIR")
-        config_dir = Path(env_dir) if env_dir else Path("data/docling/config")
-
-    try:
-        config_dir.mkdir(parents=True, exist_ok=True)
-    except Exception as exc:
-        logger.error(
-            "[DoclingMCP] Failed to prepare container config directory %s: %s", config_dir, exc
-        )
-        return None
-
-    config_path = config_dir / "docling-config.json"
-    payload = docling_settings.to_container_config(
-        log_level=log_level or os.getenv("DOCLING_LOG_LEVEL", "INFO")
-    )
-    _write_json_if_changed(config_path, payload)
-    return config_path
-
-
 def ensure_docling_mcp_spec(
     docling_settings: DoclingSettings, servers_dir: Optional[Path] = None
 ) -> Optional[Path]:
@@ -173,5 +144,4 @@ def ensure_docling_mcp_spec(
 
     spec_path = servers_dir / f"{spec['name']}.json"
     _write_json_if_changed(spec_path, spec)
-    write_docling_container_config(docling_settings)
     return spec_path

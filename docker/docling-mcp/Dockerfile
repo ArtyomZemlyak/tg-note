@@ -56,20 +56,20 @@ RUN ln -sf /usr/bin/python3.11 /usr/bin/python && \
 COPY docker/docling-mcp/requirements.txt /tmp/requirements.txt
 RUN python -m pip install --no-cache-dir -r /tmp/requirements.txt
 
-# Copy application code
+# Copy application code and shared configuration schema
 COPY docker/docling-mcp/app /opt/docling-mcp/app
+COPY config /opt/docling-mcp/app/config
 COPY docker/docling-mcp/docker-entrypoint.sh /usr/local/bin/entrypoint.sh
 
 # Create runtime directories
-RUN mkdir -p /opt/docling-mcp/config \
-    /opt/docling-mcp/models \
+RUN mkdir -p /opt/docling-mcp/models \
     /opt/docling-mcp/logs \
     /opt/docling-mcp/cache && \
     chmod +x /usr/local/bin/entrypoint.sh
 
 # Environment configuration
 ENV PYTHONPATH="/opt/docling-mcp/app:${PYTHONPATH}" \
-    DOCLING_CONFIG_PATH=/opt/docling-mcp/config/docling-config.json \
+    DOCLING_SETTINGS_PATH=/opt/docling-mcp/config.yaml \
     DOCLING_MODELS_DIR=/opt/docling-mcp/models \
     DOCLING_LOG_DIR=/opt/docling-mcp/logs \
     DOCLING_CACHE_DIR=/opt/docling-mcp/cache \
@@ -78,7 +78,7 @@ ENV PYTHONPATH="/opt/docling-mcp/app:${PYTHONPATH}" \
 
 WORKDIR /opt/docling-mcp
 
-VOLUME ["/opt/docling-mcp/config", "/opt/docling-mcp/models", "/opt/docling-mcp/logs", "/opt/docling-mcp/cache"]
+VOLUME ["/opt/docling-mcp/models", "/opt/docling-mcp/logs", "/opt/docling-mcp/cache"]
 
 EXPOSE 8077
 

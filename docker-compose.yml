@@ -73,8 +73,8 @@ services:
       retries: 5
       start_period: 60s
     volumes:
-      # Configuration directory (managed by tg-note settings)
-      - ./data/docling/config:/opt/docling-mcp/config
+      # Shared configuration file
+      - ./config.yaml:/opt/docling-mcp/config.yaml:ro
       # Models cache directory (persistent across restarts)
       - ./data/docling/models:/opt/docling-mcp/models
       # General cache directory (HuggingFace, ModelScope, etc.)

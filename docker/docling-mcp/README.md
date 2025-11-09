@@ -54,14 +54,13 @@ Docker container for Docling document processing with MCP (Model Context Protoco
 
 ```
 /opt/docling-mcp/
+├── config.yaml             # Shared tg-note configuration (mounted read-only)
 ├── app/                      # Application code
 │   └── tg_docling/
 │       ├── config.py        # Configuration management
 │       ├── converter.py     # Document converter integration
 │       ├── model_sync.py    # Model download & sync
 │       └── server.py        # MCP server entrypoint
-├── config/                  # Configuration directory (volume)
-│   └── docling-config.json # Runtime configuration
 ├── models/                  # Model cache (volume)
 │   ├── RapidOcr/           # RapidOCR models
 │   ├── EasyOcr/            # EasyOCR models
@@ -74,7 +73,8 @@ Docker container for Docling document processing with MCP (Model Context Protoco
 
 ## Configuration
 
-Configuration is managed through `docling-config.json` which is automatically generated and updated by tg-note based on settings in `config/settings.py`.
+The container reads the same `config.yaml` that powers tg-note. Docker Compose mounts the file into
+`/opt/docling-mcp/config.yaml`, so Docling and the bot always stay in sync.
 
 ### Configuration Structure
 
