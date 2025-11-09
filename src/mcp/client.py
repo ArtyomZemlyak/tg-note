@@ -1,34 +1,31 @@
 """
 MCP (Model Context Protocol) Client
 
-This module provides a client wrapper around the official MCP Python SDK.
-Uses mcp.ClientSession for communicating with MCP servers.
+This module provides a client wrapper around fastmcp.Client.
+Uses fastmcp's auto-detection for transport type and handles all MCP operations.
 
 Supported MCP features:
 - ✅ Tools (tools/list, tools/call)
 - ✅ Resources (resources/list, resources/read)
 - ✅ Prompts (prompts/list, prompts/get)
 - ✅ JSON-RPC 2.0 communication
-- ✅ Stdio transport
-- ✅ SSE transport (HTTP Server-Sent Events)
+- ✅ Stdio transport (auto-detected)
+- ✅ SSE transport (auto-detected)
+- ✅ Streaming HTTP transport (auto-detected)
 
 References:
 - MCP Protocol: https://modelcontextprotocol.io/
 - MCP Specification: https://modelcontextprotocol.io/docs/specification
 - Python MCP SDK: https://github.com/modelcontextprotocol/python-sdk
+- FastMCP: https://github.com/jlowin/fastmcp
 """
 
-import asyncio
-from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from fastmcp import Client
 from loguru import logger
-
-from mcp import ClientSession
-from mcp.client.sse import sse_client
-from mcp.client.stdio import StdioServerParameters, stdio_client
 
 
 @dataclass
@@ -42,56 +39,81 @@ class MCPToolSchema:
 
 @dataclass
 class MCPServerConfig:
-    """Configuration for an MCP server"""
+    """
+    Configuration for an MCP server
 
-    command: str = ""  # Empty for HTTP/SSE transport
-    args: List[str] = field(default_factory=list)
-    env: Optional[Dict[str, str]] = None
-    cwd: Optional[Path] = None
-    transport: str = "stdio"  # "stdio" or "sse" (HTTP Server-Sent Events)
-    url: Optional[str] = None  # URL for SSE transport (e.g., "http://127.0.0.1:8765/sse")
+    The client automatically detects the transport type based on the configuration:
+    - If `url` is provided: Uses SSE or Streaming HTTP (auto-detected)
+    - If `command` is provided: Uses stdio transport
+    - If both provided: URL takes precedence
+
+    Transport auto-detection:
+    - http://... or https://... -> SSE or Streaming HTTP (fastmcp auto-detects)
+    - Command string -> stdio subprocess
+    """
+
+    command: str = ""  # Command for stdio transport (e.g., "npx", "python")
+    args: List[str] = field(default_factory=list)  # Arguments for stdio command
+    env: Optional[Dict[str, str]] = None  # Environment variables for stdio
+    cwd: Optional[Path] = None  # Working directory for stdio
+    transport: str = "auto"  # "auto", "stdio", "sse", "streamable-http"
+    url: Optional[str] = None  # URL for HTTP-based transports
 
     def __post_init__(self):
-        # Validate config
-        if self.transport == "sse":
-            if not self.url:
-                raise ValueError("URL is required for SSE transport")
-        elif self.transport == "stdio":
-            if not self.command:
-                raise ValueError("Command is required for stdio transport")
+        # Auto-detect transport if not explicitly specified
+        if self.transport == "auto":
+            if self.url:
+                # URL provided - will use HTTP-based transport (SSE or Streaming HTTP)
+                # fastmcp.Client auto-detects which one
+                self.transport = "auto-http"
+            elif self.command:
+                self.transport = "stdio"
+            else:
+                raise ValueError(
+                    "Either 'url' (for HTTP-based transport) or 'command' (for stdio) must be provided"
+                )
 
 
 class MCPClient:
     """
-    Client wrapper for communicating with MCP servers via stdio or HTTP/SSE.
+    Client wrapper for communicating with MCP servers.
 
-    This class wraps the official MCP Python SDK's ClientSession and provides
-    a simplified interface compatible with the project's existing code.
+    This class wraps fastmcp.Client which automatically detects and handles
+    different transport types (stdio, SSE, streaming HTTP).
 
-    Supports two transport modes:
-    1. stdio: Launches MCP server as subprocess (JSON-RPC over stdin/stdout)
-    2. sse: Connects to HTTP/SSE endpoint (JSON-RPC over HTTP Server-Sent Events)
+    Transport auto-detection:
+    - URL provided: fastmcp automatically chooses SSE or Streaming HTTP
+    - Command provided: Uses stdio subprocess transport
+    - Both provided: URL takes precedence
 
     Supported operations:
     - Tools: list_tools(), call_tool()
     - Resources: list_resources(), read_resource()
     - Prompts: list_prompts(), get_prompt()
 
-    Example (stdio):
+    Example (stdio - auto-detected):
         config = MCPServerConfig(
             command="npx",
-            args=["@example/mcp-server"],
-            transport="stdio"
+            args=["@example/mcp-server"]
         )
 
-    Example (HTTP/SSE - for Docker deployments):
+    Example (HTTP - auto-detected SSE or Streaming HTTP):
         config = MCPServerConfig(
-            transport="sse",
             url="http://mcp-hub:8765/sse"
         )
 
-    client = MCPClient(config)
-    await client.connect()
+    Example (explicit transport):
+        config = MCPServerConfig(
+            url="http://localhost:8000",
+            transport="streamable-http"
+        )
+
+    Usage:
+        client = MCPClient(config)
+        await client.connect()
+        tools = await client.list_tools()
+        result = await client.call_tool("tool_name", {"arg": "value"})
+        await client.disconnect()
     """
 
     def __init__(self, config: MCPServerConfig, timeout: int = 600):
@@ -99,7 +121,7 @@ class MCPClient:
         Initialize MCP client
 
         Args:
-            config: Server configuration (command+args for stdio, or url for sse)
+            config: Server configuration (auto-detects transport type)
             timeout: Timeout in seconds for MCP requests (default: 600 seconds)
         """
         self.config = config
@@ -107,113 +129,69 @@ class MCPClient:
         self.is_connected = False
         self.tools: List[MCPToolSchema] = []
 
-        # AICODE-NOTE: Use AsyncExitStack to manage async context managers
-        self._exit_stack: Optional[AsyncExitStack] = None
-        # AICODE-NOTE: Official MCP SDK session
-        self._session: Optional[ClientSession] = None
+        # AICODE-NOTE: fastmcp.Client handles all transport logic
+        self._client: Optional[Client] = None
         # AICODE-NOTE: Track reconnection attempts to prevent infinite loops
         self._reconnect_attempts: int = 0
         self._max_reconnect_attempts: int = 3
 
     async def connect(self) -> bool:
         """
-        Connect to MCP server (stdio or HTTP/SSE)
+        Connect to MCP server
+
+        The transport type is automatically detected based on configuration:
+        - URL -> SSE or Streaming HTTP (auto-detected by fastmcp)
+        - Command -> stdio subprocess
 
         Returns:
             True if connection successful
         """
         try:
-            if self.config.transport == "sse":
-                return await self._connect_sse()
-            else:
-                return await self._connect_stdio()
-        except Exception as e:
-            logger.error(f"[MCPClient] Failed to connect: {e}", exc_info=True)
-            await self.disconnect()
-            return False
-
-    async def _connect_stdio(self) -> bool:
-        """Connect via stdio transport using official MCP SDK"""
-        logger.info(f"[MCPClient] Connecting to MCP server (stdio): {self.config.command}")
-
-        try:
-            # Create exit stack for managing async context managers
-            self._exit_stack = AsyncExitStack()
-
-            # Create server parameters
-            server_params = StdioServerParameters(
-                command=self.config.command,
-                args=self.config.args,
-                env=self.config.env,
-                cwd=str(self.config.cwd) if self.config.cwd else None,
-            )
-
-            # Connect using stdio_client context manager
-            stdio_transport = await self._exit_stack.enter_async_context(
-                stdio_client(server_params)
-            )
-
-            # Create client session
-            read_stream, write_stream = stdio_transport
-            self._session = await self._exit_stack.enter_async_context(
-                ClientSession(read_stream, write_stream)
-            )
-
-            # Initialize connection
-            return await self._initialize()
-
-        except Exception as e:
-            logger.error(f"[MCPClient] stdio connection failed: {e}", exc_info=True)
-            await self.disconnect()
-            return False
-
-    async def _connect_sse(self) -> bool:
-        """Connect via HTTP/SSE transport using official MCP SDK"""
-        logger.info(f"[MCPClient] Connecting to MCP server (SSE): {self.config.url}")
-
-        try:
-            # Create exit stack for managing async context managers
-            self._exit_stack = AsyncExitStack()
-
-            # Ensure URL has trailing slash to avoid redirects
-            sse_url = self.config.url
-            if not sse_url.endswith("/"):
-                sse_url += "/"
-
-            # Connect using sse_client context manager
-            sse_transport = await self._exit_stack.enter_async_context(
-                sse_client(
-                    url=sse_url,
-                    timeout=10.0,  # Connection timeout
-                    sse_read_timeout=float(self.timeout),  # Read timeout
+            # Prepare transport configuration
+            if self.config.transport == "auto-http" or self.config.url:
+                # HTTP-based transport (SSE or Streaming HTTP)
+                # fastmcp.Client auto-detects which one based on server capabilities
+                transport_config = self.config.url
+                logger.info(
+                    f"[MCPClient] Connecting to MCP server (HTTP, auto-detect): {self.config.url}"
                 )
+            elif self.config.transport == "stdio" or self.config.command:
+                # Stdio transport - build command dict
+                transport_config = {
+                    "command": self.config.command,
+                    "args": self.config.args,
+                }
+                if self.config.env:
+                    transport_config["env"] = self.config.env
+                if self.config.cwd:
+                    transport_config["cwd"] = str(self.config.cwd)
+                logger.info(f"[MCPClient] Connecting to MCP server (stdio): {self.config.command}")
+            else:
+                raise ValueError(
+                    f"Unknown transport configuration: {self.config.transport}. "
+                    f"Provide either 'url' or 'command'."
+                )
+
+            # Create fastmcp.Client with auto-detection
+            # It will automatically detect the transport type and connect
+            self._client = Client(
+                transport=transport_config,
+                timeout=float(self.timeout),
+                init_timeout=10.0,  # Connection timeout
             )
 
-            # Create client session
-            read_stream, write_stream = sse_transport
-            self._session = await self._exit_stack.enter_async_context(
-                ClientSession(read_stream, write_stream)
-            )
+            # Connect using async context manager
+            await self._client.__aenter__()
 
-            # Initialize connection
-            return await self._initialize()
-
-        except Exception as e:
-            logger.error(f"[MCPClient] SSE connection failed: {e}", exc_info=True)
-            await self.disconnect()
-            return False
-
-    async def _initialize(self) -> bool:
-        """Initialize MCP connection (common for both transports)"""
-        if not self._session:
-            return False
-
-        try:
-            # Initialize session with server capabilities
-            await self._session.initialize()
+            # Wait for initialization to complete
+            if not self._client.is_connected:
+                logger.warning("[MCPClient] Client created but not connected yet, waiting...")
+                # The client should be connected after __aenter__
+                # If not, this is an error
+                raise RuntimeError("Client initialization failed")
 
             # List available tools
-            tools_response = await self._session.list_tools()
+            tools_response = await self._client.list_tools()
 
             if tools_response and hasattr(tools_response, "tools"):
                 self.tools = [
@@ -233,7 +211,8 @@ class MCPClient:
             return True
 
         except Exception as e:
-            logger.error(f"[MCPClient] Initialization failed: {e}", exc_info=True)
+            logger.error(f"[MCPClient] Failed to connect: {e}", exc_info=True)
+            await self.disconnect()
             return False
 
     async def reconnect(self) -> bool:
@@ -261,14 +240,13 @@ class MCPClient:
 
     async def disconnect(self) -> None:
         """Disconnect from MCP server"""
-        if self._exit_stack:
+        if self._client:
             try:
-                await self._exit_stack.aclose()
+                await self._client.__aexit__(None, None, None)
             except Exception as e:
                 logger.debug(f"[MCPClient] Error during disconnect: {e}")
-            self._exit_stack = None
+            self._client = None
 
-        self._session = None
         self.is_connected = False
         logger.info("[MCPClient] Disconnected")
 
@@ -281,16 +259,24 @@ class MCPClient:
             arguments: Tool arguments
 
         Returns:
-            Tool execution result
+            Tool execution result in format:
+            {
+                "success": bool,
+                "output": str,  # Human-readable output
+                "is_error": bool,
+                "result": dict,  # Full MCP result
+                "content": list,  # Content items
+                "error": str  # Only if success=False
+            }
         """
-        if not self.is_connected or not self._session:
+        if not self.is_connected or not self._client:
             return {"success": False, "error": "Not connected to MCP server"}
 
         try:
             logger.debug(f"[MCPClient] Calling tool: {tool_name} with args: {arguments}")
 
-            # Call tool using official SDK
-            response = await self._session.call_tool(tool_name, arguments)
+            # Call tool using fastmcp.Client
+            response = await self._client.call_tool(tool_name, arguments)
 
             if not response:
                 return {"success": False, "error": "No response from server"}
@@ -338,7 +324,7 @@ class MCPClient:
                     logger.info("[MCPClient] Reconnected successfully, retrying tool call...")
                     # Retry the tool call once
                     try:
-                        response = await self._session.call_tool(tool_name, arguments)
+                        response = await self._client.call_tool(tool_name, arguments)
                         if response:
                             content = response.content if hasattr(response, "content") else []
                             output = []
@@ -395,11 +381,11 @@ class MCPClient:
         Returns:
             List of resource schemas
         """
-        if not self.is_connected or not self._session:
+        if not self.is_connected or not self._client:
             return []
 
         try:
-            response = await self._session.list_resources()
+            response = await self._client.list_resources()
 
             if response and hasattr(response, "resources"):
                 return [
@@ -428,11 +414,11 @@ class MCPClient:
         Returns:
             Resource content or None if error
         """
-        if not self.is_connected or not self._session:
+        if not self.is_connected or not self._client:
             return None
 
         try:
-            response = await self._session.read_resource(uri)
+            response = await self._client.read_resource(uri)
 
             if response and hasattr(response, "contents"):
                 return {
@@ -466,11 +452,11 @@ class MCPClient:
         Returns:
             List of prompt schemas
         """
-        if not self.is_connected or not self._session:
+        if not self.is_connected or not self._client:
             return []
 
         try:
-            response = await self._session.list_prompts()
+            response = await self._client.list_prompts()
 
             if response and hasattr(response, "prompts"):
                 return [
@@ -516,11 +502,11 @@ class MCPClient:
         Returns:
             Prompt content or None if error
         """
-        if not self.is_connected or not self._session:
+        if not self.is_connected or not self._client:
             return None
 
         try:
-            response = await self._session.get_prompt(name, arguments or {})
+            response = await self._client.get_prompt(name, arguments or {})
 
             if response and hasattr(response, "messages"):
                 return {
@@ -560,8 +546,10 @@ class MCPClient:
 
     def __del__(self):
         """Cleanup on deletion"""
-        if self._exit_stack or self._session:
+        if self._client:
             try:
+                import asyncio
+
                 # Try to clean up resources
                 asyncio.create_task(self.disconnect())
             except:
