@@ -62,11 +62,11 @@ class MCPServerConfig:
 
     def __post_init__(self):
         # Auto-detect transport if not explicitly specified
+        # fastmcp.Client handles transport detection, we just need to validate config
         if self.transport == "auto":
             if self.url:
-                # URL provided - will use HTTP-based transport (SSE or Streaming HTTP)
-                # fastmcp.Client auto-detects which one
-                self.transport = "auto-http"
+                # URL provided - fastmcp.Client will auto-detect SSE or Streaming HTTP
+                self.transport = "http"
             elif self.command:
                 self.transport = "stdio"
             else:
@@ -148,19 +148,15 @@ class MCPClient:
             True if connection successful
         """
         try:
-            # Prepare transport configuration
-            if (
-                self.config.transport in {"auto-http", "http", "streamable-http", "sse"}
-                or self.config.url
-            ):
-                # HTTP-based transport (SSE or Streaming HTTP)
-                # fastmcp.Client auto-detects which one based on server capabilities
+            # Prepare transport configuration - fastmcp.Client handles auto-detection
+            if self.config.url:
+                # HTTP-based transport - fastmcp.Client auto-detects SSE or Streaming HTTP
                 transport_config = self.config.url
                 logger.info(
                     f"[MCPClient] Connecting to MCP server (HTTP, auto-detect): {self.config.url}"
                 )
-            elif self.config.transport == "stdio" or self.config.command:
-                # Stdio transport - build command dict
+            elif self.config.command:
+                # Stdio transport - fastmcp.Client accepts StdioTransport object
                 transport_config = StdioTransport(
                     command=self.config.command,
                     args=self.config.args,
@@ -170,27 +166,22 @@ class MCPClient:
                 logger.info(f"[MCPClient] Connecting to MCP server (stdio): {self.config.command}")
             else:
                 raise ValueError(
-                    f"Unknown transport configuration: {self.config.transport}. "
-                    f"Provide either 'url' or 'command'."
+                    "Either 'url' (for HTTP-based transport) or 'command' (for stdio) must be provided"
                 )
 
-            # Create fastmcp.Client with auto-detection
-            # It will automatically detect the transport type and connect
+            # Create fastmcp.Client - it handles all transport logic and auto-detection
             self._client = Client(
                 transport=transport_config,
                 timeout=float(self.timeout),
                 init_timeout=10.0,  # Connection timeout
             )
 
-            # Connect using async context manager
+            # Connect using async context manager - fastmcp.Client handles connection
             await self._client.__aenter__()
 
-            # Wait for initialization to complete
+            # Verify connection - fastmcp.Client should be connected after __aenter__
             if not self._client.is_connected():
-                logger.warning("[MCPClient] Client created but not connected yet, waiting...")
-                # The client should be connected after __aenter__
-                # If not, this is an error
-                raise RuntimeError("Client initialization failed")
+                raise RuntimeError("Client initialization failed - not connected after __aenter__")
 
             # List available tools
             tools = await self._client.list_tools()
@@ -283,40 +274,8 @@ class MCPClient:
                 raise_on_error=False,
             )
 
-            content = list(response.content or [])
-
-            # Parse content based on type for convenience string output
-            output = []
-            for item in content:
-                if getattr(item, "type", None) == "text":
-                    output.append(getattr(item, "text", "") or "")
-                elif getattr(item, "type", None) == "resource":
-                    resource = getattr(item, "resource", None)
-                    resource_uri = getattr(resource, "uri", "") if resource else ""
-                    output.append(f"Resource: {resource_uri}")
-                elif getattr(item, "type", None) == "markdown":
-                    text_value = getattr(item, "text", None)
-                    if text_value:
-                        output.append(text_value)
-                    else:
-                        output.append(getattr(item, "markdown", "") or "")
-
-            is_error = response.is_error
-
-            return {
-                "success": not is_error,
-                "output": "\n".join(output).strip() if output else "Tool executed successfully",
-                "is_error": is_error,
-                "result": {
-                    "content": content,
-                    "structuredContent": response.structured_content,
-                    "data": response.data,
-                    "isError": is_error,
-                },
-                "content": content,
-                "structured_content": response.structured_content,
-                "data": response.data,
-            }
+            # Parse fastmcp response into our format
+            return self._parse_tool_response(response)
 
         except Exception as e:
             logger.error(f"[MCPClient] Tool call failed: {e}", exc_info=True)
@@ -333,30 +292,7 @@ class MCPClient:
                             arguments or {},
                             raise_on_error=False,
                         )
-                        content = list(response.content or [])
-                        output = [
-                            getattr(item, "text", "") or ""
-                            for item in content
-                            if getattr(item, "type", None) == "text"
-                        ]
-                        return {
-                            "success": not response.is_error,
-                            "output": (
-                                "\n".join(output).strip()
-                                if output
-                                else "Tool executed successfully"
-                            ),
-                            "content": content,
-                            "structured_content": response.structured_content,
-                            "data": response.data,
-                            "is_error": response.is_error,
-                            "result": {
-                                "content": content,
-                                "structuredContent": response.structured_content,
-                                "data": response.data,
-                                "isError": response.is_error,
-                            },
-                        }
+                        return self._parse_tool_response(response)
                     except Exception as retry_error:
                         return {
                             "success": False,
@@ -364,6 +300,51 @@ class MCPClient:
                         }
 
             return {"success": False, "error": str(e)}
+
+    def _parse_tool_response(self, response) -> Dict[str, Any]:
+        """
+        Parse fastmcp.Client tool response into our standard format
+
+        Args:
+            response: Response from fastmcp.Client.call_tool()
+
+        Returns:
+            Standardized tool response dict
+        """
+        content = list(response.content or [])
+
+        # Parse content based on type for convenience string output
+        output = []
+        for item in content:
+            if getattr(item, "type", None) == "text":
+                output.append(getattr(item, "text", "") or "")
+            elif getattr(item, "type", None) == "resource":
+                resource = getattr(item, "resource", None)
+                resource_uri = getattr(resource, "uri", "") if resource else ""
+                output.append(f"Resource: {resource_uri}")
+            elif getattr(item, "type", None) == "markdown":
+                text_value = getattr(item, "text", None)
+                if text_value:
+                    output.append(text_value)
+                else:
+                    output.append(getattr(item, "markdown", "") or "")
+
+        is_error = response.is_error
+
+        return {
+            "success": not is_error,
+            "output": "\n".join(output).strip() if output else "Tool executed successfully",
+            "is_error": is_error,
+            "result": {
+                "content": content,
+                "structuredContent": response.structured_content,
+                "data": response.data,
+                "isError": is_error,
+            },
+            "content": content,
+            "structured_content": response.structured_content,
+            "data": response.data,
+        }
 
     def get_tools(self) -> List[MCPToolSchema]:
         """

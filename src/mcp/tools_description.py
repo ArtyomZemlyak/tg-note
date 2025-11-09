@@ -44,8 +44,8 @@ async def get_mcp_tools_description(
         if mcp_hub_url:
             try:
                 client = MCPClient(
-                    MCPServerConfig(transport="sse", url=mcp_hub_url), timeout=settings.MCP_TIMEOUT
-                )
+                    MCPServerConfig(url=mcp_hub_url), timeout=settings.MCP_TIMEOUT
+                )  # fastmcp.Client auto-detects transport from URL
                 if await client.connect():
                     connected_clients["mcp-hub"] = client
                 else:

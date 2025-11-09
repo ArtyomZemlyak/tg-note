@@ -87,20 +87,19 @@ class MCPRegistryClient:
                         "[MCPRegistryClient] Failed to parse MCP config file for %s", spec.name
                     )
 
-            if transport == "sse":
+            if transport == "sse" or spec.url or config_url:
+                # HTTP-based transport - fastmcp.Client will auto-detect SSE or Streaming HTTP
                 url = spec.url or config_url
                 if not url:
                     logger.warning(
-                        "[MCPRegistryClient] Cannot create SSE client for %s: missing URL",
+                        "[MCPRegistryClient] Cannot create HTTP client for %s: missing URL",
                         spec.name,
                     )
                     return None
-                config = MCPServerConfig(
-                    transport="sse",
-                    url=url,
-                )
-                logger.debug(f"[MCPRegistryClient] Created HTTP/SSE client for: {spec.name}")
+                config = MCPServerConfig(url=url)  # fastmcp.Client auto-detects transport
+                logger.debug(f"[MCPRegistryClient] Created HTTP client for: {spec.name}")
             else:
+                # Stdio transport
                 if not spec.command:
                     logger.warning(
                         "[MCPRegistryClient] Cannot create stdio client for %s: missing command",
@@ -112,8 +111,7 @@ class MCPRegistryClient:
                     args=spec.args or [],
                     env=spec.env,
                     cwd=Path(spec.working_dir) if spec.working_dir else None,
-                    transport="stdio",
-                )
+                )  # fastmcp.Client auto-detects stdio from command
                 logger.debug(f"[MCPRegistryClient] Created stdio client for: {spec.name}")
 
             timeout = spec.timeout or settings.MCP_TIMEOUT
