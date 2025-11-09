@@ -1,0 +1,2 @@
+[console_scripts]
+docling-mcp-server = docling_mcp.servers.mcp_server:app

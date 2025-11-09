@@ -303,8 +303,13 @@ class FileProcessor:
             "bytes": base64_content,
             "path": str(file_path),
             "file_path": str(file_path),
+            "source": str(file_path),
+            "source_path": str(file_path),
+            "source_file": str(file_path),
             "uri": file_uri,
             "url": file_uri,
+            "source_uri": file_uri,
+            "source_url": file_uri,
             "filename": file_path.name,
             "file_name": file_path.name,
             "name": file_path.name,
@@ -336,6 +341,14 @@ class FileProcessor:
 
             if any(keyword in lower_name for keyword in ("content", "data", "bytes", "payload")):
                 arguments[prop] = base64_content
+                used.add(prop)
+            elif "source" in lower_name:
+                if "uri" in lower_name or "url" in lower_name:
+                    arguments[prop] = file_uri
+                elif any(keyword in lower_name for keyword in ("content", "data", "bytes", "payload")):
+                    arguments[prop] = base64_content
+                else:
+                    arguments[prop] = str(file_path)
                 used.add(prop)
             elif "path" in lower_name and "http" not in lower_name:
                 arguments[prop] = str(file_path)
