@@ -28,7 +28,7 @@ services:
       retries: 5
       start_period: 30s
     volumes:
-      - ./data/docling/config:/opt/docling-mcp/config
+      - ./config.yaml:/opt/docling-mcp/config.yaml:ro
       - ./data/docling/models:/opt/docling-mcp/models
       - ./data/docling/cache:/opt/docling-mcp/cache
       - ./logs/docling:/opt/docling-mcp/logs

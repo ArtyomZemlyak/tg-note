@@ -174,7 +174,8 @@ MEDIA_PROCESSING_ENABLED: true
 #
 # model_cache:
 #   - base_dir: Container-side model directory (/opt/docling-mcp/models by default)
-#   - downloads: List of artefacts for automatic download (HuggingFace / ModelScope)
+#   - groups: Predefined Docling bundles to download via docling utils
+#   - downloads: Additional artefacts (HuggingFace / ModelScope) downloaded manually
 #
 # Legacy support: MEDIA_PROCESSING_DOCLING_FORMATS is still recognized but considered deprecated.
 MEDIA_PROCESSING_DOCLING:
@@ -196,9 +197,10 @@ MEDIA_PROCESSING_DOCLING:
         - CUDAExecutionProvider
         - CPUExecutionProvider
       repo_id: RapidAI/RapidOCR
-      det_model_path: rapidocr/onnx/PP-OCRv5/det/ch_PP-OCRv5_server_det.onnx
-      rec_model_path: rapidocr/onnx/PP-OCRv5/rec/ch_PP-OCRv5_rec_server_infer.onnx
-      cls_model_path: rapidocr/onnx/PP-OCRv4/cls/ch_ppocr_mobile_v2.0_cls_infer.onnx
+      det_model_path: RapidOcr/onnx/PP-OCRv4/det/ch_PP-OCRv4_det_infer.onnx
+      rec_model_path: RapidOcr/onnx/PP-OCRv4/rec/ch_PP-OCRv4_rec_infer.onnx
+      cls_model_path: RapidOcr/onnx/PP-OCRv4/cls/ch_ppocr_mobile_v2.0_cls_infer.onnx
+      rec_keys_path: RapidOcr/paddle/PP-OCRv4/rec/ch_PP-OCRv4_rec_infer/ppocr_keys_v1.txt
     easyocr:
       enabled: false
       languages:
@@ -224,15 +226,15 @@ MEDIA_PROCESSING_DOCLING:
     - tiff
   model_cache:
     base_dir: /opt/docling-mcp/models
-    downloads:
-      - name: rapidocr-default
-        type: huggingface
-        repo_id: RapidAI/RapidOCR
-        local_dir: rapidocr
-        allow_patterns:
-          - onnx/PP-OCRv5/det/ch_PP-OCRv5_server_det.onnx
-          - onnx/PP-OCRv5/rec/ch_PP-OCRv5_rec_server_infer.onnx
-          - onnx/PP-OCRv4/cls/ch_ppocr_mobile_v2.0_cls_infer.onnx
+    groups:
+      - name: layout
+      - name: tableformer
+      - name: code_formula
+      - name: picture_classifier
+      - name: rapidocr
+        backends:
+          - onnxruntime
+    downloads: []
 
 # Deprecated but supported legacy structure (list-only configuration):
 # MEDIA_PROCESSING_DOCLING_FORMATS:

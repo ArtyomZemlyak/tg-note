@@ -143,7 +143,7 @@ set_sync_progress_callback(my_callback)
 ## Поддерживаемые OCR бэкенды
 
 ### 1. RapidOCR (по умолчанию)
-- **Модели**: PP-OCRv5 (detection, recognition), PP-OCRv4 (classification)
+- **Модели**: PP-OCRv4 (detection/recognition/classification)
 - **Провайдеры**: CUDAExecutionProvider (GPU), CPUExecutionProvider
 - **Репозиторий**: `RapidAI/RapidOCR` (HuggingFace)
 - **Преимущества**: Быстрый, легковесный, хорошая точность
@@ -179,7 +179,7 @@ set_sync_progress_callback(my_callback)
 5. Настроить параметры моделей
 
 При изменении настроек:
-- Автоматически обновляется `data/docling/config/docling-config.json`
+- Контейнер читает общий `config.yaml`, пересборка файла больше не требуется
 - Запускается синхронизация моделей
 - Отправляются уведомления в Telegram о прогрессе
 
@@ -192,22 +192,32 @@ set_sync_progress_callback(my_callback)
 - Вызове MCP tool `sync_docling_models`
 
 ### Источники моделей
-1. **HuggingFace Hub** - основной источник
-2. **ModelScope** - альтернативный для китайских моделей
-3. **Локальный кэш** - `/opt/docling-mcp/models`
+1. **Docling Bundles (`model_cache.groups`)** — встроенные загрузчики (RapidOCR, layout, EasyOCR, GraniteDocling и т.д.)
+2. **HuggingFace Hub** — дополнительные репозитории из `model_cache.downloads`
+3. **ModelScope** — альтернативные источники для отдельных OCR моделей
+4. **Локальный кэш** — `/opt/docling-mcp/models`
 
 ### Добавление новых моделей
-Через `config.yaml` или настройки:
-```yaml
-MEDIA_PROCESSING_DOCLING:
-  model_cache:
-    downloads:
-      - name: custom-model
-        type: huggingface
-        repo_id: org/model-name
-        local_dir: custom
-        allow_patterns: ["*.onnx"]
-```
+Через `config.yaml` или панель настроек:
+- Добавьте новый бандл в `model_cache.groups`, например:
+  ```yaml
+  MEDIA_PROCESSING_DOCLING:
+    model_cache:
+      groups:
+        - name: rapidocr
+          backends: ["onnxruntime", "torch"]
+  ```
+- Для кастомных артефактов используйте `model_cache.downloads`:
+  ```yaml
+  MEDIA_PROCESSING_DOCLING:
+    model_cache:
+      downloads:
+        - name: custom-model
+          type: huggingface
+          repo_id: org/model-name
+          local_dir: custom
+          allow_patterns: ["*.onnx"]
+  ```
 
 ## Environment Variables
 

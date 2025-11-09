@@ -114,21 +114,22 @@ set `MEDIA_PROCESSING_DOCLING.mcp.url` to the appropriate endpoint.
 The Docling container is built from the repository (`docker/docling-mcp/Dockerfile`) with GPU support.
 Model artefacts and configuration are persisted under:
 
-- `data/docling/config` – rendered container configuration (`docling-config.json`)
+- `config.yaml` – общий файл настроек, используется и ботом, и Docling контейнером
 - `data/docling/models` – downloaded OCR/VLM models
 - `data/docling/cache` – HuggingFace / ModelScope caches
 - `logs/docling` – container logs
 
-Changing Docling settings via `/settings` regenerates the container configuration and automatically
-kicks off model downloads. Progress updates are sent back to the Telegram chat, so no separate command
-is required.
+Changing Docling settings via `/settings` updates the shared configuration and automatically triggers
+model downloads. Progress updates are sent back to the Telegram chat, so no separate command is
+required.
 
 Docling settings expose detailed controls under `MEDIA_PROCESSING_DOCLING`:
 
 - `startup_sync`: enable/disable automatic downloads on container start
 - `keep_images` / `generate_page_images`: embed page snapshots in the output
 - `ocr_config`: choose between `rapidocr`, `easyocr`, `tesseract`, `tesseract_cli`, or `onnxtr`
-- `model_cache.downloads`: list of model artefacts fetched from HuggingFace or ModelScope
+- `model_cache.groups`: Docling-managed bundles to pre-download (RapidOCR, layout, EasyOCR, VLMs, etc.)
+- `model_cache.downloads`: optional additional artefacts fetched from HuggingFace or ModelScope
 
 The default configuration ships with RapidOCR (GPU-enabled via ONNX Runtime). Switch to EasyOCR
 or Tesseract by updating `ocr_config.backend` and adjusting backend-specific sections.

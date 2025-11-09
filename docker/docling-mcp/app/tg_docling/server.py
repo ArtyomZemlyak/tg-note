@@ -7,22 +7,20 @@ import os
 from pathlib import Path
 from typing import List
 
-from docling_mcp.servers.mcp_server import (
-    ToolGroups,
-    TransportType,
-)
+from docling_mcp.servers.mcp_server import ToolGroups, TransportType
 from docling_mcp.servers.mcp_server import main as mcp_main
 from docling_mcp.shared import mcp
-from tg_docling.config import ContainerConfig, ensure_config_file, load_config
+from tg_docling.config import DEFAULT_SETTINGS_PATH, load_docling_settings
 from tg_docling.converter import install_converter
 from tg_docling.logging import configure_logging
 from tg_docling.model_sync import sync_models
 
+from config.settings import DoclingSettings, Settings
 from mcp.types import ToolAnnotations
 
 logger = logging.getLogger(__name__)
 
-CONFIG_PATH = Path(os.getenv("DOCLING_CONFIG_PATH", "/opt/docling-mcp/config/docling-config.json"))
+SETTINGS_PATH = Path(os.getenv("DOCLING_SETTINGS_PATH", str(DEFAULT_SETTINGS_PATH)))
 
 
 def _normalise_tool_names(names: List[str]) -> List[ToolGroups]:
@@ -38,28 +36,35 @@ def _normalise_tool_names(names: List[str]) -> List[ToolGroups]:
     return resolved
 
 
-def _run_startup_sync(config: ContainerConfig) -> None:
-    if not config.startup_sync:
+def _run_startup_sync(settings: DoclingSettings) -> None:
+    if not settings.startup_sync:
         logger.info("Startup model sync disabled by configuration")
         return
 
     logger.info("Running startup model synchronisation")
-    result = sync_models(config, force=False)
+    result = sync_models(settings, force=False)
     logger.debug("Startup sync result: %s", json.dumps(result, indent=2))
 
 
-def _apply_env_overrides(config: ContainerConfig) -> ContainerConfig:
-    models_dir = os.getenv("DOCLING_MODELS_DIR")
-    if models_dir:
-        config.model_cache.base_dir = Path(models_dir)
-    return config
+def _apply_env_overrides(settings: DoclingSettings) -> DoclingSettings:
+    models_dir_override = os.getenv("DOCLING_MODELS_DIR")
+    if models_dir_override:
+        settings.model_cache.base_dir = models_dir_override
+
+    models_dir = Path(settings.model_cache.base_dir)
+    os.environ.setdefault("DOCLING_MODELS_DIR", str(models_dir))
+    os.environ.setdefault(
+        "DOCLING_CACHE_DIR", os.getenv("DOCLING_CACHE_DIR", "/opt/docling-mcp/cache")
+    )
+    os.environ.setdefault("DOCLING_ARTIFACTS_PATH", str(models_dir))
+    return settings
 
 
-def _load_and_apply_config() -> ContainerConfig:
-    config_file = ensure_config_file(CONFIG_PATH)
-    config = _apply_env_overrides(load_config(config_file))
-    install_converter(config)
-    return config
+def _load_and_apply_settings() -> tuple[DoclingSettings, Settings]:
+    docling_settings, app_settings = load_docling_settings(SETTINGS_PATH)
+    docling_settings = _apply_env_overrides(docling_settings)
+    install_converter(docling_settings)
+    return docling_settings, app_settings
 
 
 @mcp.tool(
@@ -76,8 +81,8 @@ def sync_docling_models(force: bool = False) -> dict:
         force: When True existing model directories will be redownloaded.
     """
     try:
-        config = _load_and_apply_config()
-        result = sync_models(config, force=force)
+        docling_settings, _ = _load_and_apply_settings()
+        result = sync_models(docling_settings, force=force)
         return {"success": True, "force": force, "result": result}
     except Exception as exc:  # pragma: no cover - defensive
         logger.exception("Docling model sync failed")
@@ -87,10 +92,10 @@ def sync_docling_models(force: bool = False) -> dict:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Docling MCP container entrypoint")
     parser.add_argument(
-        "--config",
+        "--settings",
         type=str,
-        default=str(CONFIG_PATH),
-        help="Path to Docling container configuration file",
+        default=str(SETTINGS_PATH),
+        help="Path to tg-note settings YAML",
     )
     parser.add_argument(
         "--no-startup-sync",
@@ -102,18 +107,18 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    global CONFIG_PATH
-    CONFIG_PATH = Path(args.config)
+    global SETTINGS_PATH
+    SETTINGS_PATH = Path(args.settings)
+
+    docling_settings, app_settings = _load_and_apply_settings()
 
     log_dir = os.getenv("DOCLING_LOG_DIR", "/opt/docling-mcp/logs")
-    configure_logging(os.getenv("DOCLING_LOG_LEVEL", "INFO"), log_dir=log_dir)
-
-    config = _load_and_apply_config()
+    configure_logging(os.getenv("DOCLING_LOG_LEVEL", app_settings.LOG_LEVEL), log_dir=log_dir)
 
     if not args.no_startup_sync:
-        _run_startup_sync(config)
+        _run_startup_sync(docling_settings)
 
-    tool_names = config.mcp.tools
+    tool_names = docling_settings.mcp.tool_groups
     selected_tools = _normalise_tool_names(tool_names)
     if not selected_tools:
         logger.warning(
@@ -123,22 +128,24 @@ def main() -> None:
 
     logger.info(
         "Starting Docling MCP server (transport=%s, host=%s, port=%s, tools=%s)",
-        config.mcp.transport,
-        config.mcp.host,
-        config.mcp.port,
+        docling_settings.mcp.transport,
+        docling_settings.mcp.listen_host,
+        docling_settings.mcp.listen_port,
         [tool.value for tool in selected_tools],
     )
 
     try:
-        transport = TransportType(config.mcp.transport)
+        transport = TransportType(docling_settings.mcp.transport)
     except ValueError:
-        logger.warning("Unknown transport '%s', defaulting to 'sse'", config.mcp.transport)
+        logger.warning(
+            "Unknown transport '%s', defaulting to 'sse'", docling_settings.mcp.transport
+        )
         transport = TransportType.SSE
 
     mcp_main(
         transport=transport,
-        host=config.mcp.host,
-        port=config.mcp.port,
+        host=docling_settings.mcp.listen_host,
+        port=docling_settings.mcp.listen_port,
         tools=selected_tools,
     )
 

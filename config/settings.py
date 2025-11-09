@@ -166,9 +166,7 @@ class DoclingMCPSettings(BaseModel):
     listen_host: str = Field(
         default="0.0.0.0", description="Host interface for the Docling MCP container."
     )
-    listen_port: int = Field(
-        default=8077, description="Port for the Docling MCP container."
-    )
+    listen_port: int = Field(default=8077, description="Port for the Docling MCP container.")
     working_dir: Optional[str] = Field(
         default=None,
         description="Working directory for launching Docling MCP server (stdio transport).",
@@ -233,11 +231,15 @@ class DoclingModelDownloadSettings(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    name: str = Field(default="rapidocr-default", description="Friendly name for the download entry.")
+    name: str = Field(
+        default="rapidocr-default", description="Friendly name for the download entry."
+    )
     type: Literal["huggingface", "modelscope"] = Field(
         default="huggingface", description="Downloader backend to use."
     )
-    repo_id: Optional[str] = Field(default=None, description="Repository identifier (HuggingFace or ModelScope).")
+    repo_id: Optional[str] = Field(
+        default=None, description="Repository identifier (HuggingFace or ModelScope)."
+    )
     revision: Optional[str] = Field(default=None, description="Optional repo revision/tag.")
     local_dir: Optional[str] = Field(
         default=None,
@@ -255,7 +257,35 @@ class DoclingModelDownloadSettings(BaseModel):
         default_factory=list,
         description="Explicit list of files to download (alternative to allow_patterns).",
     )
-    extra: Dict[str, Any] = Field(default_factory=dict, description="Extra backend-specific download parameters.")
+    extra: Dict[str, Any] = Field(
+        default_factory=dict, description="Extra backend-specific download parameters."
+    )
+
+
+class DoclingModelGroupSettings(BaseModel):
+    """Predefined Docling model bundle download configuration."""
+
+    model_config = ConfigDict(extra="allow")
+
+    name: Literal[
+        "layout",
+        "tableformer",
+        "code_formula",
+        "picture_classifier",
+        "rapidocr",
+        "easyocr",
+        "smolvlm",
+        "granitedocling",
+        "granitedocling_mlx",
+        "smoldocling",
+        "smoldocling_mlx",
+        "granite_vision",
+    ] = Field(default="rapidocr", description="Name of the Docling model bundle to ensure.")
+    enabled: bool = Field(default=True, description="Whether this model group should be processed.")
+    backends: List[Literal["onnxruntime", "torch"]] = Field(
+        default_factory=list,
+        description="Optional RapidOCR backends to download. Ignored for other groups.",
+    )
 
 
 class DoclingModelCacheSettings(BaseModel):
@@ -267,21 +297,19 @@ class DoclingModelCacheSettings(BaseModel):
         default="/opt/docling-mcp/models",
         description="Default models directory inside the container.",
     )
-    downloads: List[DoclingModelDownloadSettings] = Field(
+    groups: List[DoclingModelGroupSettings] = Field(
         default_factory=lambda: [
-            DoclingModelDownloadSettings(
-                name="rapidocr-default",
-                type="huggingface",
-                repo_id="RapidAI/RapidOCR",
-                local_dir="rapidocr",
-                allow_patterns=[
-                    "onnx/PP-OCRv5/det/ch_PP-OCRv5_server_det.onnx",
-                    "onnx/PP-OCRv5/rec/ch_PP-OCRv5_rec_server_infer.onnx",
-                    "onnx/PP-OCRv4/cls/ch_ppocr_mobile_v2.0_cls_infer.onnx",
-                ],
-            )
+            DoclingModelGroupSettings(name="layout"),
+            DoclingModelGroupSettings(name="tableformer"),
+            DoclingModelGroupSettings(name="code_formula"),
+            DoclingModelGroupSettings(name="picture_classifier"),
+            DoclingModelGroupSettings(name="rapidocr", backends=["onnxruntime"]),
         ],
-        description="List of model downloads to ensure on startup.",
+        description="Predefined Docling model bundles to download using built-in helpers.",
+    )
+    downloads: List[DoclingModelDownloadSettings] = Field(
+        default_factory=list,
+        description="Custom model artefacts to download in addition to predefined bundles.",
     )
 
 
@@ -301,40 +329,58 @@ class DoclingRapidOCRSettings(BaseModel):
     )
     revision: Optional[str] = Field(default=None, description="Optional RapidOCR repo revision.")
     det_model_path: Optional[str] = Field(
-        default="rapidocr/onnx/PP-OCRv5/det/ch_PP-OCRv5_server_det.onnx",
+        default="RapidOcr/onnx/PP-OCRv4/det/ch_PP-OCRv4_det_infer.onnx",
         description="Detector model path relative to models base.",
     )
     rec_model_path: Optional[str] = Field(
-        default="rapidocr/onnx/PP-OCRv5/rec/ch_PP-OCRv5_rec_server_infer.onnx",
+        default="RapidOcr/onnx/PP-OCRv4/rec/ch_PP-OCRv4_rec_infer.onnx",
         description="Recognizer model path relative to models base.",
     )
     cls_model_path: Optional[str] = Field(
-        default="rapidocr/onnx/PP-OCRv4/cls/ch_ppocr_mobile_v2.0_cls_infer.onnx",
+        default="RapidOcr/onnx/PP-OCRv4/cls/ch_ppocr_mobile_v2.0_cls_infer.onnx",
         description="Classifier model path relative to models base.",
     )
-    rec_keys_path: Optional[str] = Field(default=None, description="Optional keys file for recognition.")
-    rapidocr_params: Dict[str, Any] = Field(default_factory=dict, description="Additional RapidOCR parameters.")
+    rec_keys_path: Optional[str] = Field(
+        default="RapidOcr/paddle/PP-OCRv4/rec/ch_PP-OCRv4_rec_infer/ppocr_keys_v1.txt",
+        description="Optional keys file for recognition.",
+    )
+    rapidocr_params: Dict[str, Any] = Field(
+        default_factory=dict, description="Additional RapidOCR parameters."
+    )
 
 
 class DoclingEasyOCRSettings(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     enabled: bool = Field(default=False, description="Enable EasyOCR backend.")
-    languages: List[str] = Field(default_factory=lambda: ["en"], description="EasyOCR language codes.")
-    gpu: Literal["auto", "cuda", "cpu"] = Field(default="auto", description="Preferred EasyOCR device.")
-    recog_network: Optional[str] = Field(default="standard", description="EasyOCR recognition network.")
-    model_storage_dir: Optional[str] = Field(
-        default=None, description="Override model storage directory relative to container base."
+    languages: List[str] = Field(
+        default_factory=lambda: ["en"], description="EasyOCR language codes."
     )
-    download_enabled: bool = Field(default=True, description="Allow EasyOCR to download missing models.")
-    extra: Dict[str, Any] = Field(default_factory=dict, description="Additional EasyOCR reader parameters.")
+    gpu: Literal["auto", "cuda", "cpu"] = Field(
+        default="auto", description="Preferred EasyOCR device."
+    )
+    recog_network: Optional[str] = Field(
+        default="standard", description="EasyOCR recognition network."
+    )
+    model_storage_dir: Optional[str] = Field(
+        default="EasyOcr",
+        description="Override model storage directory relative to container base.",
+    )
+    download_enabled: bool = Field(
+        default=True, description="Allow EasyOCR to download missing models."
+    )
+    extra: Dict[str, Any] = Field(
+        default_factory=dict, description="Additional EasyOCR reader parameters."
+    )
 
 
 class DoclingTesseractSettings(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     enabled: bool = Field(default=False, description="Enable Tesseract (tesserocr) backend.")
-    languages: List[str] = Field(default_factory=lambda: ["eng"], description="Language packs for Tesseract.")
+    languages: List[str] = Field(
+        default_factory=lambda: ["eng"], description="Language packs for Tesseract."
+    )
     tessdata_prefix: Optional[str] = Field(
         default=None,
         description="Optional custom tessdata directory path.",
@@ -343,23 +389,35 @@ class DoclingTesseractSettings(BaseModel):
         default=None,
         description="Tesseract page segmentation mode.",
     )
-    extra: Dict[str, Any] = Field(default_factory=dict, description="Additional options for the backend.")
+    extra: Dict[str, Any] = Field(
+        default_factory=dict, description="Additional options for the backend."
+    )
 
 
 class DoclingOnnxtrSettings(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     enabled: bool = Field(default=False, description="Enable Docling OnnxTR OCR backend.")
-    repo_id: Optional[str] = Field(default=None, description="Model repository for OnnxTR artefacts.")
+    repo_id: Optional[str] = Field(
+        default=None, description="Model repository for OnnxTR artefacts."
+    )
     revision: Optional[str] = Field(default=None, description="Optional OnnxTR repo revision.")
-    det_model_path: Optional[str] = Field(default=None, description="Detector model path relative to models base.")
-    rec_model_path: Optional[str] = Field(default=None, description="Recognizer model path relative to models base.")
-    cls_model_path: Optional[str] = Field(default=None, description="Classifier model path relative to models base.")
+    det_model_path: Optional[str] = Field(
+        default=None, description="Detector model path relative to models base."
+    )
+    rec_model_path: Optional[str] = Field(
+        default=None, description="Recognizer model path relative to models base."
+    )
+    cls_model_path: Optional[str] = Field(
+        default=None, description="Classifier model path relative to models base."
+    )
     providers: List[str] = Field(
         default_factory=lambda: ["CUDAExecutionProvider", "CPUExecutionProvider"],
         description="Preferred providers for OnnxTR onnxruntime.",
     )
-    extra: Dict[str, Any] = Field(default_factory=dict, description="Additional backend parameters.")
+    extra: Dict[str, Any] = Field(
+        default_factory=dict, description="Additional backend parameters."
+    )
 
 
 class DoclingOCRSettings(BaseModel):
@@ -586,23 +644,18 @@ class DoclingSettings(BaseModel):
             "backend": self.ocr_config.backend,
             "languages": list(languages),
             "force_full_page_ocr": self.ocr_config.force_full_page_ocr,
-            "rapidocr": self.ocr_config.rapidocr.model_dump(
-                mode="json", exclude_none=True
-            ),
-            "easyocr": self.ocr_config.easyocr.model_dump(
-                mode="json", exclude_none=True
-            ),
-            "tesseract": self.ocr_config.tesseract.model_dump(
-                mode="json", exclude_none=True
-            ),
-            "onnxtr": self.ocr_config.onnxtr.model_dump(
-                mode="json", exclude_none=True
-            ),
+            "rapidocr": self.ocr_config.rapidocr.model_dump(mode="json", exclude_none=True),
+            "easyocr": self.ocr_config.easyocr.model_dump(mode="json", exclude_none=True),
+            "tesseract": self.ocr_config.tesseract.model_dump(mode="json", exclude_none=True),
+            "onnxtr": self.ocr_config.onnxtr.model_dump(mode="json", exclude_none=True),
         }
 
         downloads = [
             download.model_dump(mode="json", exclude_none=True)
             for download in self.model_cache.downloads
+        ]
+        groups = [
+            group.model_dump(mode="json", exclude_none=True) for group in self.model_cache.groups
         ]
 
         return {
@@ -624,6 +677,7 @@ class DoclingSettings(BaseModel):
             },
             "model_cache": {
                 "base_dir": self.model_cache.base_dir,
+                "groups": groups,
                 "downloads": downloads,
             },
         }
