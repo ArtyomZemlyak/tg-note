@@ -129,7 +129,12 @@ def _create_converter(settings: DoclingSettings) -> DocumentConverter:
     pdf_options.artifacts_path = models_base
     pdf_options.generate_page_images = settings.generate_page_images or settings.keep_images
     pdf_options.do_ocr = settings.image_ocr_enabled
-    pdf_options.force_full_page_ocr = settings.ocr_config.force_full_page_ocr
+    if "force_full_page_ocr" in PdfPipelineOptions.model_fields:
+        pdf_options.force_full_page_ocr = settings.ocr_config.force_full_page_ocr
+    elif settings.ocr_config.force_full_page_ocr:
+        logger.warning(
+            "Docling PdfPipelineOptions does not support 'force_full_page_ocr'; option will be ignored."
+        )
 
     ocr_options = _build_ocr_options(settings, models_base=models_base)
     if ocr_options is not None:
