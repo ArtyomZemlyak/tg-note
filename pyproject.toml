@@ -19,7 +19,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.13"  # Add upper bound
 dependencies = [
     # Core dependencies
     "pydantic==2.10.4",
@@ -126,7 +126,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = ">=3.11,<3.13"  # Make consistent
 
 [tool.black]
 line-length = 100

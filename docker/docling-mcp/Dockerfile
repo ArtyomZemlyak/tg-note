@@ -50,7 +50,6 @@ RUN apt-get update && \
 # Ensure python alias and install pip tooling
 RUN ln -sf /usr/bin/python3.11 /usr/bin/python && \
     ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
-    python -m ensurepip && \
     python -m pip install --upgrade pip setuptools wheel
 
 # Install Python dependencies
