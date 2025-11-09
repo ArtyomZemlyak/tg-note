@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastmcp import Client
+from fastmcp.client.transports import StdioTransport
 from loguru import logger
 
 
@@ -148,7 +149,10 @@ class MCPClient:
         """
         try:
             # Prepare transport configuration
-            if self.config.transport == "auto-http" or self.config.url:
+            if (
+                self.config.transport in {"auto-http", "http", "streamable-http", "sse"}
+                or self.config.url
+            ):
                 # HTTP-based transport (SSE or Streaming HTTP)
                 # fastmcp.Client auto-detects which one based on server capabilities
                 transport_config = self.config.url
@@ -157,14 +161,12 @@ class MCPClient:
                 )
             elif self.config.transport == "stdio" or self.config.command:
                 # Stdio transport - build command dict
-                transport_config = {
-                    "command": self.config.command,
-                    "args": self.config.args,
-                }
-                if self.config.env:
-                    transport_config["env"] = self.config.env
-                if self.config.cwd:
-                    transport_config["cwd"] = str(self.config.cwd)
+                transport_config = StdioTransport(
+                    command=self.config.command,
+                    args=self.config.args,
+                    env=self.config.env or None,
+                    cwd=str(self.config.cwd) if self.config.cwd else None,
+                )
                 logger.info(f"[MCPClient] Connecting to MCP server (stdio): {self.config.command}")
             else:
                 raise ValueError(
@@ -184,23 +186,22 @@ class MCPClient:
             await self._client.__aenter__()
 
             # Wait for initialization to complete
-            if not self._client.is_connected:
+            if not self._client.is_connected():
                 logger.warning("[MCPClient] Client created but not connected yet, waiting...")
                 # The client should be connected after __aenter__
                 # If not, this is an error
                 raise RuntimeError("Client initialization failed")
 
             # List available tools
-            tools_response = await self._client.list_tools()
-
-            if tools_response and hasattr(tools_response, "tools"):
+            tools = await self._client.list_tools()
+            if tools:
                 self.tools = [
                     MCPToolSchema(
                         name=tool.name,
                         description=tool.description or "",
                         input_schema=tool.inputSchema or {},
                     )
-                    for tool in tools_response.tools
+                    for tool in tools
                 ]
                 logger.info(
                     f"[MCPClient] ✓ Connected. Available tools: {[t.name for t in self.tools]}"
@@ -276,42 +277,45 @@ class MCPClient:
             logger.debug(f"[MCPClient] Calling tool: {tool_name} with args: {arguments}")
 
             # Call tool using fastmcp.Client
-            response = await self._client.call_tool(tool_name, arguments)
+            response = await self._client.call_tool(
+                tool_name,
+                arguments or {},
+                raise_on_error=False,
+            )
 
-            if not response:
-                return {"success": False, "error": "No response from server"}
-
-            # Extract content from response
-            content = response.content if hasattr(response, "content") else []
+            content = list(response.content or [])
 
             # Parse content based on type for convenience string output
             output = []
             for item in content:
-                if hasattr(item, "type"):
-                    if item.type == "text":
-                        output.append(item.text if hasattr(item, "text") else "")
-                    elif item.type == "resource":
-                        resource_uri = (
-                            item.resource.uri
-                            if hasattr(item, "resource") and hasattr(item.resource, "uri")
-                            else ""
-                        )
-                        output.append(f"Resource: {resource_uri}")
-                    elif item.type == "markdown":
-                        output.append(
-                            item.text
-                            if hasattr(item, "text")
-                            else (item.markdown if hasattr(item, "markdown") else "")
-                        )
+                if getattr(item, "type", None) == "text":
+                    output.append(getattr(item, "text", "") or "")
+                elif getattr(item, "type", None) == "resource":
+                    resource = getattr(item, "resource", None)
+                    resource_uri = getattr(resource, "uri", "") if resource else ""
+                    output.append(f"Resource: {resource_uri}")
+                elif getattr(item, "type", None) == "markdown":
+                    text_value = getattr(item, "text", None)
+                    if text_value:
+                        output.append(text_value)
+                    else:
+                        output.append(getattr(item, "markdown", "") or "")
 
-            is_error = response.isError if hasattr(response, "isError") else False
+            is_error = response.is_error
 
             return {
-                "success": True,
+                "success": not is_error,
                 "output": "\n".join(output).strip() if output else "Tool executed successfully",
                 "is_error": is_error,
-                "result": {"content": content, "isError": is_error},
+                "result": {
+                    "content": content,
+                    "structuredContent": response.structured_content,
+                    "data": response.data,
+                    "isError": is_error,
+                },
                 "content": content,
+                "structured_content": response.structured_content,
+                "data": response.data,
             }
 
         except Exception as e:
@@ -324,22 +328,35 @@ class MCPClient:
                     logger.info("[MCPClient] Reconnected successfully, retrying tool call...")
                     # Retry the tool call once
                     try:
-                        response = await self._client.call_tool(tool_name, arguments)
-                        if response:
-                            content = response.content if hasattr(response, "content") else []
-                            output = []
-                            for item in content:
-                                if hasattr(item, "type") and item.type == "text":
-                                    output.append(item.text if hasattr(item, "text") else "")
-                            return {
-                                "success": True,
-                                "output": (
-                                    "\n".join(output).strip()
-                                    if output
-                                    else "Tool executed successfully"
-                                ),
+                        response = await self._client.call_tool(
+                            tool_name,
+                            arguments or {},
+                            raise_on_error=False,
+                        )
+                        content = list(response.content or [])
+                        output = [
+                            getattr(item, "text", "") or ""
+                            for item in content
+                            if getattr(item, "type", None) == "text"
+                        ]
+                        return {
+                            "success": not response.is_error,
+                            "output": (
+                                "\n".join(output).strip()
+                                if output
+                                else "Tool executed successfully"
+                            ),
+                            "content": content,
+                            "structured_content": response.structured_content,
+                            "data": response.data,
+                            "is_error": response.is_error,
+                            "result": {
                                 "content": content,
-                            }
+                                "structuredContent": response.structured_content,
+                                "data": response.data,
+                                "isError": response.is_error,
+                            },
+                        }
                     except Exception as retry_error:
                         return {
                             "success": False,
@@ -385,20 +402,17 @@ class MCPClient:
             return []
 
         try:
-            response = await self._client.list_resources()
+            resources = await self._client.list_resources()
 
-            if response and hasattr(response, "resources"):
-                return [
-                    {
-                        "uri": res.uri,
-                        "name": res.name if hasattr(res, "name") else res.uri,
-                        "description": res.description if hasattr(res, "description") else "",
-                        "mimeType": res.mimeType if hasattr(res, "mimeType") else None,
-                    }
-                    for res in response.resources
-                ]
-
-            return []
+            return [
+                {
+                    "uri": res.uri,
+                    "name": getattr(res, "name", res.uri),
+                    "description": getattr(res, "description", "") or "",
+                    "mimeType": getattr(res, "mimeType", None),
+                }
+                for res in resources
+            ]
 
         except Exception as e:
             logger.error(f"[MCPClient] Failed to list resources: {e}")
@@ -418,26 +432,20 @@ class MCPClient:
             return None
 
         try:
-            response = await self._client.read_resource(uri)
+            contents = await self._client.read_resource(uri)
 
-            if response and hasattr(response, "contents"):
-                return {
-                    "contents": [
-                        {
-                            "uri": content.uri if hasattr(content, "uri") else uri,
-                            "text": content.text if hasattr(content, "text") else None,
-                            "mimeType": content.mimeType if hasattr(content, "mimeType") else None,
-                            "blob": (
-                                content.blob
-                                if hasattr(content, "blob")
-                                else (content.base64 if hasattr(content, "base64") else None)
-                            ),
-                        }
-                        for content in response.contents
-                    ]
-                }
-
-            return None
+            return {
+                "contents": [
+                    {
+                        "uri": getattr(content, "uri", uri),
+                        "text": getattr(content, "text", None),
+                        "mimeType": getattr(content, "mimeType", None),
+                        "blob": getattr(content, "blob", None)
+                        or getattr(content, "base64", None),
+                    }
+                    for content in contents
+                ]
+            }
 
         except Exception as e:
             logger.error(f"[MCPClient] Failed to read resource {uri}: {e}")
@@ -456,34 +464,23 @@ class MCPClient:
             return []
 
         try:
-            response = await self._client.list_prompts()
+            prompts = await self._client.list_prompts()
 
-            if response and hasattr(response, "prompts"):
-                return [
-                    {
-                        "name": prompt.name,
-                        "description": (
-                            prompt.description if hasattr(prompt, "description") else ""
-                        ),
-                        "arguments": (
-                            [
-                                {
-                                    "name": arg.name,
-                                    "description": (
-                                        arg.description if hasattr(arg, "description") else ""
-                                    ),
-                                    "required": arg.required if hasattr(arg, "required") else False,
-                                }
-                                for arg in prompt.arguments
-                            ]
-                            if hasattr(prompt, "arguments")
-                            else []
-                        ),
-                    }
-                    for prompt in response.prompts
-                ]
-
-            return []
+            return [
+                {
+                    "name": prompt.name,
+                    "description": getattr(prompt, "description", "") or "",
+                    "arguments": [
+                        {
+                            "name": arg.name,
+                            "description": getattr(arg, "description", "") or "",
+                            "required": getattr(arg, "required", False),
+                        }
+                        for arg in getattr(prompt, "arguments", []) or []
+                    ],
+                }
+                for prompt in prompts
+            ]
 
         except Exception as e:
             logger.error(f"[MCPClient] Failed to list prompts: {e}")
