@@ -1,46 +1,36 @@
-# Core Docling MCP Server
+--extra-index-url https://download.pytorch.org/whl/cu121
+
+# Core Docling MCP Server with CLI entrypoints
 docling-mcp==1.3.2
 
-# Docling with all optional extras
-# vlm: Vision-Language Models support
-# asr: Automatic Speech Recognition
-# easyocr: EasyOCR backend
-# tesserocr: Tesseract OCR Python wrapper
-# rapidocr: RapidOCR backend
-docling[vlm,asr,easyocr,tesserocr,rapidocr]
+# Docling core with optional extras required by the container
+docling[easyocr,rapidocr,tesserocr,vlm,asr]>=2.61.1
 
-# RapidOCR with GPU support
+# OCR backends and GPU runtimes
 rapidocr-onnxruntime>=1.3.0
-
-# ONNX Runtime with GPU support for model inference
 onnxruntime-gpu>=1.18.0
 onnxruntime>=1.18.0
-
-# EasyOCR for optical character recognition
-easyocr>=1.7.0
-
-# Tesseract Python binding
+docling-ocr-onnxtr[cpu]>=0.1.0
+easyocr>=1.7.1
 tesserocr>=2.6.0
 
-# OnnxTR OCR backend (CPU version, GPU will use CUDA from base image)
-docling-ocr-onnxtr[cpu]>=0.1.0
-
-# Model Hub integrations
-huggingface-hub>=0.26.0
+# Model download helpers
+huggingface-hub>=0.36.0
 modelscope>=1.11.0
 
-# Configuration and utilities
-PyYAML>=6.0.1
-pydantic>=2.0.0
+# Deep learning stack (CUDA 12.1 wheels)
+torch==2.3.1+cu121
+torchvision==0.18.1+cu121
+torchaudio==2.3.1+cu121
+accelerate>=1.1.0
+transformers>=4.40.0
 
-# AICODE-NOTE: Additional dependencies for VLM and advanced OCR features
-# These are typically pulled in by docling extras but listed explicitly for clarity
-torch>=2.0.0
-torchvision>=0.15.0
-transformers>=4.30.0
-pillow>=10.0.0
+# Imaging and scientific utilities
 opencv-python>=4.8.0
-
-# HTTP client for model downloads
-requests>=2.31.0
+pillow>=10.0.0
+requests>=2.32.0
 tqdm>=4.66.0
+
+# Configuration helpers
+PyYAML>=6.0.1
+pydantic>=2.10.0

@@ -52,6 +52,9 @@ def _apply_env_overrides(config: ContainerConfig) -> ContainerConfig:
     models_dir = os.getenv("DOCLING_MODELS_DIR")
     if models_dir:
         config.model_cache.base_dir = Path(models_dir)
+    os.environ.setdefault("DOCLING_MODELS_DIR", str(config.model_cache.base_dir))
+    os.environ.setdefault("DOCLING_CACHE_DIR", str(config.model_cache.base_dir))
+    os.environ.setdefault("DOCLING_ARTIFACTS_PATH", str(config.model_cache.base_dir))
     return config
 
 

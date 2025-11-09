@@ -126,6 +126,7 @@ def _create_converter(config: ContainerConfig) -> DocumentConverter:
     models_base.mkdir(parents=True, exist_ok=True)
 
     pdf_options = PdfPipelineOptions()
+    pdf_options.artifacts_path = models_base
     pdf_options.generate_page_images = (
         config.converter.generate_page_images or config.converter.keep_images
     )

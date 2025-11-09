@@ -31,25 +31,41 @@ class ModelDownloadConfig(BaseModel):
     extra: Dict[str, Any] = Field(default_factory=dict)
 
 
+class ModelGroupConfig(BaseModel):
+    """Describes a predefined Docling model bundle to download."""
+
+    name: Literal[
+        "layout",
+        "tableformer",
+        "code_formula",
+        "picture_classifier",
+        "rapidocr",
+        "easyocr",
+        "smolvlm",
+        "granitedocling",
+        "granitedocling_mlx",
+        "smoldocling",
+        "smoldocling_mlx",
+        "granite_vision",
+    ]
+    enabled: bool = True
+    backends: List[Literal["onnxruntime", "torch"]] = Field(default_factory=list)
+
+
 class ModelCacheConfig(BaseModel):
     """Model cache and download configuration."""
 
     base_dir: Path = Path("/opt/docling-mcp/models")
-    downloads: List[ModelDownloadConfig] = Field(
+    groups: List[ModelGroupConfig] = Field(
         default_factory=lambda: [
-            ModelDownloadConfig(
-                name="rapidocr-default",
-                type="huggingface",
-                repo_id="RapidAI/RapidOCR",
-                local_dir="rapidocr",
-                allow_patterns=[
-                    "onnx/PP-OCRv5/det/ch_PP-OCRv5_server_det.onnx",
-                    "onnx/PP-OCRv5/rec/ch_PP-OCRv5_rec_server_infer.onnx",
-                    "onnx/PP-OCRv4/cls/ch_ppocr_mobile_v2.0_cls_infer.onnx",
-                ],
-            )
+            ModelGroupConfig(name="layout"),
+            ModelGroupConfig(name="tableformer"),
+            ModelGroupConfig(name="code_formula"),
+            ModelGroupConfig(name="picture_classifier"),
+            ModelGroupConfig(name="rapidocr", backends=["onnxruntime"]),
         ]
     )
+    downloads: List[ModelDownloadConfig] = Field(default_factory=list)
 
 
 class RapidOCRConfig(BaseModel):
@@ -62,10 +78,12 @@ class RapidOCRConfig(BaseModel):
     )
     repo_id: Optional[str] = "RapidAI/RapidOCR"
     revision: Optional[str] = None
-    det_model_path: Optional[str] = "rapidocr/onnx/PP-OCRv5/det/ch_PP-OCRv5_server_det.onnx"
-    rec_model_path: Optional[str] = "rapidocr/onnx/PP-OCRv5/rec/ch_PP-OCRv5_rec_server_infer.onnx"
-    cls_model_path: Optional[str] = "rapidocr/onnx/PP-OCRv4/cls/ch_ppocr_mobile_v2.0_cls_infer.onnx"
-    rec_keys_path: Optional[str] = None
+    det_model_path: Optional[str] = "RapidOcr/onnx/PP-OCRv4/det/ch_PP-OCRv4_det_infer.onnx"
+    rec_model_path: Optional[str] = "RapidOcr/onnx/PP-OCRv4/rec/ch_PP-OCRv4_rec_infer.onnx"
+    cls_model_path: Optional[str] = "RapidOcr/onnx/PP-OCRv4/cls/ch_ppocr_mobile_v2.0_cls_infer.onnx"
+    rec_keys_path: Optional[str] = (
+        "RapidOcr/paddle/PP-OCRv4/rec/ch_PP-OCRv4_rec_infer/ppocr_keys_v1.txt"
+    )
     rapidocr_params: Dict[str, Any] = Field(default_factory=dict)
 
 
@@ -76,7 +94,7 @@ class EasyOCRConfig(BaseModel):
     languages: List[str] = Field(default_factory=lambda: ["en"])
     gpu: Literal["auto", "cuda", "cpu"] = "auto"
     recog_network: Optional[str] = "standard"
-    model_storage_dir: Optional[str] = None
+    model_storage_dir: Optional[str] = "EasyOcr"
     download_enabled: bool = True
     extra: Dict[str, Any] = Field(default_factory=dict)
 

@@ -183,8 +183,9 @@ def test_docling_settings_defaults():
     assert cfg.generate_page_images is False
     assert cfg.startup_sync is True
     assert cfg.ocr_config.backend == "rapidocr"
-    assert cfg.model_cache.downloads
-    assert cfg.model_cache.downloads[0].repo_id == "RapidAI/RapidOCR"
+    assert cfg.model_cache.groups
+    assert cfg.model_cache.groups[-1].name == "rapidocr"
+    assert cfg.model_cache.downloads == []
 
 
 def test_docling_settings_local_backend_toggle():
@@ -204,7 +205,9 @@ def test_docling_settings_container_config():
     container_cfg = cfg.to_container_config()
 
     assert container_cfg["converter"]["ocr"]["backend"] == "rapidocr"
-    assert container_cfg["model_cache"]["downloads"][0]["repo_id"] == "RapidAI/RapidOCR"
+    assert container_cfg["model_cache"]["groups"]
+    assert container_cfg["model_cache"]["groups"][-1]["name"] == "rapidocr"
+    assert container_cfg["model_cache"]["downloads"] == []
     assert container_cfg["mcp"]["transport"] == "sse"
     assert container_cfg["mcp"]["port"] == 8077
     assert container_cfg["startup_sync"] is True

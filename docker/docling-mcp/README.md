@@ -63,8 +63,8 @@ Docker container for Docling document processing with MCP (Model Context Protoco
 ├── config/                  # Configuration directory (volume)
 │   └── docling-config.json # Runtime configuration
 ├── models/                  # Model cache (volume)
-│   ├── rapidocr/           # RapidOCR models
-│   ├── easyocr/            # EasyOCR models
+│   ├── RapidOcr/           # RapidOCR models
+│   ├── EasyOcr/            # EasyOCR models
 │   └── ...
 ├── cache/                   # General cache (volume)
 │   └── huggingface/        # HuggingFace model cache
@@ -102,14 +102,16 @@ Configuration is managed through `docling-config.json` which is automatically ge
         "enabled": true,
         "backend": "onnxruntime",
         "providers": ["CUDAExecutionProvider", "CPUExecutionProvider"],
-        "det_model_path": "rapidocr/onnx/PP-OCRv5/det/ch_PP-OCRv5_server_det.onnx",
-        "rec_model_path": "rapidocr/onnx/PP-OCRv5/rec/ch_PP-OCRv5_rec_server_infer.onnx",
-        "cls_model_path": "rapidocr/onnx/PP-OCRv4/cls/ch_ppocr_mobile_v2.0_cls_infer.onnx"
+        "det_model_path": "RapidOcr/onnx/PP-OCRv4/det/ch_PP-OCRv4_det_infer.onnx",
+        "rec_model_path": "RapidOcr/onnx/PP-OCRv4/rec/ch_PP-OCRv4_rec_infer.onnx",
+        "cls_model_path": "RapidOcr/onnx/PP-OCRv4/cls/ch_ppocr_mobile_v2.0_cls_infer.onnx",
+        "rec_keys_path": "RapidOcr/paddle/PP-OCRv4/rec/ch_PP-OCRv4_rec_infer/ppocr_keys_v1.txt"
       },
       "easyocr": {
         "enabled": false,
         "languages": ["en"],
-        "gpu": "auto"
+        "gpu": "auto",
+        "model_storage_dir": "EasyOcr"
       },
       "tesseract": {
         "enabled": false,
@@ -122,19 +124,14 @@ Configuration is managed through `docling-config.json` which is automatically ge
   },
   "model_cache": {
     "base_dir": "/opt/docling-mcp/models",
-    "downloads": [
-      {
-        "name": "rapidocr-default",
-        "type": "huggingface",
-        "repo_id": "RapidAI/RapidOCR",
-        "local_dir": "rapidocr",
-        "allow_patterns": [
-          "onnx/PP-OCRv5/det/ch_PP-OCRv5_server_det.onnx",
-          "onnx/PP-OCRv5/rec/ch_PP-OCRv5_rec_server_infer.onnx",
-          "onnx/PP-OCRv4/cls/ch_ppocr_mobile_v2.0_cls_infer.onnx"
-        ]
-      }
-    ]
+    "groups": [
+      {"name": "layout"},
+      {"name": "tableformer"},
+      {"name": "code_formula"},
+      {"name": "picture_classifier"},
+      {"name": "rapidocr", "backends": ["onnxruntime"]}
+    ],
+    "downloads": []
   }
 }
 ```
@@ -144,7 +141,7 @@ Configuration is managed through `docling-config.json` which is automatically ge
 ### RapidOCR (Default)
 - **Pros**: Fast, lightweight, good accuracy, GPU support
 - **Use case**: General document OCR, Chinese/English documents
-- **Models**: PP-OCRv5 (detection), PP-OCRv5 (recognition), PP-OCRv4 (classification)
+- **Models**: PP-OCRv4 (detection/recognition/classification)
 
 ### EasyOCR
 - **Pros**: Support for 80+ languages, good accuracy
@@ -165,27 +162,29 @@ Configuration is managed through `docling-config.json` which is automatically ge
 
 ### Automatic Model Download
 
-Models are automatically downloaded on container startup based on configuration. The `sync_docling_models` MCP tool can be called to trigger manual synchronization.
+Models are automatically downloaded on container startup based on configuration. The container first processes `model_cache.groups`, which maps to Docling’s built-in download helpers (layout, tableformer, RapidOCR, EasyOCR, GraniteDocling, etc.). The `sync_docling_models` MCP tool can be called to trigger manual synchronization on demand.
 
 ### Model Sources
 
-1. **HuggingFace Hub**: Primary source for pre-trained models
-2. **ModelScope**: Alternative source for Chinese models
-3. **Local Cache**: Persistent storage in `/opt/docling-mcp/models`
+1. **Docling Bundles** (`model_cache.groups`): Uses `docling.utils.model_downloader` to fetch official models with the expected folder layout.
+2. **HuggingFace Hub**: Additional repositories defined in `model_cache.downloads`.
+3. **ModelScope**: Optional alternative source for certain OCR artefacts.
+4. **Local Cache**: Persistent storage in `/opt/docling-mcp/models`.
 
 ### Adding New Models
 
-Add model download entries to `model_cache.downloads` in configuration:
+- Prefer adding bundles to `model_cache.groups` to leverage Docling’s managed downloads and directory structure.
+- For bespoke artefacts, add entries to `model_cache.downloads`:
 
-```json
-{
-  "name": "custom-ocr",
-  "type": "huggingface",
-  "repo_id": "organization/model-name",
-  "local_dir": "custom-ocr",
-  "allow_patterns": ["*.onnx", "*.pth"]
-}
-```
+  ```json
+  {
+    "name": "custom-ocr",
+    "type": "huggingface",
+    "repo_id": "organization/model-name",
+    "local_dir": "custom-ocr",
+    "allow_patterns": ["*.onnx", "*.pth"]
+  }
+  ```
 
 ## Environment Variables
 
