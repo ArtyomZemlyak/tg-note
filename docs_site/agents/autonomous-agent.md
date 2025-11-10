@@ -53,7 +53,7 @@ Unlike the Qwen Code CLI agent (which uses Node.js), the autonomous agent is pur
 
 ### Prerequisites
 
-- Python 3.11+
+- Python 3.11 or 3.12
 - Poetry (recommended) or pip
 - OpenAI API key or compatible API endpoint
 

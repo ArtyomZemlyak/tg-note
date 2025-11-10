@@ -3,7 +3,7 @@
 > **Intelligent Knowledge Base Builder** - Telegram bot that automatically transforms your messages, reposts, and articles into a structured knowledge base using AI agents.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11-3.12](https://img.shields.io/badge/python-3.11--3.12-blue.svg)](https://www.python.org/downloads/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://artyomzemlyak.github.io/tg-note/)
 
@@ -87,7 +87,7 @@ Start with `/start` and follow the buttons!
 
 ### Prerequisites
 
-- **Python 3.11+**
+- **Python 3.11 or 3.12** (Python 3.13 is not supported)
 - **Poetry** (Python dependency manager)
 - **Git**
 - **Telegram Account**
@@ -213,13 +213,17 @@ AGENT_TYPE: "qwen_code_cli"
 1. **Start the bot**
 
 ```bash
-# Recommended (via console script)
+# Recommended: Use the console script
 poetry run tg-note
 
 # Or directly with Python
 poetry run python main.py
 
 # If installed with pip (outside Poetry)
+tg-note
+
+# Or activate the virtual environment first:
+poetry shell
 tg-note
 ```
 

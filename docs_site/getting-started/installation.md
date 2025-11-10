@@ -8,7 +8,7 @@ Detailed installation instructions for tg-note.
 
 ### Required
 
-- **Python 3.11 or higher**
+- **Python 3.11 or 3.12** (Python 3.13 is not supported)
 - **Poetry** - Python dependency manager
 - **Git** - Version control system
 - **Telegram Account** - To create and use the bot
@@ -24,7 +24,7 @@ Detailed installation instructions for tg-note.
 
 === "Local Installation"
 
-    ### 1. Install Python 3.11+
+    ### 1. Install Python 3.11 or 3.12
 
     Check your Python version:
 
@@ -32,7 +32,10 @@ Detailed installation instructions for tg-note.
     python3 --version
     ```
 
-    If you need to install Python 3.11+:
+    !!! warning "Python Version"
+        tg-note requires Python 3.11 or 3.12. Python 3.13 is not currently supported.
+
+    If you need to install Python 3.11 or 3.12:
 
     === "Ubuntu/Debian"
         ```bash
@@ -235,6 +238,10 @@ poetry run python -c "from config import settings; print(settings)"
 ### Test Bot Connection
 
 ```bash
+# Recommended: Use the console script
+poetry run tg-note
+
+# Or directly with Python
 poetry run python main.py
 ```
 

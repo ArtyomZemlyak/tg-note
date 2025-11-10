@@ -8,7 +8,7 @@ Get up and running with tg-note in just a few minutes!
 
 Before you begin, ensure you have:
 
-- **Python 3.11+** installed
+- **Python 3.11 or 3.12** installed
 - **Poetry** (Python dependency manager)
 - **Git** installed
 - **Telegram Account**
@@ -109,9 +109,16 @@ ALLOWED_USER_IDS: ""
 ### Start the Bot
 
 ```bash
+# Recommended: Use the console script
+poetry run tg-note
+
+# Or directly with Python
 poetry run python main.py
-# or activate the virtual environment first:
+
+# Or activate the virtual environment first:
 poetry shell
+tg-note
+# or
 python main.py
 ```
 
