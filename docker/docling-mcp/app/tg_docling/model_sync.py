@@ -7,7 +7,7 @@ import shutil
 import sys
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterator, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional
 
 from docling.datamodel.pipeline_options import (
     LayoutOptions,
@@ -38,7 +38,10 @@ except Exception:  # pragma: no cover - optional dependency
 from tg_docling.config import DEFAULT_SETTINGS_PATH, load_docling_settings
 from tg_docling.converter import install_converter
 
-from config.settings import DoclingModelDownloadSettings, DoclingModelGroupSettings, DoclingSettings
+from config.settings import DoclingModelDownloadSettings, DoclingSettings
+
+if TYPE_CHECKING:
+    from config.settings import DoclingBuiltinModelCacheSettings
 
 logger = logging.getLogger(__name__)
 
@@ -48,22 +51,22 @@ _sync_progress_callback: Optional[Callable[[str, Dict[str, Any]], None]] = None
 
 SUPPORTED_RAPIDOCR_BACKENDS = tuple(sorted(RapidOcrModel._default_models.keys()))
 
-_MODEL_GROUP_FLAG_MAP: Dict[str, str] = {
+_DOC_MODEL_FLAG_MAP: Dict[str, str] = {
     "layout": "with_layout",
     "tableformer": "with_tableformer",
     "code_formula": "with_code_formula",
     "picture_classifier": "with_picture_classifier",
-    "rapidocr": "with_rapidocr",
-    "easyocr": "with_easyocr",
     "smolvlm": "with_smolvlm",
     "granitedocling": "with_granitedocling",
     "granitedocling_mlx": "with_granitedocling_mlx",
     "smoldocling": "with_smoldocling",
     "smoldocling_mlx": "with_smoldocling_mlx",
     "granite_vision": "with_granite_vision",
+    "rapidocr": "with_rapidocr",
+    "easyocr": "with_easyocr",
 }
 
-_MODEL_GROUP_PATH_MAP: Dict[str, Callable[[Path], Path]] = {
+_DOC_MODEL_PATH_MAP: Dict[str, Callable[[Path], Path]] = {
     "layout": lambda base: base / LayoutOptions().model_spec.model_repo_folder,
     "tableformer": lambda base: base / TableStructureModel._model_repo_folder,  # type: ignore[attr-defined]
     "code_formula": lambda base: base / CodeFormulaModel._model_repo_folder,  # type: ignore[attr-defined]
@@ -77,21 +80,6 @@ _MODEL_GROUP_PATH_MAP: Dict[str, Callable[[Path], Path]] = {
     "smoldocling": lambda base: base / SMOLDOCLING_TRANSFORMERS.repo_cache_folder,
     "smoldocling_mlx": lambda base: base / SMOLDOCLING_MLX.repo_cache_folder,
     "granite_vision": lambda base: base / granite_picture_description.repo_cache_folder,
-}
-
-_DOC_MODELS_KWARGS_TEMPLATE: Dict[str, bool] = {
-    "with_layout": False,
-    "with_tableformer": False,
-    "with_code_formula": False,
-    "with_picture_classifier": False,
-    "with_smolvlm": False,
-    "with_granitedocling": False,
-    "with_granitedocling_mlx": False,
-    "with_smoldocling": False,
-    "with_smoldocling_mlx": False,
-    "with_granite_vision": False,
-    "with_rapidocr": False,
-    "with_easyocr": False,
 }
 
 _HF_TRANSFER_FAST_DOWNLOAD_AVAILABLE: Optional[bool] = None
@@ -235,41 +223,67 @@ def _download_rapidocr_backends(base_dir: Path, backends: List[str], force: bool
     return {"status": status, "backends": backend_results, "path": str(base_path)}
 
 
-def _download_model_group(
-    base_dir: Path, group: DoclingModelGroupSettings, force: bool
+def _doc_model_flag_kwargs(target_flag: str) -> Dict[str, bool]:
+    """Build argument dictionary for docling download helper."""
+    kwargs = {flag_name: False for flag_name in _DOC_MODEL_FLAG_MAP.values()}
+    kwargs[target_flag] = True
+    return kwargs
+
+
+def _download_docling_bundle(base_dir: Path, target_flag: str, force: bool) -> None:
+    """Invoke Docling's managed downloader for a specific model bundle."""
+    kwargs = _doc_model_flag_kwargs(target_flag)
+    download_model_bundles(output_dir=base_dir, force=force, progress=False, **kwargs)
+
+
+def _resolve_model_path(base_dir: Path, model_name: str) -> str:
+    """Resolve canonical model path for a Docling bundle."""
+    path_factory = _DOC_MODEL_PATH_MAP.get(model_name)
+    target_path = path_factory(base_dir) if path_factory else base_dir
+    return str(target_path)
+
+
+def _sync_builtin_model(
+    base_dir: Path,
+    model_name: str,
+    builtin_settings: "DoclingBuiltinModelCacheSettings",
+    force: bool,
 ) -> Dict[str, Any]:
-    """Download a predefined Docling model group using Docling helpers."""
-    result: Dict[str, Any] = {"name": group.name, "kind": "group"}
+    """Ensure a single Docling-managed bundle is present according to configuration."""
+    result: Dict[str, Any] = {"name": model_name, "kind": "builtin"}
 
-    if not group.enabled:
-        result.update({"status": "skipped", "reason": "disabled"})
+    flag_name = _DOC_MODEL_FLAG_MAP.get(model_name)
+    if flag_name is None:
+        result.update({"status": "error", "error": f"unsupported builtin model '{model_name}'"})
         return result
 
-    if group.name not in _MODEL_GROUP_FLAG_MAP:
-        result.update({"status": "skipped", "reason": f"unsupported group '{group.name}'"})
-        return result
+    if model_name == "rapidocr":
+        rapidocr_cfg = builtin_settings.rapidocr
+        if not rapidocr_cfg.enabled:
+            result.update({"status": "skipped", "reason": "disabled"})
+            return result
 
-    try:
-        if group.name == "rapidocr":
-            requested_backends = list(group.backends)
-            if requested_backends and set(requested_backends) != set(SUPPORTED_RAPIDOCR_BACKENDS):
-                result.update(_download_rapidocr_backends(base_dir, requested_backends, force))
-                return result
+        if rapidocr_cfg.wants_builtin_download():
+            logger.info("Downloading RapidOCR bundle using Docling defaults")
+            _download_docling_bundle(base_dir, flag_name, force)
+            result.update(
+                {"status": "downloaded", "path": _resolve_model_path(base_dir, model_name)}
+            )
+            return result
 
-        kwargs = dict(_DOC_MODELS_KWARGS_TEMPLATE)
-        kwargs[_MODEL_GROUP_FLAG_MAP[group.name]] = True
+        requested_backends = rapidocr_cfg.backends or list(SUPPORTED_RAPIDOCR_BACKENDS)
+        logger.info(
+            "Downloading RapidOCR bundle using custom backends: %s",
+            ", ".join(requested_backends),
+        )
+        backend_result = _download_rapidocr_backends(base_dir, requested_backends, force)
+        backend_result["name"] = model_name
+        backend_result["kind"] = "builtin"
+        return backend_result
 
-        download_model_bundles(output_dir=base_dir, force=force, progress=False, **kwargs)
-
-        path_func = _MODEL_GROUP_PATH_MAP.get(group.name)
-        if path_func:
-            result.update({"status": "downloaded", "path": str(path_func(base_dir))})
-        else:
-            result.update({"status": "downloaded", "path": str(base_dir)})
-    except Exception as exc:
-        logger.exception("Failed to download model group %s", group.name)
-        result.update({"status": "error", "error": str(exc)})
-
+    logger.info("Downloading Docling bundle '%s'", model_name)
+    _download_docling_bundle(base_dir, flag_name, force)
+    result.update({"status": "downloaded", "path": _resolve_model_path(base_dir, model_name)})
     return result
 
 
@@ -411,15 +425,25 @@ def sync_models(settings: DoclingSettings, force: bool = False) -> Dict[str, Any
     Returns a structured dictionary describing performed operations.
     """
     results: List[Dict[str, Any]] = []
-    group_results: List[Dict[str, Any]] = []
+    builtin_results: List[Dict[str, Any]] = []
     download_results: List[Dict[str, Any]] = []
 
     base_dir = Path(settings.model_cache.base_dir)
     base_dir.mkdir(parents=True, exist_ok=True)
 
-    enabled_groups = [group for group in settings.model_cache.groups if group.enabled]
+    _, pipeline_missing = settings.resolved_pipeline_flags()
+    for missing in pipeline_missing:
+        logger.warning(
+            "Docling pipeline configuration requires '%s', but the corresponding model bundle is disabled. "
+            "The related stage will be skipped until the bundle is enabled.",
+            missing,
+        )
+
+    builtin_settings = settings.model_cache.builtin_models
+    enabled_map = builtin_settings.enabled_model_map()
+    enabled_builtin = [name for name in _DOC_MODEL_FLAG_MAP.keys() if enabled_map.get(name)]
     extra_downloads = list(settings.model_cache.downloads)
-    total_items = len(enabled_groups) + len(extra_downloads)
+    total_items = len(enabled_builtin) + len(extra_downloads)
     logger.info("Synchronising Docling model artefacts (force=%s)", force)
     _notify_progress(
         f"🔄 Starting model synchronization ({total_items} items)...",
@@ -429,7 +453,7 @@ def sync_models(settings: DoclingSettings, force: bool = False) -> Dict[str, Any
     if total_items == 0:
         _notify_progress("✅ No Docling model downloads requested.", {"status": "completed"})
         return {
-            "groups": group_results,
+            "builtin": builtin_results,
             "downloads": download_results,
             "items": results,
             "summary": {"successful": 0, "failed": 0, "total": 0},
@@ -437,45 +461,55 @@ def sync_models(settings: DoclingSettings, force: bool = False) -> Dict[str, Any
 
     progress_index = 0
 
-    for group in enabled_groups:
+    for model_name in enabled_builtin:
         progress_index += 1
         _notify_progress(
-            f"📦 Processing {progress_index}/{total_items}: group {group.name}",
+            f"📦 Processing {progress_index}/{total_items}: bundle {model_name}",
             {
                 "current": progress_index,
                 "total": total_items,
-                "name": group.name,
-                "kind": "group",
+                "name": model_name,
+                "kind": "builtin",
             },
         )
 
-        result = _download_model_group(base_dir, group, force=force)
-        group_results.append(result)
+        try:
+            result = _sync_builtin_model(base_dir, model_name, builtin_settings, force=force)
+        except Exception as exc:  # pragma: no cover - defensive guard
+            logger.exception("Failed to download builtin model %s", model_name)
+            result = {
+                "name": model_name,
+                "status": "error",
+                "error": str(exc),
+                "kind": "builtin",
+            }
+
+        builtin_results.append(result)
         results.append(result)
 
         status = result.get("status")
         if status == "downloaded":
             _notify_progress(
-                f"✅ Downloaded group {group.name}",
-                {"name": group.name, "status": status, "kind": "group"},
+                f"✅ Downloaded bundle {model_name}",
+                {"name": model_name, "status": status, "kind": "builtin"},
             )
         elif status == "skipped":
             _notify_progress(
-                f"⏭️ Skipped group {group.name}",
+                f"⏭️ Skipped bundle {model_name}",
                 {
-                    "name": group.name,
+                    "name": model_name,
                     "status": status,
-                    "kind": "group",
+                    "kind": "builtin",
                     "reason": result.get("reason"),
                 },
             )
         elif status == "error":
             _notify_progress(
-                f"❌ Failed to download group {group.name}: {result.get('error')}",
+                f"❌ Failed to download bundle {model_name}: {result.get('error')}",
                 {
-                    "name": group.name,
+                    "name": model_name,
                     "status": status,
-                    "kind": "group",
+                    "kind": "builtin",
                     "error": result.get("error"),
                 },
             )
@@ -553,7 +587,7 @@ def sync_models(settings: DoclingSettings, force: bool = False) -> Dict[str, Any
 
     summary = {"successful": successful, "failed": failed, "total": total_items}
     return {
-        "groups": group_results,
+        "builtin": builtin_results,
         "downloads": download_results,
         "items": results,
         "summary": summary,

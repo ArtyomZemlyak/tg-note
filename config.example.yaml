@@ -174,8 +174,9 @@ MEDIA_PROCESSING_ENABLED: true
 #
 # model_cache:
 #   - base_dir: Container-side model directory (/opt/docling-mcp/models by default)
-#   - groups: Predefined Docling bundles to download via docling utils
+#   - builtin_models: Predefined Docling bundles to download via docling utils
 #   - downloads: Additional artefacts (HuggingFace / ModelScope) downloaded manually
+#   - pipeline: Feature switches that control which Docling stages run (tables, VLM, etc.)
 #
 # Legacy support: MEDIA_PROCESSING_DOCLING_FORMATS is still recognized but considered deprecated.
 MEDIA_PROCESSING_DOCLING:
@@ -227,17 +228,39 @@ MEDIA_PROCESSING_DOCLING:
     - jpeg
     - png
     - tiff
-  model_cache:
-    base_dir: /opt/docling-mcp/models
-    groups:
-      - name: layout
-      - name: tableformer
-      - name: code_formula
-      - name: picture_classifier
-      - name: rapidocr
-        backends:
-          - onnxruntime
-    downloads: []
+    model_cache:
+      base_dir: /opt/docling-mcp/models
+      builtin_models:
+        layout: true
+        tableformer: true
+        code_formula: true
+        picture_classifier: true
+        rapidocr:
+          enabled: true
+          backends:
+            - onnxruntime
+        easyocr: false
+        smolvlm: false
+        granitedocling: false
+        granitedocling_mlx: false
+        smoldocling: false
+        smoldocling_mlx: false
+        granite_vision: false
+      downloads: []
+    pipeline:
+      layout:
+        enabled: true
+        preset: layout_v2
+      table_structure:
+        enabled: true
+        mode: accurate
+        do_cell_matching: true
+      code_enrichment: false
+      formula_enrichment: false
+      picture_classifier: false
+      picture_description:
+        enabled: false
+        model: smolvlm
 
 # Deprecated but supported legacy structure (list-only configuration):
 # MEDIA_PROCESSING_DOCLING_FORMATS:

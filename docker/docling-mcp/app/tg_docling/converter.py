@@ -6,13 +6,34 @@ from pathlib import Path
 from typing import Dict, Optional, Set
 
 from docling.datamodel.base_models import InputFormat
+from docling.datamodel.layout_model_specs import (
+    DOCLING_LAYOUT_EGRET_LARGE,
+    DOCLING_LAYOUT_EGRET_MEDIUM,
+    DOCLING_LAYOUT_EGRET_XLARGE,
+    DOCLING_LAYOUT_HERON,
+    DOCLING_LAYOUT_HERON_101,
+    DOCLING_LAYOUT_V2,
+)
 from docling.datamodel.pipeline_options import (
     EasyOcrOptions,
+    LayoutOptions,
     OcrOptions,
     PdfPipelineOptions,
+    PictureDescriptionVlmOptions,
     RapidOcrOptions,
+    TableFormerMode,
+    TableStructureOptions,
     TesseractCliOcrOptions,
     TesseractOcrOptions,
+    granite_picture_description,
+    smolvlm_picture_description,
+)
+from docling.datamodel.vlm_model_specs import (
+    GRANITE_VISION_TRANSFORMERS,
+    GRANITEDOCLING_MLX,
+    GRANITEDOCLING_TRANSFORMERS,
+    SMOLDOCLING_MLX,
+    SMOLDOCLING_TRANSFORMERS,
 )
 from docling.document_converter import DocumentConverter, PdfFormatOption
 from docling_mcp.settings import conversion as conversion_settings
@@ -26,6 +47,29 @@ except Exception:  # pragma: no cover
 from config.settings import DoclingSettings
 
 logger = logging.getLogger(__name__)
+
+_LAYOUT_PRESET_MAP = {
+    "layout_v2": DOCLING_LAYOUT_V2,
+    "layout_heron": DOCLING_LAYOUT_HERON,
+    "layout_heron_101": DOCLING_LAYOUT_HERON_101,
+    "layout_egret_medium": DOCLING_LAYOUT_EGRET_MEDIUM,
+    "layout_egret_large": DOCLING_LAYOUT_EGRET_LARGE,
+    "layout_egret_xlarge": DOCLING_LAYOUT_EGRET_XLARGE,
+}
+
+_PICTURE_DESCRIPTION_PRESET_OPTIONS = {
+    "smolvlm": smolvlm_picture_description,
+    "granite_vision": granite_picture_description,
+}
+
+_PICTURE_DESCRIPTION_SPEC_MAP = {
+    "granitedocling": GRANITEDOCLING_TRANSFORMERS,
+    "granitedocling_mlx": GRANITEDOCLING_MLX,
+    "smoldocling": SMOLDOCLING_TRANSFORMERS,
+    "smoldocling_mlx": SMOLDOCLING_MLX,
+    # Granite Vision preset handled via _PICTURE_DESCRIPTION_PRESET_OPTIONS, but keep transformers fallback
+    "granite_vision": GRANITE_VISION_TRANSFORMERS,
+}
 
 
 def _model_field_names(target: object) -> Optional[Set[str]]:
@@ -172,6 +216,24 @@ def _create_converter(settings: DoclingSettings) -> DocumentConverter:
     models_base = Path(settings.model_cache.base_dir)
     models_base.mkdir(parents=True, exist_ok=True)
 
+    pipeline_flags, missing_models = settings.resolved_pipeline_flags()
+    for missing in missing_models:
+        logger.warning(
+            "Docling pipeline requested model bundle '%s' but it is disabled; corresponding stage will be skipped.",
+            missing,
+        )
+
+    if not pipeline_flags.get("layout", False):
+        if settings.pipeline.layout.enabled:
+            raise RuntimeError(
+                "Docling layout model bundle is disabled but layout stage is required. "
+                "Enable the layout bundle under MEDIA_PROCESSING_DOCLING.model_cache.builtin_models."
+            )
+        raise RuntimeError(
+            "Docling layout analysis stage cannot be disabled. "
+            "Set MEDIA_PROCESSING_DOCLING.pipeline.layout.enabled to true."
+        )
+
     pdf_options = PdfPipelineOptions()
     pdf_options.artifacts_path = models_base
     pdf_options.generate_page_images = settings.generate_page_images or settings.keep_images
@@ -188,6 +250,99 @@ def _create_converter(settings: DoclingSettings) -> DocumentConverter:
         pdf_options.ocr_options = ocr_options
     else:
         pdf_options.do_ocr = False
+
+    layout_cfg = settings.pipeline.layout
+    layout_spec = _LAYOUT_PRESET_MAP.get(layout_cfg.preset)
+    if layout_spec is None:
+        logger.warning(
+            "Unknown Docling layout preset '%s'; defaulting to 'layout_v2'.", layout_cfg.preset
+        )
+        layout_spec = DOCLING_LAYOUT_V2
+
+    pdf_options.layout_options = LayoutOptions(
+        create_orphan_clusters=layout_cfg.create_orphan_clusters,
+        keep_empty_clusters=layout_cfg.keep_empty_clusters,
+        skip_cell_assignment=layout_cfg.skip_cell_assignment,
+        model_spec=layout_spec.model_copy(),
+    )
+
+    table_cfg = settings.pipeline.table_structure
+    pdf_options.do_table_structure = pipeline_flags["table_structure"]
+    try:
+        pdf_options.table_structure_options.mode = TableFormerMode(table_cfg.mode)
+    except Exception:
+        logger.warning("Unknown TableFormer mode '%s'; defaulting to 'accurate'.", table_cfg.mode)
+        pdf_options.table_structure_options.mode = TableFormerMode.ACCURATE
+    pdf_options.table_structure_options.do_cell_matching = table_cfg.do_cell_matching
+
+    pdf_options.do_code_enrichment = pipeline_flags["code_enrichment"]
+    pdf_options.do_formula_enrichment = pipeline_flags["formula_enrichment"]
+
+    pdf_options.do_picture_classification = pipeline_flags["picture_classifier"]
+
+    picture_description_enabled = pipeline_flags["picture_description"]
+    pdf_options.do_picture_description = picture_description_enabled
+
+    # Generate picture images whenever any vision pipeline is active
+    pdf_options.generate_picture_images = any(
+        [
+            pdf_options.do_picture_classification,
+            picture_description_enabled,
+        ]
+    )
+
+    if picture_description_enabled:
+        desc_cfg = settings.pipeline.picture_description
+        desc_options: PictureDescriptionVlmOptions = pdf_options.picture_description_options
+        preset_name = desc_cfg.model
+
+        preset_options = _PICTURE_DESCRIPTION_PRESET_OPTIONS.get(preset_name)
+        if preset_options is not None:
+            preset_copy = preset_options.model_copy()
+            for attr in (
+                "batch_size",
+                "scale",
+                "picture_area_threshold",
+                "prompt",
+                "generation_config",
+            ):
+                if hasattr(desc_options, attr) and hasattr(preset_copy, attr):
+                    value = getattr(preset_copy, attr)
+                    if attr == "generation_config":
+                        value = dict(value or {})
+                    setattr(desc_options, attr, value)
+
+            if hasattr(desc_options, "repo_id") and hasattr(preset_copy, "repo_id"):
+                setattr(desc_options, "repo_id", getattr(preset_copy, "repo_id"))
+        else:
+            spec = _PICTURE_DESCRIPTION_SPEC_MAP.get(preset_name)
+            if spec is None:
+                logger.warning(
+                    "Unknown picture description preset '%s'; picture description will use default options.",
+                    preset_name,
+                )
+            elif hasattr(desc_options, "repo_id"):
+                setattr(desc_options, "repo_id", getattr(spec, "repo_id", None))
+
+        if desc_cfg.batch_size is not None and hasattr(desc_options, "batch_size"):
+            desc_options.batch_size = desc_cfg.batch_size
+        if desc_cfg.scale is not None and hasattr(desc_options, "scale"):
+            desc_options.scale = desc_cfg.scale
+        if desc_cfg.picture_area_threshold is not None and hasattr(
+            desc_options, "picture_area_threshold"
+        ):
+            desc_options.picture_area_threshold = desc_cfg.picture_area_threshold
+        if desc_cfg.prompt is not None and hasattr(desc_options, "prompt"):
+            desc_options.prompt = desc_cfg.prompt
+        if desc_cfg.generation_config:
+            if hasattr(desc_options, "generation_config"):
+                config = dict(getattr(desc_options, "generation_config", {}) or {})
+                config.update(desc_cfg.generation_config)
+                desc_options.generation_config = config
+            else:
+                logger.debug(
+                    "Picture description generation config overrides ignored (unsupported attribute)."
+                )
 
     format_options = {
         InputFormat.PDF: PdfFormatOption(pipeline_options=pdf_options),

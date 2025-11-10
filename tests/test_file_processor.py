@@ -185,9 +185,21 @@ def test_docling_settings_defaults():
     assert cfg.generate_page_images is False
     assert cfg.startup_sync is True
     assert cfg.ocr_config.backend == "rapidocr"
-    assert cfg.model_cache.groups
-    assert cfg.model_cache.groups[-1].name == "rapidocr"
+    builtin = cfg.model_cache.builtin_models
+    assert builtin.layout is True
+    assert builtin.tableformer is True
+    assert builtin.code_formula is True
+    assert builtin.picture_classifier is True
+    assert builtin.rapidocr.enabled is True
+    assert builtin.rapidocr.backends is None
     assert cfg.model_cache.downloads == []
+    pipeline = cfg.pipeline
+    assert pipeline.layout.enabled is True
+    assert pipeline.table_structure.enabled is True
+    assert pipeline.code_enrichment is False
+    assert pipeline.formula_enrichment is False
+    assert pipeline.picture_classifier is False
+    assert pipeline.picture_description.enabled is False
 
 
 def test_docling_settings_local_backend_toggle():
@@ -207,12 +219,47 @@ def test_docling_settings_container_config():
     container_cfg = cfg.to_container_config()
 
     assert container_cfg["converter"]["ocr"]["backend"] == "rapidocr"
-    assert container_cfg["model_cache"]["groups"]
-    assert container_cfg["model_cache"]["groups"][-1]["name"] == "rapidocr"
+    builtin_cfg = container_cfg["model_cache"]["builtin_models"]
+    assert builtin_cfg["layout"] is True
+    assert builtin_cfg["tableformer"] is True
+    assert builtin_cfg["code_formula"] is True
+    assert builtin_cfg["picture_classifier"] is True
+    assert builtin_cfg["rapidocr"]["enabled"] is True
     assert container_cfg["model_cache"]["downloads"] == []
     assert container_cfg["mcp"]["transport"] == "sse"
     assert container_cfg["mcp"]["port"] == 8077
     assert container_cfg["startup_sync"] is True
+    pipeline_cfg = container_cfg["pipeline"]
+    assert pipeline_cfg["resolved"]["layout"] is True
+    assert pipeline_cfg["resolved"]["table_structure"] is True
+    assert pipeline_cfg["resolved"]["picture_classifier"] is False
+    assert pipeline_cfg["resolved"]["picture_description"] is False
+
+
+def test_docling_resolved_pipeline_flags_missing_bundles():
+    """Requested pipeline stages should report missing bundles when not downloadable."""
+    from config.settings import DoclingSettings
+
+    cfg = DoclingSettings(
+        model_cache={
+            "builtin_models": {"layout": True, "tableformer": False, "code_formula": False}
+        },
+        pipeline={
+            "table_structure": {"enabled": True},
+            "code_enrichment": True,
+            "formula_enrichment": True,
+            "picture_classifier": False,
+            "picture_description": {"enabled": False},
+        },
+    )
+
+    flags, missing = cfg.resolved_pipeline_flags()
+    assert flags["layout"] is True
+    assert flags["table_structure"] is False
+    assert flags["code_enrichment"] is False
+    assert flags["formula_enrichment"] is False
+    assert "tableformer" in missing
+    assert "code_formula" in missing
 
 
 def test_build_mcp_arguments_with_base64(tmp_path):
