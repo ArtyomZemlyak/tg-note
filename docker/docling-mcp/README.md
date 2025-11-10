@@ -299,7 +299,7 @@ docker build -t tg-note-docling-mcp:local \
   .
 ```
 
-The Dockerfile uses the official PyTorch base image (`pytorch/pytorch:2.3.1-cuda12.1-cudnn8-runtime`) which includes PyTorch, torchvision, and torchaudio with CUDA 12.1 support pre-installed. This ensures reliable CUDA builds without dependency conflicts.
+The Dockerfile uses the official PyTorch base image (`pytorch/pytorch:2.8.0-cuda12.6-cudnn9-runtime`) which includes PyTorch, torchvision, and torchaudio with CUDA 12.6 support pre-installed. This ensures reliable CUDA builds without dependency conflicts and provides improved GPU performance.
 
 ### Running Tests
 
