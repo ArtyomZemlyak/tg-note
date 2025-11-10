@@ -95,6 +95,10 @@ KB_GIT_BRANCH: main
 ## 4. Start the Bot
 
 ```bash
+# Recommended: Use the console script
+poetry run tg-note
+
+# Or directly with Python
 poetry run python main.py
 ```
 

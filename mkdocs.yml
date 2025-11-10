@@ -95,6 +95,7 @@ nav:
   - Settings Management: user-guide/settings-management.md
   - MCP Server Management: user-guide/mcp-server-management.md
   - File Format Recognition: user-guide/file-format-recognition.md
+  - Docling Multilingual Config: user-guide/docling-multilingual-config.md
   - Knowledge Base Setup: user-guide/knowledge-base-setup.md
   - Git Credentials: user-guide/git-credentials.md
   - Secure Git Credentials: user-guide/secure-git-credentials.md

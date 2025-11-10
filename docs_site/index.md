@@ -7,7 +7,7 @@
 Telegram bot that automatically transforms your messages, reposts, and articles into a structured knowledge base using AI agents.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11-3.12](https://img.shields.io/badge/python-3.11--3.12-blue.svg)](https://www.python.org/downloads/)
 
 [Get Started](getting-started/quick-start.md){ .md-button .md-button--primary }
 [View on GitHub](https://github.com/ArtyomZemlyak/tg-note){ .md-button }
@@ -110,6 +110,10 @@ Get started with tg-note in just a few minutes:
 === "3. Run"
 
     ```bash
+    # Recommended: Use the console script
+    poetry run tg-note
+
+    # Or directly with Python
     poetry run python main.py
     ```
 
