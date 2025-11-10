@@ -58,6 +58,8 @@ RUN python -m pip install --no-cache-dir -r /tmp/requirements.txt
 # Copy application code and shared configuration schema
 COPY docker/docling-mcp/app /opt/docling-mcp/app
 COPY config /opt/docling-mcp/app/config
+# Copy src package for prompt_registry and other imports
+COPY src /opt/docling-mcp/app/src
 COPY docker/docling-mcp/docker-entrypoint.sh /usr/local/bin/entrypoint.sh
 
 # Create runtime directories
@@ -67,7 +69,7 @@ RUN mkdir -p /opt/docling-mcp/models \
     chmod +x /usr/local/bin/entrypoint.sh
 
 # Environment configuration
-ENV PYTHONPATH="/opt/docling-mcp/app:${PYTHONPATH}" \
+ENV PYTHONPATH="/opt/docling-mcp/app:/opt/docling-mcp/app/src:${PYTHONPATH}" \
     DOCLING_SETTINGS_PATH=/opt/docling-mcp/config.yaml \
     DOCLING_MODELS_DIR=/opt/docling-mcp/models \
     DOCLING_LOG_DIR=/opt/docling-mcp/logs \
