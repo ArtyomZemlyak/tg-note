@@ -1,5 +1,3 @@
---extra-index-url https://download.pytorch.org/whl/cu121
-
 # Core Docling MCP Server with CLI entrypoints
 docling-mcp==1.3.2
 
@@ -18,10 +16,7 @@ tesserocr>=2.6.0
 huggingface-hub>=0.36.0
 modelscope>=1.11.0
 
-# Deep learning stack (CUDA 12.1 wheels from PyTorch index via --extra-index-url)
-torch==2.3.1+cu121
-torchvision==0.18.1+cu121
-torchaudio==2.3.1+cu121
+# Deep learning stack (PyTorch already installed in base image)
 accelerate>=1.1.0
 transformers>=4.40.0
 
