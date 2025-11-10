@@ -103,7 +103,8 @@ docling = [
     # Docling document processing library (used by docling-mcp container)
     # These dependencies are typically installed in the Docker container
     # Include this group only if running docling locally (not recommended)
-    "docling>=2.0.0",
+    # AICODE-NOTE: Version 2.61.2+ uses new docling-project repos instead of ds4sd
+    "docling>=2.61.2",
     "docling-mcp>=1.3.0",
     "rapidocr-onnxruntime>=1.3.0",
     "easyocr>=1.7.0",
