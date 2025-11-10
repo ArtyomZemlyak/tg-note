@@ -110,10 +110,11 @@ python -m main
 1. Initialize FastMCP server
 2. Register built-in tools
 3. Initialize registry from `data/mcp_servers/*.json`
-4. **Generate client configurations:**
-   - `~/.qwen/settings.json` (Qwen CLI)
+4. **Ensure Docling MCP spec** is up to date (if Docling is enabled)
+5. **Generate client configurations:**
+   - `~/.qwen/settings.json` (Qwen CLI) - includes Docling if enabled
    - `data/mcp_servers/mcp-hub.json` (standalone mode only)
-5. Start HTTP/SSE server
+6. Start HTTP/SSE server
 
 **Configuration Generation:**
 ```python
@@ -603,8 +604,32 @@ tail -f logs/mcp_hub.log | grep -E "sse|messages|session"
 [MCPClient] ✓ Connected. Available tools: [...]
 ```
 
+## Docling MCP Integration
+
+The Docling MCP server is automatically registered and configured:
+
+**Registration:**
+- Docling MCP spec is created in `data/mcp_servers/docling.json` on startup
+- Uses `ensure_docling_mcp_spec()` from `src.mcp.docling_integration`
+- Automatically included in Qwen CLI configuration when enabled
+
+**Architecture:**
+- Uses original `docling-mcp==1.3.2` package
+- Minimal wrappers for tg-note integration:
+  - `convert_document_from_content` - base64 file transfer (Docker mode)
+  - `sync_docling_models` - model synchronization via MCP
+  - Custom converter configuration for OCR settings
+
+**File Transfer:**
+- Files sent via base64 encoding (no shared filesystem needed)
+- Uses MCP protocol over HTTP/SSE
+- Original docling-mcp conversion pipeline
+
+For more details, see [File Format Recognition](../user-guide/file-format-recognition.md).
+
 ## Related Documentation
 
 - [MCP Docker Setup](../deployment/mcp-docker-setup.md)
 - [MCP Server Registry](../agents/mcp-server-registry.md)
 - [MCP Tools](../agents/mcp-tools.md)
+- [File Format Recognition](../user-guide/file-format-recognition.md)
