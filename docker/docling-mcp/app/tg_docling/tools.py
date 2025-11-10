@@ -19,11 +19,7 @@ from docling_core.types.doc.labels import DocItemLabel
 from docling_mcp.docling_cache import get_cache_key
 from docling_mcp.shared import local_document_cache, local_stack_cache, mcp
 from docling_mcp.shared.exceptions import McpError
-from docling_mcp.tools.conversion import (
-    ConvertDocumentOutput,
-    _get_converter,
-    cleanup_memory,
-)
+from docling_mcp.tools.conversion import ConvertDocumentOutput, _get_converter, cleanup_memory
 from pydantic import Field
 
 from mcp.types import INTERNAL_ERROR, ErrorData, ToolAnnotations
