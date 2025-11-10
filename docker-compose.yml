@@ -112,8 +112,8 @@ services:
       - ./config.yaml:/opt/docling-mcp/config.yaml:ro
       # Models cache directory (persistent across restarts)
       - ./data/docling/models:/opt/docling-mcp/models
-      # Shared HuggingFace cache from host (for faster model downloads)
-      - ~/.cache/huggingface:/opt/docling-mcp/cache
+      # Shared cache from host (for faster model downloads)
+      - ~/.cache/:/opt/docling-mcp/cache
       # Logs directory
       - ./logs/docling:/opt/docling-mcp/logs
     deploy:
