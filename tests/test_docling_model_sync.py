@@ -143,7 +143,24 @@ def model_sync(monkeypatch):
     def install_converter(settings):
         return None
 
+    # AICODE-NOTE: Add _LAYOUT_PRESET_MAP stub for model_sync imports
+    from types import SimpleNamespace
+
     converter_stub.install_converter = install_converter
+    converter_stub._LAYOUT_PRESET_MAP = {
+        "layout_v2": SimpleNamespace(
+            name="layout_v2",
+            repo_id="test/layout-v2",
+            revision="main",
+            model_repo_folder="LayoutModel",
+        ),
+        "layout_heron": SimpleNamespace(
+            name="layout_heron",
+            repo_id="test/layout-heron",
+            revision="main",
+            model_repo_folder="LayoutHeron",
+        ),
+    }
     monkeypatch.setitem(sys.modules, "tg_docling.converter", converter_stub)
 
     from types import SimpleNamespace

@@ -259,6 +259,16 @@ def _create_converter(settings: DoclingSettings) -> DocumentConverter:
         )
         layout_spec = DOCLING_LAYOUT_V2
 
+    # AICODE-NOTE: Use layout preset attributes (repo_id, revision, model_path) for model loading
+    # The model_copy() ensures all preset attributes are properly transferred
+    logger.info(
+        "Using layout preset '%s' (repo_id=%s, revision=%s, model_repo_folder=%s)",
+        layout_cfg.preset,
+        getattr(layout_spec, "repo_id", "N/A"),
+        getattr(layout_spec, "revision", "N/A"),
+        getattr(layout_spec, "model_repo_folder", "N/A"),
+    )
+
     pdf_options.layout_options = LayoutOptions(
         create_orphan_clusters=layout_cfg.create_orphan_clusters,
         keep_empty_clusters=layout_cfg.keep_empty_clusters,
