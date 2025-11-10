@@ -421,8 +421,7 @@ class MCPClient:
                         "uri": getattr(content, "uri", uri),
                         "text": getattr(content, "text", None),
                         "mimeType": getattr(content, "mimeType", None),
-                        "blob": getattr(content, "blob", None)
-                        or getattr(content, "base64", None),
+                        "blob": getattr(content, "blob", None) or getattr(content, "base64", None),
                     }
                     for content in contents
                 ]

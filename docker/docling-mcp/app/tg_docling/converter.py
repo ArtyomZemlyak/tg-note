@@ -105,9 +105,7 @@ def _build_ocr_options(settings: DoclingSettings, models_base: Path) -> Optional
                 params.setdefault("providers", backend_cfg.providers)
             setattr(opts, "rapidocr_params", params)
         elif backend_cfg.rapidocr_params or backend_cfg.providers:
-            logger.debug(
-                "Skipping unsupported rapidocr parameters for %s", type(opts).__name__
-            )
+            logger.debug("Skipping unsupported rapidocr parameters for %s", type(opts).__name__)
         return opts
 
     if ocr_cfg.backend == "easyocr":

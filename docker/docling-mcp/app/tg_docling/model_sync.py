@@ -37,11 +37,7 @@ except Exception:  # pragma: no cover - optional dependency
 from tg_docling.config import DEFAULT_SETTINGS_PATH, load_docling_settings
 from tg_docling.converter import install_converter
 
-from config.settings import (
-    DoclingModelDownloadSettings,
-    DoclingModelGroupSettings,
-    DoclingSettings,
-)
+from config.settings import DoclingModelDownloadSettings, DoclingModelGroupSettings, DoclingSettings
 
 logger = logging.getLogger(__name__)
 
