@@ -5,11 +5,13 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import List
+from typing import Any, List, Optional
 
 import tg_docling.tools  # noqa: F401  # Register additional MCP tools
 from docling_mcp.servers.mcp_server import ToolGroups, TransportType
 from docling_mcp.servers.mcp_server import main as mcp_main
+from docling_mcp.shared import mcp as d_mcp
+from pydantic import BaseModel, Field
 from tg_docling.config import DEFAULT_SETTINGS_PATH, load_docling_settings
 from tg_docling.converter import install_converter
 from tg_docling.logging import configure_logging
@@ -17,11 +19,26 @@ from tg_docling.model_sync import sync_models
 
 from config.settings import DoclingSettings, Settings
 from mcp.types import ToolAnnotations
-from docling_mcp.shared import mcp as d_mcp
 
 logger = logging.getLogger(__name__)
 
 SETTINGS_PATH = Path(os.getenv("DOCLING_SETTINGS_PATH", str(DEFAULT_SETTINGS_PATH)))
+
+
+class SyncDoclingModelsOutput(BaseModel):
+    """Structured response for the Docling model synchronisation tool."""
+
+    success: bool = Field(..., description="Whether the synchronisation completed without errors.")
+    force: bool = Field(
+        ..., description="Indicates if existing artefacts were forced to re-download."
+    )
+    result: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="Detailed synchronisation data when the operation succeeds.",
+    )
+    error: Optional[str] = Field(
+        default=None, description="Error message when the synchronisation fails."
+    )
 
 
 def _normalise_tool_names(names: List[str]) -> List[ToolGroups]:
@@ -74,7 +91,7 @@ def _load_and_apply_settings() -> tuple[DoclingSettings, Settings]:
     structured_output=True,
     annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
-def sync_docling_models(force: bool = False) -> dict:
+def sync_docling_models(force: bool = False) -> SyncDoclingModelsOutput:
     """
     MCP tool for triggering model downloads from within the container.
 
@@ -84,10 +101,10 @@ def sync_docling_models(force: bool = False) -> dict:
     try:
         docling_settings, _ = _load_and_apply_settings()
         result = sync_models(docling_settings, force=force)
-        return {"success": True, "force": force, "result": result}
+        return SyncDoclingModelsOutput(success=True, force=force, result=result)
     except Exception as exc:  # pragma: no cover - defensive
         logger.exception("Docling model sync failed")
-        return {"success": False, "force": force, "error": str(exc)}
+        return SyncDoclingModelsOutput(success=False, force=force, error=str(exc))
 
 
 def parse_args() -> argparse.Namespace:
