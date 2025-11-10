@@ -17,11 +17,13 @@ except Exception:  # pragma: no cover - fallback when library is unavailable
 from docling_core.types.doc.document import ContentLayer
 from docling_core.types.doc.labels import DocItemLabel
 from docling_mcp.docling_cache import get_cache_key
-from docling_mcp.shared import local_document_cache, local_stack_cache, mcp
 from docling_mcp.tools.conversion import ConvertDocumentOutput, _get_converter, cleanup_memory
 from pydantic import Field
 
+# Import from mcp module FIRST before importing mcp instance variable
+# to avoid name conflict (mcp instance would shadow mcp module)
 from mcp.types import ToolAnnotations
+from docling_mcp.shared import local_document_cache, local_stack_cache, mcp
 
 logger = logging.getLogger(__name__)
 

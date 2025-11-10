@@ -10,14 +10,16 @@ from typing import List
 import tg_docling.tools  # noqa: F401  # Register additional MCP tools
 from docling_mcp.servers.mcp_server import ToolGroups, TransportType
 from docling_mcp.servers.mcp_server import main as mcp_main
-from docling_mcp.shared import mcp
 from tg_docling.config import DEFAULT_SETTINGS_PATH, load_docling_settings
 from tg_docling.converter import install_converter
 from tg_docling.logging import configure_logging
 from tg_docling.model_sync import sync_models
 
 from config.settings import DoclingSettings, Settings
+# Import from mcp module FIRST before importing mcp instance variable
+# to avoid name conflict (mcp instance would shadow mcp module)
 from mcp.types import ToolAnnotations
+from docling_mcp.shared import mcp
 
 logger = logging.getLogger(__name__)
 
