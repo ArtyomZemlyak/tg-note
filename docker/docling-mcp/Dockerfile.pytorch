@@ -1,23 +1,14 @@
-# AICODE-NOTE: Base CUDA image version can be customized via build args
-ARG CUDA_VERSION=12.1.0
-FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-runtime-ubuntu22.04
+# AICODE-NOTE: Alternative Dockerfile using PyTorch base image
+# Usage: docker build -f docker/docling-mcp/Dockerfile.pytorch -t docling-mcp .
+# Base PyTorch image with CUDA 12.1 support
+FROM pytorch/pytorch:2.3.1-cuda12.1-cudnn8-runtime
 
 ENV DEBIAN_FRONTEND=noninteractive \
     TZ=UTC
 
-# System dependencies for all OCR backends and VLM
+# System dependencies for OCR backends and VLM
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    python3.11 \
-    python3.11-venv \
-    python3.11-dev \
-    python3-pip \
-    build-essential \
-    git \
-    curl \
-    ca-certificates \
-    pkg-config \
-    cmake \
     # OpenCV and image processing dependencies
     libgl1-mesa-glx \
     libglib2.0-0 \
@@ -47,17 +38,11 @@ RUN apt-get update && \
     protobuf-compiler \
     && rm -rf /var/lib/apt/lists/*
 
-# Ensure python alias and install pip tooling
-# Upgrade pip to latest version to ensure proper handling of --extra-index-url with CUDA builds
-RUN ln -sf /usr/bin/python3.11 /usr/bin/python && \
-    ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
-    python -m pip install --upgrade pip setuptools wheel && \
-    pip --version
+# Upgrade pip
+RUN python -m pip install --upgrade pip setuptools wheel
 
-# Install Python dependencies
-# Note: --extra-index-url in requirements.txt should allow pip to find CUDA builds
-# If this fails, try using Dockerfile.pytorch which uses PyTorch base image
-COPY docker/docling-mcp/requirements.txt /tmp/requirements.txt
+# Install Python dependencies (PyTorch already installed in base image)
+COPY docker/docling-mcp/requirements-no-pytorch.txt /tmp/requirements.txt
 RUN python -m pip install --no-cache-dir -r /tmp/requirements.txt
 
 # Copy application code and shared configuration schema

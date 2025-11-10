@@ -293,12 +293,23 @@ docker exec tg-note-docling nvidia-smi
 
 ### Building Locally
 
+**Option 1: Using CUDA base image (default)**
 ```bash
 docker build -t tg-note-docling-mcp:local \
   -f docker/docling-mcp/Dockerfile \
   --build-arg CUDA_VERSION=12.1.0 \
   .
 ```
+
+**Option 2: Using PyTorch base image (alternative)**
+If you encounter issues with PyTorch CUDA builds installation, use the PyTorch base image:
+```bash
+docker build -t tg-note-docling-mcp:local \
+  -f docker/docling-mcp/Dockerfile.pytorch \
+  .
+```
+
+The PyTorch base image already includes PyTorch with CUDA support, so `requirements-no-pytorch.txt` is used instead of `requirements.txt`.
 
 ### Running Tests
 
