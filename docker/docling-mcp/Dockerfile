@@ -53,6 +53,13 @@ RUN ln -sf /usr/bin/python3.11 /usr/bin/python && \
     python -m pip install --upgrade pip setuptools wheel
 
 # Install Python dependencies
+# Install PyTorch with CUDA support first from PyTorch index
+RUN python -m pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cu121 \
+    torch==2.3.1+cu121 \
+    torchvision==0.18.1+cu121 \
+    torchaudio==2.3.1+cu121
+
+# Install remaining dependencies
 COPY docker/docling-mcp/requirements.txt /tmp/requirements.txt
 RUN python -m pip install --no-cache-dir -r /tmp/requirements.txt
 
