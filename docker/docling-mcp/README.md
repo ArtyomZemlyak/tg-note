@@ -139,9 +139,19 @@ The container reads the same `config.yaml` that powers tg-note. Docker Compose m
       "granite_vision": false
     },
     "downloads": []
+  },
+  "pipeline": {
+    "layout": {"enabled": true, "preset": "layout_v2"},
+    "table_structure": {"enabled": true, "mode": "accurate", "do_cell_matching": true},
+    "code_enrichment": false,
+    "formula_enrichment": false,
+    "picture_classifier": false,
+    "picture_description": {"enabled": false, "model": "smolvlm"}
   }
 }
 ```
+
+The optional `pipeline` section mirrors the runtime stages inside Docling. Enable a stage only when the matching bundle is available in `builtin_models`—for example, `table_structure.enabled` requires the `tableformer` bundle, and `picture_description` requires the selected VLM bundle (e.g., `smolvlm` or `granitedocling`).
 
 ## OCR Backends
 

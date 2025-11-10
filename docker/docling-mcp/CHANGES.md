@@ -208,6 +208,7 @@ set_sync_progress_callback(my_callback)
           enabled: true
           backends: ["onnxruntime", "torch"]
   ```
+- Включите соответствующий этап в `pipeline`, если требуется (например, `table_structure.enabled: true`)
 - Для кастомных артефактов используйте `model_cache.downloads`:
   ```yaml
   MEDIA_PROCESSING_DOCLING:

@@ -405,6 +405,135 @@ class DoclingModelCacheSettings(BaseModel):
     )
 
 
+class DoclingLayoutSettings(BaseModel):
+    """Layout analysis stage configuration."""
+
+    model_config = ConfigDict(extra="allow")
+
+    enabled: bool = Field(
+        default=True,
+        description=(
+            "Enable Docling layout analysis stage. Disabling layout is not recommended because "
+            "Docling pipelines expect layout features to be present."
+        ),
+    )
+    preset: Literal[
+        "layout_v2",
+        "layout_heron",
+        "layout_heron_101",
+        "layout_egret_medium",
+        "layout_egret_large",
+        "layout_egret_xlarge",
+    ] = Field(
+        default="layout_v2",
+        description="Choose pre-configured layout model preset shipped with Docling.",
+    )
+    create_orphan_clusters: bool = Field(
+        default=True,
+        description="Retain orphan layout clusters for downstream processing.",
+    )
+    keep_empty_clusters: bool = Field(
+        default=False,
+        description="Preserve empty layout clusters when true (mainly for debugging/tracing).",
+    )
+    skip_cell_assignment: bool = Field(
+        default=False,
+        description="Skip assigning detected layout cells to table structures (advanced).",
+    )
+
+
+class DoclingTableStructureSettings(BaseModel):
+    """Table structure model configuration."""
+
+    model_config = ConfigDict(extra="allow")
+
+    enabled: bool = Field(
+        default=True,
+        description="Enable table structure detection using TableFormer.",
+    )
+    mode: Literal["fast", "accurate"] = Field(
+        default="accurate",
+        description="Select TableFormer mode balancing quality and speed.",
+    )
+    do_cell_matching: bool = Field(
+        default=True,
+        description="Attempt to match table cells when extracting structures.",
+    )
+
+
+class DoclingPictureDescriptionSettings(BaseModel):
+    """Vision-language picture description configuration."""
+
+    model_config = ConfigDict(extra="allow")
+
+    enabled: bool = Field(
+        default=False,
+        description="Enable picture description generation using a VLM model.",
+    )
+    model: Literal[
+        "smolvlm",
+        "granite_vision",
+        "granitedocling",
+        "granitedocling_mlx",
+        "smoldocling",
+        "smoldocling_mlx",
+    ] = Field(
+        default="smolvlm",
+        description="Select VLM preset used for picture description.",
+    )
+    scale: Optional[float] = Field(
+        default=None,
+        description="Override image scale factor (defaults to preset value when omitted).",
+    )
+    batch_size: Optional[int] = Field(
+        default=None,
+        description="Override batch size for VLM inference.",
+    )
+    picture_area_threshold: Optional[float] = Field(
+        default=None,
+        description="Override minimal picture area threshold triggering description.",
+    )
+    prompt: Optional[str] = Field(
+        default=None,
+        description="Prompt template passed to the VLM when generating descriptions.",
+    )
+    generation_config: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional generation parameters forwarded to the VLM pipeline.",
+    )
+
+
+class DoclingPipelineSettings(BaseModel):
+    """Fine grained pipeline feature toggles for Docling conversion."""
+
+    model_config = ConfigDict(extra="allow")
+
+    layout: DoclingLayoutSettings = Field(
+        default_factory=DoclingLayoutSettings,
+        description="Layout analysis stage settings.",
+    )
+    table_structure: DoclingTableStructureSettings = Field(
+        default_factory=DoclingTableStructureSettings,
+        description="Table structure extraction settings.",
+    )
+    code_enrichment: bool = Field(
+        default=False,
+        description="Enable code block enrichment stage (requires code_formula model bundle).",
+    )
+    formula_enrichment: bool = Field(
+        default=False,
+        description="Enable formula enrichment stage (requires code_formula model bundle).",
+    )
+    picture_classifier: bool = Field(
+        default=False,
+        description="Enable document picture classification stage (requires picture_classifier bundle).",
+    )
+    picture_description: DoclingPictureDescriptionSettings = Field(
+        default_factory=DoclingPictureDescriptionSettings,
+        description="Vision-language based picture description options.",
+    )
+
+
 class DoclingRapidOCRSettings(BaseModel):
     model_config = ConfigDict(extra="allow")
 
@@ -618,6 +747,10 @@ class DoclingSettings(BaseModel):
         default_factory=DoclingModelCacheSettings,
         description="Model download instructions for the Docling container.",
     )
+    pipeline: DoclingPipelineSettings = Field(
+        default_factory=DoclingPipelineSettings,
+        description="Fine-grained Docling pipeline feature selection.",
+    )
 
     @field_validator("formats", mode="before")
     @classmethod
@@ -729,6 +862,65 @@ class DoclingSettings(BaseModel):
             return None
         return self.mcp.resolve_url()
 
+    def resolved_pipeline_flags(self) -> Tuple[Dict[str, Any], List[str]]:
+        """
+        Compute effective pipeline feature flags based on requested configuration and enabled bundles.
+
+        Returns:
+            Tuple consisting of:
+              - dictionary with resolved flags (booleans and selected picture description model)
+              - sorted list of missing bundle identifiers required to fulfil requested configuration
+        """
+        builtin_map = self.model_cache.builtin_models.enabled_model_map()
+        pipeline_cfg = self.pipeline
+        missing: Set[str] = set()
+
+        layout_available = pipeline_cfg.layout.enabled and builtin_map.get("layout", False)
+        if pipeline_cfg.layout.enabled and not builtin_map.get("layout", False):
+            missing.add("layout")
+
+        table_available = pipeline_cfg.table_structure.enabled and builtin_map.get(
+            "tableformer", False
+        )
+        if pipeline_cfg.table_structure.enabled and not builtin_map.get("tableformer", False):
+            missing.add("tableformer")
+
+        code_bundle_available = builtin_map.get("code_formula", False)
+        code_enrichment_available = pipeline_cfg.code_enrichment and code_bundle_available
+        formula_enrichment_available = pipeline_cfg.formula_enrichment and code_bundle_available
+        if (
+            pipeline_cfg.code_enrichment or pipeline_cfg.formula_enrichment
+        ) and not code_bundle_available:
+            missing.add("code_formula")
+
+        picture_classifier_available = pipeline_cfg.picture_classifier and builtin_map.get(
+            "picture_classifier", False
+        )
+        if pipeline_cfg.picture_classifier and not builtin_map.get("picture_classifier", False):
+            missing.add("picture_classifier")
+
+        picture_description_available = False
+        requested_picture_model = pipeline_cfg.picture_description.model
+        if pipeline_cfg.picture_description.enabled:
+            if builtin_map.get(requested_picture_model, False):
+                picture_description_available = True
+            else:
+                missing.add(requested_picture_model)
+
+        flags: Dict[str, Any] = {
+            "layout": layout_available,
+            "table_structure": table_available,
+            "code_enrichment": code_enrichment_available,
+            "formula_enrichment": formula_enrichment_available,
+            "picture_classifier": picture_classifier_available,
+            "picture_description": picture_description_available,
+            "picture_description_model": (
+                requested_picture_model if picture_description_available else None
+            ),
+            "picture_description_requested": pipeline_cfg.picture_description.enabled,
+        }
+        return flags, sorted(missing)
+
     def to_container_config(self, log_level: str = "INFO") -> Dict[str, Any]:
         """Convert settings to container-friendly configuration structure."""
         languages = self.ocr_config.languages or self.ocr_languages
@@ -747,6 +939,8 @@ class DoclingSettings(BaseModel):
             for download in self.model_cache.downloads
         ]
         builtin_models = self.model_cache.builtin_models.model_dump(mode="json", exclude_none=True)
+        pipeline_requested = self.pipeline.model_dump(mode="json", exclude_none=True)
+        pipeline_resolved, missing_models = self.resolved_pipeline_flags()
 
         return {
             "log_level": log_level,
@@ -769,6 +963,11 @@ class DoclingSettings(BaseModel):
                 "base_dir": self.model_cache.base_dir,
                 "builtin_models": builtin_models,
                 "downloads": downloads,
+            },
+            "pipeline": {
+                "requested": pipeline_requested,
+                "resolved": pipeline_resolved,
+                "missing_models": missing_models,
             },
         }
 

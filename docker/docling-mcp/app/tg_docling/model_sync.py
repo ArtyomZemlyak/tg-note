@@ -431,6 +431,14 @@ def sync_models(settings: DoclingSettings, force: bool = False) -> Dict[str, Any
     base_dir = Path(settings.model_cache.base_dir)
     base_dir.mkdir(parents=True, exist_ok=True)
 
+    _, pipeline_missing = settings.resolved_pipeline_flags()
+    for missing in pipeline_missing:
+        logger.warning(
+            "Docling pipeline configuration requires '%s', but the corresponding model bundle is disabled. "
+            "The related stage will be skipped until the bundle is enabled.",
+            missing,
+        )
+
     builtin_settings = settings.model_cache.builtin_models
     enabled_map = builtin_settings.enabled_model_map()
     enabled_builtin = [name for name in _DOC_MODEL_FLAG_MAP.keys() if enabled_map.get(name)]
