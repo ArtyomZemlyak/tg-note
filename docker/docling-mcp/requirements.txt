@@ -1,8 +1,4 @@
-# Core Docling MCP Server with CLI entrypoints
-# Note: docling-mcp includes mcp[cli]>=1.9.4 as a dependency, but we explicitly
-# list it here to ensure it's installed correctly in Docker
-# mcp.server.fastmcp is part of the mcp package (not a separate fastmcp package)
-mcp[cli]>=1.9.4
+# Core Docling MCP server dependencies
 docling-mcp==1.3.2
 
 # Docling core with optional extras required by the container

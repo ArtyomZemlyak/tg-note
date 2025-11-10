@@ -58,6 +58,9 @@ RUN python -m pip install --no-cache-dir -r /tmp/requirements.txt
 # Copy application code and shared configuration schema
 COPY docker/docling-mcp/app /opt/docling-mcp/app
 COPY config /opt/docling-mcp/app/config
+# AICODE-NOTE: Only copy the src components required by Docling (prompt registry) to avoid shadowing external packages.
+COPY src/__init__.py /opt/docling-mcp/app/src/__init__.py
+COPY src/prompts /opt/docling-mcp/app/src/prompts
 COPY docker/docling-mcp/docker-entrypoint.sh /usr/local/bin/entrypoint.sh
 
 # Create runtime directories
