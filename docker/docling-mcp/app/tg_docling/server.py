@@ -10,7 +10,6 @@ from typing import List
 import tg_docling.tools  # noqa: F401  # Register additional MCP tools
 from docling_mcp.servers.mcp_server import ToolGroups, TransportType
 from docling_mcp.servers.mcp_server import main as mcp_main
-from docling_mcp.shared import mcp
 from tg_docling.config import DEFAULT_SETTINGS_PATH, load_docling_settings
 from tg_docling.converter import install_converter
 from tg_docling.logging import configure_logging
@@ -18,6 +17,7 @@ from tg_docling.model_sync import sync_models
 
 from config.settings import DoclingSettings, Settings
 from mcp.types import ToolAnnotations
+from docling_mcp.shared import mcp as d_mcp
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +68,7 @@ def _load_and_apply_settings() -> tuple[DoclingSettings, Settings]:
     return docling_settings, app_settings
 
 
-@mcp.tool(
+@d_mcp.tool(
     title="Synchronise Docling Models",
     description="Download or refresh model artefacts required by the Docling pipelines.",
     structured_output=True,

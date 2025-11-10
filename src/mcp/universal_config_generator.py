@@ -71,7 +71,7 @@ class UniversalMCPConfigGenerator:
             if src_path not in sys.path:
                 sys.path.insert(0, src_path)
 
-            from mcp.mcp_hub_server import get_builtin_tools
+            from src.mcp.mcp_hub_server import get_builtin_tools
 
             tools = get_builtin_tools()
             logger.info(f"[UniversalMCPConfig] Detected {len(tools)} available tools: {tools}")
