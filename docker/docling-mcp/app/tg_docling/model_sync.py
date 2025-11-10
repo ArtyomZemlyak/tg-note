@@ -120,40 +120,6 @@ def _snapshot_download_with_hf_transfer_fallback(
     """Download snapshot while gracefully handling missing hf_transfer dependency."""
     global _HF_TRANSFER_FAST_DOWNLOAD_AVAILABLE
 
-    # Create tqdm callback for logging progress
-    try:
-        from tqdm import tqdm
-
-        class LoggingTqdm(tqdm):
-            """Custom tqdm that logs progress to logger."""
-
-            def __init__(self, *args, **kwargs):
-                # Disable default tqdm output, we'll log manually
-                kwargs.setdefault("disable", True)
-                super().__init__(*args, **kwargs)
-                self.last_logged = 0
-
-            def update(self, n=1):
-                result = super().update(n)
-                # Log progress every 5% or when complete
-                if self.total:
-                    current_pct = int((self.n / self.total) * 100)
-                    if current_pct >= self.last_logged + 5 or self.n >= self.total:
-                        logger.info(
-                            "[Docling Model Sync] Downloading %s: %d%% (%d/%d)",
-                            repo_id or "model",
-                            current_pct,
-                            self.n,
-                            self.total,
-                        )
-                        self.last_logged = current_pct
-                return result
-
-        tqdm_class = LoggingTqdm
-    except ImportError:
-        # tqdm not available, use default progress
-        tqdm_class = None
-
     kwargs = {
         "repo_id": repo_id,
         "revision": revision,
@@ -162,10 +128,6 @@ def _snapshot_download_with_hf_transfer_fallback(
         "allow_patterns": allow_patterns,
         "ignore_patterns": ignore_patterns,
     }
-
-    # Add tqdm callback if available
-    if tqdm_class:
-        kwargs["tqdm_class"] = tqdm_class
 
     def _call_snapshot() -> str:
         return snapshot_download(**kwargs)
