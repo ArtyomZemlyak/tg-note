@@ -1,0 +1,108 @@
+═══════════════════════════════════════════════════════════════════════════════
+БЫСТРАЯ ЗАГРУЗКА МОДЕЛЕЙ DOCLING через huggingface-cli с hf_transfer
+═══════════════════════════════════════════════════════════════════════════════
+
+ВАРИАНТ 1: Используя скрипт (РЕКОМЕНДУЕТСЯ)
+───────────────────────────────────────────────────────────────────────────────
+
+1. Установите huggingface-cli и hf_transfer:
+   pip install huggingface-hub hf-transfer
+
+2. Запустите скрипт:
+   bash download_docling_models.sh /opt/docling-mcp/models
+
+
+ВАРИАНТ 2: Ручные команды (одна за одной)
+───────────────────────────────────────────────────────────────────────────────
+
+# Установка зависимостей
+pip install huggingface-hub hf-transfer
+
+# Включить hf_transfer для ускорения
+export HF_HUB_ENABLE_HF_TRANSFER=1
+
+# Создать директорию
+mkdir -p /opt/docling-mcp/models
+cd /opt/docling-mcp/models
+
+# 1. Layout Model
+huggingface-cli download DS4SD/docling-models \
+    --include "layout/*" \
+    --local-dir . \
+    --local-dir-use-symlinks False
+
+# 2. TableFormer Model
+huggingface-cli download DS4SD/docling-models \
+    --include "tableformer/*" \
+    --local-dir . \
+    --local-dir-use-symlinks False
+
+# 3. Code & Formula Model
+huggingface-cli download DS4SD/docling-models \
+    --include "code_formula_detection/*" \
+    --local-dir . \
+    --local-dir-use-symlinks False
+
+# 4. Picture Classifier
+huggingface-cli download DS4SD/docling-models \
+    --include "picture_classifier/*" \
+    --local-dir . \
+    --local-dir-use-symlinks False
+
+# 5. RapidOCR Models
+huggingface-cli download RapidAI/RapidOCR \
+    --include "RapidOcr/onnx/PP-OCRv4/*" \
+    --local-dir . \
+    --local-dir-use-symlinks False
+
+
+ВАРИАНТ 3: Одной командой (скопировать всё сразу)
+───────────────────────────────────────────────────────────────────────────────
+
+pip install huggingface-hub hf-transfer && \
+export HF_HUB_ENABLE_HF_TRANSFER=1 && \
+mkdir -p /opt/docling-mcp/models && \
+cd /opt/docling-mcp/models && \
+huggingface-cli download DS4SD/docling-models --include "layout/*" --local-dir . --local-dir-use-symlinks False && \
+huggingface-cli download DS4SD/docling-models --include "tableformer/*" --local-dir . --local-dir-use-symlinks False && \
+huggingface-cli download DS4SD/docling-models --include "code_formula_detection/*" --local-dir . --local-dir-use-symlinks False && \
+huggingface-cli download DS4SD/docling-models --include "picture_classifier/*" --local-dir . --local-dir-use-symlinks False && \
+huggingface-cli download RapidAI/RapidOCR --include "RapidOcr/onnx/PP-OCRv4/*" --local-dir . --local-dir-use-symlinks False
+
+
+ПРИМЕЧАНИЯ:
+───────────────────────────────────────────────────────────────────────────────
+
+1. hf_transfer значительно ускоряет загрузку (многопоточная загрузка)
+2. Если hf_transfer не работает, команды всё равно будут работать (просто медленнее)
+3. Если нужна другая директория, замените /opt/docling-mcp/models на свой путь
+4. Для Docker: убедитесь что volume смонтирован и путь существует внутри контейнера
+5. Модели займут примерно 2-3 GB дискового пространства
+
+
+ПРОВЕРКА РЕЗУЛЬТАТА:
+───────────────────────────────────────────────────────────────────────────────
+
+ls -lh /opt/docling-mcp/models
+
+Должны появиться папки:
+- layout/
+- tableformer/
+- code_formula_detection/
+- picture_classifier/
+- RapidOcr/
+
+
+TROUBLESHOOTING:
+───────────────────────────────────────────────────────────────────────────────
+
+Если загрузка зависает:
+1. Проверьте интернет соединение
+2. Отключите hf_transfer: export HF_HUB_ENABLE_HF_TRANSFER=0
+3. Попробуйте загрузить модели по одной
+4. Проверьте доступ к HuggingFace Hub (может требоваться токен для некоторых моделей)
+
+Если нужен HuggingFace токен:
+huggingface-cli login
+
+═══════════════════════════════════════════════════════════════════════════════
