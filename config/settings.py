@@ -499,8 +499,8 @@ class DoclingSettings(BaseModel):
         description="Enable OCR for image formats (jpg/jpeg/png/tiff). When disabled, image formats are skipped.",
     )
     ocr_languages: List[str] = Field(
-        default_factory=lambda: ["eng"],
-        description="Preferred OCR languages (ISO 639-3 codes) passed to Docling when supported.",
+        default_factory=lambda: ["eng", "rus"],
+        description="Preferred OCR languages (ISO 639-3 codes) passed to Docling when supported. Default supports English and Russian.",
     )
     mcp: DoclingMCPSettings = Field(
         default_factory=DoclingMCPSettings,
@@ -555,7 +555,7 @@ class DoclingSettings(BaseModel):
     def _normalize_languages(cls, value: Any) -> List[str]:
         """Normalize OCR languages to lowercase list."""
         if value is None:
-            return ["eng"]
+            return ["eng", "rus"]
 
         explicit_empty_sequence = isinstance(value, (list, tuple, set)) and not value
 
@@ -577,7 +577,7 @@ class DoclingSettings(BaseModel):
             return normalized
         if explicit_empty_sequence:
             return []
-        return ["eng"]
+        return ["eng", "rus"]
 
     @property
     def max_file_size_bytes(self) -> Optional[int]:

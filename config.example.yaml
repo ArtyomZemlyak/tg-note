@@ -188,10 +188,11 @@ MEDIA_PROCESSING_DOCLING:
   generate_page_images: false
   startup_sync: true
   ocr_languages:
-    - eng
+    - eng  # English (ISO 639-3)
+    - rus  # Russian (ISO 639-3)
   ocr_config:
     backend: rapidocr
-    languages: []
+    languages: []  # Empty = use ocr_languages as fallback
     rapidocr:
       providers:
         - CUDAExecutionProvider
@@ -204,12 +205,14 @@ MEDIA_PROCESSING_DOCLING:
     easyocr:
       enabled: false
       languages:
-        - en
+        - en  # English (ISO 639-1)
+        - ru  # Russian (ISO 639-1)
       gpu: auto
     tesseract:
       enabled: false
       languages:
-        - eng
+        - eng  # English (ISO 639-3)
+        - rus  # Russian (ISO 639-3)
     onnxtr:
       enabled: false
   formats:
