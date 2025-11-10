@@ -112,7 +112,7 @@ Get started with tg-note in just a few minutes:
     ```bash
     # Recommended: Use the console script
     poetry run tg-note
-    
+
     # Or directly with Python
     poetry run python main.py
     ```

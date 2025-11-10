@@ -137,39 +137,39 @@ MEDIA_PROCESSING_DOCLING:
   keep_images: false
   generate_page_images: false
   startup_sync: true
-  
+
   # Main OCR languages (ISO 639-3)
   # Used as fallback when ocr_config.languages is empty
   ocr_languages:
     - eng
     - rus
-  
+
   ocr_config:
     backend: rapidocr  # rapidocr | tesseract | easyocr | onnxtr
     languages: []  # Empty = use ocr_languages above
-    
+
     rapidocr:
       enabled: true
       providers:
         - CUDAExecutionProvider
         - CPUExecutionProvider
-    
+
     easyocr:
       enabled: false
       languages:
         - en
         - ru
       gpu: auto
-    
+
     tesseract:
       enabled: false
       languages:
         - eng
         - rus
-    
+
     onnxtr:
       enabled: false
-  
+
   formats:
     - pdf
     - docx
@@ -182,7 +182,7 @@ MEDIA_PROCESSING_DOCLING:
     - jpeg
     - png
     - tiff
-  
+
   model_cache:
     base_dir: /opt/docling-mcp/models
     groups:
@@ -205,8 +205,8 @@ MEDIA_PROCESSING_DOCLING:
 
 **Priority order**:
 ```
-ocr_config.<backend>.languages 
-  → ocr_config.languages 
+ocr_config.<backend>.languages
+  → ocr_config.languages
     → ocr_languages
 ```
 
@@ -240,7 +240,7 @@ The Dockerfile already includes these packages.
 
 **Error**: `Failed to download EasyOCR model`
 
-**Solution**: 
+**Solution**:
 - Check internet connection
 - Set `download_enabled: true` in EasyOCR config
 - Models are cached in `DOCLING_CACHE_DIR`
