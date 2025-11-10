@@ -48,6 +48,7 @@ from config.settings import DoclingSettings
 
 logger = logging.getLogger(__name__)
 
+# AICODE-NOTE: Layout model presets map - exported for use in model_sync.py
 _LAYOUT_PRESET_MAP = {
     "layout_v2": DOCLING_LAYOUT_V2,
     "layout_heron": DOCLING_LAYOUT_HERON,
@@ -57,11 +58,13 @@ _LAYOUT_PRESET_MAP = {
     "layout_egret_xlarge": DOCLING_LAYOUT_EGRET_XLARGE,
 }
 
+# AICODE-NOTE: Picture description preset options - exported for use in model_sync.py
 _PICTURE_DESCRIPTION_PRESET_OPTIONS = {
     "smolvlm": smolvlm_picture_description,
     "granite_vision": granite_picture_description,
 }
 
+# AICODE-NOTE: Picture description model specs map - exported for use in model_sync.py
 _PICTURE_DESCRIPTION_SPEC_MAP = {
     "granitedocling": GRANITEDOCLING_TRANSFORMERS,
     "granitedocling_mlx": GRANITEDOCLING_MLX,
@@ -259,6 +262,16 @@ def _create_converter(settings: DoclingSettings) -> DocumentConverter:
         )
         layout_spec = DOCLING_LAYOUT_V2
 
+    # AICODE-NOTE: Use layout preset attributes (repo_id, revision, model_path) for model loading
+    # The model_copy() ensures all preset attributes are properly transferred
+    logger.info(
+        "Using layout preset '%s' (repo_id=%s, revision=%s, model_repo_folder=%s)",
+        layout_cfg.preset,
+        getattr(layout_spec, "repo_id", "N/A"),
+        getattr(layout_spec, "revision", "N/A"),
+        getattr(layout_spec, "model_repo_folder", "N/A"),
+    )
+
     pdf_options.layout_options = LayoutOptions(
         create_orphan_clusters=layout_cfg.create_orphan_clusters,
         keep_empty_clusters=layout_cfg.keep_empty_clusters,
@@ -296,9 +309,16 @@ def _create_converter(settings: DoclingSettings) -> DocumentConverter:
         desc_options: PictureDescriptionVlmOptions = pdf_options.picture_description_options
         preset_name = desc_cfg.model
 
+        # AICODE-NOTE: Log which picture description model is being loaded
         preset_options = _PICTURE_DESCRIPTION_PRESET_OPTIONS.get(preset_name)
         if preset_options is not None:
             preset_copy = preset_options.model_copy()
+            logger.info(
+                "Using picture description preset '%s' (repo_id=%s, repo_cache_folder=%s)",
+                preset_name,
+                getattr(preset_copy, "repo_id", "N/A"),
+                getattr(preset_copy, "repo_cache_folder", "N/A"),
+            )
             for attr in (
                 "batch_size",
                 "scale",
@@ -321,8 +341,15 @@ def _create_converter(settings: DoclingSettings) -> DocumentConverter:
                     "Unknown picture description preset '%s'; picture description will use default options.",
                     preset_name,
                 )
-            elif hasattr(desc_options, "repo_id"):
-                setattr(desc_options, "repo_id", getattr(spec, "repo_id", None))
+            else:
+                logger.info(
+                    "Using picture description spec '%s' (repo_id=%s, repo_cache_folder=%s)",
+                    preset_name,
+                    getattr(spec, "repo_id", "N/A"),
+                    getattr(spec, "repo_cache_folder", "N/A"),
+                )
+                if hasattr(desc_options, "repo_id"):
+                    setattr(desc_options, "repo_id", getattr(spec, "repo_id", None))
 
         if desc_cfg.batch_size is not None and hasattr(desc_options, "batch_size"):
             desc_options.batch_size = desc_cfg.batch_size
