@@ -262,30 +262,128 @@ class DoclingModelDownloadSettings(BaseModel):
     )
 
 
-class DoclingModelGroupSettings(BaseModel):
-    """Predefined Docling model bundle download configuration."""
+class DoclingRapidOCRCacheSettings(BaseModel):
+    """RapidOCR download configuration for Docling-managed cache."""
 
     model_config = ConfigDict(extra="allow")
 
-    name: Literal[
-        "layout",
-        "tableformer",
-        "code_formula",
-        "picture_classifier",
-        "rapidocr",
-        "easyocr",
-        "smolvlm",
-        "granitedocling",
-        "granitedocling_mlx",
-        "smoldocling",
-        "smoldocling_mlx",
-        "granite_vision",
-    ] = Field(default="rapidocr", description="Name of the Docling model bundle to ensure.")
-    enabled: bool = Field(default=True, description="Whether this model group should be processed.")
-    backends: List[Literal["onnxruntime", "torch"]] = Field(
-        default_factory=list,
-        description="Optional RapidOCR backends to download. Ignored for other groups.",
+    enabled: bool = Field(default=True, description="Download RapidOCR models when True.")
+    backends: Optional[List[Literal["onnxruntime", "torch"]]] = Field(
+        default=None,
+        description=(
+            "Explicit RapidOCR backends to download. "
+            "Use None to apply Docling defaults (torch and onnxruntime)."
+        ),
     )
+
+    @field_validator("backends", mode="before")
+    @classmethod
+    def _normalize_backends(cls, value: Any) -> Optional[List[str]]:
+        """Normalize backend specification to a list of lowercase identifiers."""
+        if value in (None, "", [], ()):
+            return None
+
+        if isinstance(value, str):
+            candidates = [item.strip() for item in value.split(",") if item.strip()]
+        elif isinstance(value, (set, tuple, list)):
+            candidates = [str(item).strip() for item in value if str(item).strip()]
+        else:
+            candidates = [str(value).strip()]
+
+        if not candidates:
+            return None
+
+        normalized: List[str] = []
+        seen: Set[str] = set()
+        for candidate in candidates:
+            backend = candidate.lower()
+            if backend and backend not in seen:
+                seen.add(backend)
+                normalized.append(backend)
+        return normalized or None
+
+    @field_validator("backends")
+    @classmethod
+    def _validate_backends(cls, value: Optional[List[str]]) -> Optional[List[str]]:
+        """Ensure requested RapidOCR backends are supported."""
+        if value is None:
+            return None
+
+        allowed = {"onnxruntime", "torch"}
+        invalid = [backend for backend in value if backend not in allowed]
+        if invalid:
+            raise ValueError(
+                f"Unsupported RapidOCR backend(s): {', '.join(sorted(set(invalid)))}. "
+                f"Supported backends: {', '.join(sorted(allowed))}."
+            )
+
+        # Preserve provided order while removing duplicates.
+        seen: Set[str] = set()
+        unique_backends: List[str] = []
+        for backend in value:
+            if backend not in seen:
+                seen.add(backend)
+                unique_backends.append(backend)
+        return unique_backends
+
+    def wants_builtin_download(self) -> bool:
+        """
+        Return True when Docling's bundled downloader should manage RapidOCR.
+
+        When no explicit backend list is provided, Docling's downloader fetches all defaults.
+        """
+        return self.enabled and (self.backends is None)
+
+
+class DoclingBuiltinModelCacheSettings(BaseModel):
+    """Docling-managed model bundle selection."""
+
+    model_config = ConfigDict(extra="allow")
+
+    layout: bool = Field(default=True, description="Download layout analysis model.")
+    tableformer: bool = Field(default=True, description="Download table structure model.")
+    code_formula: bool = Field(
+        default=True, description="Download code and formula recognition model."
+    )
+    picture_classifier: bool = Field(
+        default=True, description="Download document picture classifier."
+    )
+    rapidocr: DoclingRapidOCRCacheSettings = Field(
+        default_factory=DoclingRapidOCRCacheSettings,
+        description="RapidOCR download configuration.",
+    )
+    easyocr: bool = Field(default=False, description="Download EasyOCR models.")
+    smolvlm: bool = Field(default=False, description="Download SmolVLM vision-language model.")
+    granitedocling: bool = Field(
+        default=False, description="Download GraniteDocling transformers model."
+    )
+    granitedocling_mlx: bool = Field(
+        default=False, description="Download GraniteDocling MLX vision-language model."
+    )
+    smoldocling: bool = Field(default=False, description="Download SmolDocling transformers model.")
+    smoldocling_mlx: bool = Field(
+        default=False, description="Download SmolDocling MLX vision-language model."
+    )
+    granite_vision: bool = Field(
+        default=False, description="Download Granite Vision picture description model."
+    )
+
+    def enabled_model_map(self) -> Dict[str, bool]:
+        """Return mapping of model bundle names to their enabled state."""
+        return {
+            "layout": self.layout,
+            "tableformer": self.tableformer,
+            "code_formula": self.code_formula,
+            "picture_classifier": self.picture_classifier,
+            "rapidocr": self.rapidocr.enabled,
+            "easyocr": self.easyocr,
+            "smolvlm": self.smolvlm,
+            "granitedocling": self.granitedocling,
+            "granitedocling_mlx": self.granitedocling_mlx,
+            "smoldocling": self.smoldocling,
+            "smoldocling_mlx": self.smoldocling_mlx,
+            "granite_vision": self.granite_vision,
+        }
 
 
 class DoclingModelCacheSettings(BaseModel):
@@ -297,15 +395,9 @@ class DoclingModelCacheSettings(BaseModel):
         default="/opt/docling-mcp/models",
         description="Default models directory inside the container.",
     )
-    groups: List[DoclingModelGroupSettings] = Field(
-        default_factory=lambda: [
-            DoclingModelGroupSettings(name="layout"),
-            DoclingModelGroupSettings(name="tableformer"),
-            DoclingModelGroupSettings(name="code_formula"),
-            DoclingModelGroupSettings(name="picture_classifier"),
-            DoclingModelGroupSettings(name="rapidocr", backends=["onnxruntime"]),
-        ],
-        description="Predefined Docling model bundles to download using built-in helpers.",
+    builtin_models: DoclingBuiltinModelCacheSettings = Field(
+        default_factory=DoclingBuiltinModelCacheSettings,
+        description="Docling-maintained model bundles to download.",
     )
     downloads: List[DoclingModelDownloadSettings] = Field(
         default_factory=list,
@@ -654,9 +746,7 @@ class DoclingSettings(BaseModel):
             download.model_dump(mode="json", exclude_none=True)
             for download in self.model_cache.downloads
         ]
-        groups = [
-            group.model_dump(mode="json", exclude_none=True) for group in self.model_cache.groups
-        ]
+        builtin_models = self.model_cache.builtin_models.model_dump(mode="json", exclude_none=True)
 
         return {
             "log_level": log_level,
@@ -677,7 +767,7 @@ class DoclingSettings(BaseModel):
             },
             "model_cache": {
                 "base_dir": self.model_cache.base_dir,
-                "groups": groups,
+                "builtin_models": builtin_models,
                 "downloads": downloads,
             },
         }

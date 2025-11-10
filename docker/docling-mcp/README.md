@@ -124,13 +124,20 @@ The container reads the same `config.yaml` that powers tg-note. Docker Compose m
   },
   "model_cache": {
     "base_dir": "/opt/docling-mcp/models",
-    "groups": [
-      {"name": "layout"},
-      {"name": "tableformer"},
-      {"name": "code_formula"},
-      {"name": "picture_classifier"},
-      {"name": "rapidocr", "backends": ["onnxruntime"]}
-    ],
+    "builtin_models": {
+      "layout": true,
+      "tableformer": true,
+      "code_formula": true,
+      "picture_classifier": true,
+      "rapidocr": {"enabled": true, "backends": ["onnxruntime"]},
+      "easyocr": false,
+      "smolvlm": false,
+      "granitedocling": false,
+      "granitedocling_mlx": false,
+      "smoldocling": false,
+      "smoldocling_mlx": false,
+      "granite_vision": false
+    },
     "downloads": []
   }
 }
@@ -162,18 +169,18 @@ The container reads the same `config.yaml` that powers tg-note. Docker Compose m
 
 ### Automatic Model Download
 
-Models are automatically downloaded on container startup based on configuration. The container first processes `model_cache.groups`, which maps to Docling’s built-in download helpers (layout, tableformer, RapidOCR, EasyOCR, GraniteDocling, etc.). The `sync_docling_models` MCP tool can be called to trigger manual synchronization on demand.
+Models are automatically downloaded on container startup based on configuration. The container first processes `model_cache.builtin_models`, which maps to Docling’s built-in download helpers (layout, tableformer, RapidOCR, EasyOCR, GraniteDocling, etc.). The `sync_docling_models` MCP tool can be called to trigger manual synchronization on demand.
 
 ### Model Sources
 
-1. **Docling Bundles** (`model_cache.groups`): Uses `docling.utils.model_downloader` to fetch official models with the expected folder layout.
+1. **Docling Bundles** (`model_cache.builtin_models`): Uses `docling.utils.model_downloader` to fetch official models with the expected folder layout.
 2. **HuggingFace Hub**: Additional repositories defined in `model_cache.downloads`.
 3. **ModelScope**: Optional alternative source for certain OCR artefacts.
 4. **Local Cache**: Persistent storage in `/opt/docling-mcp/models`.
 
 ### Adding New Models
 
-- Prefer adding bundles to `model_cache.groups` to leverage Docling’s managed downloads and directory structure.
+- Prefer adding bundles to `model_cache.builtin_models` to leverage Docling’s managed downloads and directory structure.
 - For bespoke artefacts, add entries to `model_cache.downloads`:
 
   ```json

@@ -185,8 +185,13 @@ def test_docling_settings_defaults():
     assert cfg.generate_page_images is False
     assert cfg.startup_sync is True
     assert cfg.ocr_config.backend == "rapidocr"
-    assert cfg.model_cache.groups
-    assert cfg.model_cache.groups[-1].name == "rapidocr"
+    builtin = cfg.model_cache.builtin_models
+    assert builtin.layout is True
+    assert builtin.tableformer is True
+    assert builtin.code_formula is True
+    assert builtin.picture_classifier is True
+    assert builtin.rapidocr.enabled is True
+    assert builtin.rapidocr.backends is None
     assert cfg.model_cache.downloads == []
 
 
@@ -207,8 +212,12 @@ def test_docling_settings_container_config():
     container_cfg = cfg.to_container_config()
 
     assert container_cfg["converter"]["ocr"]["backend"] == "rapidocr"
-    assert container_cfg["model_cache"]["groups"]
-    assert container_cfg["model_cache"]["groups"][-1]["name"] == "rapidocr"
+    builtin_cfg = container_cfg["model_cache"]["builtin_models"]
+    assert builtin_cfg["layout"] is True
+    assert builtin_cfg["tableformer"] is True
+    assert builtin_cfg["code_formula"] is True
+    assert builtin_cfg["picture_classifier"] is True
+    assert builtin_cfg["rapidocr"]["enabled"] is True
     assert container_cfg["model_cache"]["downloads"] == []
     assert container_cfg["mcp"]["transport"] == "sse"
     assert container_cfg["mcp"]["port"] == 8077

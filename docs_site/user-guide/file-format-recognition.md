@@ -174,7 +174,7 @@ Docling settings expose detailed controls under `MEDIA_PROCESSING_DOCLING`:
 - `startup_sync`: enable/disable automatic downloads on container start
 - `keep_images` / `generate_page_images`: embed page snapshots in the output
 - `ocr_config`: choose between `rapidocr`, `easyocr`, `tesseract`, `tesseract_cli`, or `onnxtr`
-- `model_cache.groups`: Docling-managed bundles to pre-download (RapidOCR, layout, EasyOCR, VLMs, etc.)
+- `model_cache.builtin_models`: Docling-managed bundles to pre-download (layout, RapidOCR, EasyOCR, VLMs, etc.)
 - `model_cache.downloads`: optional additional artefacts fetched from HuggingFace or ModelScope
 
 The default configuration ships with RapidOCR (GPU-enabled via ONNX Runtime). Switch to EasyOCR

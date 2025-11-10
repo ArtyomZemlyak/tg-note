@@ -192,19 +192,20 @@ set_sync_progress_callback(my_callback)
 - Вызове MCP tool `sync_docling_models`
 
 ### Источники моделей
-1. **Docling Bundles (`model_cache.groups`)** — встроенные загрузчики (RapidOCR, layout, EasyOCR, GraniteDocling и т.д.)
+1. **Docling Bundles (`model_cache.builtin_models`)** — встроенные загрузчики (RapidOCR, layout, EasyOCR, GraniteDocling и т.д.)
 2. **HuggingFace Hub** — дополнительные репозитории из `model_cache.downloads`
 3. **ModelScope** — альтернативные источники для отдельных OCR моделей
 4. **Локальный кэш** — `/opt/docling-mcp/models`
 
 ### Добавление новых моделей
 Через `config.yaml` или панель настроек:
-- Добавьте новый бандл в `model_cache.groups`, например:
+- Добавьте новый бандл в `model_cache.builtin_models`, например:
   ```yaml
   MEDIA_PROCESSING_DOCLING:
     model_cache:
-      groups:
-        - name: rapidocr
+      builtin_models:
+        rapidocr:
+          enabled: true
           backends: ["onnxruntime", "torch"]
   ```
 - Для кастомных артефактов используйте `model_cache.downloads`:
