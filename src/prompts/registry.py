@@ -64,8 +64,17 @@ class PromptRegistry:
     """Filesystem-based prompt loader with versioning and locale support."""
 
     def __init__(self, base_dirs: Optional[Iterable[Path]] = None):
-        default_base = Path("config") / "prompts"
-        bases = list(base_dirs) if base_dirs is not None else [default_base]
+        # Try multiple possible locations for config/prompts
+        # 1. app/config/prompts (Docker container)
+        # 2. config/prompts (workspace root)
+        possible_bases = [
+            Path("app/config/prompts"),
+            Path("config/prompts"),
+        ]
+        if base_dirs is not None:
+            bases = list(base_dirs)
+        else:
+            bases = possible_bases
         # Keep order for search precedence; deduplicate
         seen = {}
         for b in bases:
