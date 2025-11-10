@@ -21,7 +21,7 @@ Bot → MCP Hub → Infinity (embeddings) → Qdrant (vector DB)
 
 ```bash
 # Copy configuration examples
-cp .env.vector.example .env
+cp .env.example .env
 cp config.example.yaml config.yaml
 
 # Create data directories
@@ -65,18 +65,19 @@ VECTOR_QDRANT_COLLECTION: knowledge_base
 ### 4. Start Services
 
 ```bash
-# Start all services
-docker-compose -f docker-compose.vector.yml up -d
+# Start all services (includes Qdrant and Infinity)
+# IMPORTANT: vLLM and SGLang both use port 8001 - comment out one of them in docker-compose.yml!
+docker-compose up -d
 
 # Watch logs (wait for model loading ~1-2 minutes)
-docker-compose -f docker-compose.vector.yml logs -f infinity
+docker-compose logs -f infinity
 ```
 
 ### 5. Verify Operation
 
 ```bash
 # Check status of all services
-docker-compose -f docker-compose.vector.yml ps
+docker-compose ps
 
 # Should be running:
 # - tg-note-qdrant (healthy)
@@ -129,30 +130,30 @@ INFINITY_MODEL=BAAI/bge-small-en-v1.5
 
 ```bash
 # All logs
-docker-compose -f docker-compose.vector.yml logs -f
+docker-compose logs -f
 
 # Specific service only
-docker-compose -f docker-compose.vector.yml logs -f infinity
+docker-compose logs -f infinity
 ```
 
 ### Restart
 
 ```bash
 # Restart all
-docker-compose -f docker-compose.vector.yml restart
+docker-compose restart
 
 # Restart specific service
-docker-compose -f docker-compose.vector.yml restart infinity
+docker-compose restart infinity
 ```
 
 ### Stop
 
 ```bash
 # Stop all services
-docker-compose -f docker-compose.vector.yml down
+docker-compose down
 
 # Stop and remove data (be careful!)
-docker-compose -f docker-compose.vector.yml down -v
+docker-compose down -v
 ```
 
 ## Resource Requirements
@@ -172,7 +173,7 @@ docker-compose -f docker-compose.vector.yml down -v
 
 ## GPU Acceleration (Optional)
 
-To speed up processing, uncomment in `docker-compose.vector.yml`:
+To speed up processing, uncomment in `docker-compose.yml` (infinity section):
 
 ```yaml
 infinity:
@@ -198,7 +199,7 @@ Requirements:
 **Solution**: Check logs and give time for model loading (1-2 minutes)
 
 ```bash
-docker-compose -f docker-compose.vector.yml logs infinity
+docker-compose logs infinity
 ```
 
 ### Out of Memory

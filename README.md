@@ -815,38 +815,35 @@ The project provides comprehensive Docker support with multiple deployment confi
 - Docker and Docker Compose
 - `.env` file with required tokens (see [Configuration](#-configuration-reference))
 
-**1. Simple Deployment (No GPU Required)**
+**Quick Start (All Services Enabled)**
 ```bash
-# Start with JSON storage (lightweight, no GPU needed)
-docker-compose -f docker-compose.simple.yml up -d --build
-
-# View logs
-docker-compose -f docker-compose.simple.yml logs -f bot
-```
-
-**2. Full Stack with AI Memory (GPU Required)**
-```bash
-# Start with vLLM backend for mem-agent storage
+# Start all services (vLLM, SGLang, Docling, Qdrant, Infinity)
+# IMPORTANT: vLLM and SGLang both use port 8001 - comment out one of them in docker-compose.yml!
 docker-compose up -d --build
 
 # View logs
 docker-compose logs -f
 ```
 
-**3. Vector Search Stack (Semantic Search)**
-```bash
-# Start with Qdrant + Infinity for vector search
-docker-compose -f docker-compose.vector.yml up -d --build
+**Customization Options:**
 
-# View logs
-docker-compose -f docker-compose.vector.yml logs -f
-```
+1. **Simple Deployment (No GPU Required)**
+   ```bash
+   # Comment out vllm-server, sglang-server, qdrant, infinity in docker-compose.yml
+   docker-compose up -d --build
+   ```
 
-**4. SGLang Backend (Alternative to vLLM)**
-```bash
-# Use SGLang for faster inference
-docker-compose -f docker-compose.yml -f docker-compose.sglang.yml up -d --build
-```
+2. **Use SGLang instead of vLLM**
+   ```bash
+   # Comment out vllm-server section in docker-compose.yml
+   docker-compose up -d --build
+   ```
+
+3. **Disable Vector Search**
+   ```bash
+   # Comment out qdrant and infinity sections in docker-compose.yml
+   docker-compose up -d --build
+   ```
 
 #### Services Overview
 
@@ -1077,7 +1074,7 @@ curl http://localhost:6333/healthz
 curl http://localhost:7997/health
 
 # Check vector search logs
-docker-compose -f docker-compose.vector.yml logs -f
+docker-compose logs -f
 ```
 
 **Performance Issues:**

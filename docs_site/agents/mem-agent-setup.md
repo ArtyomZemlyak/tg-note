@@ -50,14 +50,14 @@ The storage type is configured via `MEM_AGENT_STORAGE_TYPE` setting (default: `j
 The recommended way to deploy mem-agent is using Docker containers:
 
 ```bash
-# Start all services (bot, MCP hub, vLLM server)
+# Start all services (bot, MCP hub, vLLM server, SGLang, Qdrant, Infinity)
+# IMPORTANT: vLLM and SGLang both use port 8001 - comment out one of them in docker-compose.yml!
 docker-compose up -d
 
-# Or with SGLang backend for faster inference
-docker-compose -f docker-compose.yml -f docker-compose.sglang.yml up -d
-
-# Or without GPU (JSON storage mode only)
-docker-compose -f docker-compose.simple.yml up -d
+# To use only SGLang: comment out vllm-server section in docker-compose.yml
+# To use only vLLM: comment out sglang-server section in docker-compose.yml
+# To disable vector search: comment out qdrant and infinity sections
+# To run without GPU: comment out vllm-server, sglang-server, qdrant, infinity sections
 ```
 
 The Docker setup automatically:
@@ -214,7 +214,7 @@ Use Docker containers or external LLM servers instead:
 docker-compose up -d vllm-server
 
 # Linux/GPU: SGLang container (faster)
-docker-compose -f docker-compose.yml -f docker-compose.sglang.yml up -d
+docker-compose up -d  # Comment out vllm-server section if using SGLang
 
 # macOS/No GPU: LM Studio
 # Download and run LM Studio, load driaforall/mem-agent model
