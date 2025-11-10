@@ -176,6 +176,11 @@ def set_sync_progress_callback(callback: Optional[Callable[[str, Dict[str, Any]]
 
 def _notify_progress(message: str, data: Optional[Dict[str, Any]] = None) -> None:
     """Send progress notification if callback is configured."""
+    # Log progress message
+    logger.info("[Docling Model Sync] %s", message)
+    if data:
+        logger.debug("[Docling Model Sync] Progress data: %s", data)
+
     # Collect progress message for inclusion in response
     progress_entry = {
         "message": message,

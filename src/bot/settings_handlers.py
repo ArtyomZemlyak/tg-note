@@ -75,20 +75,8 @@ class SettingsHandlers:
 
         payload = result.get("result") or {}
         items = payload.get("items", [])
-        progress_messages = payload.get("progress", [])
         success = result.get("success", True)
 
-        # Build progress display from progress messages
-        progress_lines = []
-        if progress_messages:
-            # Show last few progress messages (most recent)
-            recent_progress = progress_messages[-10:]  # Show last 10 messages
-            for prog in recent_progress:
-                msg = prog.get("message", "")
-                if msg:
-                    progress_lines.append(escape_html(msg))
-
-        # Build summary from items
         if items:
             lines = [
                 f"• {escape_html(item.get('name', item.get('repo_id', 'artefact')))} — "
@@ -99,26 +87,14 @@ class SettingsHandlers:
         else:
             summary = "Нет изменений (модели уже актуальны)."
 
-        # Combine progress and summary
-        if progress_lines:
-            progress_text = "\n".join(progress_lines)
-            if success:
-                text = f"✅ Docling обновлён.\n\n<b>Прогресс:</b>\n{progress_text}\n\n<b>Результаты:</b>\n{summary}"
-            else:
-                text = (
-                    "⚠️ Синхронизация Docling завершилась с ошибками. "
-                    "Подробности см. в логах контейнера.\n\n"
-                    f"<b>Прогресс:</b>\n{progress_text}\n\n<b>Результаты:</b>\n{summary}"
-                )
+        if success:
+            text = f"✅ Docling обновлён.\n\n{summary}"
         else:
-            if success:
-                text = f"✅ Docling обновлён.\n\n{summary}"
-            else:
-                text = (
-                    "⚠️ Синхронизация Docling завершилась с ошибками. "
-                    "Подробности см. в логах контейнера.\n\n"
-                    f"{summary}"
-                )
+            text = (
+                "⚠️ Синхронизация Docling завершилась с ошибками. "
+                "Подробности см. в логах контейнера.\n\n"
+                f"{summary}"
+            )
 
         await self.bot.edit_message_text(
             text,
