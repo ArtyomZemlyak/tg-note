@@ -16,10 +16,8 @@ from tg_docling.logging import configure_logging
 from tg_docling.model_sync import sync_models
 
 from config.settings import DoclingSettings, Settings
-# Import from mcp module FIRST before importing mcp instance variable
-# to avoid name conflict (mcp instance would shadow mcp module)
 from mcp.types import ToolAnnotations
-from docling_mcp.shared import mcp
+from docling_mcp.shared import mcp as d_mcp
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +68,7 @@ def _load_and_apply_settings() -> tuple[DoclingSettings, Settings]:
     return docling_settings, app_settings
 
 
-@mcp.tool(
+@d_mcp.tool(
     title="Synchronise Docling Models",
     description="Download or refresh model artefacts required by the Docling pipelines.",
     structured_output=True,

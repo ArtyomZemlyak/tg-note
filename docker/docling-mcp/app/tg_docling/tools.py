@@ -20,10 +20,8 @@ from docling_mcp.docling_cache import get_cache_key
 from docling_mcp.tools.conversion import ConvertDocumentOutput, _get_converter, cleanup_memory
 from pydantic import Field
 
-# Import from mcp module FIRST before importing mcp instance variable
-# to avoid name conflict (mcp instance would shadow mcp module)
 from mcp.types import ToolAnnotations
-from docling_mcp.shared import local_document_cache, local_stack_cache, mcp
+from docling_mcp.shared import local_document_cache, local_stack_cache, mcp as d_mcp
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +49,7 @@ def _detect_suffix(filename: Optional[str], mime_type: Optional[str], data: byte
     return None
 
 
-@mcp.tool(
+@d_mcp.tool(
     title="Convert document from base64 content",
     description=(
         "Decode a base64-encoded document payload, convert it with Docling and cache the result."
