@@ -5,6 +5,7 @@ import logging
 import os
 import shutil
 import sys
+import time
 from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional
@@ -48,6 +49,9 @@ logger = logging.getLogger(__name__)
 # AICODE-NOTE: Callback for sending progress notifications (e.g., to Telegram)
 # Can be set externally to receive sync progress updates
 _sync_progress_callback: Optional[Callable[[str, Dict[str, Any]], None]] = None
+
+# AICODE-NOTE: Collect progress messages during sync for inclusion in response
+_progress_messages: List[Dict[str, Any]] = []
 
 SUPPORTED_RAPIDOCR_BACKENDS = tuple(sorted(RapidOcrModel._default_models.keys()))
 
@@ -172,6 +176,14 @@ def set_sync_progress_callback(callback: Optional[Callable[[str, Dict[str, Any]]
 
 def _notify_progress(message: str, data: Optional[Dict[str, Any]] = None) -> None:
     """Send progress notification if callback is configured."""
+    # Collect progress message for inclusion in response
+    progress_entry = {
+        "message": message,
+        "data": data or {},
+        "timestamp": time.time(),
+    }
+    _progress_messages.append(progress_entry)
+
     if _sync_progress_callback is not None:
         try:
             _sync_progress_callback(message, data or {})
@@ -424,6 +436,10 @@ def sync_models(settings: DoclingSettings, force: bool = False) -> Dict[str, Any
 
     Returns a structured dictionary describing performed operations.
     """
+    # Reset progress messages collection
+    global _progress_messages
+    _progress_messages = []
+
     results: List[Dict[str, Any]] = []
     builtin_results: List[Dict[str, Any]] = []
     download_results: List[Dict[str, Any]] = []
@@ -591,6 +607,7 @@ def sync_models(settings: DoclingSettings, force: bool = False) -> Dict[str, Any
         "downloads": download_results,
         "items": results,
         "summary": summary,
+        "progress": _progress_messages.copy(),  # Include collected progress messages
     }
 
 
