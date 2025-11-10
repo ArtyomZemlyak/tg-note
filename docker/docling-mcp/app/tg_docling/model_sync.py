@@ -120,6 +120,40 @@ def _snapshot_download_with_hf_transfer_fallback(
     """Download snapshot while gracefully handling missing hf_transfer dependency."""
     global _HF_TRANSFER_FAST_DOWNLOAD_AVAILABLE
 
+    # Create tqdm callback for logging progress
+    try:
+        from tqdm import tqdm
+
+        class LoggingTqdm(tqdm):
+            """Custom tqdm that logs progress to logger."""
+
+            def __init__(self, *args, **kwargs):
+                # Disable default tqdm output, we'll log manually
+                kwargs.setdefault("disable", True)
+                super().__init__(*args, **kwargs)
+                self.last_logged = 0
+
+            def update(self, n=1):
+                result = super().update(n)
+                # Log progress every 5% or when complete
+                if self.total:
+                    current_pct = int((self.n / self.total) * 100)
+                    if current_pct >= self.last_logged + 5 or self.n >= self.total:
+                        logger.info(
+                            "[Docling Model Sync] Downloading %s: %d%% (%d/%d)",
+                            repo_id or "model",
+                            current_pct,
+                            self.n,
+                            self.total,
+                        )
+                        self.last_logged = current_pct
+                return result
+
+        tqdm_class = LoggingTqdm
+    except ImportError:
+        # tqdm not available, use default progress
+        tqdm_class = None
+
     kwargs = {
         "repo_id": repo_id,
         "revision": revision,
@@ -128,6 +162,10 @@ def _snapshot_download_with_hf_transfer_fallback(
         "allow_patterns": allow_patterns,
         "ignore_patterns": ignore_patterns,
     }
+
+    # Add tqdm callback if available
+    if tqdm_class:
+        kwargs["tqdm_class"] = tqdm_class
 
     def _call_snapshot() -> str:
         return snapshot_download(**kwargs)
@@ -172,6 +210,11 @@ def set_sync_progress_callback(callback: Optional[Callable[[str, Dict[str, Any]]
 
 def _notify_progress(message: str, data: Optional[Dict[str, Any]] = None) -> None:
     """Send progress notification if callback is configured."""
+    # Log progress message
+    logger.info("[Docling Model Sync] %s", message)
+    if data:
+        logger.debug("[Docling Model Sync] Progress data: %s", data)
+
     if _sync_progress_callback is not None:
         try:
             _sync_progress_callback(message, data or {})
@@ -211,7 +254,7 @@ def _download_rapidocr_backends(base_dir: Path, backends: List[str], force: bool
             backend=backend,
             local_dir=base_path,
             force=force,
-            progress=False,
+            progress=True,  # Enable progress display
         )
         entry.update({"status": "downloaded", "path": str(local_dir)})
         backend_results.append(entry)
@@ -233,7 +276,8 @@ def _doc_model_flag_kwargs(target_flag: str) -> Dict[str, bool]:
 def _download_docling_bundle(base_dir: Path, target_flag: str, force: bool) -> None:
     """Invoke Docling's managed downloader for a specific model bundle."""
     kwargs = _doc_model_flag_kwargs(target_flag)
-    download_model_bundles(output_dir=base_dir, force=force, progress=False, **kwargs)
+    # Enable progress display - docling will show progress bar in logs
+    download_model_bundles(output_dir=base_dir, force=force, progress=True, **kwargs)
 
 
 def _resolve_model_path(base_dir: Path, model_name: str) -> str:
