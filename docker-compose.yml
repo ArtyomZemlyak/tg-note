@@ -1,20 +1,10 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 # Docker Compose Configuration
 # ═══════════════════════════════════════════════════════════════════════════════
-# This file contains all services. Uncomment the sections you need.
+# This file contains all services enabled by default.
+# Comment out sections you don't need.
 #
-# Usage examples:
-#   # Full setup with vLLM (default):
-#   docker-compose up -d
-#
-#   # Simple setup without vLLM (JSON storage only):
-#   # Uncomment "simple" sections below
-#
-#   # With SGLang instead of vLLM:
-#   # Uncomment "sglang" sections below
-#
-#   # With vector search (Qdrant + Infinity):
-#   # Uncomment "vector" sections below
+# IMPORTANT: vLLM and SGLang both use port 8001 - comment out one of them!
 # ═══════════════════════════════════════════════════════════════════════════════
 
 version: '3.8'
@@ -24,7 +14,7 @@ services:
   # vLLM Server (Default LLM Backend)
   # ═══════════════════════════════════════════════════════════════════════════
   # Provides OpenAI-compatible API for LLM inference
-  # Uncomment to use vLLM backend
+  # Comment out if using SGLang instead
   vllm-server:
     image: vllm/vllm-openai:latest
     container_name: tg-note-vllm
@@ -62,39 +52,39 @@ services:
   # SGLang Server (Alternative LLM Backend)
   # ═══════════════════════════════════════════════════════════════════════════
   # Faster inference with SGLang instead of vLLM
-  # Uncomment this section and comment out vllm-server above to use SGLang
-  # sglang-server:
-  #   image: lmsysorg/sglang:latest
-  #   container_name: tg-note-sglang
-  #   command: >
-  #     python -m sglang.launch_server
-  #     --model ${MEM_AGENT_MODEL:-driaforall/mem-agent}
-  #     --host 0.0.0.0
-  #     --port 8001
-  #     --mem-fraction-static ${GPU_MEMORY_UTILIZATION:-0.8}
-  #     --context-length ${MAX_MODEL_LEN:-4096}
-  #     --tp ${TENSOR_PARALLEL_SIZE:-1}
-  #   environment:
-  #     - HF_HOME=/root/.cache/huggingface
-  #     - SGLANG_ALLOW_OVERWRITE=1
-  #   volumes:
-  #     - ~/.cache/huggingface:/root/.cache/huggingface
-  #   deploy:
-  #     resources:
-  #       reservations:
-  #         devices:
-  #           - driver: nvidia
-  #             count: all
-  #             capabilities: [gpu]
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 5
-  #     start_period: 120s
-  #   networks:
-  #     - tg-note-network
-  #   shm_size: '4gb'
+  # Comment out vllm-server above if using this
+  sglang-server:
+    image: lmsysorg/sglang:latest
+    container_name: tg-note-sglang
+    command: >
+      python -m sglang.launch_server
+      --model ${MEM_AGENT_MODEL:-driaforall/mem-agent}
+      --host 0.0.0.0
+      --port 8001
+      --mem-fraction-static ${GPU_MEMORY_UTILIZATION:-0.8}
+      --context-length ${MAX_MODEL_LEN:-4096}
+      --tp ${TENSOR_PARALLEL_SIZE:-1}
+    environment:
+      - HF_HOME=/root/.cache/huggingface
+      - SGLANG_ALLOW_OVERWRITE=1
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    networks:
+      - tg-note-network
+    shm_size: '4gb'
 
   # ═══════════════════════════════════════════════════════════════════════════
   # Docling MCP Server
@@ -138,74 +128,74 @@ services:
     shm_size: '2gb'
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # Qdrant Vector Database (Optional - for vector search)
+  # Qdrant Vector Database (for vector search)
   # ═══════════════════════════════════════════════════════════════════════════
-  # Uncomment to enable vector search capabilities
-  # qdrant:
-  #   image: qdrant/qdrant:latest
-  #   container_name: tg-note-qdrant
-  #   restart: unless-stopped
-  #   ports:
-  #     - "${QDRANT_PORT:-6333}:6333"  # HTTP API
-  #     - "${QDRANT_GRPC_PORT:-6334}:6334"  # gRPC API (optional)
-  #   volumes:
-  #     # Persistent storage for vector data
-  #     - ./data/qdrant_storage:/qdrant/storage
-  #   environment:
-  #     - QDRANT__SERVICE__HTTP_PORT=6333
-  #     - QDRANT__SERVICE__GRPC_PORT=6334
-  #   healthcheck:
-  #     test: ["CMD", "curl", "-f", "http://localhost:6333/healthz"]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 5
-  #     start_period: 20s
-  #   networks:
-  #     - tg-note-network
+  # Comment out if not using vector search
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: tg-note-qdrant
+    restart: unless-stopped
+    ports:
+      - "${QDRANT_PORT:-6333}:6333"  # HTTP API
+      - "${QDRANT_GRPC_PORT:-6334}:6334"  # gRPC API (optional)
+    volumes:
+      # Persistent storage for vector data
+      - ./data/qdrant_storage:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__HTTP_PORT=6333
+      - QDRANT__SERVICE__GRPC_PORT=6334
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    networks:
+      - tg-note-network
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # Infinity Embedding Service (Optional - for vector search)
+  # Infinity Embedding Service (for vector search)
   # ═══════════════════════════════════════════════════════════════════════════
   # Generates vector embeddings from text using transformer models
-  # Uncomment to enable vector search with Infinity
-  # infinity:
-  #   image: michaelf34/infinity:latest
-  #   container_name: tg-note-infinity
-  #   restart: unless-stopped
-  #   command:
-  #     - v2
-  #     - --model-id
-  #     - ${INFINITY_MODEL:-BAAI/bge-small-en-v1.5}
-  #     - --port
-  #     - "7997"
-  #     - --batch-size
-  #     - "${INFINITY_BATCH_SIZE:-32}"
-  #     - --engine
-  #     - torch
-  #   ports:
-  #     - "${INFINITY_PORT:-7997}:7997"
-  #   volumes:
-  #     # Cache for downloaded models
-  #     - ./data/infinity_cache:/app/.cache
-  #   environment:
-  #     - HF_HOME=/app/.cache
-  #     - TRANSFORMERS_CACHE=/app/.cache
-  #   # Uncomment for GPU support (requires nvidia-docker)
-  #   # deploy:
-  #   #   resources:
-  #   #     reservations:
-  #   #       devices:
-  #   #         - driver: nvidia
-  #   #           count: 1
-  #   #           capabilities: [gpu]
-  #   healthcheck:
-  #     test: ["CMD", "curl", "-f", "http://localhost:7997/health"]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 5
-  #     start_period: 60s
-  #   networks:
-  #     - tg-note-network
+  # Comment out if not using vector search
+  infinity:
+    image: michaelf34/infinity:latest
+    container_name: tg-note-infinity
+    restart: unless-stopped
+    command:
+      - v2
+      - --model-id
+      - ${INFINITY_MODEL:-BAAI/bge-small-en-v1.5}
+      - --port
+      - "7997"
+      - --batch-size
+      - "${INFINITY_BATCH_SIZE:-32}"
+      - --engine
+      - torch
+    ports:
+      - "${INFINITY_PORT:-7997}:7997"
+    volumes:
+      # Cache for downloaded models
+      - ./data/infinity_cache:/app/.cache
+    environment:
+      - HF_HOME=/app/.cache
+      - TRANSFORMERS_CACHE=/app/.cache
+    # Uncomment for GPU support (requires nvidia-docker)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7997/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - tg-note-network
 
   # ═══════════════════════════════════════════════════════════════════════════
   # MCP Hub Server (Unified MCP Gateway)
@@ -238,17 +228,14 @@ services:
     depends_on:
       docling-mcp:
         condition: service_healthy
-      # Uncomment if using vLLM:
-      # vllm-server:
-      #   condition: service_healthy
-      # Or for SGLang:
-      # sglang-server:
-      #   condition: service_healthy
-      # Uncomment if using vector search:
-      # qdrant:
-      #   condition: service_healthy
-      # infinity:
-      #   condition: service_healthy
+      vllm-server:
+        condition: service_healthy
+      sglang-server:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      infinity:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8765/health"]
       interval: 30s

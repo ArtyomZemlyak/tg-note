@@ -136,14 +136,15 @@ VECTOR_SEARCH_TOP_K: 5
 ### 4. Запуск
 
 ```bash
-# Запустить все сервисы
-docker-compose -f docker-compose.vector.yml up -d
+# Запустить все сервисы (включая Qdrant и Infinity)
+# IMPORTANT: vLLM и SGLang используют один порт - закомментируйте один из них в docker-compose.yml!
+docker-compose up -d
 
 # Проверить логи
-docker-compose -f docker-compose.vector.yml logs -f
+docker-compose logs -f
 
 # Проверить статус
-docker-compose -f docker-compose.vector.yml ps
+docker-compose ps
 ```
 
 ### 5. Проверка работоспособности
@@ -200,7 +201,7 @@ INFINITY_MODEL=BAAI/bge-m3
 
 ```bash
 # Перезапустить Infinity для загрузки новой модели
-docker-compose -f docker-compose.vector.yml restart infinity
+docker-compose restart infinity
 
 # Переиндексировать базу знаний (через бота или MCP API)
 ```
@@ -290,7 +291,7 @@ curl -X POST http://localhost:8765/tools/reindex_vector \
 
 ```bash
 # Остановить сервисы
-docker-compose -f docker-compose.vector.yml down
+docker-compose down
 
 # Удалить векторные данные
 rm -rf data/qdrant_storage/*
@@ -300,20 +301,20 @@ rm -rf data/vector_index/*
 # rm -rf data/infinity_cache/*
 
 # Запустить заново
-docker-compose -f docker-compose.vector.yml up -d
+docker-compose up -d
 ```
 
 ### Резервное копирование
 
 ```bash
 # Остановить Qdrant для консистентного бэкапа
-docker-compose -f docker-compose.vector.yml stop qdrant
+docker-compose stop qdrant
 
 # Создать бэкап
 tar -czf qdrant_backup_$(date +%Y%m%d).tar.gz data/qdrant_storage/
 
 # Запустить Qdrant
-docker-compose -f docker-compose.vector.yml start qdrant
+docker-compose start qdrant
 ```
 
 ## Производительность
@@ -333,7 +334,7 @@ INFINITY_BATCH_SIZE=64
 
 ### GPU ускорение
 
-Раскомментируйте в `docker-compose.vector.yml`:
+Раскомментируйте в `docker-compose.yml` (секция infinity):
 
 ```yaml
 infinity:
@@ -373,16 +374,16 @@ VECTOR_CHUNK_SIZE: 512
 
 ```bash
 # Все сервисы
-docker-compose -f docker-compose.vector.yml logs -f
+docker-compose logs -f
 
 # Только Qdrant
-docker-compose -f docker-compose.vector.yml logs -f qdrant
+docker-compose logs -f qdrant
 
 # Только Infinity
-docker-compose -f docker-compose.vector.yml logs -f infinity
+docker-compose logs -f infinity
 
 # Только MCP Hub
-docker-compose -f docker-compose.vector.yml logs -f mcp-hub
+docker-compose logs -f mcp-hub
 ```
 
 ### Проверка статуса Qdrant
@@ -419,11 +420,11 @@ curl -X POST http://localhost:7997/embeddings \
 **Решение**:
 ```bash
 # Проверить логи
-docker-compose -f docker-compose.vector.yml logs infinity
+docker-compose logs infinity
 
 # Очистить кеш и перезапустить
 rm -rf data/infinity_cache/*
-docker-compose -f docker-compose.vector.yml restart infinity
+docker-compose restart infinity
 ```
 
 ### Qdrant занимает много места
@@ -474,23 +475,25 @@ INFINITY_BATCH_SIZE=64
 docker network inspect tg-note-network
 
 # Проверить, что все контейнеры в одной сети
-docker-compose -f docker-compose.vector.yml ps
+docker-compose ps
 ```
 
 ## Переход с простой конфигурации
 
-Если вы использовали `docker-compose.simple.yml`:
+Если вы использовали простую конфигурацию без векторного поиска:
 
 ```bash
 # 1. Остановить текущие сервисы
-docker-compose -f docker-compose.simple.yml down
+docker-compose down
 
 # 2. Обновить config.yaml (включить VECTOR_SEARCH_ENABLED)
 
-# 3. Запустить с векторным поиском
-docker-compose -f docker-compose.vector.yml up -d
+# 3. Убедиться, что секции qdrant и infinity не закомментированы в docker-compose.yml
 
-# 4. Индексировать существующую базу знаний
+# 4. Запустить все сервисы
+docker-compose up -d
+
+# 5. Индексировать существующую базу знаний
 # (через бота или вызвать reindex_vector API — не из агента)
 ```
 
