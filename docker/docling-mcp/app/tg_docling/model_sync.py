@@ -36,7 +36,12 @@ except Exception:  # pragma: no cover - optional dependency
     ms_snapshot_download = None
 
 from tg_docling.config import DEFAULT_SETTINGS_PATH, load_docling_settings
-from tg_docling.converter import _LAYOUT_PRESET_MAP, install_converter
+from tg_docling.converter import (
+    _LAYOUT_PRESET_MAP,
+    _PICTURE_DESCRIPTION_PRESET_OPTIONS,
+    _PICTURE_DESCRIPTION_SPEC_MAP,
+    install_converter,
+)
 
 from config.settings import DoclingModelDownloadSettings, DoclingSettings
 
@@ -261,6 +266,33 @@ def _resolve_model_path(
         # Fallback to default if preset not found
         return str(base_dir / LayoutOptions().model_spec.model_repo_folder)
 
+    # AICODE-NOTE: Handle picture description model paths based on configured preset
+    if (
+        model_name
+        in [
+            "smolvlm",
+            "granitedocling",
+            "granitedocling_mlx",
+            "smoldocling",
+            "smoldocling_mlx",
+            "granite_vision",
+        ]
+        and settings is not None
+    ):
+        # Get the configured picture description model from settings
+        if hasattr(settings, "pipeline") and hasattr(settings.pipeline, "picture_description"):
+            configured_model = settings.pipeline.picture_description.model
+            # Only resolve path if this model matches the configured one
+            if configured_model == model_name:
+                # Try preset options first
+                preset_option = _PICTURE_DESCRIPTION_PRESET_OPTIONS.get(model_name)
+                if preset_option is not None and hasattr(preset_option, "repo_cache_folder"):
+                    return str(base_dir / preset_option.repo_cache_folder)
+                # Try spec map
+                spec = _PICTURE_DESCRIPTION_SPEC_MAP.get(model_name)
+                if spec is not None and hasattr(spec, "repo_cache_folder"):
+                    return str(base_dir / spec.repo_cache_folder)
+
     path_factory = _DOC_MODEL_PATH_MAP.get(model_name)
     target_path = path_factory(base_dir) if path_factory else base_dir
     return str(target_path)
@@ -316,12 +348,56 @@ def _sync_builtin_model(
         backend_result["kind"] = "builtin"
         return backend_result
 
-    # AICODE-NOTE: For layout model, log which preset is being downloaded
+    # AICODE-NOTE: Log detailed model information for all model types
     if model_name == "layout" and full_settings is not None:
         layout_preset = full_settings.pipeline.layout.preset
-        logger.info("Downloading Docling layout bundle with preset '%s'", layout_preset)
+        layout_spec = _LAYOUT_PRESET_MAP.get(layout_preset)
+        if layout_spec:
+            logger.info(
+                "Downloading Docling layout bundle: preset='%s', repo_id='%s', revision='%s', folder='%s'",
+                layout_preset,
+                getattr(layout_spec, "repo_id", "N/A"),
+                getattr(layout_spec, "revision", "N/A"),
+                getattr(layout_spec, "model_repo_folder", "N/A"),
+            )
+        else:
+            logger.info("Downloading Docling layout bundle with preset '%s'", layout_preset)
+    elif model_name in [
+        "smolvlm",
+        "granitedocling",
+        "granitedocling_mlx",
+        "smoldocling",
+        "smoldocling_mlx",
+        "granite_vision",
+    ]:
+        # Log picture description model details
+        preset_option = _PICTURE_DESCRIPTION_PRESET_OPTIONS.get(model_name)
+        if preset_option:
+            logger.info(
+                "Downloading picture description model: name='%s', repo_id='%s', folder='%s'",
+                model_name,
+                getattr(preset_option, "repo_id", "N/A"),
+                getattr(preset_option, "repo_cache_folder", "N/A"),
+            )
+        else:
+            spec = _PICTURE_DESCRIPTION_SPEC_MAP.get(model_name)
+            if spec:
+                logger.info(
+                    "Downloading picture description model: name='%s', repo_id='%s', folder='%s'",
+                    model_name,
+                    getattr(spec, "repo_id", "N/A"),
+                    getattr(spec, "repo_cache_folder", "N/A"),
+                )
+            else:
+                logger.info("Downloading picture description model '%s'", model_name)
     else:
-        logger.info("Downloading Docling bundle '%s'", model_name)
+        # AICODE-NOTE: Log other model types with their folder paths
+        model_path_preview = _resolve_model_path(base_dir, model_name, full_settings)
+        logger.info(
+            "Downloading Docling bundle '%s' (target path: %s)",
+            model_name,
+            model_path_preview,
+        )
 
     _download_docling_bundle(base_dir, flag_name, force)
     # AICODE-NOTE: Pass full_settings for layout preset resolution

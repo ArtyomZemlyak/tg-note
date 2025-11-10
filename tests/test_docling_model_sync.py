@@ -143,7 +143,7 @@ def model_sync(monkeypatch):
     def install_converter(settings):
         return None
 
-    # AICODE-NOTE: Add _LAYOUT_PRESET_MAP stub for model_sync imports
+    # AICODE-NOTE: Add _LAYOUT_PRESET_MAP and picture description stubs for model_sync imports
     from types import SimpleNamespace
 
     converter_stub.install_converter = install_converter
@@ -159,6 +159,26 @@ def model_sync(monkeypatch):
             repo_id="test/layout-heron",
             revision="main",
             model_repo_folder="LayoutHeron",
+        ),
+    }
+    converter_stub._PICTURE_DESCRIPTION_PRESET_OPTIONS = {
+        "smolvlm": SimpleNamespace(
+            repo_id="test/smolvlm",
+            repo_cache_folder="SmolVLM",
+        ),
+        "granite_vision": SimpleNamespace(
+            repo_id="test/granite-vision",
+            repo_cache_folder="GraniteVision",
+        ),
+    }
+    converter_stub._PICTURE_DESCRIPTION_SPEC_MAP = {
+        "granitedocling": SimpleNamespace(
+            repo_id="test/granitedocling",
+            repo_cache_folder="GraniteDocling",
+        ),
+        "smoldocling": SimpleNamespace(
+            repo_id="test/smoldocling",
+            repo_cache_folder="SmolDocling",
         ),
     }
     monkeypatch.setitem(sys.modules, "tg_docling.converter", converter_stub)
