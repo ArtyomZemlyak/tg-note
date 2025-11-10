@@ -1,6 +1,7 @@
-# AICODE-NOTE: Base PyTorch image with CUDA 12.1 support
+# AICODE-NOTE: Base PyTorch image with CUDA 12.6 support
 # PyTorch, torchvision, and torchaudio are pre-installed in the base image
-FROM pytorch/pytorch:2.3.1-cuda12.1-cudnn8-runtime
+# Updated to torch 2.8.0 for better GPU support and performance
+FROM pytorch/pytorch:2.8.0-cuda12.6-cudnn9-runtime
 
 ENV DEBIAN_FRONTEND=noninteractive \
     TZ=UTC
