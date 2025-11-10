@@ -1,8 +1,30 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Docker Compose Configuration
+# ═══════════════════════════════════════════════════════════════════════════════
+# This file contains all services. Uncomment the sections you need.
+#
+# Usage examples:
+#   # Full setup with vLLM (default):
+#   docker-compose up -d
+#
+#   # Simple setup without vLLM (JSON storage only):
+#   # Uncomment "simple" sections below
+#
+#   # With SGLang instead of vLLM:
+#   # Uncomment "sglang" sections below
+#
+#   # With vector search (Qdrant + Infinity):
+#   # Uncomment "vector" sections below
+# ═══════════════════════════════════════════════════════════════════════════════
+
 version: '3.8'
 
 services:
-  # vLLM Server for mem-agent (using official image)
+  # ═══════════════════════════════════════════════════════════════════════════
+  # vLLM Server (Default LLM Backend)
+  # ═══════════════════════════════════════════════════════════════════════════
   # Provides OpenAI-compatible API for LLM inference
+  # Uncomment to use vLLM backend
   vllm-server:
     image: vllm/vllm-openai:latest
     container_name: tg-note-vllm
@@ -36,9 +58,49 @@ services:
       - tg-note-network
     shm_size: '2gb'
 
-  # Docling MCP server (Dockerized Docling toolchain)
-  # Provides document processing with multiple OCR backends (RapidOCR, EasyOCR, Tesseract, OnnxTR)
-  # and VLM support with GPU acceleration
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SGLang Server (Alternative LLM Backend)
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Faster inference with SGLang instead of vLLM
+  # Uncomment this section and comment out vllm-server above to use SGLang
+  # sglang-server:
+  #   image: lmsysorg/sglang:latest
+  #   container_name: tg-note-sglang
+  #   command: >
+  #     python -m sglang.launch_server
+  #     --model ${MEM_AGENT_MODEL:-driaforall/mem-agent}
+  #     --host 0.0.0.0
+  #     --port 8001
+  #     --mem-fraction-static ${GPU_MEMORY_UTILIZATION:-0.8}
+  #     --context-length ${MAX_MODEL_LEN:-4096}
+  #     --tp ${TENSOR_PARALLEL_SIZE:-1}
+  #   environment:
+  #     - HF_HOME=/root/.cache/huggingface
+  #     - SGLANG_ALLOW_OVERWRITE=1
+  #   volumes:
+  #     - ~/.cache/huggingface:/root/.cache/huggingface
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: all
+  #             capabilities: [gpu]
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 5
+  #     start_period: 120s
+  #   networks:
+  #     - tg-note-network
+  #   shm_size: '4gb'
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Docling MCP Server
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Provides document processing with multiple OCR backends (RapidOCR, EasyOCR,
+  # Tesseract, OnnxTR) and VLM support with GPU acceleration
   docling-mcp:
     build:
       context: .
@@ -47,21 +109,6 @@ services:
     container_name: tg-note-docling
     restart: unless-stopped
     env_file: .env
-    environment:
-      # Logging configuration
-      - DOCLING_LOG_LEVEL=${DOCLING_LOG_LEVEL:-INFO}
-      # Directory paths inside container
-      - DOCLING_MODELS_DIR=/opt/docling-mcp/models
-      - DOCLING_CACHE_DIR=/opt/docling-mcp/cache
-      - DOCLING_LOG_DIR=/opt/docling-mcp/logs
-      # HuggingFace cache for model downloads
-      - HF_HOME=/opt/docling-mcp/cache/huggingface
-      - HF_HUB_ENABLE_HF_TRANSFER=1
-      # GPU configuration
-      - CUDA_VISIBLE_DEVICES=${DOCLING_CUDA_VISIBLE_DEVICES:-all}
-      - NVIDIA_VISIBLE_DEVICES=${DOCLING_CUDA_VISIBLE_DEVICES:-all}
-      # OCR backend configuration (can be overridden by config file)
-      - DOCLING_OCR_BACKEND=${DOCLING_OCR_BACKEND:-rapidocr}
     ports:
       - "${DOCLING_MCP_PORT:-8077}:8077"
     healthcheck:
@@ -75,8 +122,8 @@ services:
       - ./config.yaml:/opt/docling-mcp/config.yaml:ro
       # Models cache directory (persistent across restarts)
       - ./data/docling/models:/opt/docling-mcp/models
-      # General cache directory (HuggingFace, ModelScope, etc.)
-      - ./data/docling/cache:/opt/docling-mcp/cache
+      # Shared HuggingFace cache from host (for faster model downloads)
+      - ~/.cache/huggingface:/opt/docling-mcp/cache
       # Logs directory
       - ./logs/docling:/opt/docling-mcp/logs
     deploy:
@@ -90,7 +137,79 @@ services:
       - tg-note-network
     shm_size: '2gb'
 
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Qdrant Vector Database (Optional - for vector search)
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Uncomment to enable vector search capabilities
+  # qdrant:
+  #   image: qdrant/qdrant:latest
+  #   container_name: tg-note-qdrant
+  #   restart: unless-stopped
+  #   ports:
+  #     - "${QDRANT_PORT:-6333}:6333"  # HTTP API
+  #     - "${QDRANT_GRPC_PORT:-6334}:6334"  # gRPC API (optional)
+  #   volumes:
+  #     # Persistent storage for vector data
+  #     - ./data/qdrant_storage:/qdrant/storage
+  #   environment:
+  #     - QDRANT__SERVICE__HTTP_PORT=6333
+  #     - QDRANT__SERVICE__GRPC_PORT=6334
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:6333/healthz"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 5
+  #     start_period: 20s
+  #   networks:
+  #     - tg-note-network
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Infinity Embedding Service (Optional - for vector search)
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Generates vector embeddings from text using transformer models
+  # Uncomment to enable vector search with Infinity
+  # infinity:
+  #   image: michaelf34/infinity:latest
+  #   container_name: tg-note-infinity
+  #   restart: unless-stopped
+  #   command:
+  #     - v2
+  #     - --model-id
+  #     - ${INFINITY_MODEL:-BAAI/bge-small-en-v1.5}
+  #     - --port
+  #     - "7997"
+  #     - --batch-size
+  #     - "${INFINITY_BATCH_SIZE:-32}"
+  #     - --engine
+  #     - torch
+  #   ports:
+  #     - "${INFINITY_PORT:-7997}:7997"
+  #   volumes:
+  #     # Cache for downloaded models
+  #     - ./data/infinity_cache:/app/.cache
+  #   environment:
+  #     - HF_HOME=/app/.cache
+  #     - TRANSFORMERS_CACHE=/app/.cache
+  #   # Uncomment for GPU support (requires nvidia-docker)
+  #   # deploy:
+  #   #   resources:
+  #   #     reservations:
+  #   #       devices:
+  #   #         - driver: nvidia
+  #   #           count: 1
+  #   #           capabilities: [gpu]
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:7997/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 5
+  #     start_period: 60s
+  #   networks:
+  #     - tg-note-network
+
+  # ═══════════════════════════════════════════════════════════════════════════
   # MCP Hub Server (Unified MCP Gateway)
+  # ═══════════════════════════════════════════════════════════════════════════
   # Provides:
   # - Built-in MCP tools (memory)
   # - MCP server registry
@@ -117,10 +236,19 @@ services:
       # Shared HuggingFace cache for embeddings (bind host cache)
       - ~/.cache/huggingface:/root/.cache/huggingface
     depends_on:
-      vllm-server:
-        condition: service_healthy
       docling-mcp:
         condition: service_healthy
+      # Uncomment if using vLLM:
+      # vllm-server:
+      #   condition: service_healthy
+      # Or for SGLang:
+      # sglang-server:
+      #   condition: service_healthy
+      # Uncomment if using vector search:
+      # qdrant:
+      #   condition: service_healthy
+      # infinity:
+      #   condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8765/health"]
       interval: 30s
@@ -130,7 +258,9 @@ services:
     networks:
       - tg-note-network
 
+  # ═══════════════════════════════════════════════════════════════════════════
   # Main Telegram Bot
+  # ═══════════════════════════════════════════════════════════════════════════
   bot:
     build:
       context: .

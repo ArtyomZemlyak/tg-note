@@ -818,15 +818,16 @@ The project provides comprehensive Docker support with multiple deployment confi
 **1. Simple Deployment (No GPU Required)**
 ```bash
 # Start with JSON storage (lightweight, no GPU needed)
-docker-compose -f docker-compose.simple.yml up -d --build
+# Edit docker-compose.yml and comment out vllm-server section, then:
+docker-compose up -d --build
 
 # View logs
-docker-compose -f docker-compose.simple.yml logs -f bot
+docker-compose logs -f bot
 ```
 
 **2. Full Stack with AI Memory (GPU Required)**
 ```bash
-# Start with vLLM backend for mem-agent storage
+# Start with vLLM backend for mem-agent storage (default)
 docker-compose up -d --build
 
 # View logs
@@ -835,17 +836,17 @@ docker-compose logs -f
 
 **3. Vector Search Stack (Semantic Search)**
 ```bash
-# Start with Qdrant + Infinity for vector search
-docker-compose -f docker-compose.vector.yml up -d --build
+# Uncomment qdrant and infinity sections in docker-compose.yml, then:
+docker-compose up -d --build
 
 # View logs
-docker-compose -f docker-compose.vector.yml logs -f
+docker-compose logs -f
 ```
 
 **4. SGLang Backend (Alternative to vLLM)**
 ```bash
-# Use SGLang for faster inference
-docker-compose -f docker-compose.yml -f docker-compose.sglang.yml up -d --build
+# Comment out vllm-server and uncomment sglang-server in docker-compose.yml, then:
+docker-compose up -d --build
 ```
 
 #### Services Overview
@@ -1077,7 +1078,7 @@ curl http://localhost:6333/healthz
 curl http://localhost:7997/health
 
 # Check vector search logs
-docker-compose -f docker-compose.vector.yml logs -f
+docker-compose logs -f
 ```
 
 **Performance Issues:**
