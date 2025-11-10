@@ -296,9 +296,10 @@ docker exec tg-note-docling nvidia-smi
 ```bash
 docker build -t tg-note-docling-mcp:local \
   -f docker/docling-mcp/Dockerfile \
-  --build-arg CUDA_VERSION=12.1.0 \
   .
 ```
+
+The Dockerfile uses the official PyTorch base image (`pytorch/pytorch:2.3.1-cuda12.1-cudnn8-runtime`) which includes PyTorch, torchvision, and torchaudio with CUDA 12.1 support pre-installed. This ensures reliable CUDA builds without dependency conflicts.
 
 ### Running Tests
 

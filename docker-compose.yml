@@ -43,8 +43,6 @@ services:
     build:
       context: .
       dockerfile: docker/docling-mcp/Dockerfile
-      args:
-        - CUDA_VERSION=${CUDA_VERSION:-12.1.0}
     image: tg-note-docling-mcp:latest
     container_name: tg-note-docling
     restart: unless-stopped
