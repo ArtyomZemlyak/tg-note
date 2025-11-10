@@ -20,9 +20,8 @@ from docling_mcp.docling_cache import get_cache_key
 from docling_mcp.shared import local_document_cache, local_stack_cache, mcp
 from docling_mcp.tools.conversion import ConvertDocumentOutput, _get_converter, cleanup_memory
 from pydantic import Field
-from tg_docling.exceptions import McpError
 
-from mcp.types import INTERNAL_ERROR, ErrorData, ToolAnnotations
+from mcp.types import ToolAnnotations
 
 logger = logging.getLogger(__name__)
 
@@ -129,7 +128,7 @@ def convert_document_from_content(
 
         if has_error:
             error_msg = f"Conversion failed: {error_message}"
-            raise McpError(ErrorData(code=INTERNAL_ERROR, message=error_msg))
+            raise RuntimeError(error_msg)
 
         document = result.document
         source_label = filename or tmp_path.name
@@ -146,13 +145,9 @@ def convert_document_from_content(
 
         return ConvertDocumentOutput(False, cache_key)
 
-    except McpError:
-        raise
     except Exception as exc:
         logger.exception("Failed to convert base64 document content.")
-        raise McpError(
-            ErrorData(code=INTERNAL_ERROR, message=f"Unexpected error: {exc!s}")
-        ) from exc
+        raise RuntimeError(f"Unexpected error: {exc!s}") from exc
 
     finally:
         if tmp_path and tmp_path.exists():
