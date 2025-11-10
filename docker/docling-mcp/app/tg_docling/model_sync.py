@@ -5,8 +5,9 @@ import logging
 import os
 import shutil
 import sys
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, Iterator, List, Optional
 
 from docling.datamodel.pipeline_options import (
     LayoutOptions,
@@ -92,6 +93,81 @@ _DOC_MODELS_KWARGS_TEMPLATE: Dict[str, bool] = {
     "with_rapidocr": False,
     "with_easyocr": False,
 }
+
+_HF_TRANSFER_FAST_DOWNLOAD_AVAILABLE: Optional[bool] = None
+
+
+def _is_hf_transfer_missing_error(exc: Exception) -> bool:
+    if not isinstance(exc, ValueError):
+        return False
+    message = str(exc)
+    return (
+        "Fast download using 'hf_transfer'" in message
+        and "'hf_transfer' package is not available" in message
+    )
+
+
+@contextmanager
+def _temporarily_disable_hf_transfer_env() -> Iterator[None]:
+    """Temporarily disable HF transfer fast downloads by forcing env flag to 0."""
+    original = os.environ.get("HF_HUB_ENABLE_HF_TRANSFER")
+    os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "0"
+    try:
+        yield
+    finally:
+        if original is None:
+            os.environ.pop("HF_HUB_ENABLE_HF_TRANSFER", None)
+        else:
+            os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = original
+
+
+def _snapshot_download_with_hf_transfer_fallback(
+    *,
+    repo_id: Optional[str],
+    revision: Optional[str],
+    target_dir: Path,
+    allow_patterns: Optional[List[str]],
+    ignore_patterns: Optional[List[str]],
+) -> str:
+    """Download snapshot while gracefully handling missing hf_transfer dependency."""
+    global _HF_TRANSFER_FAST_DOWNLOAD_AVAILABLE
+
+    kwargs = {
+        "repo_id": repo_id,
+        "revision": revision,
+        "local_dir": target_dir,
+        "local_dir_use_symlinks": False,
+        "allow_patterns": allow_patterns,
+        "ignore_patterns": ignore_patterns,
+    }
+
+    def _call_snapshot() -> str:
+        return snapshot_download(**kwargs)
+
+    if _HF_TRANSFER_FAST_DOWNLOAD_AVAILABLE is False:
+        with _temporarily_disable_hf_transfer_env():
+            return _call_snapshot()
+
+    try:
+        return _call_snapshot()
+    except Exception as exc:
+        if not _is_hf_transfer_missing_error(exc):
+            raise
+
+        # AICODE-NOTE: Falling back to standard download when hf_transfer fast-path is unavailable.
+        if _HF_TRANSFER_FAST_DOWNLOAD_AVAILABLE is not False:
+            _HF_TRANSFER_FAST_DOWNLOAD_AVAILABLE = False
+            logger.warning(
+                "hf_transfer fast download requested but package is unavailable; retrying with "
+                "standard HuggingFace download."
+            )
+            _notify_progress(
+                "⚠️ hf_transfer package missing, falling back to standard download.",
+                {"status": "warning", "reason": "hf_transfer_unavailable"},
+            )
+
+        with _temporarily_disable_hf_transfer_env():
+            return _call_snapshot()
 
 
 def set_sync_progress_callback(callback: Optional[Callable[[str, Dict[str, Any]], None]]) -> None:
@@ -234,11 +310,10 @@ def _sync_huggingface(
         {"name": download.name, "repo_id": download.repo_id, "status": "downloading"},
     )
 
-    local_dir = snapshot_download(
+    local_dir = _snapshot_download_with_hf_transfer_fallback(
         repo_id=download.repo_id,
         revision=download.revision,
-        local_dir=target_dir,
-        local_dir_use_symlinks=False,
+        target_dir=target_dir,
         allow_patterns=allow_patterns,
         ignore_patterns=ignore_patterns,
     )

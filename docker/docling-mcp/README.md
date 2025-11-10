@@ -195,7 +195,7 @@ Models are automatically downloaded on container startup based on configuration.
 | `DOCLING_CACHE_DIR` | `/opt/docling-mcp/cache` | General cache directory |
 | `DOCLING_LOG_DIR` | `/opt/docling-mcp/logs` | Log files directory |
 | `HF_HOME` | `/opt/docling-mcp/cache/huggingface` | HuggingFace cache location |
-| `HF_HUB_ENABLE_HF_TRANSFER` | `1` | Enable fast HF transfers |
+| `HF_HUB_ENABLE_HF_TRANSFER` | `1` | Enable fast HF transfers (auto-disables when `hf_transfer` is missing) |
 | `CUDA_VISIBLE_DEVICES` | `all` | GPU device selection |
 | `DOCLING_OCR_BACKEND` | `rapidocr` | Default OCR backend |
 
@@ -274,6 +274,7 @@ docker exec tg-note-docling nvidia-smi
 2. Verify HF_TOKEN if using private models
 3. Check disk space in models directory
 4. Review logs for specific error messages
+5. If you see an `hf_transfer` import error, the container will automatically fall back to standard downloads after logging a warning.
 
 ### OCR Not Working
 
