@@ -6,6 +6,7 @@ This project provides ready-to-use Docker images and a compose file to run the b
 
 - **tg-note-bot**: Telegram bot with built-in Qwen Code CLI
 - **tg-note-hub**: MCP Hub server with lightweight dependencies (memory tools, MCP registry)
+- **docling-mcp**: Document processing server using official `docling-mcp` package (PDF, DOCX, images, OCR)
 - **vllm-server**: Optional LLM inference server for mem-agent storage type (vLLM or SGLang)
 
 **Architecture**: The mem-agent system uses a **Docker-first approach**. Heavy ML dependencies (transformers, vLLM, MLX) are **not** installed in the hub or bot containers. Instead, LLM inference is handled by dedicated containers (vLLM/SGLang) or external services (LM Studio).

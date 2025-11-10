@@ -61,6 +61,7 @@ tg-note supports automatic recognition and processing of various file formats us
    - Automatic temp files cleanup
 
 ### Processing flow
+
 ```
 ┌─────────────────┐
 │ Telegram Message│
@@ -76,10 +77,27 @@ tg-note supports automatic recognition and processing of various file formats us
          ▼
 ┌─────────────────┐
 │ File Processor  │
-│   (Docling)     │
+│ (encode base64) │
 └────────┬────────┘
-         │
+         │ HTTP/SSE (MCP Protocol)
          ▼
+┌─────────────────────────────────┐
+│      Docling MCP Container      │
+│  (docling-mcp==1.3.2)          │
+│                                 │
+│  ┌──────────────────────────┐  │
+│  │ convert_document_from_   │  │
+│  │   content (base64)        │  │
+│  └───────────┬──────────────┘  │
+│              │                  │
+│  ┌───────────▼──────────────┐  │
+│  │ DocumentConverter        │  │
+│  │ (original docling-mcp)   │  │
+│  └───────────┬──────────────┘  │
+└──────────────┼──────────────────┘
+               │
+               │ Extracted text + metadata
+               ▼
 ┌─────────────────┐
 │ Content Parser  │
 │ (merge content) │
@@ -98,26 +116,54 @@ tg-note supports automatic recognition and processing of various file formats us
 └─────────────────┘
 ```
 
+**Key points:**
+- Files are transferred via base64 encoding (no shared filesystem needed)
+- Uses original `docling-mcp` package with minimal wrappers
+- MCP protocol over HTTP/SSE for communication
+- Automatic tool detection and configuration
+
 ## Installation
 
-Docling now runs as an MCP server. Docker Compose includes the `docling-mcp` service by default, so
-starting the stack is enough to enable document processing.
+Docling runs as an MCP server using the official `docling-mcp` package. Docker Compose includes the `docling-mcp` service by default, so starting the stack is enough to enable document processing.
 
 ```bash
 # Start Docling MCP together with the hub and bot
 docker compose up -d docling-mcp mcp-hub bot
 ```
 
-The hub registers the Docling MCP server automatically. If you run the server outside of Docker,
-set `MEDIA_PROCESSING_DOCLING.mcp.url` to the appropriate endpoint.
+### Architecture
+
+The Docling integration uses the **original `docling-mcp==1.3.2` package** with minimal wrappers for tg-note integration:
+
+- **Original docling-mcp**: All core functionality comes from the official package
+- **Base64 file transfer**: Files are sent via `convert_document_from_content` tool (no shared filesystem needed)
+- **Automatic registration**: MCP Hub automatically registers the Docling server on startup
+- **Qwen CLI integration**: Docling is automatically configured in `~/.qwen/settings.json`
 
 The Docling container is built from the repository (`docker/docling-mcp/Dockerfile`) with GPU support.
 Model artefacts and configuration are persisted under:
 
-- `config.yaml` – общий файл настроек, используется и ботом, и Docling контейнером
+- `config.yaml` – shared configuration file used by both bot and Docling container
 - `data/docling/models` – downloaded OCR/VLM models
 - `data/docling/cache` – HuggingFace / ModelScope caches
 - `logs/docling` – container logs
+
+### File Transfer in Docker Mode
+
+In Docker mode, files are transferred via **base64 encoding** through the `convert_document_from_content` MCP tool. This approach:
+
+- ✅ Works without shared filesystem between containers
+- ✅ Supports all file formats (PDF, DOCX, images, etc.)
+- ✅ Uses the original docling-mcp conversion pipeline
+- ✅ Maintains caching and performance optimizations
+
+The bot automatically:
+1. Downloads files from Telegram
+2. Encodes them as base64
+3. Sends to Docling MCP server via `convert_document_from_content`
+4. Receives extracted text and metadata
+
+### Configuration
 
 Changing Docling settings via `/settings` updates the shared configuration and automatically triggers
 model downloads. Progress updates are sent back to the Telegram chat, so no separate command is
@@ -266,9 +312,16 @@ MEDIA_PROCESSING_DOCLING:
     auto_detect_tool: true
 ```
 
-> 💡 The default tool `convert_document_from_content` accepts base64-encoded payloads, allowing
+> 💡 **Base64 Transfer**: The default tool `convert_document_from_content` accepts base64-encoded payloads, allowing
 > tg-note to send documents directly to the Docling MCP container without relying on shared
-> filesystem paths. The classic `convert_document` tool remains available for path-based workflows.
+> filesystem paths. This is the recommended approach for Docker deployments. The classic `convert_document` tool
+> remains available for path-based workflows but requires shared volumes.
+>
+> **Original Package**: The integration uses the official `docling-mcp==1.3.2` package with minimal wrappers:
+> - Original MCP server entrypoint (`docling_mcp.servers.mcp_server.main`)
+> - Original conversion tools and caching
+> - Additional `convert_document_from_content` tool for base64 transfer
+> - Custom converter configuration for OCR settings
 
 #### Enabling/Disabling specific formats
 
