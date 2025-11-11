@@ -29,8 +29,26 @@ htmlcov/
 .tox/
 .hypothesis/
 
-# Data and logs
+# ═══════════════════════════════════════════════════════════════════════════════
+# Docker Volumes - Files/Directories Mounted from Host
+# ═══════════════════════════════════════════════════════════════════════════════
+# These should NOT be copied into Docker images as they are mounted as volumes
+# at runtime. Copying them would increase image size unnecessarily and could
+# cause conflicts with mounted data.
+
+# Knowledge Base (mounted in bot service)
+knowledge_base/
+
+# Data directories (mounted in multiple services)
 data/
+# Specifically mounted subdirectories:
+# - data/memory           → mcp-hub (memory storage)
+# - data/mcp_servers      → mcp-hub (MCP registry)
+# - data/docling/models   → docling-mcp (document processing models)
+# - data/qdrant_storage   → qdrant (vector database)
+# - data/infinity_cache   → infinity (embedding cache)
+
+# Logs (mounted in bot, mcp-hub, docling-mcp services)
 logs/
 *.log
 
