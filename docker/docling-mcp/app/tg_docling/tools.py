@@ -5,7 +5,10 @@ import binascii
 import hashlib
 import logging
 import mimetypes
+import os
+import re
 import tempfile
+import threading
 from pathlib import Path
 from typing import Annotated, Optional
 
@@ -22,10 +25,20 @@ from docling_mcp.shared import mcp as d_mcp
 from docling_mcp.tools import conversion as conversion_tools
 from docling_mcp.tools.conversion import ConvertDocumentOutput, cleanup_memory
 from pydantic import Field
+from tg_docling.config import DEFAULT_SETTINGS_PATH, load_docling_settings
+from tg_docling.model_sync import sync_models
 
+from config.settings import DoclingSettings
 from mcp.types import ToolAnnotations
 
 logger = logging.getLogger(__name__)
+
+
+class DoclingModelMissingError(RuntimeError):
+    """Raised when Docling conversion fails due to missing model artefacts."""
+
+
+_MODEL_SYNC_LOCK = threading.Lock()
 
 
 def _detect_suffix(filename: Optional[str], mime_type: Optional[str], data: bytes) -> Optional[str]:
@@ -49,6 +62,152 @@ def _detect_suffix(filename: Optional[str], mime_type: Optional[str], data: byte
             logger.debug("filetype.guess failed", exc_info=True)
 
     return None
+
+
+def _invalidate_converter_cache() -> None:
+    """Clear the cached DocumentConverter so new artefacts are picked up."""
+    cache_clear = getattr(conversion_tools._get_converter, "cache_clear", None)
+    if callable(cache_clear):  # pragma: no cover - depends on decorated function
+        cache_clear()
+
+
+def _extract_missing_model_path(exc: BaseException) -> Optional[str]:
+    """Attempt to extract the missing model artefact path from an exception."""
+    if isinstance(exc, FileNotFoundError) and getattr(exc, "filename", None):
+        filename = str(exc.filename)
+        if filename:
+            return filename
+
+    message = str(exc)
+    models_dir_hints = [
+        os.getenv("DOCLING_MODELS_DIR"),
+        "/opt/docling-mcp/models",
+    ]
+
+    for hint in [hint for hint in models_dir_hints if hint]:
+        pattern = rf"({re.escape(hint)}/[^\s'\"`]+)"
+        match = re.search(pattern, message)
+        if match:
+            return match.group(1)
+
+    marker = "Missing safe tensors file:"
+    if marker in message:
+        return message.split(marker, 1)[1].strip().strip("'\"")
+
+    fallback_match = re.search(r"(/[^'\s]+?\.(?:safetensors|onnx|bin|pt|json|txt))", message)
+    if fallback_match:
+        return fallback_match.group(1)
+
+    return None
+
+
+def _load_docling_settings_for_sync() -> Optional[DoclingSettings]:
+    """Load Docling settings from the container configuration."""
+    try:
+        settings_path = Path(os.getenv("DOCLING_SETTINGS_PATH", str(DEFAULT_SETTINGS_PATH)))
+        docling_settings, _ = load_docling_settings(settings_path)
+        models_dir = Path(docling_settings.model_cache.base_dir)
+        os.environ.setdefault("DOCLING_MODELS_DIR", str(models_dir))
+        os.environ.setdefault("DOCLING_ARTIFACTS_PATH", str(models_dir))
+        os.environ.setdefault(
+            "DOCLING_CACHE_DIR", os.getenv("DOCLING_CACHE_DIR", "/opt/docling-mcp/cache")
+        )
+        return docling_settings
+    except Exception:
+        logger.exception(
+            "Failed to load Docling settings while attempting model resynchronisation."
+        )
+        return None
+
+
+def _attempt_model_resync(missing_path: str) -> bool:
+    """
+    Attempt to download missing Docling model artefacts and return True on success.
+
+    This function is thread-safe to avoid concurrent download attempts.
+    """
+    with _MODEL_SYNC_LOCK:
+        docling_settings = _load_docling_settings_for_sync()
+        if docling_settings is None:
+            return False
+
+        logger.info(
+            "Attempting Docling model sync after detecting missing artefact: %s",
+            missing_path,
+        )
+        try:
+            result = sync_models(docling_settings, force=False)
+        except Exception:
+            logger.exception(
+                "Docling model synchronisation failed for missing artefact %s", missing_path
+            )
+            return False
+
+        summary = (result or {}).get("summary") or {}
+        failed = summary.get("failed", 0)
+        if failed:
+            logger.error(
+                "Docling model sync completed with %d failure(s); missing artefact %s remains unavailable.",
+                failed,
+                missing_path,
+            )
+            return False
+
+        logger.info("Docling model sync completed successfully; retrying conversion.")
+        return True
+
+
+def _build_missing_model_message(missing_path: str) -> str:
+    """Create a user-facing error message for missing model artefacts."""
+    models_dir = os.getenv("DOCLING_MODELS_DIR")
+    relative_hint = None
+    if models_dir:
+        try:
+            relative_hint = str(
+                Path(missing_path).resolve().relative_to(Path(models_dir).resolve())
+            )
+        except Exception:
+            relative_hint = None
+
+    location_hint = (
+        f"'{relative_hint}' under '{models_dir}'" if relative_hint else f"'{missing_path}'"
+    )
+    return (
+        "Docling conversion requires a model artefact that is not available on disk "
+        f"({location_hint}). Automatic recovery failed. "
+        "Run the 'sync_docling_models' MCP tool or download the required Docling model bundles "
+        "and retry the conversion."
+    )
+
+
+def _convert_with_model_recovery(tmp_path: Path):
+    """Convert the provided document with automatic model resynchronisation fallback."""
+    for attempt in range(2):
+        converter = conversion_tools._get_converter()
+        try:
+            return converter.convert(tmp_path)
+        except (FileNotFoundError, RuntimeError) as exc:
+            missing_path = _extract_missing_model_path(exc)
+            if missing_path is None:
+                raise
+
+            logger.warning(
+                "Docling conversion detected missing model artefact '%s' (attempt %d).",
+                missing_path,
+                attempt + 1,
+            )
+
+            if attempt == 1:
+                raise DoclingModelMissingError(_build_missing_model_message(missing_path)) from exc
+
+            if not _attempt_model_resync(missing_path):
+                raise DoclingModelMissingError(_build_missing_model_message(missing_path)) from exc
+
+            _invalidate_converter_cache()
+
+    raise DoclingModelMissingError(
+        "Docling conversion failed due to missing model artefacts despite recovery attempts."
+    )
 
 
 @d_mcp.tool(
@@ -110,9 +269,8 @@ def convert_document_from_content(
             tmp_file.flush()
             tmp_path = Path(tmp_file.name)
 
-        converter = conversion_tools._get_converter()
         logger.info("Converting document from base64 content (temp file: %s)", tmp_path)
-        result = converter.convert(tmp_path)
+        result = _convert_with_model_recovery(tmp_path)
 
         # Mirror error handling strategy from upstream conversion tool
         has_error = False
@@ -147,6 +305,9 @@ def convert_document_from_content(
 
         return ConvertDocumentOutput(False, cache_key)
 
+    except DoclingModelMissingError as exc:
+        logger.exception("Missing Docling model artefact prevented document conversion.")
+        raise
     except Exception as exc:
         logger.exception("Failed to convert base64 document content.")
         raise RuntimeError(f"Unexpected error: {exc!s}") from exc
