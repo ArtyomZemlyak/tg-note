@@ -1,60 +1,42 @@
 from __future__ import annotations
 
+import json
 import logging
-import re
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from loguru import logger
 
 from config.logging_config import setup_logging
 
 
-def _truncate_base64_in_message(message: str, max_length: int = 50) -> str:
+def _limit_content_for_log(data: Any, max_length: int = 50) -> Any:
     """
-    Truncate base64-encoded strings in log messages to prevent log bloat.
+    Limit content length in data for logging to avoid flooding logs with large payloads.
 
     Args:
-        message: The log message that may contain base64 content
-        max_length: Maximum length for base64 strings (default: 50)
+        data: Data to limit (dict, list, str, or other)
+        max_length: Maximum length for string values (default: 50 chars)
 
     Returns:
-        Message with truncated base64 strings
+        Data with limited content length
     """
-    # Pattern 1: Match base64 in common key-value patterns like 'content': '...', "content": "..."
-    # Also handles cases like content='...', content="...", 'content'='...', etc.
-    base64_pattern = r"(['\"]?(?:content|data|payload|base64|b64|value|arg)['\"]?\s*[:=]\s*['\"]?)([A-Za-z0-9+/=]{50,})(['\"]?)"
-
-    def truncate_match(match):
-        prefix = match.group(1)
-        base64_content = match.group(2)
-        suffix = match.group(3) or ""
-        truncated = base64_content[:max_length] + "...[truncated]"
-        return f"{prefix}{truncated}{suffix}"
-
-    # Apply truncation for key-value patterns
-    result = re.sub(base64_pattern, truncate_match, message, flags=re.IGNORECASE)
-
-    # Pattern 2: Handle standalone long base64-like strings (100+ chars)
-    # This catches cases where base64 is passed as a direct argument or in complex structures
-    standalone_pattern = r"([A-Za-z0-9+/=]{100,})"
-
-    def truncate_standalone(match):
-        content = match.group(1)
-        # Only truncate if it looks like base64 (has enough variety of chars and typical base64 chars)
-        # Base64 typically has a diverse character set and may include padding (=)
-        char_variety = len(set(content[:100]))
-        has_base64_chars = bool(re.search(r"[+/=]", content[:100]))
-
-        # Truncate if it has good variety (likely base64) or contains base64-specific chars
-        if char_variety > 10 or (has_base64_chars and len(content) > 200):
-            truncated = content[:max_length] + "...[truncated]"
-            return truncated
-        return content
-
-    result = re.sub(standalone_pattern, truncate_standalone, result)
-
-    return result
+    if isinstance(data, dict):
+        limited = {}
+        for key, value in data.items():
+            if isinstance(value, str) and len(value) > max_length:
+                limited[key] = f"{value[:max_length]}... (truncated, total: {len(value)} chars)"
+            elif isinstance(value, (dict, list)):
+                limited[key] = _limit_content_for_log(value, max_length)
+            else:
+                limited[key] = value
+        return limited
+    elif isinstance(data, list):
+        return [_limit_content_for_log(item, max_length) for item in data]
+    elif isinstance(data, str) and len(data) > max_length:
+        return f"{data[:max_length]}... (truncated, total: {len(data)} chars)"
+    else:
+        return data
 
 
 class _LoguruInterceptHandler(logging.Handler):
@@ -66,9 +48,53 @@ class _LoguruInterceptHandler(logging.Handler):
         except ValueError:
             level = record.levelno
 
-        # Truncate base64 content in the message
-        message = record.getMessage()
-        truncated_message = _truncate_base64_in_message(message)
+        # Apply content limiting to arguments before formatting the message
+        # This prevents large base64 strings and other large data from flooding logs
+        message = None
+        if record.args:
+            try:
+                # Limit content in each argument
+                limited_args = tuple(_limit_content_for_log(arg) for arg in record.args)
+                # Format message with limited args
+                # Handle both %-style formatting and {} style formatting
+                if isinstance(record.msg, str):
+                    try:
+                        # Try %-style formatting first (most common in logging)
+                        message = record.msg % limited_args
+                    except (TypeError, ValueError):
+                        # Fallback to .format() if % fails
+                        try:
+                            message = record.msg.format(*limited_args)
+                        except (IndexError, KeyError, ValueError):
+                            # If both fail, just use the msg with args as string representation
+                            message = f"{record.msg} {limited_args}"
+                else:
+                    # If msg is not a string, convert to string representation
+                    message = str(record.msg) + " " + str(limited_args)
+            except Exception:
+                # Fallback: if something goes wrong, use original message and limit it
+                message = record.getMessage()
+                # Try to parse as JSON and limit if possible
+                try:
+                    parsed = json.loads(message)
+                    limited = _limit_content_for_log(parsed)
+                    message = json.dumps(limited, default=str)
+                except (json.JSONDecodeError, TypeError):
+                    # Not JSON, just limit as string if too long
+                    if len(message) > 500:
+                        message = _limit_content_for_log(message, max_length=200)
+        else:
+            # No args, work with the message directly
+            message = record.getMessage()
+            # Try to parse as JSON and limit if possible
+            try:
+                parsed = json.loads(message)
+                limited = _limit_content_for_log(parsed)
+                message = json.dumps(limited, default=str)
+            except (json.JSONDecodeError, TypeError):
+                # Not JSON, just limit as string if too long
+                if len(message) > 500:
+                    message = _limit_content_for_log(message, max_length=200)
 
         # Patch loguru record to use the actual source location from LogRecord
         # This ensures we show the correct file/function/line instead of logging internals
@@ -78,7 +104,7 @@ class _LoguruInterceptHandler(logging.Handler):
             log_record["function"] = record.funcName or "<unknown>"
             log_record["line"] = record.lineno
 
-        logger.patch(patch_record).opt(exception=record.exc_info).log(level, truncated_message)
+        logger.patch(patch_record).opt(exception=record.exc_info).log(level, message)
 
 
 def _install_loguru_bridge(log_level: int) -> None:
