@@ -242,13 +242,16 @@ class MCPClient:
         self.is_connected = False
         logger.info("[MCPClient] Disconnected")
 
-    async def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+    async def call_tool(
+        self, tool_name: str, arguments: Dict[str, Any], timeout: Optional[float] = None
+    ) -> Dict[str, Any]:
         """
         Call an MCP tool
 
         Args:
             tool_name: Name of the tool to call
             arguments: Tool arguments
+            timeout: Optional timeout override (seconds). Defaults to client timeout.
 
         Returns:
             Tool execution result in format:
@@ -270,9 +273,15 @@ class MCPClient:
             )
 
             # Call tool using fastmcp.Client
+            call_timeout = timeout if timeout is not None else self.timeout
+            call_kwargs: Dict[str, Any] = {}
+            if call_timeout:
+                call_kwargs["timeout"] = float(call_timeout)
+
             response = await self._client.call_tool(
                 tool_name,
                 arguments or {},
+                **call_kwargs,
             )
 
             # Parse fastmcp response into our format

@@ -184,6 +184,42 @@ async def test_call_tool_when_not_connected():
 
 
 @pytest.mark.asyncio
+async def test_call_tool_uses_timeout_override(monkeypatch):
+    """Verify that tool calls respect timeout overrides and defaults."""
+    captured: Dict[str, Any] = {"timeouts": []}
+
+    class TimeoutClient(_BaseFakeClient):
+        def __init__(self, transport: Any, timeout: float, init_timeout: float):
+            super().__init__(transport, timeout, init_timeout)
+            self._tools = [SimpleNamespace(name="test_tool", description="", inputSchema={})]
+
+        async def call_tool(self, name: str, arguments=None, **kwargs):
+            captured["timeouts"].append(kwargs.get("timeout"))
+            return SimpleNamespace(
+                content=[SimpleNamespace(type="text", text="ok")],
+                structured_content=None,
+                data=None,
+                is_error=False,
+            )
+
+    monkeypatch.setattr("src.mcp.client.Client", TimeoutClient)
+
+    config = MCPServerConfig(command="python", args=["server.py"])
+    client = MCPClient(config, timeout=123)
+
+    await client.connect()
+
+    # Call without override should use client timeout
+    await client.call_tool("test_tool", {})
+    # Call with override should use provided timeout
+    await client.call_tool("test_tool", {}, timeout=45)
+
+    assert captured["timeouts"] == [pytest.approx(123.0), pytest.approx(45.0)]
+
+    await client.disconnect()
+
+
+@pytest.mark.asyncio
 async def test_reconnect_on_connection_loss(monkeypatch):
     """Test automatic reconnection on connection loss."""
     connection_attempts = []
