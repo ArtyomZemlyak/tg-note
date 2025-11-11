@@ -415,10 +415,9 @@ class BaseKBService:
             result: Task execution result
         """
         # Use response formatter to format the result
+        # AICODE-NOTE: Don't add /topics to base URL here - file paths already include 'topics/'
+        # The response formatter will handle duplicate topics/topics if needed
         github_base = self._get_github_base_url(kb_path, user_id)
-        kb_topics_only = self.settings_manager.get_setting(user_id, "KB_TOPICS_ONLY")
-        if kb_topics_only:
-            github_base = f"{github_base}/topics"
 
         response_formatter = ResponseFormatter(github_base)
         full_message = response_formatter.to_html(result.get("parsed_result"))

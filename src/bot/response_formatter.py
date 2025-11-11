@@ -10,6 +10,34 @@ from src.bot.settings_manager import SettingsManager
 from src.bot.utils import escape_html, escape_markdown, escape_markdown_url
 
 
+def _fix_duplicate_topics_in_url(url: str) -> str:
+    """
+    Fix duplicate 'topics/topics' in GitHub URLs.
+
+    AICODE-NOTE: This function fixes the issue where paths already contain 'topics/'
+    but the base URL also includes '/topics', resulting in 'topics/topics/...'.
+
+    Args:
+        url: GitHub URL that may contain duplicate topics
+
+    Returns:
+        URL with fixed duplicate topics
+
+    Examples:
+        >>> _fix_duplicate_topics_in_url("https://github.com/user/repo/blob/branch/topics/topics/ai/file.md")
+        'https://github.com/user/repo/blob/branch/topics/ai/file.md'
+        >>> _fix_duplicate_topics_in_url("https://github.com/user/repo/blob/branch/topics/ai/file.md")
+        'https://github.com/user/repo/blob/branch/topics/ai/file.md'
+        >>> _fix_duplicate_topics_in_url("https://github.com/user/repo/blob/branch/topics/topics/ai/file.md#anchor")
+        'https://github.com/user/repo/blob/branch/topics/ai/file.md#anchor'
+    """
+    # Fix duplicate topics/topics pattern (can appear as /topics/topics/ or /topics/topics)
+    # Replace all occurrences to handle multiple duplicates
+    while "/topics/topics" in url:
+        url = url.replace("/topics/topics", "/topics", 1)
+    return url
+
+
 class BaseField:
     """Base class for response fields."""
 
@@ -147,6 +175,7 @@ class FileListField(BaseField):
             escaped_file_path = self._escape_html(file_path)
             if self.github_url:
                 url = f"{self.github_url}/{file_path}"
+                url = _fix_duplicate_topics_in_url(url)
                 escaped_url = self._escape_html(url)
                 lines.append(f'- <a href="{escaped_url}">{escaped_file_path}</a>')
             else:
@@ -170,7 +199,9 @@ class FileListField(BaseField):
         for file_path in value:
             file_path = escape_markdown_url(file_path)
             if self.github_url:
-                url = escape_markdown_url(f"{self.github_url}/{file_path}")
+                url = f"{self.github_url}/{file_path}"
+                url = _fix_duplicate_topics_in_url(url)
+                url = escape_markdown_url(url)
                 lines.append(f"- [{file_path}]({url})")
             else:
                 lines.append(f"- {file_path}")
@@ -640,6 +671,7 @@ class LinksField(BaseField):
 
             if self.github_url:
                 url = f"{self.github_url}/{path}"
+                url = _fix_duplicate_topics_in_url(url)
                 if anchor:
                     url = f"{url}#{anchor}"
                 escaped_url = self._escape_html(url)
@@ -667,6 +699,7 @@ class LinksField(BaseField):
             escaped_display = escape_markdown(display_text)
             if self.github_url:
                 url = f"{self.github_url}/{path}"
+                url = _fix_duplicate_topics_in_url(url)
                 if anchor:
                     url = f"{url}#{anchor}"
                 escaped_url = escape_markdown_url(url)
