@@ -265,13 +265,14 @@ class MCPClient:
             return {"success": False, "error": "Not connected to MCP server"}
 
         try:
-            logger.debug(f"[MCPClient] Calling tool: {tool_name} with args: {arguments}")
+            logger.debug(
+                f"[MCPClient] Calling tool: {tool_name} with args: {self._limit_content_for_log(arguments)}"
+            )
 
             # Call tool using fastmcp.Client
             response = await self._client.call_tool(
                 tool_name,
                 arguments or {},
-                raise_on_error=False,
             )
 
             # Parse fastmcp response into our format
@@ -290,7 +291,6 @@ class MCPClient:
                         response = await self._client.call_tool(
                             tool_name,
                             arguments or {},
-                            raise_on_error=False,
                         )
                         return self._parse_tool_response(response)
                     except Exception as retry_error:
@@ -300,6 +300,34 @@ class MCPClient:
                         }
 
             return {"success": False, "error": str(e)}
+
+    def _limit_content_for_log(self, data: Any, max_length: int = 50) -> Any:
+        """
+        Limit content length in data for logging to avoid flooding logs with large payloads.
+
+        Args:
+            data: Data to limit (dict, list, str, or other)
+            max_length: Maximum length for string values (default: 50 chars)
+
+        Returns:
+            Data with limited content length
+        """
+        if isinstance(data, dict):
+            limited = {}
+            for key, value in data.items():
+                if isinstance(value, str) and len(value) > max_length:
+                    limited[key] = f"{value[:max_length]}... (truncated, total: {len(value)} chars)"
+                elif isinstance(value, (dict, list)):
+                    limited[key] = self._limit_content_for_log(value, max_length)
+                else:
+                    limited[key] = value
+            return limited
+        elif isinstance(data, list):
+            return [self._limit_content_for_log(item, max_length) for item in data]
+        elif isinstance(data, str) and len(data) > max_length:
+            return f"{data[:max_length]}... (truncated, total: {len(data)} chars)"
+        else:
+            return data
 
     def _parse_tool_response(self, response) -> Dict[str, Any]:
         """
