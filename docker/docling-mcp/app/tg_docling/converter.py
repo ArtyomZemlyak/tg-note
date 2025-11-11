@@ -308,11 +308,44 @@ def _create_converter(settings: DoclingSettings) -> DocumentConverter:
         getattr(layout_spec, "model_repo_folder", "N/A"),
     )
 
+    # AICODE-NOTE: Create model_spec copy and set model_path to full path to model directory
+    # This ensures Docling can find the model.safetensors file in the correct subdirectory
+    # Problem: Docling searches for model.safetensors in artifacts_path directly, ignoring
+    # model_repo_folder from model_spec. Solution: set model_path to full path to model directory.
+    model_spec_copy = layout_spec.model_copy()
+    if hasattr(model_spec_copy, "model_repo_folder") and model_spec_copy.model_repo_folder:
+        # Construct full path to model directory: models_base / model_repo_folder
+        model_dir_path = models_base / model_spec_copy.model_repo_folder
+        model_dir_str = str(model_dir_path.resolve())
+        
+        # Set model_path if the spec supports it (preferred method)
+        # Docling should use model_path if available, otherwise fall back to artifacts_path + model_repo_folder
+        if hasattr(model_spec_copy, "model_path"):
+            model_spec_copy.model_path = model_dir_str
+            logger.info(
+                "Set model_path in model_spec to: %s (model_repo_folder remains: %s)",
+                model_spec_copy.model_path,
+                model_spec_copy.model_repo_folder,
+            )
+        else:
+            # If model_path is not supported, we need to ensure Docling can find the model
+            # Try setting model_repo_folder to absolute path as fallback for older Docling versions
+            # Note: This may not work if Docling combines artifacts_path with model_repo_folder
+            if not Path(model_spec_copy.model_repo_folder).is_absolute():
+                original_folder = model_spec_copy.model_repo_folder
+                model_spec_copy.model_repo_folder = model_dir_str
+                logger.warning(
+                    "model_path not supported, set model_repo_folder to absolute path: %s (was: %s). "
+                    "This may cause issues if Docling combines artifacts_path with model_repo_folder.",
+                    model_spec_copy.model_repo_folder,
+                    original_folder,
+                )
+
     pdf_options.layout_options = LayoutOptions(
         create_orphan_clusters=layout_cfg.create_orphan_clusters,
         keep_empty_clusters=layout_cfg.keep_empty_clusters,
         skip_cell_assignment=layout_cfg.skip_cell_assignment,
-        model_spec=layout_spec.model_copy(),
+        model_spec=model_spec_copy,
     )
 
     table_cfg = settings.pipeline.table_structure
