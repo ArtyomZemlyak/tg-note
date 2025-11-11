@@ -1,135 +1,138 @@
-# Markdown Image Path Validator
+# Image Path Validator for File Processor
 
-Автоматическая валидация путей к изображениям в markdown файлах, созданных агентами.
+Валидация путей к изображениям перед отправкой в Docling для OCR.
 
 ## Быстрый старт
 
 ### Автоматическая валидация
 
-При создании/редактировании markdown файлов через агента валидация запускается автоматически:
+Валидация запускается автоматически в `FileProcessor` перед отправкой изображений в Docling:
 
 ```python
-# Агент создает файл с изображением
-result = await file_create_tool.execute({
-    "path": "topics/guide.md",
-    "content": "# Guide\n\n![Chart](../images/chart.jpg)"
-})
+from pathlib import Path
+from src.processor.file_processor import FileProcessor
 
-# Результат содержит информацию о валидации
-if result.get("validation_passed") is False:
-    print("Обнаружены проблемы с путями к изображениям!")
-    print(result.get("validation_warnings"))
-```
+processor = FileProcessor()
 
-### Ручная валидация
+# При обработке изображения валидация происходит автоматически
+result = await processor.process_file(Path("/path/to/image.jpg"))
 
-Проверка всей базы знаний:
-
-```bash
-# Простая проверка
-python scripts/validate_kb_images.py /path/to/kb
-
-# Детальный отчет
-python scripts/validate_kb_images.py /path/to/kb --verbose
+# Если валидация не прошла, вернется None и будет залогирована ошибка
+if result is None:
+    print("Image validation failed - check logs")
 ```
 
 ### Python API
 
 ```python
 from pathlib import Path
-from src.processor.markdown_image_validator import (
-    validate_agent_generated_markdown,
-    validate_kb_images,
-    MarkdownImageValidator
-)
+from src.processor.image_path_validator import validate_image_path
 
-# Проверить конкретный файл
-kb_root = Path("/path/to/kb")
-md_file = kb_root / "topics" / "example.md"
-passed = validate_agent_generated_markdown(md_file, kb_root)
+# Проверить путь к изображению
+img_path = Path("/kb/images/photo.jpg")
+kb_images_dir = Path("/kb/images")
 
-# Проверить всю базу знаний
-error_count = validate_kb_images(kb_root, verbose=True)
+is_valid, error_msg = validate_image_path(img_path, kb_images_dir)
 
-# Расширенное использование
-validator = MarkdownImageValidator(kb_root)
-refs, issues = validator.validate_markdown_file(md_file)
-unreferenced = validator.find_unreferenced_images()
+if not is_valid:
+    print(f"Validation failed: {error_msg}")
+else:
+    print("✓ Image path is valid")
 ```
 
 ## Что проверяется
 
-- ✅ Существование файлов изображений
-- ✅ Корректность относительных путей
-- ✅ Расположение изображений внутри KB
-- ✅ Качество alt-текста (описания)
+- ✅ Существование файла изображения
+- ✅ Файл является файлом (не директорией)
+- ✅ Расширение файла соответствует изображению
+- ✅ Изображение находится внутри KB/images/ директории
 
-## Уровни проблем
+## Когда происходит валидация
 
-| Уровень | Описание | Пример |
-|---------|----------|--------|
-| **ERROR** | Файл не найден | `![](images/missing.jpg)` |
-| **WARNING** | Изображение вне KB | `![](../../external.jpg)` |
-| **INFO** | Некачественный alt-текст | `![image](photo.jpg)` |
+Валидация запускается в `FileProcessor` в двух местах:
 
-## Интеграция
+### 1. При обработке файла (`process_file`)
 
-### File Tools
+Перед отправкой изображения в Docling:
 
-Валидация автоматически запускается в:
-- `FileCreateTool` - при создании markdown файлов
-- `FileEditTool` - при редактировании markdown файлов
+```python
+# file_processor.py - process_file()
+if is_image:
+    is_valid, error_msg = validate_image_path(file_path, self.images_dir)
+    if not is_valid:
+        logger.error(f"Image validation failed: {error_msg}")
+        return None  # Прекращаем обработку
+```
+
+### 2. При скачивании из Telegram (`download_and_process_telegram_file`)
+
+После сохранения изображения в KB/images/:
+
+```python
+# file_processor.py - download_and_process_telegram_file()
+if save_to_kb and is_image:
+    is_valid, error_msg = validate_image_path(save_path, kb_images_dir)
+    if not is_valid:
+        logger.error(f"Saved image failed validation: {error_msg}")
+        logger.warning(f"Image saved but may have path issues")
+    else:
+        logger.info(f"✓ Image path validated: {save_path}")
+```
 
 ### Логирование
 
 ```
-[file_create] ✓ Created file: topics/guide.md (1234 bytes)
-[file_create] Image validation error: Image file not found: images/chart.jpg
+[FileProcessor] ✓ Image path validated: /kb/images/img_1234567890_abc123.jpg
+[FileProcessor] Image validation failed: Image is outside KB images directory
+[FileProcessor] File path: /tmp/outside.jpg
+[FileProcessor] Expected KB images dir: /kb/images
 ```
 
 ## Примеры проблем
 
-### Неправильный относительный путь
+### Файл не существует
 
 ❌ **Проблема:**
-```markdown
-<!-- Файл: topics/guide.md -->
-![Chart](images/chart.jpg)
+```python
+img_path = Path("/kb/images/missing.jpg")
+is_valid, error = validate_image_path(img_path)
+# Returns: (False, "Image file does not exist: /kb/images/missing.jpg")
 ```
 
-✅ **Решение:**
-```markdown
-<!-- Файл: topics/guide.md -->
-![Chart](../images/chart.jpg)
-```
+✅ **Решение:** Убедитесь что файл существует перед валидацией
 
-### Отсутствующее изображение
+### Изображение вне KB
 
 ❌ **Проблема:**
-```markdown
-![Screenshot](../images/missing.jpg)
+```python
+img_path = Path("/tmp/photo.jpg")  # Вне KB
+kb_images_dir = Path("/kb/images")
+is_valid, error = validate_image_path(img_path, kb_images_dir)
+# Returns: (False, "Image is outside KB images directory...")
 ```
 
-✅ **Решение:**
-1. Сохранить изображение в `KB/images/`
-2. Обновить путь в markdown
+✅ **Решение:** Сохраните изображение в KB/images/ перед обработкой
 
-### Плохой alt-текст
+### Неправильное расширение
 
 ❌ **Проблема:**
-```markdown
-![image](../images/chart.jpg)
+```python
+txt_file = Path("/kb/images/file.txt")
+is_valid, error = validate_image_path(txt_file)
+# Returns: (False, "File is not an image (extension: .txt)")
 ```
 
-✅ **Решение:**
-```markdown
-![График роста выручки за Q4 2024: +45%](../images/chart.jpg)
-```
+✅ **Решение:** Используйте поддерживаемые форматы: jpg, png, gif, tiff, bmp, webp
 
 ## Тесты
 
 ```bash
-# Запустить тесты
+# Запустить тесты валидации путей
+python3 -m pytest tests/test_file_processor_validation.py -v
+
+# Все тесты должны пройти (10 passed)
+
+# Запустить тесты markdown валидатора (для агентов)
 python3 -m pytest tests/test_markdown_image_validator.py -v
 
 # Все тесты должны пройти (13 passed)
@@ -143,20 +146,20 @@ python3 -m pytest tests/test_markdown_image_validator.py -v
 
 ```
 src/processor/
-├── markdown_image_validator.py  # Основной модуль
-│   ├── MarkdownImageValidator   # Класс валидатора
-│   ├── ImageReference           # Ссылка на изображение
-│   ├── ValidationIssue          # Проблема валидации
-│   └── validate_* функции       # Удобные обертки
+├── image_path_validator.py      # Валидация путей к изображениям
+│   └── validate_image_path()    # Функция валидации
 │
-scripts/
-└── validate_kb_images.py        # CLI инструмент
-
-src/agents/tools/
-└── file_tools.py                # Интеграция в file_create/file_edit
+├── file_processor.py             # Обработчик файлов (Docling)
+│   ├── process_file()           # Валидация перед обработкой
+│   └── download_and_process_telegram_file()  # Валидация после скачивания
+│
+└── markdown_image_validator.py  # Валидация markdown (для агентов)
+    ├── MarkdownImageValidator   # Класс валидатора
+    └── validate_* функции       # Удобные обертки
 
 tests/
-└── test_markdown_image_validator.py  # Тесты (13 tests)
+├── test_file_processor_validation.py     # Тесты (10 tests)
+└── test_markdown_image_validator.py      # Тесты markdown (13 tests)
 ```
 
 ## Будущие улучшения

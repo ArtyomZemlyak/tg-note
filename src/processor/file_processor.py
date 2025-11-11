@@ -15,6 +15,7 @@ from src.mcp.client import MCPClient
 from src.mcp.docling_integration import ensure_docling_mcp_spec
 from src.mcp.registry.registry import MCPServerSpec
 from src.mcp.registry_client import MCPRegistryClient
+from src.processor.image_path_validator import validate_image_path
 
 
 class FileProcessor:
@@ -773,6 +774,18 @@ class FileProcessor:
             return None
 
         raw_extension = file_path.suffix.lower().lstrip(".")
+
+        # AICODE-NOTE: Validate image path before processing with docling
+        # This ensures we're sending valid paths to docling for OCR
+        is_image = raw_extension in ["jpg", "jpeg", "png", "gif", "tiff", "bmp", "webp"]
+
+        if is_image:
+            is_valid, error_msg = validate_image_path(file_path, self.images_dir)
+            if not is_valid:
+                self.logger.error(f"[FileProcessor] Image validation failed: {error_msg}")
+                self.logger.error(f"[FileProcessor] File path: {file_path}")
+                self.logger.error(f"[FileProcessor] Expected KB images dir: {self.images_dir}")
+                return None
         file_format = self.detect_file_format(file_path)
 
         if not file_format:
@@ -903,6 +916,17 @@ class FileProcessor:
                 f.write(downloaded_file)
 
             self.logger.info(f"File downloaded to: {save_path}")
+
+            # AICODE-NOTE: Validate saved image path (for images saved to KB)
+            if save_to_kb and is_image:
+                is_valid, error_msg = validate_image_path(save_path, kb_images_dir)
+                if not is_valid:
+                    self.logger.error(f"[FileProcessor] Saved image failed validation: {error_msg}")
+                    self.logger.warning(
+                        f"[FileProcessor] Image saved but may have path issues: {save_path}"
+                    )
+                else:
+                    self.logger.info(f"[FileProcessor] ✓ Image path validated: {save_path}")
 
             # Process file
             result = await self.process_file(save_path)
