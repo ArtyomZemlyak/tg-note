@@ -251,6 +251,7 @@ def _build_ocr_options(settings: DoclingSettings, models_base: Path) -> Optional
 
 def _create_converter(settings: DoclingSettings) -> DocumentConverter:
     """Internal factory for DocumentConverter configured according to settings."""
+    logger.info("Creating CUSTOM DocumentConverter with tg-note settings")
     models_base = Path(settings.model_cache.base_dir)
     models_base.mkdir(parents=True, exist_ok=True)
 
@@ -412,10 +413,11 @@ def _create_converter(settings: DoclingSettings) -> DocumentConverter:
     }
 
     logger.info(
-        "Initialising DocumentConverter (ocr_enabled=%s, backend=%s)",
+        "Initialising CUSTOM DocumentConverter (ocr_enabled=%s, backend=%s)",
         pdf_options.do_ocr,
         settings.ocr_config.backend,
     )
+    logger.info("OCR options type: %s", type(ocr_options).__name__ if ocr_options else "None")
 
     return DocumentConverter(format_options=format_options)
 
