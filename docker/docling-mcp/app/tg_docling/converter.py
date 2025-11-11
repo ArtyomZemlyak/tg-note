@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from functools import lru_cache
 from pathlib import Path
 from typing import Dict, Optional, Set
@@ -38,6 +37,7 @@ from docling.datamodel.vlm_model_specs import (
 from docling.document_converter import DocumentConverter, PdfFormatOption
 from docling_mcp.settings import conversion as conversion_settings
 from docling_mcp.tools import conversion as conversion_tools
+from loguru import logger
 
 try:  # Optional dependency
     from docling_ocr_onnxtr.pipeline_options import OnnxtrOcrOptions
@@ -45,8 +45,6 @@ except Exception:  # pragma: no cover
     OnnxtrOcrOptions = None
 
 from config.settings import DoclingSettings
-
-logger = logging.getLogger(__name__)
 
 # AICODE-NOTE: Layout model presets map - exported for use in model_sync.py
 _LAYOUT_PRESET_MAP = {
@@ -128,7 +126,19 @@ def _build_ocr_options(settings: DoclingSettings, models_base: Path) -> Optional
     ocr_cfg = settings.ocr_config
     languages = ocr_cfg.languages or settings.ocr_languages
 
+    logger.info(
+        "Building OCR options: backend=%s, image_ocr_enabled=%s, languages=%s",
+        ocr_cfg.backend,
+        settings.image_ocr_enabled,
+        languages,
+    )
+
     if settings.image_ocr_enabled is False or ocr_cfg.backend == "none":
+        logger.info(
+            "OCR disabled (image_ocr_enabled=%s, backend=%s)",
+            settings.image_ocr_enabled,
+            ocr_cfg.backend,
+        )
         return None
 
     if ocr_cfg.backend == "rapidocr":
@@ -177,16 +187,31 @@ def _build_ocr_options(settings: DoclingSettings, models_base: Path) -> Optional
 
     if ocr_cfg.backend == "tesseract":
         backend_cfg = ocr_cfg.tesseract
-        opts = TesseractOcrOptions()
-        _apply_optional_attributes(
-            opts,
-            {
-                "lang": backend_cfg.languages or languages,
-                "path": backend_cfg.tessdata_prefix,
-                "psm": backend_cfg.psm,
-            },
+        logger.info(
+            "Creating TesseractOcrOptions: enabled=%s, languages=%s, tessdata_prefix=%s",
+            backend_cfg.enabled,
+            backend_cfg.languages or languages,
+            backend_cfg.tessdata_prefix,
         )
-        return opts
+        try:
+            opts = TesseractOcrOptions()
+            _apply_optional_attributes(
+                opts,
+                {
+                    "lang": backend_cfg.languages or languages,
+                    "path": backend_cfg.tessdata_prefix,
+                    "psm": backend_cfg.psm,
+                },
+            )
+            logger.info("TesseractOcrOptions created successfully: lang=%s", opts.lang)
+            return opts
+        except Exception as exc:
+            logger.error(
+                "Failed to create TesseractOcrOptions: %s. Falling back to None (Docling will auto-select).",
+                exc,
+                exc_info=True,
+            )
+            return None
 
     if ocr_cfg.backend == "onnxtr" and OnnxtrOcrOptions is not None:
         backend_cfg = ocr_cfg.onnxtr

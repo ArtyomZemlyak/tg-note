@@ -147,6 +147,8 @@ class MCPClient:
         Returns:
             True if connection successful
         """
+        import asyncio
+
         try:
             # Prepare transport configuration - fastmcp.Client handles auto-detection
             if self.config.url:
@@ -170,14 +172,21 @@ class MCPClient:
                 )
 
             # Create fastmcp.Client - it handles all transport logic and auto-detection
+            # AICODE-NOTE: We use self.timeout for init_timeout so tool calls can run as long as needed.
+            # The connection timeout is enforced separately via asyncio.wait_for below.
             self._client = Client(
                 transport=transport_config,
                 timeout=float(self.timeout),
-                init_timeout=10.0,  # Connection timeout
+                init_timeout=float(self.timeout),  # Same as timeout - tool calls use this
             )
 
+            # AICODE-NOTE: Wrap connection attempt with asyncio.wait_for to ensure
+            # we don't hang indefinitely if the server is unavailable.
+            # This enforces 30 seconds max for connection, independent of init_timeout.
+            connection_timeout = 30.0  # 30 seconds max for connection attempt
+
             # Connect using async context manager - fastmcp.Client handles connection
-            await self._client.__aenter__()
+            await asyncio.wait_for(self._client.__aenter__(), timeout=connection_timeout)
 
             # Verify connection - fastmcp.Client should be connected after __aenter__
             if not self._client.is_connected():
@@ -202,8 +211,15 @@ class MCPClient:
             self._reconnect_attempts = 0  # Reset reconnection attempts on successful connection
             return True
 
+        except asyncio.TimeoutError:
+            logger.error(
+                f"[MCPClient] Connection timeout after {connection_timeout}s. "
+                f"Server may be unavailable or not responding."
+            )
+            await self.disconnect()
+            return False
         except Exception as e:
-            logger.error(f"[MCPClient] Failed to connect: {e}", exc_info=True)
+            logger.error(f"[MCPClient] Failed to connect: {e}")
             await self.disconnect()
             return False
 
