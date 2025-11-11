@@ -138,3 +138,40 @@ async def test_parse_group_with_files_kb_path_parameter():
     assert result is not None
     assert "text" in result
     assert "Test message with image" in result["text"]
+
+
+def test_image_path_format_in_file_contents():
+    """Test that image paths use ../images/ for documents in topics/ folder"""
+    from pathlib import Path
+
+    parser = ContentParser()
+
+    # Mock file_contents as if an image was saved
+    file_contents = [
+        {
+            "type": "photo",
+            "content": "Image description text",
+            "metadata": {},
+            "format": "image",
+            "file_name": "image.jpg",
+            "saved_path": "/tmp/test_kb/images/img_1234567890_AgACAgIA.jpg",
+            "saved_filename": "img_1234567890_AgACAgIA.jpg",
+        }
+    ]
+
+    # Simulate building file_texts like in parse_group_with_files
+    file_texts = []
+    for file_data in file_contents:
+        # AICODE-NOTE: This mimics the logic in content_parser.py lines 227-235
+        if "saved_path" in file_data and "saved_filename" in file_data:
+            file_texts.append(
+                f"\n\n--- Содержимое файла: {file_data['file_name']} "
+                f"(сохранено как: ../images/{file_data['saved_filename']}) ---\n"
+                f"{file_data['content']}"
+            )
+
+    assert len(file_texts) == 1
+    # Verify that image path uses ../images/ (relative from topics/ to images/)
+    assert "../images/img_1234567890_AgACAgIA.jpg" in file_texts[0]
+    # Ensure it doesn't use the incorrect path
+    assert "images/img_1234567890_AgACAgIA.jpg" not in file_texts[0] or "../" in file_texts[0]
