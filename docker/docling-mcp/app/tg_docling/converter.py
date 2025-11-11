@@ -247,15 +247,17 @@ def _fix_model_path(
     model_spec_or_options: object, models_base: Path, folder_attr: str = "model_repo_folder"
 ) -> None:
     """
-    Fix model path in model spec or options to use absolute path.
+    Ensure model_repo_folder/repo_cache_folder remains relative.
 
-    This ensures Docling can find model.safetensors files in the correct subdirectory.
-    Problem: Docling searches for model.safetensors in artifacts_path directly, ignoring
-    model_repo_folder/repo_cache_folder from model_spec. Solution: set model_path to full path.
+    IMPORTANT: Docling expects model_path to be EMPTY or a relative path within model_repo_folder.
+    Docling constructs paths as: artifacts_path / model_repo_folder / model_path
+    Setting model_path to an absolute path breaks Docling's path resolution.
+
+    This function ensures folder_attr remains relative and model_path stays empty.
 
     Args:
         model_spec_or_options: Model spec or options object (e.g., layout_spec, preset_options)
-        models_base: Base directory for models
+        models_base: Base directory for models (not used, kept for compatibility)
         folder_attr: Attribute name for folder path (model_repo_folder or repo_cache_folder)
     """
     if not hasattr(model_spec_or_options, folder_attr):
@@ -265,29 +267,28 @@ def _fix_model_path(
     if not folder_path:
         return
 
-    # Construct full path to model directory: models_base / folder_path
+    # CRITICAL: Ensure folder_path is relative, NOT absolute
+    # Docling will append it to artifacts_path
     if Path(folder_path).is_absolute():
-        model_dir_path = Path(folder_path)
-    else:
-        model_dir_path = models_base / folder_path
+        logger.warning(f"{folder_attr} is absolute ({folder_path}), converting to relative path")
+        # Convert to relative by taking just the folder name
+        folder_path = Path(folder_path).name
+        setattr(model_spec_or_options, folder_attr, folder_path)
 
-    model_dir_str = str(model_dir_path.resolve())
-
-    # Set model_path if the spec supports it (preferred method)
+    # CRITICAL: Ensure model_path is empty or relative, NOT absolute
     if hasattr(model_spec_or_options, "model_path"):
-        setattr(model_spec_or_options, "model_path", model_dir_str)
-        logger.info(
-            f"Set model_path in {type(model_spec_or_options).__name__} to: {model_dir_str} "
-            f"({folder_attr} remains: {folder_path})"
-        )
-    else:
-        # If model_path is not supported, try setting folder_attr to absolute path
-        # This is a fallback for older Docling versions
-        if not Path(folder_path).is_absolute():
-            setattr(model_spec_or_options, folder_attr, model_dir_str)
-            logger.info(
-                f"model_path not supported, set {folder_attr} to absolute path: {model_dir_str} (was: {folder_path})"
+        current_model_path = getattr(model_spec_or_options, "model_path")
+        if current_model_path and Path(current_model_path).is_absolute():
+            logger.warning(
+                f"model_path is absolute ({current_model_path}), resetting to empty string"
             )
+            setattr(model_spec_or_options, "model_path", "")
+
+    logger.debug(
+        f"Model paths verified for {type(model_spec_or_options).__name__}: "
+        f"{folder_attr}={getattr(model_spec_or_options, folder_attr)}, "
+        f"model_path={getattr(model_spec_or_options, 'model_path', 'N/A')}"
+    )
 
 
 def _create_converter(settings: DoclingSettings) -> DocumentConverter:
@@ -348,15 +349,17 @@ def _create_converter(settings: DoclingSettings) -> DocumentConverter:
         f"model_repo_folder={getattr(layout_spec, 'model_repo_folder', 'N/A')})"
     )
 
-    # AICODE-NOTE: Fix model path to ensure Docling can find model.safetensors in correct subdirectory
+    # AICODE-NOTE: Verify model paths are relative, not absolute
+    # Docling expects: artifacts_path / model_repo_folder / model_path
+    # where model_path is usually empty and model_repo_folder is relative
     model_spec_copy = layout_spec.model_copy()
     logger.debug(
-        f"Layout model spec before path fix: model_repo_folder={getattr(model_spec_copy, 'model_repo_folder', 'N/A')}, "
+        f"Layout model spec before verification: model_repo_folder={getattr(model_spec_copy, 'model_repo_folder', 'N/A')}, "
         f"model_path={getattr(model_spec_copy, 'model_path', 'N/A')}"
     )
     _fix_model_path(model_spec_copy, models_base, folder_attr="model_repo_folder")
     logger.debug(
-        f"Layout model spec after path fix: model_repo_folder={getattr(model_spec_copy, 'model_repo_folder', 'N/A')}, "
+        f"Layout model spec after verification: model_repo_folder={getattr(model_spec_copy, 'model_repo_folder', 'N/A')}, "
         f"model_path={getattr(model_spec_copy, 'model_path', 'N/A')}"
     )
 
@@ -376,8 +379,7 @@ def _create_converter(settings: DoclingSettings) -> DocumentConverter:
         pdf_options.table_structure_options.mode = TableFormerMode.ACCURATE
     pdf_options.table_structure_options.do_cell_matching = table_cfg.do_cell_matching
 
-    # AICODE-NOTE: Fix model path for table_structure if it uses model_spec
-    # TableStructureOptions may have model_spec with model_repo_folder
+    # AICODE-NOTE: Verify table structure model paths are relative
     if hasattr(pdf_options.table_structure_options, "model_spec"):
         table_model_spec = getattr(pdf_options.table_structure_options, "model_spec")
         if table_model_spec is not None:
@@ -417,7 +419,7 @@ def _create_converter(settings: DoclingSettings) -> DocumentConverter:
                 f"(repo_id={getattr(preset_copy, 'repo_id', 'N/A')}, "
                 f"repo_cache_folder={getattr(preset_copy, 'repo_cache_folder', 'N/A')})"
             )
-            # AICODE-NOTE: Fix model path for picture description preset
+            # AICODE-NOTE: Verify picture description preset paths are relative
             _fix_model_path(preset_copy, models_base, folder_attr="repo_cache_folder")
 
             for attr in (
@@ -456,7 +458,7 @@ def _create_converter(settings: DoclingSettings) -> DocumentConverter:
                     f"(repo_id={getattr(spec, 'repo_id', 'N/A')}, "
                     f"repo_cache_folder={getattr(spec, 'repo_cache_folder', 'N/A')})"
                 )
-                # AICODE-NOTE: Fix model path for picture description spec
+                # AICODE-NOTE: Verify picture description spec paths are relative
                 # Create a copy to avoid modifying the original spec
                 spec_copy = spec.model_copy() if hasattr(spec, "model_copy") else spec
                 _fix_model_path(spec_copy, models_base, folder_attr="repo_cache_folder")
