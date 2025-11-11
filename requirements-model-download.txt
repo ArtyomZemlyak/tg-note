@@ -1,0 +1,27 @@
+# Minimal requirements for Docling model download only
+# No heavy dependencies (no OCR engines, no transformers, no VLM models)
+
+# Core docling library (minimal, without extras)
+docling>=2.61.2
+
+# Model download utilities
+huggingface-hub>=0.36.0
+hf-transfer>=0.1.9
+
+# Optional: ModelScope support (can be omitted if not using ModelScope)
+# modelscope>=1.11.0
+
+# Basic utilities (usually already installed)
+pyyaml>=6.0.1
+pydantic>=2.10.0
+tqdm>=4.66.0
+requests>=2.32.0
+
+# NOTE: This installation does NOT include:
+# - OCR engines (easyocr, rapidocr, tesserocr, onnxtr)
+# - Deep learning frameworks (transformers, accelerate)
+# - GPU runtimes (onnxruntime-gpu)
+# - VLM models
+# - Image processing libraries (opencv-python)
+#
+# These are only needed for actual document conversion, not for model downloading
