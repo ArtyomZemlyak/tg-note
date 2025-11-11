@@ -72,7 +72,7 @@ speed=$(curl -w "%{speed_download}" -o /dev/null -s --connect-timeout 10 --max-t
 if [ $? -eq 0 ]; then
     speed_kb=$(echo "scale=2; $speed / 1024" | bc)
     echo "✅ Download speed: ${speed_kb} KB/s"
-    
+
     if (( $(echo "$speed_kb < 10" | bc -l) )); then
         echo "   ⚠️  Speed is very slow (< 10 KB/s) - possible throttling or regional restrictions"
     elif (( $(echo "$speed_kb < 100" | bc -l) )); then
