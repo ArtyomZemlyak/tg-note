@@ -317,7 +317,8 @@ async def test_call_tool_and_metadata(monkeypatch):
             )
 
         async def call_tool(self, name: str, arguments=None, **kwargs):
-            captured["raise_on_error"].append(kwargs.get("raise_on_error"))
+            # AICODE-NOTE: raise_on_error parameter was removed from fastmcp API
+            # captured["raise_on_error"].append(kwargs.get("raise_on_error"))
             return SimpleNamespace(
                 content=[SimpleNamespace(type="text", text="Processing complete")],
                 structured_content={"result": {"status": "ok"}},
@@ -351,7 +352,8 @@ async def test_call_tool_and_metadata(monkeypatch):
     assert result["data"] == {"status": "ok"}
     assert result["structured_content"] == {"result": {"status": "ok"}}
     assert result["result"]["structuredContent"] == {"result": {"status": "ok"}}
-    assert captured["raise_on_error"] == [False]
+    # AICODE-NOTE: raise_on_error parameter was removed from fastmcp API
+    # assert captured["raise_on_error"] == [False]
 
     # Test list resources
     resources = await client.list_resources()
