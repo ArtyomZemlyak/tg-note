@@ -232,6 +232,8 @@ docker-compose logs -f docling-mcp
 
 ### Manual Model Sync
 
+#### Automatic Sync via MCP/Docker
+
 Via MCP tool (from tg-note):
 ```python
 from src.processor.docling_runtime import sync_models
@@ -243,6 +245,35 @@ Via Docker exec:
 ```bash
 docker exec tg-note-docling python -m tg_docling.model_sync --force
 ```
+
+#### Manual Model Placement
+
+If you want to manually download and place models (to avoid downloading inside container):
+
+**Important: Understand the two separate volumes:**
+
+1. **Docling Models** → `./data/docling/models/` (host) → `/opt/docling-mcp/models` (container)
+   - Place Docling-specific models here (LayoutModel, TableStructure, etc.)
+   - Configured via `model_cache.base_dir` in config.yaml
+
+2. **HuggingFace Cache** → `~/.cache/` (host) → `/opt/docling-mcp/cache` (container)
+   - HuggingFace models downloaded via `snapshot_download()` go here
+   - Located at `~/.cache/huggingface/` on the host
+   - Shared with other containers/applications
+
+**To manually place models:**
+
+```bash
+# For Docling models (layout, table, etc.)
+mkdir -p ./data/docling/models/
+# Copy your models to ./data/docling/models/LayoutModel, etc.
+
+# For HuggingFace models (if using custom downloads)
+mkdir -p ~/.cache/huggingface/hub/
+# Copy your models following HuggingFace cache structure
+```
+
+**Note:** Even if you manually place models in `data/docling/models`, the HuggingFace cache directory (`HF_HOME`) must exist for the container to start properly. The container now creates this automatically.
 
 ### Testing OCR
 
@@ -292,6 +323,7 @@ docker exec tg-note-docling nvidia-smi
 3. Check disk space in models directory
 4. Review logs for specific error messages
 5. If you see an `hf_transfer` import error, the container will automatically fall back to standard downloads after logging a warning.
+6. **Error: "cannot find the appropriate snapshot folder"**: This error occurs when HuggingFace cache directories are not properly initialized, even if you manually placed models in `data/docling/models`. The container now automatically creates required directories (`HF_HOME=/opt/docling-mcp/cache/huggingface`, target directories) during startup and before downloads to prevent this issue. Note that there are two separate volumes: `./data/docling/models` for Docling models and `~/.cache/` for HuggingFace cache.
 
 ### OCR Not Working
 
