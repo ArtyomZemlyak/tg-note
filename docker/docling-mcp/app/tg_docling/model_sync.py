@@ -185,16 +185,16 @@ def set_sync_progress_callback(callback: Optional[Callable[[str, Dict[str, Any]]
 def _notify_progress(message: str, data: Optional[Dict[str, Any]] = None) -> None:
     """Send progress notification if callback is configured."""
     # Log progress message
-    logger.info("[Docling Model Sync] %s", message)
+    logger.info(f"[Docling Model Sync] {message}")
     if data:
         limited_data = limit_content_for_log(data)
-        logger.debug("[Docling Model Sync] Progress data: %s", limited_data)
+        logger.debug(f"[Docling Model Sync] Progress data: {limited_data}")
 
     if _sync_progress_callback is not None:
         try:
             _sync_progress_callback(message, data or {})
         except Exception as exc:  # pragma: no cover
-            logger.warning("Failed to send progress notification: %s", exc)
+            logger.warning(f"Failed to send progress notification: {exc}")
 
 
 def _resolve_target_dir(base_dir: Path, download: DoclingModelDownloadSettings) -> Path:
@@ -348,8 +348,7 @@ def _sync_builtin_model(
 
         requested_backends = rapidocr_cfg.backends or list(SUPPORTED_RAPIDOCR_BACKENDS)
         logger.info(
-            "Downloading RapidOCR bundle using custom backends: %s",
-            ", ".join(requested_backends),
+            f"Downloading RapidOCR bundle using custom backends: {', '.join(requested_backends)}"
         )
         backend_result = _download_rapidocr_backends(base_dir, requested_backends, force)
         backend_result["name"] = model_name
@@ -362,14 +361,13 @@ def _sync_builtin_model(
         layout_spec = _LAYOUT_PRESET_MAP.get(layout_preset)
         if layout_spec:
             logger.info(
-                "Downloading Docling layout bundle: preset='%s', repo_id='%s', revision='%s', folder='%s'",
-                layout_preset,
-                getattr(layout_spec, "repo_id", "N/A"),
-                getattr(layout_spec, "revision", "N/A"),
-                getattr(layout_spec, "model_repo_folder", "N/A"),
+                f"Downloading Docling layout bundle: preset='{layout_preset}', "
+                f"repo_id='{getattr(layout_spec, 'repo_id', 'N/A')}', "
+                f"revision='{getattr(layout_spec, 'revision', 'N/A')}', "
+                f"folder='{getattr(layout_spec, 'model_repo_folder', 'N/A')}'"
             )
         else:
-            logger.info("Downloading Docling layout bundle with preset '%s'", layout_preset)
+            logger.info(f"Downloading Docling layout bundle with preset '{layout_preset}'")
     elif model_name in [
         "smolvlm",
         "granitedocling",
@@ -382,29 +380,25 @@ def _sync_builtin_model(
         preset_option = _PICTURE_DESCRIPTION_PRESET_OPTIONS.get(model_name)
         if preset_option:
             logger.info(
-                "Downloading picture description model: name='%s', repo_id='%s', folder='%s'",
-                model_name,
-                getattr(preset_option, "repo_id", "N/A"),
-                getattr(preset_option, "repo_cache_folder", "N/A"),
+                f"Downloading picture description model: name='{model_name}', "
+                f"repo_id='{getattr(preset_option, 'repo_id', 'N/A')}', "
+                f"folder='{getattr(preset_option, 'repo_cache_folder', 'N/A')}'"
             )
         else:
             spec = _PICTURE_DESCRIPTION_SPEC_MAP.get(model_name)
             if spec:
                 logger.info(
-                    "Downloading picture description model: name='%s', repo_id='%s', folder='%s'",
-                    model_name,
-                    getattr(spec, "repo_id", "N/A"),
-                    getattr(spec, "repo_cache_folder", "N/A"),
+                    f"Downloading picture description model: name='{model_name}', "
+                    f"repo_id='{getattr(spec, 'repo_id', 'N/A')}', "
+                    f"folder='{getattr(spec, 'repo_cache_folder', 'N/A')}'"
                 )
             else:
-                logger.info("Downloading picture description model '%s'", model_name)
+                logger.info(f"Downloading picture description model '{model_name}'")
     else:
         # AICODE-NOTE: Log other model types with their folder paths
         model_path_preview = _resolve_model_path(base_dir, model_name, full_settings)
         logger.info(
-            "Downloading Docling bundle '%s' (target path: %s)",
-            model_name,
-            model_path_preview,
+            f"Downloading Docling bundle '{model_name}' (target path: {model_path_preview})"
         )
 
     _download_docling_bundle(base_dir, flag_name, force)
@@ -423,7 +417,7 @@ def _sync_huggingface(
     target_dir.mkdir(parents=True, exist_ok=True)
 
     if any(target_dir.iterdir()) and not force:
-        logger.info("Skipping HuggingFace repo %s (already cached)", download.repo_id)
+        logger.info(f"Skipping HuggingFace repo {download.repo_id} (already cached)")
         _notify_progress(
             f"⏭️ Skipping {download.name}: already cached",
             {"name": download.name, "repo_id": download.repo_id, "status": "skipped"},
@@ -459,7 +453,7 @@ def _sync_huggingface(
         ignore_patterns=ignore_patterns,
     )
 
-    logger.info("Downloaded HuggingFace repo %s to %s", download.repo_id, local_dir)
+    logger.info(f"Downloaded HuggingFace repo {download.repo_id} to {local_dir}")
     _notify_progress(
         f"✅ Successfully downloaded {download.name}",
         {
@@ -494,7 +488,7 @@ def _sync_modelscope(
     target_dir.mkdir(parents=True, exist_ok=True)
 
     if any(target_dir.iterdir()) and not force:
-        logger.info("Skipping ModelScope repo %s (already cached)", download.repo_id)
+        logger.info(f"Skipping ModelScope repo {download.repo_id} (already cached)")
         _notify_progress(
             f"⏭️ Skipping {download.name}: already cached",
             {"name": download.name, "repo_id": download.repo_id, "status": "skipped"},
@@ -526,7 +520,7 @@ def _sync_modelscope(
         allow_file_pattern=download.allow_patterns or download.files,
     )
 
-    logger.info("Downloaded ModelScope repo %s to %s", download.repo_id, local_dir)
+    logger.info(f"Downloaded ModelScope repo {download.repo_id} to {local_dir}")
     _notify_progress(
         f"✅ Successfully downloaded {download.name}",
         {
@@ -561,9 +555,8 @@ def sync_models(settings: DoclingSettings, force: bool = False) -> Dict[str, Any
     _, pipeline_missing = settings.resolved_pipeline_flags()
     for missing in pipeline_missing:
         logger.warning(
-            "Docling pipeline configuration requires '%s', but the corresponding model bundle is disabled. "
-            "The related stage will be skipped until the bundle is enabled.",
-            missing,
+            f"Docling pipeline configuration requires '{missing}', but the corresponding model bundle is disabled. "
+            "The related stage will be skipped until the bundle is enabled."
         )
 
     builtin_settings = settings.model_cache.builtin_models
@@ -571,7 +564,7 @@ def sync_models(settings: DoclingSettings, force: bool = False) -> Dict[str, Any
     enabled_builtin = [name for name in _DOC_MODEL_FLAG_MAP.keys() if enabled_map.get(name)]
     extra_downloads = list(settings.model_cache.downloads)
     total_items = len(enabled_builtin) + len(extra_downloads)
-    logger.info("Synchronising Docling model artefacts (force=%s)", force)
+    logger.info(f"Synchronising Docling model artefacts (force={force})")
     _notify_progress(
         f"🔄 Starting model synchronization ({total_items} items)...",
         {"total": total_items, "force": force, "status": "started"},
@@ -605,7 +598,7 @@ def sync_models(settings: DoclingSettings, force: bool = False) -> Dict[str, Any
                 base_dir, model_name, builtin_settings, force=force, full_settings=settings
             )
         except Exception as exc:  # pragma: no cover - defensive guard
-            logger.exception("Failed to download builtin model %s", model_name)
+            logger.exception(f"Failed to download builtin model {model_name}")
             result = {
                 "name": model_name,
                 "status": "error",
@@ -646,12 +639,7 @@ def sync_models(settings: DoclingSettings, force: bool = False) -> Dict[str, Any
     for item in extra_downloads:
         progress_index += 1
         target_dir = _resolve_target_dir(base_dir, item)
-        logger.info(
-            "Processing model download '%s' (type=%s) into %s",
-            item.name,
-            item.type,
-            target_dir,
-        )
+        logger.info(f"Processing model download '{item.name}' (type={item.type}) into {target_dir}")
 
         _notify_progress(
             f"📦 Processing {progress_index}/{total_items}: {item.name}",
@@ -686,7 +674,7 @@ def sync_models(settings: DoclingSettings, force: bool = False) -> Dict[str, Any
             download_results.append(result)
             results.append(result)
         except Exception as exc:
-            logger.exception("Failed to sync model %s", item.name)
+            logger.exception(f"Failed to sync model {item.name}")
             err_result = {
                 "name": item.name,
                 "status": "error",
@@ -703,7 +691,7 @@ def sync_models(settings: DoclingSettings, force: bool = False) -> Dict[str, Any
     successful = sum(1 for r in results if r.get("status") in ("downloaded", "skipped"))
     failed = sum(1 for r in results if r.get("status") == "error")
 
-    logger.info("Model synchronisation completed (successful=%d, failed=%d)", successful, failed)
+    logger.info(f"Model synchronisation completed (successful={successful}, failed={failed})")
     _notify_progress(
         f"✅ Model synchronization completed: {successful} successful, {failed} failed",
         {
