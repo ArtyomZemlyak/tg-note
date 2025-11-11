@@ -7,7 +7,7 @@ import shutil
 import sys
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, Tuple
 
 from docling.datamodel.pipeline_options import (
     LayoutOptions,
@@ -255,6 +255,79 @@ def _download_docling_bundle(base_dir: Path, target_flag: str, force: bool) -> N
     download_model_bundles(output_dir=base_dir, force=force, progress=True, **kwargs)
 
 
+def _select_layout_spec(settings: Optional[DoclingSettings]) -> Tuple[str, Optional[object]]:
+    """
+    Resolve the configured layout preset and corresponding Docling model spec.
+
+    Returns a tuple of (preset_name, layout_spec or None when unavailable).
+    """
+    default_preset = "layout_v2"
+    preset = default_preset
+
+    if settings is not None:
+        try:
+            configured = settings.pipeline.layout.preset
+        except AttributeError:
+            configured = None
+        if configured:
+            preset = configured
+
+    layout_spec = _LAYOUT_PRESET_MAP.get(preset)
+    if layout_spec is None:
+        if preset != default_preset:
+            logger.warning(
+                "Unknown Docling layout preset '%s'; falling back to '%s'.", preset, default_preset
+            )
+        preset = default_preset
+        layout_spec = _LAYOUT_PRESET_MAP.get(default_preset)
+        if layout_spec is None:
+            logger.error(
+                "Docling layout preset map does not contain fallback preset '%s'.", default_preset
+            )
+    return preset, layout_spec
+
+
+def _download_layout_bundle(
+    base_dir: Path, force: bool, full_settings: Optional[DoclingSettings]
+) -> Dict[str, Any]:
+    """
+    Download the Docling layout bundle matching the configured preset.
+
+    Returns the structured result from the HuggingFace synchronisation helper.
+    """
+    preset, layout_spec = _select_layout_spec(full_settings)
+    if layout_spec is None:
+        raise RuntimeError(f"No layout specification available for preset '{preset}'.")
+
+    repo_id = getattr(layout_spec, "repo_id", None)
+    repo_folder = getattr(layout_spec, "model_repo_folder", None)
+    revision = getattr(layout_spec, "revision", None)
+
+    if not repo_id or not repo_folder:
+        raise RuntimeError(
+            f"Layout preset '{preset}' is missing repository metadata "
+            "(repo_id or model_repo_folder)."
+        )
+
+    download = DoclingModelDownloadSettings(
+        name=f"layout-{preset}",
+        repo_id=repo_id,
+        revision=revision,
+        local_dir=repo_folder,
+    )
+    target_dir = _resolve_target_dir(base_dir, download)
+    result = _sync_huggingface(target_dir, download, force=force)
+    result.update(
+        {
+            "preset": preset,
+            "repo_id": repo_id,
+            "revision": revision,
+            "path": str(target_dir),
+        }
+    )
+    return result
+
+
 def _resolve_model_path(
     base_dir: Path, model_name: str, settings: Optional[DoclingSettings] = None
 ) -> str:
@@ -266,12 +339,11 @@ def _resolve_model_path(
         settings: Optional DoclingSettings to get layout preset configuration
     """
     # AICODE-NOTE: Handle layout model path based on configured preset
-    if model_name == "layout" and settings is not None:
-        layout_preset = settings.pipeline.layout.preset
-        layout_spec = _LAYOUT_PRESET_MAP.get(layout_preset)
+    if model_name == "layout":
+        preset, layout_spec = _select_layout_spec(settings)
         if layout_spec is not None:
             return str(base_dir / layout_spec.model_repo_folder)
-        # Fallback to default if preset not found
+        # Fallback to Docling default if map did not resolve the preset
         return str(base_dir / LayoutOptions().model_spec.model_repo_folder)
 
     # AICODE-NOTE: Handle picture description model paths based on configured preset
@@ -356,9 +428,8 @@ def _sync_builtin_model(
         return backend_result
 
     # AICODE-NOTE: Log detailed model information for all model types
-    if model_name == "layout" and full_settings is not None:
-        layout_preset = full_settings.pipeline.layout.preset
-        layout_spec = _LAYOUT_PRESET_MAP.get(layout_preset)
+    if model_name == "layout":
+        layout_preset, layout_spec = _select_layout_spec(full_settings)
         if layout_spec:
             logger.info(
                 f"Downloading Docling layout bundle: preset='{layout_preset}', "
@@ -368,6 +439,20 @@ def _sync_builtin_model(
             )
         else:
             logger.info(f"Downloading Docling layout bundle with preset '{layout_preset}'")
+        try:
+            layout_result = _download_layout_bundle(base_dir, force=force, full_settings=full_settings)
+        except Exception as exc:
+            logger.exception("Failed to download Docling layout bundle for preset '%s'", layout_preset)
+            result.update({"status": "error", "error": str(exc)})
+            return result
+        layout_result.update(
+            {
+                "name": model_name,
+                "kind": "builtin",
+                "path": _resolve_model_path(base_dir, model_name, full_settings),
+            }
+        )
+        return layout_result
     elif model_name in [
         "smolvlm",
         "granitedocling",
