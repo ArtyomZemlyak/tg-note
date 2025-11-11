@@ -254,3 +254,73 @@ def test_hf_transfer_disabled_skips_retry(tmp_path, monkeypatch, model_sync):
     assert result["status"] == "downloaded"
     assert call_env_values == ["0"]
     assert os.environ["HF_HUB_ENABLE_HF_TRANSFER"] == "1"
+
+
+def test_sync_builtin_layout_uses_configured_preset(tmp_path, monkeypatch, model_sync):
+    called = {}
+
+    def fake_sync_hf(target_dir, download, force):
+        called["target_dir"] = target_dir
+        called["download"] = download
+        called["force"] = force
+        return {"status": "downloaded", "path": str(target_dir)}
+
+    monkeypatch.setattr(model_sync, "_sync_huggingface", fake_sync_hf)
+
+    layout_settings = types.SimpleNamespace(preset="layout_heron")
+    pipeline_settings = types.SimpleNamespace(layout=layout_settings)
+    docling_settings = types.SimpleNamespace(pipeline=pipeline_settings)
+    builtin_settings = types.SimpleNamespace(rapidocr=types.SimpleNamespace(enabled=True))
+
+    result = model_sync._sync_builtin_model(
+        base_dir=tmp_path,
+        model_name="layout",
+        builtin_settings=builtin_settings,
+        force=False,
+        full_settings=docling_settings,
+    )
+
+    assert result["status"] == "downloaded"
+    assert result["kind"] == "builtin"
+    assert result["preset"] == "layout_heron"
+    assert result["path"] == str(tmp_path / "LayoutHeron")
+
+    assert called["force"] is False
+    assert called["target_dir"] == tmp_path / "LayoutHeron"
+    assert called["download"].repo_id == "test/layout-heron"
+    assert called["download"].local_dir == "LayoutHeron"
+
+
+def test_sync_builtin_layout_falls_back_to_default(tmp_path, monkeypatch, model_sync):
+    called = {}
+
+    def fake_sync_hf(target_dir, download, force):
+        called["target_dir"] = target_dir
+        called["download"] = download
+        called["force"] = force
+        return {"status": "downloaded", "path": str(target_dir)}
+
+    monkeypatch.setattr(model_sync, "_sync_huggingface", fake_sync_hf)
+
+    layout_settings = types.SimpleNamespace(preset="layout_unknown")
+    pipeline_settings = types.SimpleNamespace(layout=layout_settings)
+    docling_settings = types.SimpleNamespace(pipeline=pipeline_settings)
+    builtin_settings = types.SimpleNamespace(rapidocr=types.SimpleNamespace(enabled=True))
+
+    result = model_sync._sync_builtin_model(
+        base_dir=tmp_path,
+        model_name="layout",
+        builtin_settings=builtin_settings,
+        force=True,
+        full_settings=docling_settings,
+    )
+
+    assert result["status"] == "downloaded"
+    assert result["kind"] == "builtin"
+    assert result["preset"] == "layout_v2"
+    assert result["path"] == str(tmp_path / "LayoutModel")
+
+    assert called["force"] is True
+    assert called["target_dir"] == tmp_path / "LayoutModel"
+    assert called["download"].repo_id == "test/layout-v2"
+    assert called["download"].local_dir == "LayoutModel"
