@@ -251,7 +251,8 @@ def _fix_model_path(
 
     This ensures Docling can find model.safetensors files in the correct subdirectory.
     Problem: Docling searches for model.safetensors in artifacts_path directly, ignoring
-    model_repo_folder/repo_cache_folder from model_spec. Solution: set model_path to full path.
+    model_repo_folder/repo_cache_folder from model_spec. Solution: set model_path to full path
+    AND also set folder_attr to absolute path to ensure compatibility.
 
     Args:
         model_spec_or_options: Model spec or options object (e.g., layout_spec, preset_options)
@@ -273,21 +274,26 @@ def _fix_model_path(
 
     model_dir_str = str(model_dir_path.resolve())
 
+    # AICODE-NOTE: Docling may use either model_path OR model_repo_folder/repo_cache_folder
+    # relative to artifacts_path. To ensure compatibility, we set BOTH:
+    # 1. model_path (if supported) - preferred method
+    # 2. folder_attr to absolute path - ensures docling can find models even if it ignores model_path
+
     # Set model_path if the spec supports it (preferred method)
     if hasattr(model_spec_or_options, "model_path"):
         setattr(model_spec_or_options, "model_path", model_dir_str)
         logger.info(
-            f"Set model_path in {type(model_spec_or_options).__name__} to: {model_dir_str} "
-            f"({folder_attr} remains: {folder_path})"
+            f"Set model_path in {type(model_spec_or_options).__name__} to: {model_dir_str}"
         )
-    else:
-        # If model_path is not supported, try setting folder_attr to absolute path
-        # This is a fallback for older Docling versions
-        if not Path(folder_path).is_absolute():
-            setattr(model_spec_or_options, folder_attr, model_dir_str)
-            logger.info(
-                f"model_path not supported, set {folder_attr} to absolute path: {model_dir_str} (was: {folder_path})"
-            )
+
+    # ALSO set folder_attr to absolute path to ensure docling can find models
+    # This is critical because docling may use folder_attr relative to artifacts_path
+    # Setting it to absolute path ensures docling can find models regardless of how it resolves paths
+    if not Path(folder_path).is_absolute():
+        setattr(model_spec_or_options, folder_attr, model_dir_str)
+        logger.info(
+            f"Set {folder_attr} to absolute path: {model_dir_str} (was: {folder_path})"
+        )
 
 
 def _create_converter(settings: DoclingSettings) -> DocumentConverter:
