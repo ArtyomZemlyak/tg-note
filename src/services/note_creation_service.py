@@ -155,7 +155,9 @@ class NoteCreationService(BaseKBService, INoteCreationService):
                 return
 
             # Parse content
-            content = await self.content_parser.parse_group_with_files(group, bot=self.bot)
+            content = await self.content_parser.parse_group_with_files(
+                group, bot=self.bot, kb_path=kb_path
+            )
             content_hash = self.content_parser.generate_hash(content)
 
             # Check if already processed

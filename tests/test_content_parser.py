@@ -104,3 +104,37 @@ def test_generate_hash():
     assert hash1 != hash3
     # Valid SHA256 hash
     assert len(hash1) == 64
+
+
+@pytest.mark.asyncio
+async def test_parse_group_with_files_kb_path_parameter():
+    """Test that parse_group_with_files accepts kb_path parameter"""
+    from pathlib import Path
+    from unittest.mock import MagicMock
+
+    parser = ContentParser()
+
+    class MockMessageGroup:
+        def __init__(self, messages):
+            self.messages = messages
+
+    messages = [
+        {
+            "message_id": 1,
+            "text": "Test message with image",
+            "timestamp": 1234567890,
+            "content_type": "text",
+        },
+    ]
+
+    group = MockMessageGroup(messages)
+    mock_bot = MagicMock()
+    test_kb_path = Path("/tmp/test_kb")
+
+    # AICODE-NOTE: Test that kb_path parameter is accepted
+    # Full image processing test would require bot integration and Docling
+    result = await parser.parse_group_with_files(group, bot=mock_bot, kb_path=test_kb_path)
+
+    assert result is not None
+    assert "text" in result
+    assert "Test message with image" in result["text"]

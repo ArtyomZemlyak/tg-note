@@ -26,10 +26,16 @@ tg-note supports automatic recognition and processing of various file formats us
 
 ### Automatic processing
 1. Send a file to the bot (attachment or forwarded)
-2. The bot downloads the file to a temporary directory
-3. Docling processes the file and extracts text
+2. The bot downloads the file
+   - **Images**: Saved to `images/` directory in your KB with unique names
+   - **Documents**: Processed temporarily (not saved as files)
+3. Docling processes the file and extracts text (OCR for images)
 4. The content is merged with the message text for analysis
-5. The result is saved to the knowledge base
+5. The AI agent receives both:
+   - Extracted text content
+   - **Path to saved image** (for images only)
+6. The agent can reference images in generated markdown files
+7. The result is saved to the knowledge base
 
 ### Example
 ```
@@ -219,8 +225,25 @@ else:
 ### Image with text
 ```
 1. Send an image (screenshot or document photo)
-2. Docling extracts text from the image
-3. The text is analyzed and saved to the KB
+2. Image is saved to KB: images/img_1234567890_abcd1234.jpg
+3. Docling extracts text from the image via OCR
+4. Agent receives both the image path and extracted text
+5. Agent creates markdown note with embedded image reference
+6. Result: Your KB contains both the note AND the original image
+```
+
+**Example agent output:**
+```markdown
+# Screenshot Analysis - 2024-01-15
+
+This screenshot shows the API documentation.
+
+![API Documentation Screenshot](../images/img_1234567890_abcd1234.jpg)
+
+## Key Points
+- RESTful endpoints
+- OAuth2 authentication
+- Rate limiting: 1000 req/hour
 ```
 
 ### Multiple files
@@ -491,10 +514,71 @@ print(f"Docling available: {processor.is_available()}")
 print(f"Supported: {processor.get_supported_formats()}")
 ```
 
+## Image Storage and References
+
+### How images are saved
+
+When you send an image to the bot:
+1. **Unique filename generation**: `img_{timestamp}_{file_id_prefix}{extension}`
+   - Example: `img_1705334567_abcd1234.jpg`
+2. **Storage location**: `{your-kb}/images/`
+3. **Automatic directory creation**: `images/` folder is created if it doesn't exist
+
+### How agent uses images
+
+The AI agent (especially qwen-cli) is instructed to:
+1. **Detect saved images** in the incoming message content
+2. **Use relative paths** when referencing images in markdown:
+   - From root: `![description](images/img_xxx.jpg)`
+   - From topics/: `![description](../images/img_xxx.jpg)`
+3. **Add meaningful descriptions** (alt text) for accessibility
+4. **Place images logically** near relevant text content
+
+### Image naming scheme
+
+| Component | Description | Example |
+|-----------|-------------|---------|
+| Prefix | Always `img_` | `img_` |
+| Timestamp | Unix timestamp when message received | `1705334567` |
+| File ID | First 8 chars of Telegram file_id | `abcd1234` |
+| Extension | Original file extension | `.jpg` |
+
+**Full example**: `img_1705334567_abcd1234.jpg`
+
+### Viewing images
+
+Your KB structure with images:
+```
+knowledge_bases/my-notes/
+├── index.md
+├── README.md
+├── images/                           # ← Images directory
+│   ├── img_1705334567_abcd1234.jpg  # ← Saved images
+│   ├── img_1705334580_efgh5678.png
+│   └── img_1705334592_ijkl9012.jpg
+└── topics/
+    ├── screenshot-notes.md           # ← References ../images/img_xxx.jpg
+    └── diagrams.md                   # ← References ../images/img_yyy.png
+```
+
+### Git and images
+
+**Important**: Images are binary files and will be committed to your KB repository:
+- ✅ **Good**: Screenshots, diagrams, important visual content
+- ⚠️ **Consider**: Large images may bloat your git history
+- 💡 **Tip**: Use `.gitignore` to exclude `images/` if you don't want images in git
+
+Example `.gitignore` in KB root (optional):
+```gitignore
+# Exclude images from git
+images/
+```
+
 ## Known issues
 - Large files (>10 MB) may take longer
 - Low-quality images reduce OCR quality
 - Complex PDF layout may require extra processing
+- **Images are saved permanently**: Clean up old images manually if needed
 
 ## Support
 - Docs: https://artyomzemlyak.github.io/tg-note/
@@ -503,8 +587,11 @@ print(f"Supported: {processor.get_supported_formats()}")
 
 ## Roadmap
 - ✅ Basic file support
+- ✅ Image storage and markdown embedding
 - 🚧 Audio/video files
 - 📋 Better table extraction
 - 📋 Archive support (.zip, .tar.gz)
 - 📋 Batch processing
 - 📋 Caching
+- 📋 Image compression/optimization
+- 📋 Automatic old image cleanup

@@ -90,7 +90,9 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
                 return
 
             # Parse question
-            content = await self.content_parser.parse_group_with_files(group, bot=self.bot)
+            content = await self.content_parser.parse_group_with_files(
+                group, bot=self.bot, kb_path=kb_path
+            )
             question_text = content.get("text", "")
 
             if not question_text:

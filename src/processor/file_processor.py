@@ -814,10 +814,27 @@ class FileProcessor:
         return None
 
     async def download_and_process_telegram_file(
-        self, bot, file_info, original_filename: Optional[str] = None
+        self,
+        bot,
+        file_info,
+        original_filename: Optional[str] = None,
+        kb_images_dir: Optional[Path] = None,
+        file_id: Optional[str] = None,
+        message_date: Optional[int] = None,
     ) -> Optional[Dict[str, Any]]:
         """
         Download file from Telegram and process it through Docling.
+
+        Args:
+            bot: Bot instance for downloading
+            file_info: Telegram file info object
+            original_filename: Original filename (e.g., "image.jpg", "document.pdf")
+            kb_images_dir: If provided, images will be saved to this directory
+            file_id: Telegram file_id for generating unique filename
+            message_date: Message timestamp for generating unique filename
+
+        Returns:
+            Dict with processed content including 'saved_path' key if file was saved to KB
         """
         if not self.settings.is_media_processing_enabled():
             self.logger.info("Media processing disabled; skipping Telegram file download")
@@ -835,15 +852,12 @@ class FileProcessor:
         temp_file = None
 
         try:
-            temp_dir = tempfile.mkdtemp(prefix="tg_note_file_")
+            # Determine file extension
             file_extension = ""
             if original_filename:
                 file_extension = Path(original_filename).suffix
             elif hasattr(file_info, "file_path") and file_info.file_path:
                 file_extension = Path(file_info.file_path).suffix
-
-            temp_filename = f"telegram_file{file_extension}"
-            temp_file = Path(temp_dir) / temp_filename
 
             extension = file_extension.lower().lstrip(".")
             if extension and not self.settings.is_format_enabled(extension, "docling"):
@@ -854,20 +868,61 @@ class FileProcessor:
                 )
                 return None
 
-            self.logger.info(f"Downloading Telegram file: {original_filename or 'unknown'}")
+            # Check if this is an image that should be saved to KB
+            is_image = extension in ["jpg", "jpeg", "png", "gif", "tiff", "bmp", "webp"]
+            save_to_kb = kb_images_dir is not None and is_image
+
+            if save_to_kb:
+                # AICODE-NOTE: Save images to KB for later reference in markdown files
+                # Generate unique filename using timestamp and file_id
+                # Convert to absolute path to avoid file URI errors
+                kb_images_dir_abs = kb_images_dir.resolve()
+                kb_images_dir_abs.mkdir(parents=True, exist_ok=True)
+
+                # Generate unique filename
+                import time
+
+                timestamp = message_date or int(time.time())
+                # Use first 8 chars of file_id as identifier (if available)
+                file_suffix = f"_{file_id[:8]}" if file_id else ""
+                unique_filename = f"img_{timestamp}{file_suffix}{file_extension}"
+
+                save_path = kb_images_dir_abs / unique_filename
+                self.logger.info(f"Downloading Telegram image to KB: {save_path}")
+            else:
+                # Use temporary directory for non-images or when KB path not provided
+                temp_dir = tempfile.mkdtemp(prefix="tg_note_file_")
+                temp_filename = f"telegram_file{file_extension}"
+                save_path = Path(temp_dir) / temp_filename
+                self.logger.info(f"Downloading Telegram file to temp: {save_path}")
+
+            # Download file
             downloaded_file = await bot.download_file(file_info.file_path)
 
-            with open(temp_file, "wb") as f:
+            with open(save_path, "wb") as f:
                 f.write(downloaded_file)
 
-            self.logger.info(f"File downloaded to: {temp_file}")
-            return await self.process_file(temp_file)
+            self.logger.info(f"File downloaded to: {save_path}")
+
+            # Process file
+            result = await self.process_file(save_path)
+
+            if result and save_to_kb:
+                # AICODE-NOTE: Add saved path to result so ContentParser can reference it
+                result["saved_path"] = str(save_path)
+                result["saved_filename"] = unique_filename
+                temp_file = None  # Don't delete this file in finally block
+            elif not save_to_kb:
+                temp_file = save_path  # Mark for cleanup
+
+            return result
 
         except Exception as e:
             self.logger.error(f"Error downloading and processing Telegram file: {e}", exc_info=True)
             return None
 
         finally:
+            # AICODE-NOTE: Only cleanup temporary files, not KB-saved images
             try:
                 if temp_file and temp_file.exists():
                     temp_file.unlink()

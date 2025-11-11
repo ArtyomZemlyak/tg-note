@@ -5,6 +5,7 @@ Extracts and parses content from messages
 
 import hashlib
 import re
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from loguru import logger
@@ -103,16 +104,17 @@ class ContentParser:
             "content_hash": content_hash,
         }
 
-    async def parse_group_with_files(self, group, bot=None) -> Dict:
+    async def parse_group_with_files(self, group, bot=None, kb_path: Optional[Path] = None) -> Dict:
         """
         Parse a MessageGroup into structured content, including file processing
 
         Args:
             group: MessageGroup object with messages attribute
             bot: Bot messaging interface (required for downloading files)
+            kb_path: Path to knowledge base root (for saving images)
 
         Returns:
-            Parsed content dictionary with file contents
+            Parsed content dictionary with file contents and image references
         """
         result = self.parse_message_group(group.messages)
 
@@ -123,7 +125,14 @@ class ContentParser:
         if bot and self.file_processor.is_available():
             file_contents = []
 
+            # AICODE-NOTE: Prepare KB images directory for saving Telegram images
+            kb_images_dir = None
+            if kb_path:
+                kb_images_dir = Path(kb_path) / "images"
+
             for msg in group.messages:
+                msg_timestamp = msg.get("timestamp") or msg.get("date")
+
                 # Process documents
                 if msg.get("document"):
                     document = msg.get("document")
@@ -135,18 +144,25 @@ class ContentParser:
                             original_filename=(
                                 document.file_name if hasattr(document, "file_name") else None
                             ),
+                            kb_images_dir=kb_images_dir,
+                            file_id=document.file_id,
+                            message_date=msg_timestamp,
                         )
 
                         if file_result:
-                            file_contents.append(
-                                {
-                                    "type": "document",
-                                    "content": file_result["text"],
-                                    "metadata": file_result["metadata"],
-                                    "format": file_result["format"],
-                                    "file_name": file_result["file_name"],
-                                }
-                            )
+                            file_data = {
+                                "type": "document",
+                                "content": file_result["text"],
+                                "metadata": file_result["metadata"],
+                                "format": file_result["format"],
+                                "file_name": file_result["file_name"],
+                            }
+                            # Add saved path if image was saved to KB
+                            if "saved_path" in file_result:
+                                file_data["saved_path"] = file_result["saved_path"]
+                                file_data["saved_filename"] = file_result["saved_filename"]
+
+                            file_contents.append(file_data)
                             self.logger.info(
                                 f"Successfully processed document: {file_result['file_name']}"
                             )
@@ -163,20 +179,29 @@ class ContentParser:
                             file_info = await bot.get_file(largest_photo.file_id)
                             file_result = (
                                 await self.file_processor.download_and_process_telegram_file(
-                                    bot=bot, file_info=file_info, original_filename="image.jpg"
+                                    bot=bot,
+                                    file_info=file_info,
+                                    original_filename="image.jpg",
+                                    kb_images_dir=kb_images_dir,
+                                    file_id=largest_photo.file_id,
+                                    message_date=msg_timestamp,
                                 )
                             )
 
                             if file_result:
-                                file_contents.append(
-                                    {
-                                        "type": "photo",
-                                        "content": file_result["text"],
-                                        "metadata": file_result["metadata"],
-                                        "format": file_result["format"],
-                                        "file_name": file_result.get("file_name", "image.jpg"),
-                                    }
-                                )
+                                file_data = {
+                                    "type": "photo",
+                                    "content": file_result["text"],
+                                    "metadata": file_result["metadata"],
+                                    "format": file_result["format"],
+                                    "file_name": file_result.get("file_name", "image.jpg"),
+                                }
+                                # AICODE-NOTE: Save path for images so agent can reference them
+                                if "saved_path" in file_result:
+                                    file_data["saved_path"] = file_result["saved_path"]
+                                    file_data["saved_filename"] = file_result["saved_filename"]
+
+                                file_contents.append(file_data)
                                 self.logger.info(f"Successfully processed photo")
                         except Exception as e:
                             self.logger.error(f"Error processing photo: {e}", exc_info=True)
@@ -199,9 +224,17 @@ class ContentParser:
                 # Append file contents to text
                 file_texts = []
                 for file_data in file_contents:
-                    file_texts.append(
-                        f"\n\n--- Содержимое файла: {file_data['file_name']} ---\n{file_data['content']}"
-                    )
+                    # AICODE-NOTE: For saved images, include path so agent can reference them
+                    if "saved_path" in file_data and "saved_filename" in file_data:
+                        file_texts.append(
+                            f"\n\n--- Содержимое файла: {file_data['file_name']} "
+                            f"(сохранено как: images/{file_data['saved_filename']}) ---\n"
+                            f"{file_data['content']}"
+                        )
+                    else:
+                        file_texts.append(
+                            f"\n\n--- Содержимое файла: {file_data['file_name']} ---\n{file_data['content']}"
+                        )
 
                 if file_texts:
                     result["text"] = result.get("text", "") + "\n\n".join(file_texts)
