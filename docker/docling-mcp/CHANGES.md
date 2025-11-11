@@ -1,5 +1,24 @@
 # Docling MCP Container - Implementation Summary
 
+## Date: 2025-11-11
+
+### Bugfix: HuggingFace Cache Directory Initialization
+
+**Problem:** Container startup would occasionally fail with error: "An error happened while trying to locate the files on the Hub and we cannot find the appropriate snapshot folder for the specified revision on the local disk."
+
+**Root Cause:**
+- HuggingFace cache directories (`HF_HOME`) were not always created before model download attempts
+- The `data/docling/models` directory was missing on fresh installations, causing volume mount issues
+
+**Solution:**
+- **model_sync.py**: Added automatic directory creation for `target_dir` and `HF_HOME` in `_snapshot_download_with_hf_transfer_fallback()` before calling `snapshot_download()`
+- **docker-entrypoint.sh**: Added `HF_HOME` to the list of directories created during container startup
+- **data/docling/models**: Created directory structure with `.gitkeep` file to ensure it exists in repository
+
+**Impact:** Prevents race conditions during container startup and ensures reliable model downloads even on fresh installations.
+
+---
+
 ## Дата: 2025-11-08
 
 ## Обзор изменений

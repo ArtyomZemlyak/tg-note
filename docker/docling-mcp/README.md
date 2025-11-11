@@ -292,6 +292,7 @@ docker exec tg-note-docling nvidia-smi
 3. Check disk space in models directory
 4. Review logs for specific error messages
 5. If you see an `hf_transfer` import error, the container will automatically fall back to standard downloads after logging a warning.
+6. **Error: "cannot find the appropriate snapshot folder"**: This error occurs when HuggingFace cache directories are not properly initialized. The container now automatically creates required directories (`HF_HOME`, model cache) during startup and before downloads to prevent this issue.
 
 ### OCR Not Working
 

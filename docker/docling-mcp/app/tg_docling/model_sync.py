@@ -125,6 +125,12 @@ def _snapshot_download_with_hf_transfer_fallback(
     """Download snapshot while gracefully handling missing hf_transfer dependency."""
     global _HF_TRANSFER_FAST_DOWNLOAD_AVAILABLE
 
+    # AICODE-NOTE: Ensure target directory and HF_HOME cache directory exist before download
+    target_dir.mkdir(parents=True, exist_ok=True)
+    hf_home = os.environ.get("HF_HOME")
+    if hf_home:
+        Path(hf_home).mkdir(parents=True, exist_ok=True)
+
     kwargs = {
         "repo_id": repo_id,
         "revision": revision,

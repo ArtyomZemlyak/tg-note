@@ -7,10 +7,12 @@ shift || true
 SETTINGS_PATH="${DOCLING_SETTINGS_PATH:-/opt/docling-mcp/config.yaml}"
 SETTINGS_DIR="$(dirname "${SETTINGS_PATH}")"
 
+# AICODE-NOTE: Ensure all required directories exist before starting service
 mkdir -p "${SETTINGS_DIR}" \
     "${DOCLING_MODELS_DIR:-/opt/docling-mcp/models}" \
     "${DOCLING_LOG_DIR:-/opt/docling-mcp/logs}" \
-    "${DOCLING_CACHE_DIR:-/opt/docling-mcp/cache}"
+    "${DOCLING_CACHE_DIR:-/opt/docling-mcp/cache}" \
+    "${HF_HOME:-/opt/docling-mcp/cache/huggingface}"
 
 export PYTHONUNBUFFERED=1
 
