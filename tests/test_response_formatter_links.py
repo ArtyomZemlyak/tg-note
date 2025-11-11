@@ -1,6 +1,6 @@
 import pytest
 
-from src.bot.response_formatter import LinksField
+from src.bot.response_formatter import LinksField, _fix_duplicate_topics_in_url
 
 
 @pytest.fixture
@@ -88,3 +88,26 @@ def test_links_field_to_html_handles_legacy_format(links_field):
     assert "Связанные сущности" in html
     assert "topics/ai/transformers.md" in html
     assert "Классический гайд" in html
+
+
+def test_fix_duplicate_topics_in_url():
+    """Test that duplicate topics/topics in URLs are fixed correctly."""
+    # Test case 1: Simple duplicate
+    url1 = "https://github.com/user/repo/blob/branch/topics/topics/ai/file.md"
+    fixed1 = _fix_duplicate_topics_in_url(url1)
+    assert fixed1 == "https://github.com/user/repo/blob/branch/topics/ai/file.md"
+
+    # Test case 2: No duplicate (should remain unchanged)
+    url2 = "https://github.com/user/repo/blob/branch/topics/ai/file.md"
+    fixed2 = _fix_duplicate_topics_in_url(url2)
+    assert fixed2 == url2
+
+    # Test case 3: With anchor
+    url3 = "https://github.com/user/repo/blob/branch/topics/topics/ai/file.md#anchor"
+    fixed3 = _fix_duplicate_topics_in_url(url3)
+    assert fixed3 == "https://github.com/user/repo/blob/branch/topics/ai/file.md#anchor"
+
+    # Test case 4: Multiple duplicates (edge case)
+    url4 = "https://github.com/user/repo/blob/branch/topics/topics/topics/ai/file.md"
+    fixed4 = _fix_duplicate_topics_in_url(url4)
+    assert fixed4 == "https://github.com/user/repo/blob/branch/topics/ai/file.md"
