@@ -42,6 +42,7 @@ from tg_docling.converter import (
     _PICTURE_DESCRIPTION_SPEC_MAP,
     install_converter,
 )
+from tg_docling.logging import limit_content_for_log
 
 from config.settings import DoclingModelDownloadSettings, DoclingSettings
 
@@ -186,7 +187,8 @@ def _notify_progress(message: str, data: Optional[Dict[str, Any]] = None) -> Non
     # Log progress message
     logger.info("[Docling Model Sync] %s", message)
     if data:
-        logger.debug("[Docling Model Sync] Progress data: %s", data)
+        limited_data = limit_content_for_log(data)
+        logger.debug("[Docling Model Sync] Progress data: %s", limited_data)
 
     if _sync_progress_callback is not None:
         try:

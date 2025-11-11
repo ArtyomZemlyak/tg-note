@@ -10,7 +10,7 @@ from loguru import logger
 from config.logging_config import setup_logging
 
 
-def _limit_content_for_log(data: Any, max_length: int = 50) -> Any:
+def limit_content_for_log(data: Any, max_length: int = 50) -> Any:
     """
     Limit content length in data for logging to avoid flooding logs with large payloads.
 
@@ -27,12 +27,12 @@ def _limit_content_for_log(data: Any, max_length: int = 50) -> Any:
             if isinstance(value, str) and len(value) > max_length:
                 limited[key] = f"{value[:max_length]}... (truncated, total: {len(value)} chars)"
             elif isinstance(value, (dict, list)):
-                limited[key] = _limit_content_for_log(value, max_length)
+                limited[key] = limit_content_for_log(value, max_length)
             else:
                 limited[key] = value
         return limited
     elif isinstance(data, list):
-        return [_limit_content_for_log(item, max_length) for item in data]
+        return [limit_content_for_log(item, max_length) for item in data]
     elif isinstance(data, str) and len(data) > max_length:
         return f"{data[:max_length]}... (truncated, total: {len(data)} chars)"
     else:
@@ -54,7 +54,7 @@ class _LoguruInterceptHandler(logging.Handler):
         if record.args:
             try:
                 # Limit content in each argument
-                limited_args = tuple(_limit_content_for_log(arg) for arg in record.args)
+                limited_args = tuple(limit_content_for_log(arg) for arg in record.args)
                 # Format message with limited args
                 # Handle both %-style formatting and {} style formatting
                 if isinstance(record.msg, str):
@@ -77,24 +77,24 @@ class _LoguruInterceptHandler(logging.Handler):
                 # Try to parse as JSON and limit if possible
                 try:
                     parsed = json.loads(message)
-                    limited = _limit_content_for_log(parsed)
+                    limited = limit_content_for_log(parsed)
                     message = json.dumps(limited, default=str)
                 except (json.JSONDecodeError, TypeError):
                     # Not JSON, just limit as string if too long
                     if len(message) > 500:
-                        message = _limit_content_for_log(message, max_length=200)
+                        message = limit_content_for_log(message, max_length=200)
         else:
             # No args, work with the message directly
             message = record.getMessage()
             # Try to parse as JSON and limit if possible
             try:
                 parsed = json.loads(message)
-                limited = _limit_content_for_log(parsed)
+                limited = limit_content_for_log(parsed)
                 message = json.dumps(limited, default=str)
             except (json.JSONDecodeError, TypeError):
                 # Not JSON, just limit as string if too long
                 if len(message) > 500:
-                    message = _limit_content_for_log(message, max_length=200)
+                    message = limit_content_for_log(message, max_length=200)
 
         # Patch loguru record to use the actual source location from LogRecord
         # This ensures we show the correct file/function/line instead of logging internals
