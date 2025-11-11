@@ -147,6 +147,20 @@ def convert_document_from_content(
 
         return ConvertDocumentOutput(False, cache_key)
 
+    except FileNotFoundError as exc:
+        # AICODE-NOTE: Provide helpful recovery instructions when model files are missing
+        error_msg = (
+            f"Docling model files are missing: {exc!s}\n\n"
+            "To fix this issue, you need to download the required model files. "
+            "You can do this by:\n"
+            "1. Calling the 'sync_docling_models' MCP tool with force=false\n"
+            "2. Or ensuring 'startup_sync: true' is set in your Docling configuration\n"
+            "3. Or manually running the model download script inside the container\n\n"
+            "The model files are typically stored at: /opt/docling-mcp/models/"
+        )
+        logger.error("Model files missing: %s", exc)
+        logger.error(error_msg)
+        raise RuntimeError(error_msg) from exc
     except Exception as exc:
         logger.exception("Failed to convert base64 document content.")
         raise RuntimeError(f"Unexpected error: {exc!s}") from exc
