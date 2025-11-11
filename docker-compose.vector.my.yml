@@ -1,0 +1,231 @@
+# Docker Compose with Vector Search Support
+# This configuration includes Qdrant (vector database) and Infinity (embedding service)
+# for semantic search capabilities in the knowledge base
+
+version: '3.8'
+
+services:
+  # Qdrant Vector Database
+  # Stores and searches vector embeddings for semantic search
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: tg-note-qdrant
+    restart: unless-stopped
+    ports:
+      - "${QDRANT_PORT:-6333}:6333"  # HTTP API
+      - "${QDRANT_GRPC_PORT:-6334}:6334"  # gRPC API (optional)
+    volumes:
+      # Persistent storage for vector data
+      - ./data/qdrant_storage:/qdrant/storage
+    environment:
+      # Qdrant configuration
+      - QDRANT__SERVICE__HTTP_PORT=6333
+      - QDRANT__SERVICE__GRPC_PORT=6334
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:6333/healthz"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 5
+    #   start_period: 20s
+    networks:
+      - tg-note-network
+
+  # Infinity Embedding Service
+  # Generates vector embeddings from text using transformer models
+  # https://github.com/michaelfeil/infinity
+  infinity:
+    image: michaelf34/infinity:latest
+    container_name: tg-note-infinity
+    restart: unless-stopped
+    command:
+      - v2
+      - --model-id
+      - ${INFINITY_MODEL:-BAAI/bge-m3}
+      - --port
+      - "7997"
+      - --batch-size
+      - "${INFINITY_BATCH_SIZE:-32}"
+      - --engine
+      - torch
+    ports:
+      - "${INFINITY_PORT:-7997}:7997"
+    volumes:
+      # Cache for downloaded models
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    environment:
+      - HF_HOME=/root/.cache/huggingface
+      - TRANSFORMERS_CACHE=/root/.cache/huggingface
+      - CUDA_VISIBLE_DEVICES=0
+    # Uncomment for GPU support (requires nvidia-docker)
+    privileged: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    runtime: nvidia  # или "nvidia-container-runtime" в зависимости от системы
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7997/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s  # Model loading takes time
+    networks:
+      - tg-note-network
+
+  docling-mcp:
+    build:
+      context: .
+      dockerfile: docker/docling-mcp/Dockerfile
+    image: tg-note-docling-mcp:latest
+    container_name: tg-note-docling
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - DOCLING_LOG_LEVEL=${DOCLING_LOG_LEVEL:-INFO}
+      - DOCLING_MODELS_DIR=/opt/docling-mcp/models
+      - DOCLING_CACHE_DIR=/opt/docling-mcp/cache
+      - HF_HOME=/opt/docling-mcp/cache/huggingface
+      - HF_HUB_ENABLE_HF_TRANSFER=1
+      - HF_HUB_DOWNLOAD_TIMEOUT=600
+    ports:
+      - "${DOCLING_MCP_PORT:-8077}:8077"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/8077'"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    volumes:
+      - ./config.yaml:/opt/docling-mcp/config.yaml:ro
+      - ./config.yaml:/opt/docling-mcp/app/config.yaml:ro
+      - ./data/docling/config:/opt/docling-mcp/config
+      - ./data/docling/models:/opt/docling-mcp/models
+      - ~/.cache/:/opt/docling-mcp/cache
+      - ./logs/docling:/opt/docling-mcp/logs
+    # Uncomment for GPU support (requires nvidia-docker)
+    privileged: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks:
+      - tg-note-network
+
+  # MCP Hub Server (Unified Gateway)
+  # With vector search support enabled
+  mcp-hub:
+    build:
+      context: .
+      dockerfile: Dockerfile.hub
+    container_name: tg-note-hub
+    image: tg-note-hub:latest
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "${MCP_PORT:-8765}:8765"
+    volumes:
+      - ./knowledge_base:/app/knowledge_base
+      # Persistent storage for memory data
+      - ./data/memory:/app/data/memory
+      # MCP servers registry
+      - ./data/mcp_servers:/app/data/mcp_servers
+      # Vector search index (if using local storage)
+      - ./data/vector_index:/app/data/vector_index
+      # Logs
+      - ./logs:/app/logs
+      # Configuration (read-only)
+      - ./config.yaml:/app/config.yaml:ro
+    depends_on:
+      qdrant:
+        condition: service_started
+      infinity:
+        condition: service_started
+      docling-mcp:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8765/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - tg-note-network
+
+  # Main Telegram Bot
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile.bot
+    container_name: tg-note-bot
+    image: tg-note-bot:latest
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      # Persistent storage for knowledge base
+      - ./knowledge_base:/app/knowledge_base
+      # Persistent storage for data (processed messages, settings)
+      - ./data:/app/data
+      # Logs
+      - ./logs:/app/logs
+      # Configuration (read-only)
+      - ./config.yaml:/app/config.yaml:ro
+      # Persist Qwen CLI auth and settings between restarts
+      - /home/artem/.qwen:/root/.qwen
+      - /tmp:/tmp
+    depends_on:
+      mcp-hub:
+        condition: service_healthy
+    networks:
+      - tg-note-network
+
+networks:
+  tg-note-network:
+    driver: bridge
+
+# AICODE-NOTE: Configuration guide
+#
+# 1. Environment Variables (.env file):
+#    # Qdrant settings
+#    QDRANT_PORT=6333
+#    QDRANT_GRPC_PORT=6334
+#    QDRANT_COLLECTION=knowledge_base
+#
+#    # Infinity settings
+#    INFINITY_PORT=7997
+#    INFINITY_MODEL=BAAI/bge-small-en-v1.5
+#    INFINITY_BATCH_SIZE=32
+#
+#    # MCP Hub settings
+#    MCP_PORT=8765
+#
+# 2. Recommended embedding models for Infinity:
+#    - BAAI/bge-small-en-v1.5 (English, fast, 384 dim) - Default
+#    - BAAI/bge-base-en-v1.5 (English, balanced, 768 dim)
+#    - BAAI/bge-large-en-v1.5 (English, best quality, 1024 dim)
+#    - BAAI/bge-m3 (Multilingual, 1024 dim)
+#    - sentence-transformers/all-MiniLM-L6-v2 (Fast, 384 dim)
+#
+# 3. Usage:
+#    # Start all services including vector search
+#    docker-compose -f docker-compose.vector.yml up -d
+#
+#    # View logs
+#    docker-compose -f docker-compose.vector.yml logs -f
+#
+#    # Stop all services
+#    docker-compose -f docker-compose.vector.yml down
+#
+#    # Remove volumes (careful - deletes all data!)
+#    docker-compose -f docker-compose.vector.yml down -v
+#
+# 4. Vector search is triggered by bot:
+#    - Bot decides when to index knowledge base (calls reindex_vector tool)
+#    - Bot performs searches when needed (calls vector_search tool)
+#    - MCP Hub provides the actual implementation (connects to Qdrant and Infinity)
+#    - Each knowledge base has its own collection in Qdrant

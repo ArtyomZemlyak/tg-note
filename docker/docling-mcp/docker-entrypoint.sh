@@ -14,6 +14,13 @@ mkdir -p "${SETTINGS_DIR}" \
     "${DOCLING_CACHE_DIR:-/opt/docling-mcp/cache}" \
     "${HF_HOME:-/opt/docling-mcp/cache/huggingface}"
 
+# AICODE-NOTE: Clean up stale lock files from previous interrupted downloads
+# This prevents infinite hangs when container was killed during model download
+echo "🧹 Cleaning up stale lock files..."
+find "${DOCLING_MODELS_DIR:-/opt/docling-mcp/models}" -name "*.lock" -type f -delete 2>/dev/null || true
+find "${HF_HOME:-/opt/docling-mcp/cache/huggingface}" -name "*.lock" -type f -delete 2>/dev/null || true
+echo "✅ Lock files cleaned"
+
 export PYTHONUNBUFFERED=1
 
 if [[ ! -f "${SETTINGS_PATH}" ]]; then

@@ -78,7 +78,8 @@ ENV PYTHONPATH="/opt/docling-mcp/app:${PYTHONPATH}" \
     DOCLING_LOG_DIR=/opt/docling-mcp/logs \
     DOCLING_CACHE_DIR=/opt/docling-mcp/cache \
     HF_HOME=/opt/docling-mcp/cache/huggingface \
-    HF_HUB_ENABLE_HF_TRANSFER=1
+    HF_HUB_ENABLE_HF_TRANSFER=1 \
+    HF_HUB_DOWNLOAD_TIMEOUT=600
 
 WORKDIR /opt/docling-mcp
 
