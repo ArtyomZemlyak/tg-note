@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional
 from loguru import logger
 
 from src.core.events import EventType
+from src.processor.markdown_image_validator import validate_agent_generated_markdown
 
 from ._event_publisher import publish_kb_batch_event, publish_kb_file_event
 from .base_tool import BaseTool, ToolContext
@@ -98,6 +99,22 @@ class FileCreateTool(BaseTool):
 
             logger.info(f"[file_create] ✓ Created file: {relative_path} ({len(content)} bytes)")
 
+            # AICODE-NOTE: Validate image paths in markdown files
+            validation_passed = True
+            validation_warnings = []
+            if full_path.suffix.lower() == ".md":
+                try:
+                    validation_passed = validate_agent_generated_markdown(
+                        full_path, context.kb_root_path
+                    )
+                    if not validation_passed:
+                        validation_warnings.append(
+                            "Image path validation failed - some images may not display correctly"
+                        )
+                except Exception as e:
+                    logger.warning(f"[file_create] Image validation error: {e}")
+                    validation_warnings.append(f"Image validation error: {e}")
+
             # Publish KB change event
             publish_kb_file_event(
                 EventType.KB_FILE_CREATED,
@@ -106,13 +123,19 @@ class FileCreateTool(BaseTool):
                 source="file_create_tool",
             )
 
-            return {
+            result = {
                 "success": True,
                 "path": relative_path,
                 "full_path": str(full_path),
                 "size": len(content),
                 "message": f"File created successfully: {relative_path}",
             }
+
+            if validation_warnings:
+                result["validation_warnings"] = validation_warnings
+                result["validation_passed"] = validation_passed
+
+            return result
 
         except Exception as e:
             logger.error(f"[file_create] Failed to create file: {e}", exc_info=True)
@@ -174,6 +197,22 @@ class FileEditTool(BaseTool):
                 f"[file_edit] ✓ Edited file: {relative_path} ({len(old_content)} → {len(content)} bytes)"
             )
 
+            # AICODE-NOTE: Validate image paths in markdown files
+            validation_passed = True
+            validation_warnings = []
+            if full_path.suffix.lower() == ".md":
+                try:
+                    validation_passed = validate_agent_generated_markdown(
+                        full_path, context.kb_root_path
+                    )
+                    if not validation_passed:
+                        validation_warnings.append(
+                            "Image path validation failed - some images may not display correctly"
+                        )
+                except Exception as e:
+                    logger.warning(f"[file_edit] Image validation error: {e}")
+                    validation_warnings.append(f"Image validation error: {e}")
+
             # Publish KB change event
             publish_kb_file_event(
                 EventType.KB_FILE_MODIFIED,
@@ -182,7 +221,7 @@ class FileEditTool(BaseTool):
                 source="file_edit_tool",
             )
 
-            return {
+            result = {
                 "success": True,
                 "path": relative_path,
                 "full_path": str(full_path),
@@ -190,6 +229,12 @@ class FileEditTool(BaseTool):
                 "new_size": len(content),
                 "message": f"File edited successfully: {relative_path}",
             }
+
+            if validation_warnings:
+                result["validation_warnings"] = validation_warnings
+                result["validation_passed"] = validation_passed
+
+            return result
 
         except Exception as e:
             logger.error(f"[file_edit] Failed to edit file: {e}", exc_info=True)
