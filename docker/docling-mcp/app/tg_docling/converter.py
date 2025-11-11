@@ -249,6 +249,59 @@ def _build_ocr_options(settings: DoclingSettings, models_base: Path) -> Optional
     return None
 
 
+def _fix_model_path(
+    model_spec_or_options: object, models_base: Path, folder_attr: str = "model_repo_folder"
+) -> None:
+    """
+    Fix model path in model spec or options to use absolute path.
+    
+    This ensures Docling can find model.safetensors files in the correct subdirectory.
+    Problem: Docling searches for model.safetensors in artifacts_path directly, ignoring
+    model_repo_folder/repo_cache_folder from model_spec. Solution: set model_path to full path.
+    
+    Args:
+        model_spec_or_options: Model spec or options object (e.g., layout_spec, preset_options)
+        models_base: Base directory for models
+        folder_attr: Attribute name for folder path (model_repo_folder or repo_cache_folder)
+    """
+    if not hasattr(model_spec_or_options, folder_attr):
+        return
+    
+    folder_path = getattr(model_spec_or_options, folder_attr)
+    if not folder_path:
+        return
+    
+    # Construct full path to model directory: models_base / folder_path
+    if Path(folder_path).is_absolute():
+        model_dir_path = Path(folder_path)
+    else:
+        model_dir_path = models_base / folder_path
+    
+    model_dir_str = str(model_dir_path.resolve())
+    
+    # Set model_path if the spec supports it (preferred method)
+    if hasattr(model_spec_or_options, "model_path"):
+        setattr(model_spec_or_options, "model_path", model_dir_str)
+        logger.info(
+            "Set model_path in %s to: %s (%s remains: %s)",
+            type(model_spec_or_options).__name__,
+            model_dir_str,
+            folder_attr,
+            folder_path,
+        )
+    else:
+        # If model_path is not supported, try setting folder_attr to absolute path
+        # This is a fallback for older Docling versions
+        if not Path(folder_path).is_absolute():
+            setattr(model_spec_or_options, folder_attr, model_dir_str)
+            logger.info(
+                "model_path not supported, set %s to absolute path: %s (was: %s)",
+                folder_attr,
+                model_dir_str,
+                folder_path,
+            )
+
+
 def _create_converter(settings: DoclingSettings) -> DocumentConverter:
     """Internal factory for DocumentConverter configured according to settings."""
     logger.info("Creating CUSTOM DocumentConverter with tg-note settings")
@@ -308,11 +361,15 @@ def _create_converter(settings: DoclingSettings) -> DocumentConverter:
         getattr(layout_spec, "model_repo_folder", "N/A"),
     )
 
+    # AICODE-NOTE: Fix model path to ensure Docling can find model.safetensors in correct subdirectory
+    model_spec_copy = layout_spec.model_copy()
+    _fix_model_path(model_spec_copy, models_base, folder_attr="model_repo_folder")
+
     pdf_options.layout_options = LayoutOptions(
         create_orphan_clusters=layout_cfg.create_orphan_clusters,
         keep_empty_clusters=layout_cfg.keep_empty_clusters,
         skip_cell_assignment=layout_cfg.skip_cell_assignment,
-        model_spec=layout_spec.model_copy(),
+        model_spec=model_spec_copy,
     )
 
     table_cfg = settings.pipeline.table_structure
@@ -323,6 +380,17 @@ def _create_converter(settings: DoclingSettings) -> DocumentConverter:
         logger.warning("Unknown TableFormer mode '%s'; defaulting to 'accurate'.", table_cfg.mode)
         pdf_options.table_structure_options.mode = TableFormerMode.ACCURATE
     pdf_options.table_structure_options.do_cell_matching = table_cfg.do_cell_matching
+    
+    # AICODE-NOTE: Fix model path for table_structure if it uses model_spec
+    # TableStructureOptions may have model_spec with model_repo_folder
+    if hasattr(pdf_options.table_structure_options, "model_spec"):
+        table_model_spec = getattr(pdf_options.table_structure_options, "model_spec")
+        if table_model_spec is not None:
+            # Create a copy to avoid modifying the original if it's shared
+            if hasattr(table_model_spec, "model_copy"):
+                table_model_spec = table_model_spec.model_copy()
+                setattr(pdf_options.table_structure_options, "model_spec", table_model_spec)
+            _fix_model_path(table_model_spec, models_base, folder_attr="model_repo_folder")
 
     pdf_options.do_code_enrichment = pipeline_flags["code_enrichment"]
     pdf_options.do_formula_enrichment = pipeline_flags["formula_enrichment"]
@@ -355,6 +423,9 @@ def _create_converter(settings: DoclingSettings) -> DocumentConverter:
                 getattr(preset_copy, "repo_id", "N/A"),
                 getattr(preset_copy, "repo_cache_folder", "N/A"),
             )
+            # AICODE-NOTE: Fix model path for picture description preset
+            _fix_model_path(preset_copy, models_base, folder_attr="repo_cache_folder")
+            
             for attr in (
                 "batch_size",
                 "scale",
@@ -370,6 +441,11 @@ def _create_converter(settings: DoclingSettings) -> DocumentConverter:
 
             if hasattr(desc_options, "repo_id") and hasattr(preset_copy, "repo_id"):
                 setattr(desc_options, "repo_id", getattr(preset_copy, "repo_id"))
+            # Copy fixed model_path/repo_cache_folder to desc_options if supported
+            if hasattr(preset_copy, "model_path") and hasattr(desc_options, "model_path"):
+                setattr(desc_options, "model_path", getattr(preset_copy, "model_path"))
+            if hasattr(preset_copy, "repo_cache_folder") and hasattr(desc_options, "repo_cache_folder"):
+                setattr(desc_options, "repo_cache_folder", getattr(preset_copy, "repo_cache_folder"))
         else:
             spec = _PICTURE_DESCRIPTION_SPEC_MAP.get(preset_name)
             if spec is None:
@@ -384,8 +460,18 @@ def _create_converter(settings: DoclingSettings) -> DocumentConverter:
                     getattr(spec, "repo_id", "N/A"),
                     getattr(spec, "repo_cache_folder", "N/A"),
                 )
+                # AICODE-NOTE: Fix model path for picture description spec
+                # Create a copy to avoid modifying the original spec
+                spec_copy = spec.model_copy() if hasattr(spec, "model_copy") else spec
+                _fix_model_path(spec_copy, models_base, folder_attr="repo_cache_folder")
+                
                 if hasattr(desc_options, "repo_id"):
                     setattr(desc_options, "repo_id", getattr(spec, "repo_id", None))
+                # Copy fixed model_path/repo_cache_folder to desc_options if supported
+                if hasattr(spec_copy, "model_path") and hasattr(desc_options, "model_path"):
+                    setattr(desc_options, "model_path", getattr(spec_copy, "model_path"))
+                if hasattr(spec_copy, "repo_cache_folder") and hasattr(desc_options, "repo_cache_folder"):
+                    setattr(desc_options, "repo_cache_folder", getattr(spec_copy, "repo_cache_folder"))
 
         if desc_cfg.batch_size is not None and hasattr(desc_options, "batch_size"):
             desc_options.batch_size = desc_cfg.batch_size
