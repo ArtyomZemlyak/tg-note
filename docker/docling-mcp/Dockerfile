@@ -55,6 +55,8 @@ RUN python -m pip install --upgrade pip setuptools wheel
 COPY docker/docling-mcp/requirements.txt /tmp/requirements.txt
 RUN python -m pip install --no-cache-dir -r /tmp/requirements.txt
 
+RUN python -m pip install loguru
+
 # Copy application code and shared configuration schema
 COPY docker/docling-mcp/app /opt/docling-mcp/app
 COPY config /opt/docling-mcp/app/config
