@@ -326,6 +326,7 @@ class FileProcessor:
             "markdown": self.docling_config.prefer_markdown_output,
             "fallback": self.docling_config.fallback_plain_text,
             "max_size": self.docling_config.max_file_size_mb,
+            "export_format": "markdown" if self.docling_config.prefer_markdown_output else None,
         }
 
         hints = self.docling_config.mcp.argument_hints or {}
@@ -364,7 +365,13 @@ class FileProcessor:
             elif "filename" in lower_name or "file_name" in lower_name:
                 arguments[prop] = file_path.name
                 used.add(prop)
+            elif "export" in lower_name and "format" in lower_name:
+                # AICODE-NOTE: Request markdown export directly from convert_document_from_content
+                # This must be checked BEFORE general "format" check to avoid conflicts
+                arguments[prop] = "markdown" if self.docling_config.prefer_markdown_output else None
+                used.add(prop)
             elif "format" in lower_name or "extension" in lower_name:
+                # AICODE-NOTE: General format/extension field (but NOT export_format)
                 arguments[prop] = file_format
                 used.add(prop)
             elif "mime" in lower_name:
@@ -410,27 +417,124 @@ class FileProcessor:
         """Extract textual content and metadata from Docling MCP tool result."""
         raw_result = call_result.get("result") or {}
         content = call_result.get("content") or raw_result.get("content") or []
+        structured_content = call_result.get("structured_content") or raw_result.get(
+            "structuredContent"
+        )
+
+        # AICODE-NOTE: Check if result contains document_key (from convert_document_from_content)
+        # First check if markdown is already included in the response (export_format was used)
+        document_key = None
+        markdown_text = None
+
+        if structured_content and isinstance(structured_content, dict):
+            document_key = structured_content.get("document_key")
+            # Check if markdown was already exported
+            markdown_text = structured_content.get("markdown")
+
+            if markdown_text:
+                self.logger.info(
+                    f"Document already exported to markdown (length: {len(markdown_text)} chars)"
+                )
+                metadata = {
+                    "docling_mcp": {
+                        "tool": self._docling_tool_name,
+                        "server": self.docling_config.mcp.server_name,
+                        "transport": self.docling_config.mcp.transport,
+                        "document_key": document_key,
+                        "from_cache": structured_content.get("from_cache", False),
+                        "export_format": structured_content.get("export_format", "markdown"),
+                    }
+                }
+                return markdown_text, metadata
+
+        # If no markdown in response but we have document_key, export it separately
+        if document_key and not markdown_text:
+            self.logger.info(
+                f"Document converted with key: {document_key}, exporting to markdown..."
+            )
+            export_result = await client.call_tool(
+                "export_docling_document_to_markdown", {"document_key": document_key}
+            )
+
+            if export_result.get("success"):
+                export_content = export_result.get("content") or []
+                export_structured = export_result.get("structured_content") or {}
+
+                markdown_text = None
+                # Try to get markdown from structured_content first
+                if isinstance(export_structured, dict):
+                    markdown_text = export_structured.get("markdown")
+
+                # If not found, try to extract from content
+                if not markdown_text:
+                    for item in export_content:
+                        if isinstance(item, dict):
+                            item_type = item.get("type")
+                            if item_type in ("text", "markdown"):
+                                markdown_text = item.get("text") or item.get("markdown")
+                                break
+                        else:
+                            item_type = getattr(item, "type", None)
+                            if item_type in ("text", "markdown"):
+                                markdown_text = getattr(item, "text", None) or getattr(
+                                    item, "markdown", None
+                                )
+                                break
+
+                if markdown_text:
+                    metadata = {
+                        "docling_mcp": {
+                            "tool": self._docling_tool_name,
+                            "server": self.docling_config.mcp.server_name,
+                            "transport": self.docling_config.mcp.transport,
+                            "document_key": document_key,
+                            "from_cache": structured_content.get("from_cache", False),
+                        }
+                    }
+                    return markdown_text, metadata
+                else:
+                    self.logger.warning(
+                        f"Failed to extract markdown from export result for document_key: {document_key}"
+                    )
+            else:
+                self.logger.error(
+                    f"Failed to export document to markdown: {export_result.get('error')}"
+                )
 
         text_fragments: List[str] = []
         resource_uris: List[str] = []
         json_payloads: List[Dict[str, Any]] = []
 
         for item in content:
-            item_type = item.get("type")
+            # AICODE-NOTE: Handle both dict and object formats (TextContent, etc.)
+            if isinstance(item, dict):
+                item_type = item.get("type")
+            else:
+                item_type = getattr(item, "type", None)
+
             if item_type == "text":
-                text = item.get("text")
+                text = item.get("text") if isinstance(item, dict) else getattr(item, "text", None)
                 if text:
                     text_fragments.append(text)
             elif item_type == "markdown":
-                text = item.get("text") or item.get("markdown")
+                if isinstance(item, dict):
+                    text = item.get("text") or item.get("markdown")
+                else:
+                    text = getattr(item, "text", None) or getattr(item, "markdown", None)
                 if text:
                     text_fragments.append(text)
             elif item_type == "html":
-                text = item.get("text") or item.get("html")
+                if isinstance(item, dict):
+                    text = item.get("text") or item.get("html")
+                else:
+                    text = getattr(item, "text", None) or getattr(item, "html", None)
                 if text:
                     text_fragments.append(text)
             elif item_type == "json":
-                payload = item.get("json")
+                if isinstance(item, dict):
+                    payload = item.get("json")
+                else:
+                    payload = getattr(item, "json", None)
                 if isinstance(payload, dict):
                     json_payloads.append(payload)
                     for key in ("text", "markdown", "content"):
@@ -439,8 +543,12 @@ class FileProcessor:
                             text_fragments.append(value)
                             break
             elif item_type == "resource":
-                resource = item.get("resource") or {}
-                uri = resource.get("uri")
+                if isinstance(item, dict):
+                    resource = item.get("resource") or {}
+                    uri = resource.get("uri")
+                else:
+                    resource = getattr(item, "resource", None)
+                    uri = getattr(resource, "uri", None) if resource else None
                 if uri:
                     resource_uris.append(uri)
 

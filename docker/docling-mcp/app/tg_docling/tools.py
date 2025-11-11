@@ -246,7 +246,8 @@ def _convert_with_model_recovery(tmp_path: Path):
 @d_mcp.tool(
     title="Convert document from base64 content",
     description=(
-        "Decode a base64-encoded document payload, convert it with Docling and cache the result."
+        "Decode a base64-encoded document payload, convert it with Docling and cache the result. "
+        "Optionally export the converted document to markdown or other formats."
     ),
     annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
@@ -274,7 +275,19 @@ def convert_document_from_content(
             examples=["application/pdf"],
         ),
     ] = None,
-) -> ConvertDocumentOutput:
+    export_format: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            description=(
+                "Optional export format for immediate conversion. "
+                "Options: 'markdown', 'json', 'text'. "
+                "If None, returns only document_key for later export."
+            ),
+            examples=["markdown", "json", None],
+        ),
+    ] = None,
+) -> dict:
     """Convert a document provided as base64 content and cache the converted Docling result."""
 
     try:
@@ -291,7 +304,51 @@ def convert_document_from_content(
 
     if cache_key in local_document_cache:
         logger.info("Document content already converted (cache hit).")
-        return ConvertDocumentOutput(True, cache_key)
+        result_dict = {
+            "from_cache": True,
+            "document_key": cache_key,
+        }
+
+        # AICODE-NOTE: Export from cache if format is requested
+        if export_format:
+            document = local_document_cache[cache_key]
+            export_format_lower = export_format.lower()
+            if export_format_lower == "markdown":
+                try:
+                    markdown_text = document.export_to_markdown()
+                    result_dict["markdown"] = markdown_text
+                    result_dict["export_format"] = "markdown"
+                    logger.info(
+                        f"Exported cached document to markdown (length: {len(markdown_text)} chars)"
+                    )
+                except Exception as exc:
+                    logger.warning(f"Failed to export cached document to markdown: {exc}")
+                    result_dict["export_error"] = str(exc)
+            elif export_format_lower == "json":
+                try:
+                    json_text = document.export_to_json()
+                    result_dict["json"] = json_text
+                    result_dict["export_format"] = "json"
+                    logger.info(f"Exported cached document to JSON")
+                except Exception as exc:
+                    logger.warning(f"Failed to export cached document to JSON: {exc}")
+                    result_dict["export_error"] = str(exc)
+            elif export_format_lower == "text":
+                try:
+                    text_content = document.export_to_text()
+                    result_dict["text"] = text_content
+                    result_dict["export_format"] = "text"
+                    logger.info(
+                        f"Exported cached document to text (length: {len(text_content)} chars)"
+                    )
+                except Exception as exc:
+                    logger.warning(f"Failed to export cached document to text: {exc}")
+                    result_dict["export_error"] = str(exc)
+            else:
+                logger.warning(f"Unsupported export_format: {export_format}")
+                result_dict["export_error"] = f"Unsupported export format: {export_format}"
+
+        return result_dict
 
     tmp_path: Optional[Path] = None
     try:
@@ -336,7 +393,48 @@ def convert_document_from_content(
 
         cleanup_memory()
 
-        return ConvertDocumentOutput(False, cache_key)
+        # AICODE-NOTE: If export_format is specified, export immediately
+        result_dict = {
+            "from_cache": False,
+            "document_key": cache_key,
+        }
+
+        if export_format:
+            export_format_lower = export_format.lower()
+            if export_format_lower == "markdown":
+                try:
+                    markdown_text = document.export_to_markdown()
+                    result_dict["markdown"] = markdown_text
+                    result_dict["export_format"] = "markdown"
+                    logger.info(
+                        f"Exported document to markdown (length: {len(markdown_text)} chars)"
+                    )
+                except Exception as exc:
+                    logger.warning(f"Failed to export to markdown: {exc}")
+                    result_dict["export_error"] = str(exc)
+            elif export_format_lower == "json":
+                try:
+                    json_text = document.export_to_json()
+                    result_dict["json"] = json_text
+                    result_dict["export_format"] = "json"
+                    logger.info(f"Exported document to JSON")
+                except Exception as exc:
+                    logger.warning(f"Failed to export to JSON: {exc}")
+                    result_dict["export_error"] = str(exc)
+            elif export_format_lower == "text":
+                try:
+                    text_content = document.export_to_text()
+                    result_dict["text"] = text_content
+                    result_dict["export_format"] = "text"
+                    logger.info(f"Exported document to text (length: {len(text_content)} chars)")
+                except Exception as exc:
+                    logger.warning(f"Failed to export to text: {exc}")
+                    result_dict["export_error"] = str(exc)
+            else:
+                logger.warning(f"Unsupported export_format: {export_format}")
+                result_dict["export_error"] = f"Unsupported export format: {export_format}"
+
+        return result_dict
 
     except DoclingModelMissingError as exc:
         logger.exception("Missing Docling model artefact prevented document conversion.")

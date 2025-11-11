@@ -364,7 +364,19 @@ class MCPClient:
         Returns:
             Standardized tool response dict
         """
-        content = list(response.content or [])
+        # AICODE-NOTE: Handle both response formats - object with .content or direct list
+        if isinstance(response, list):
+            # Response is already a list (direct content)
+            content = response
+            is_error = False
+            structured_content = None
+            data = None
+        else:
+            # Response is an object with attributes
+            content = list(response.content or []) if hasattr(response, "content") else []
+            is_error = getattr(response, "is_error", False)
+            structured_content = getattr(response, "structured_content", None)
+            data = getattr(response, "data", None)
 
         # Parse content based on type for convenience string output
         output = []
@@ -382,21 +394,19 @@ class MCPClient:
                 else:
                     output.append(getattr(item, "markdown", "") or "")
 
-        is_error = response.is_error
-
         return {
             "success": not is_error,
             "output": "\n".join(output).strip() if output else "Tool executed successfully",
             "is_error": is_error,
             "result": {
                 "content": content,
-                "structuredContent": response.structured_content,
-                "data": response.data,
+                "structuredContent": structured_content,
+                "data": data,
                 "isError": is_error,
             },
             "content": content,
-            "structured_content": response.structured_content,
-            "data": response.data,
+            "structured_content": structured_content,
+            "data": data,
         }
 
     def get_tools(self) -> List[MCPToolSchema]:
