@@ -5,6 +5,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Dict, Optional, Set
 
+# AICODE-NOTE: Initialize environment variables BEFORE any Docling imports
+import tg_docling.env_setup  # noqa: F401
 from docling.datamodel.base_models import InputFormat
 from docling.datamodel.layout_model_specs import (
     DOCLING_LAYOUT_EGRET_LARGE,

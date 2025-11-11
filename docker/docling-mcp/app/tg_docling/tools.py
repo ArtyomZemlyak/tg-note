@@ -12,6 +12,9 @@ import threading
 from pathlib import Path
 from typing import Annotated, Optional
 
+# AICODE-NOTE: Initialize environment variables BEFORE any Docling imports
+import tg_docling.env_setup  # noqa: F401
+
 try:  # Optional dependency already included in container image
     import filetype  # type: ignore
 except Exception:  # pragma: no cover - fallback when library is unavailable
@@ -102,20 +105,33 @@ def _extract_missing_model_path(exc: BaseException) -> Optional[str]:
 
 
 def _load_docling_settings_for_sync() -> Optional[DoclingSettings]:
-    """Load Docling settings from the container configuration."""
+    """Load Docling settings from the container configuration and ensure directories exist."""
     try:
         settings_path = Path(os.getenv("DOCLING_SETTINGS_PATH", str(DEFAULT_SETTINGS_PATH)))
         docling_settings, _ = load_docling_settings(settings_path)
         models_dir = Path(docling_settings.model_cache.base_dir)
+        models_dir.mkdir(parents=True, exist_ok=True)
+
         # AICODE-NOTE: Use direct assignment to ensure environment variables are updated
         # even if they were previously set to incorrect values
         os.environ["DOCLING_MODELS_DIR"] = str(models_dir)
         os.environ["DOCLING_ARTIFACTS_PATH"] = str(models_dir)
+
         if "DOCLING_CACHE_DIR" not in os.environ:
             os.environ["DOCLING_CACHE_DIR"] = "/opt/docling-mcp/cache"
+
+        cache_dir = Path(os.environ["DOCLING_CACHE_DIR"])
+        cache_dir.mkdir(parents=True, exist_ok=True)
+
+        # AICODE-NOTE: Also set HF_HOME to ensure HuggingFace cache is in the right location
+        if "HF_HOME" not in os.environ:
+            hf_home = models_dir.parent / "hf_cache"
+            hf_home.mkdir(parents=True, exist_ok=True)
+            os.environ["HF_HOME"] = str(hf_home)
+
         logger.debug(
             f"Updated Docling environment: DOCLING_MODELS_DIR={models_dir}, "
-            f"DOCLING_ARTIFACTS_PATH={models_dir}"
+            f"DOCLING_ARTIFACTS_PATH={models_dir}, HF_HOME={os.environ.get('HF_HOME')}"
         )
         return docling_settings
     except Exception:

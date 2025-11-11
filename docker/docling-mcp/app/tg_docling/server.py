@@ -7,6 +7,8 @@ import os
 from pathlib import Path
 from typing import Any, List, Optional
 
+# AICODE-NOTE: Initialize environment variables BEFORE any Docling imports
+import tg_docling.env_setup  # noqa: F401
 import tg_docling.tools  # noqa: F401  # Register additional MCP tools
 from docling_mcp.servers.mcp_server import ToolGroups, TransportType
 from docling_mcp.servers.mcp_server import main as mcp_main
@@ -66,16 +68,30 @@ def _run_startup_sync(settings: DoclingSettings) -> None:
 
 
 def _apply_env_overrides(settings: DoclingSettings) -> DoclingSettings:
+    """Apply environment variable overrides and ensure Docling paths are configured."""
     models_dir_override = os.getenv("DOCLING_MODELS_DIR")
     if models_dir_override:
         settings.model_cache.base_dir = models_dir_override
 
     models_dir = Path(settings.model_cache.base_dir)
-    os.environ.setdefault("DOCLING_MODELS_DIR", str(models_dir))
-    os.environ.setdefault(
-        "DOCLING_CACHE_DIR", os.getenv("DOCLING_CACHE_DIR", "/opt/docling-mcp/cache")
+    models_dir.mkdir(parents=True, exist_ok=True)
+
+    # AICODE-NOTE: Use direct assignment to ensure paths are always set correctly,
+    # even if they were previously set to incorrect values
+    os.environ["DOCLING_MODELS_DIR"] = str(models_dir)
+    os.environ["DOCLING_ARTIFACTS_PATH"] = str(models_dir)
+
+    # Set cache dir if not already configured
+    if "DOCLING_CACHE_DIR" not in os.environ:
+        os.environ["DOCLING_CACHE_DIR"] = "/opt/docling-mcp/cache"
+
+    cache_dir = Path(os.environ["DOCLING_CACHE_DIR"])
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    logger.debug(
+        f"Docling environment configured: DOCLING_MODELS_DIR={models_dir}, "
+        f"DOCLING_ARTIFACTS_PATH={models_dir}, DOCLING_CACHE_DIR={cache_dir}"
     )
-    os.environ.setdefault("DOCLING_ARTIFACTS_PATH", str(models_dir))
     return settings
 
 

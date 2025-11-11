@@ -9,6 +9,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional
 
+# AICODE-NOTE: Initialize environment variables BEFORE any Docling imports
+import tg_docling.env_setup  # noqa: F401
 from docling.datamodel.pipeline_options import (
     LayoutOptions,
     granite_picture_description,
@@ -123,7 +125,7 @@ def _snapshot_download_with_hf_transfer_fallback(
     allow_patterns: Optional[List[str]],
     ignore_patterns: Optional[List[str]],
 ) -> str:
-    """Download snapshot while gracefully handling missing hf_transfer dependency."""
+    """Download snapshot while gracefully handling missing hf_transfer dependency and network errors."""
     global _HF_TRANSFER_FAST_DOWNLOAD_AVAILABLE
 
     # AICODE-NOTE: Ensure target directory and HF_HOME cache directory exist before download
@@ -144,30 +146,71 @@ def _snapshot_download_with_hf_transfer_fallback(
     def _call_snapshot() -> str:
         return snapshot_download(**kwargs)
 
+    def _check_models_exist(directory: Path) -> bool:
+        """Check if required model files exist in the directory."""
+        if not directory.exists():
+            return False
+        # Check for common model file patterns
+        model_files = (
+            list(directory.glob("*.safetensors"))
+            + list(directory.glob("*.onnx"))
+            + list(directory.glob("*.bin"))
+            + list(directory.glob("*.pt"))
+        )
+        config_files = list(directory.glob("config.json"))
+        return len(model_files) > 0 or len(config_files) > 0
+
     if _HF_TRANSFER_FAST_DOWNLOAD_AVAILABLE is False:
         with _temporarily_disable_hf_transfer_env():
-            return _call_snapshot()
+            try:
+                return _call_snapshot()
+            except Exception as exc:
+                # AICODE-NOTE: If download fails but models already exist, use cached version
+                if _check_models_exist(target_dir):
+                    logger.warning(
+                        f"Download verification failed for {repo_id}, but cached models exist at {target_dir}. "
+                        f"Using cached version. Error: {exc}"
+                    )
+                    return str(target_dir)
+                raise
 
     try:
         return _call_snapshot()
     except Exception as exc:
-        if not _is_hf_transfer_missing_error(exc):
-            raise
+        if _is_hf_transfer_missing_error(exc):
+            # AICODE-NOTE: Falling back to standard download when hf_transfer fast-path is unavailable.
+            if _HF_TRANSFER_FAST_DOWNLOAD_AVAILABLE is not False:
+                _HF_TRANSFER_FAST_DOWNLOAD_AVAILABLE = False
+                logger.warning(
+                    "hf_transfer fast download requested but package is unavailable; retrying with "
+                    "standard HuggingFace download."
+                )
+                _notify_progress(
+                    "⚠️ hf_transfer package missing, falling back to standard download.",
+                    {"status": "warning", "reason": "hf_transfer_unavailable"},
+                )
 
-        # AICODE-NOTE: Falling back to standard download when hf_transfer fast-path is unavailable.
-        if _HF_TRANSFER_FAST_DOWNLOAD_AVAILABLE is not False:
-            _HF_TRANSFER_FAST_DOWNLOAD_AVAILABLE = False
+            with _temporarily_disable_hf_transfer_env():
+                try:
+                    return _call_snapshot()
+                except Exception as retry_exc:
+                    # AICODE-NOTE: If retry fails but models exist, use cached version
+                    if _check_models_exist(target_dir):
+                        logger.warning(
+                            f"Download verification failed for {repo_id}, but cached models exist at {target_dir}. "
+                            f"Using cached version. Error: {retry_exc}"
+                        )
+                        return str(target_dir)
+                    raise
+
+        # AICODE-NOTE: For network errors, check if models are already cached
+        if _check_models_exist(target_dir):
             logger.warning(
-                "hf_transfer fast download requested but package is unavailable; retrying with "
-                "standard HuggingFace download."
+                f"Download/verification failed for {repo_id} due to network error, "
+                f"but cached models exist at {target_dir}. Using cached version. Error: {exc}"
             )
-            _notify_progress(
-                "⚠️ hf_transfer package missing, falling back to standard download.",
-                {"status": "warning", "reason": "hf_transfer_unavailable"},
-            )
-
-        with _temporarily_disable_hf_transfer_env():
-            return _call_snapshot()
+            return str(target_dir)
+        raise
 
 
 def set_sync_progress_callback(callback: Optional[Callable[[str, Dict[str, Any]], None]]) -> None:
@@ -356,16 +399,51 @@ def _sync_builtin_model(
         return backend_result
 
     # AICODE-NOTE: Log detailed model information for all model types
+    # For layout models, use direct HuggingFace download to ensure correct repo_id
     if model_name == "layout" and full_settings is not None:
         layout_preset = full_settings.pipeline.layout.preset
         layout_spec = _LAYOUT_PRESET_MAP.get(layout_preset)
         if layout_spec:
+            repo_id = getattr(layout_spec, "repo_id", None)
+            revision = getattr(layout_spec, "revision", None)
+            model_repo_folder = getattr(layout_spec, "model_repo_folder", None)
+
             logger.info(
                 f"Downloading Docling layout bundle: preset='{layout_preset}', "
-                f"repo_id='{getattr(layout_spec, 'repo_id', 'N/A')}', "
-                f"revision='{getattr(layout_spec, 'revision', 'N/A')}', "
-                f"folder='{getattr(layout_spec, 'model_repo_folder', 'N/A')}'"
+                f"repo_id='{repo_id}', revision='{revision}', folder='{model_repo_folder}'"
             )
+
+            # Use direct HuggingFace download instead of download_model_bundles
+            # to ensure we get the correct repo_id from our preset
+            if repo_id and model_repo_folder:
+                target_dir = base_dir / model_repo_folder
+                target_dir.mkdir(parents=True, exist_ok=True)
+
+                if target_dir.exists() and any(target_dir.iterdir()) and not force:
+                    logger.info(f"Layout model already cached at {target_dir}")
+                    result.update(
+                        {
+                            "status": "skipped",
+                            "reason": "already cached",
+                            "path": str(target_dir),
+                        }
+                    )
+                    return result
+
+                logger.info(f"Downloading layout model from {repo_id} to {target_dir}")
+                try:
+                    local_dir = _snapshot_download_with_hf_transfer_fallback(
+                        repo_id=repo_id,
+                        revision=revision,
+                        target_dir=target_dir,
+                        allow_patterns=None,
+                        ignore_patterns=None,
+                    )
+                    result.update({"status": "downloaded", "path": str(local_dir)})
+                    return result
+                except Exception as exc:
+                    logger.error(f"Failed to download layout model from HuggingFace: {exc}")
+                    # Fall through to try download_model_bundles as fallback
         else:
             logger.info(f"Downloading Docling layout bundle with preset '{layout_preset}'")
     elif model_name in [
