@@ -4,6 +4,8 @@ import os
 from pathlib import Path
 from typing import Tuple, Type
 
+# AICODE-NOTE: Initialize environment variables BEFORE any Docling imports
+import tg_docling.env_setup  # noqa: F401
 from pydantic import ValidationError
 
 from config.settings import DoclingSettings, Settings
