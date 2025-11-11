@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Dict, Optional, Set
@@ -43,6 +44,8 @@ try:  # Optional dependency
     from docling_ocr_onnxtr.pipeline_options import OnnxtrOcrOptions
 except Exception:  # pragma: no cover
     OnnxtrOcrOptions = None
+
+from tg_docling.tesseract import resolve_tessdata_path
 
 from config.settings import DoclingSettings
 
@@ -195,14 +198,21 @@ def _build_ocr_options(settings: DoclingSettings, models_base: Path) -> Optional
         )
         try:
             opts = TesseractOcrOptions()
+            tessdata_path = resolve_tessdata_path(models_base, backend_cfg.tessdata_prefix)
+            if tessdata_path:
+                if not os.environ.get("TESSDATA_PREFIX"):
+                    os.environ["TESSDATA_PREFIX"] = tessdata_path
+                    logger.debug("Set TESSDATA_PREFIX environment variable to %s", tessdata_path)
+                logger.info("Using Tesseract tessdata directory: %s", tessdata_path)
             _apply_optional_attributes(
                 opts,
                 {
                     "lang": backend_cfg.languages or languages,
-                    "path": backend_cfg.tessdata_prefix,
+                    "path": tessdata_path or backend_cfg.tessdata_prefix,
                     "psm": backend_cfg.psm,
                 },
             )
+            _apply_optional_attributes(opts, backend_cfg.extra or {})
             logger.info("TesseractOcrOptions created successfully: lang=%s", opts.lang)
             return opts
         except Exception as exc:
