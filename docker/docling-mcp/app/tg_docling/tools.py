@@ -19,7 +19,8 @@ from docling_core.types.doc.labels import DocItemLabel
 from docling_mcp.docling_cache import get_cache_key
 from docling_mcp.shared import local_document_cache, local_stack_cache
 from docling_mcp.shared import mcp as d_mcp
-from docling_mcp.tools.conversion import ConvertDocumentOutput, _get_converter, cleanup_memory
+from docling_mcp.tools import conversion as conversion_tools
+from docling_mcp.tools.conversion import ConvertDocumentOutput, cleanup_memory
 from pydantic import Field
 
 from mcp.types import ToolAnnotations
@@ -109,7 +110,7 @@ def convert_document_from_content(
             tmp_file.flush()
             tmp_path = Path(tmp_file.name)
 
-        converter = _get_converter()
+        converter = conversion_tools._get_converter()
         logger.info("Converting document from base64 content (temp file: %s)", tmp_path)
         result = converter.convert(tmp_path)
 
