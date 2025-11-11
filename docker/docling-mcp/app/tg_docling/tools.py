@@ -107,10 +107,15 @@ def _load_docling_settings_for_sync() -> Optional[DoclingSettings]:
         settings_path = Path(os.getenv("DOCLING_SETTINGS_PATH", str(DEFAULT_SETTINGS_PATH)))
         docling_settings, _ = load_docling_settings(settings_path)
         models_dir = Path(docling_settings.model_cache.base_dir)
-        os.environ.setdefault("DOCLING_MODELS_DIR", str(models_dir))
-        os.environ.setdefault("DOCLING_ARTIFACTS_PATH", str(models_dir))
-        os.environ.setdefault(
-            "DOCLING_CACHE_DIR", os.getenv("DOCLING_CACHE_DIR", "/opt/docling-mcp/cache")
+        # AICODE-NOTE: Use direct assignment to ensure environment variables are updated
+        # even if they were previously set to incorrect values
+        os.environ["DOCLING_MODELS_DIR"] = str(models_dir)
+        os.environ["DOCLING_ARTIFACTS_PATH"] = str(models_dir)
+        if "DOCLING_CACHE_DIR" not in os.environ:
+            os.environ["DOCLING_CACHE_DIR"] = "/opt/docling-mcp/cache"
+        logger.debug(
+            f"Updated Docling environment: DOCLING_MODELS_DIR={models_dir}, "
+            f"DOCLING_ARTIFACTS_PATH={models_dir}"
         )
         return docling_settings
     except Exception:
@@ -132,28 +137,42 @@ def _attempt_model_resync(missing_path: str) -> bool:
             return False
 
         logger.info(
-            "Attempting Docling model sync after detecting missing artefact: %s",
-            missing_path,
+            f"Attempting Docling model sync after detecting missing artefact: {missing_path}"
         )
         try:
             result = sync_models(docling_settings, force=False)
         except Exception:
             logger.exception(
-                "Docling model synchronisation failed for missing artefact %s", missing_path
+                f"Docling model synchronisation failed for missing artefact {missing_path}"
             )
             return False
 
         summary = (result or {}).get("summary") or {}
         failed = summary.get("failed", 0)
+        successful = summary.get("successful", 0)
+
         if failed:
             logger.error(
-                "Docling model sync completed with %d failure(s); missing artefact %s remains unavailable.",
-                failed,
-                missing_path,
+                f"Docling model sync completed with {failed} failure(s); missing artefact {missing_path} remains unavailable."
             )
             return False
 
-        logger.info("Docling model sync completed successfully; retrying conversion.")
+        # AICODE-NOTE: Verify that model files were actually downloaded
+        # The missing_path might point to artifacts_path directly (e.g., /models/model.safetensors)
+        # but models are actually in subdirectories (e.g., /models/docling-models__layout__v2/model.safetensors)
+        # The _fix_model_path() function in converter.py handles this by setting model_path to full path
+        if successful == 0:
+            logger.warning(
+                f"Model sync completed but no models were downloaded (0 successful). "
+                f"Missing artefact {missing_path} may still be unavailable."
+            )
+            # Don't return False here, as models might already be cached
+            # The retry will reveal if models are truly missing
+
+        logger.info(
+            f"Docling model sync completed successfully ({successful} successful, {failed} failed); "
+            "retrying conversion."
+        )
         return True
 
 
@@ -192,9 +211,7 @@ def _convert_with_model_recovery(tmp_path: Path):
                 raise
 
             logger.warning(
-                "Docling conversion detected missing model artefact '%s' (attempt %d).",
-                missing_path,
-                attempt + 1,
+                f"Docling conversion detected missing model artefact '{missing_path}' (attempt {attempt + 1})."
             )
 
             if attempt == 1:
@@ -269,7 +286,7 @@ def convert_document_from_content(
             tmp_file.flush()
             tmp_path = Path(tmp_file.name)
 
-        logger.info("Converting document from base64 content (temp file: %s)", tmp_path)
+        logger.info(f"Converting document from base64 content (temp file: {tmp_path})")
         result = _convert_with_model_recovery(tmp_path)
 
         # Mirror error handling strategy from upstream conversion tool
@@ -317,4 +334,4 @@ def convert_document_from_content(
             try:
                 tmp_path.unlink()
             except Exception:  # pragma: no cover - best effort cleanup
-                logger.debug("Failed to remove temporary file: %s", tmp_path, exc_info=True)
+                logger.debug(f"Failed to remove temporary file: {tmp_path}", exc_info=True)
