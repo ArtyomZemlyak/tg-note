@@ -634,3 +634,27 @@ async def test_empty_content_response(monkeypatch):
     assert result["output"] == "Tool executed successfully"  # Default message for empty content
 
     await client.disconnect()
+
+
+@pytest.mark.asyncio
+async def test_connection_timeout(monkeypatch):
+    """Test that connection timeout is enforced when server is unresponsive."""
+    import asyncio
+
+    class HangingClient(_BaseFakeClient):
+        async def __aenter__(self):
+            # Simulate unresponsive server by hanging indefinitely
+            await asyncio.sleep(60)  # Sleep longer than the timeout
+            return await super().__aenter__()
+
+    monkeypatch.setattr("src.mcp.client.Client", HangingClient)
+
+    config = MCPServerConfig(url="http://unavailable-server:8077/sse")
+    client = MCPClient(config)
+
+    # Connection should timeout and return False
+    result = await client.connect()
+
+    assert result is False
+    assert client.is_connected is False
+    assert client._client is None
