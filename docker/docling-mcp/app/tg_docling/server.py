@@ -13,7 +13,7 @@ from docling_mcp.servers.mcp_server import main as mcp_main
 from docling_mcp.shared import mcp as d_mcp
 from pydantic import BaseModel, Field
 from tg_docling.config import DEFAULT_SETTINGS_PATH, load_docling_settings
-from tg_docling.converter import install_converter
+from tg_docling.converter import check_model_availability, install_converter
 from tg_docling.logging import configure_logging, limit_content_for_log
 from tg_docling.model_sync import sync_models
 
@@ -60,9 +60,38 @@ def _run_startup_sync(settings: DoclingSettings) -> None:
         return
 
     logger.info("Running startup model synchronisation")
-    result = sync_models(settings, force=False)
-    limited_result = limit_content_for_log(result)
-    logger.debug("Startup sync result: %s", json.dumps(limited_result, indent=2))
+    try:
+        result = sync_models(settings, force=False)
+        limited_result = limit_content_for_log(result)
+        logger.debug("Startup sync result: %s", json.dumps(limited_result, indent=2))
+
+        # AICODE-NOTE: Log summary of sync results for better visibility
+        summary = result.get("summary", {})
+        total = summary.get("total", 0)
+        successful = summary.get("successful", 0)
+        failed = summary.get("failed", 0)
+
+        if failed > 0:
+            logger.warning(
+                "Startup model sync completed with errors: %d/%d models failed", failed, total
+            )
+            # AICODE-NOTE: Log details of failed models for debugging
+            for item in result.get("items", []):
+                if item.get("status") == "error":
+                    logger.error(
+                        "Failed to sync model '%s': %s", item.get("name"), item.get("error")
+                    )
+        else:
+            logger.info(
+                "Startup model sync completed successfully: %d/%d models ready", successful, total
+            )
+    except Exception as exc:
+        # AICODE-NOTE: Don't crash the server if model sync fails - let the converter handle it later
+        logger.exception("Startup model synchronisation failed: %s", exc)
+        logger.warning(
+            "Server will continue starting, but document conversion may fail. "
+            "Use the 'sync_docling_models' MCP tool to download models manually."
+        )
 
 
 def _apply_env_overrides(settings: DoclingSettings) -> DoclingSettings:
@@ -136,6 +165,15 @@ def main() -> None:
 
     if not args.no_startup_sync:
         _run_startup_sync(docling_settings)
+
+    # AICODE-NOTE: Warn if required models are missing after sync
+    models_available, missing_models = check_model_availability(docling_settings)
+    if not models_available:
+        logger.warning(
+            "Some required Docling models are missing: %s. "
+            "Document conversion may fail. Use the 'sync_docling_models' MCP tool to download them.",
+            ", ".join(missing_models),
+        )
 
     tool_names = docling_settings.mcp.tool_groups
     selected_tools = _normalise_tool_names(tool_names)

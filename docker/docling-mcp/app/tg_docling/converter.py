@@ -76,6 +76,49 @@ _PICTURE_DESCRIPTION_SPEC_MAP = {
 }
 
 
+def check_model_availability(settings: DoclingSettings) -> tuple[bool, list[str]]:
+    """
+    Check if required model files are available.
+
+    Returns:
+        tuple[bool, list[str]]: (all_available, missing_models)
+    """
+    models_base = Path(settings.model_cache.base_dir)
+    missing = []
+
+    try:
+        pipeline_flags, _ = settings.resolved_pipeline_flags()
+    except Exception as exc:
+        logger.warning("Failed to resolve pipeline flags: %s", exc)
+        return False, ["pipeline configuration"]
+
+    # AICODE-NOTE: Check for layout model (always required)
+    if pipeline_flags.get("layout", False):
+        layout_preset = settings.pipeline.layout.preset
+        layout_spec = _LAYOUT_PRESET_MAP.get(layout_preset, DOCLING_LAYOUT_V2)
+        layout_path = models_base / getattr(layout_spec, "model_repo_folder", "")
+        if not layout_path.exists() or not any(layout_path.iterdir()):
+            missing.append(f"layout model ({layout_preset})")
+
+    # AICODE-NOTE: Check for table structure model if enabled
+    if pipeline_flags.get("table_structure", False):
+        table_path = models_base / TableStructureModel._model_repo_folder  # type: ignore[attr-defined]
+        if not table_path.exists() or not any(table_path.iterdir()):
+            missing.append("table structure model")
+
+    # AICODE-NOTE: Check for code/formula model if enabled
+    if pipeline_flags.get("code_enrichment", False) or pipeline_flags.get(
+        "formula_enrichment", False
+    ):
+        code_formula_path = (
+            models_base / CodeFormulaModel._model_repo_folder  # type: ignore[attr-defined]
+        )
+        if not code_formula_path.exists() or not any(code_formula_path.iterdir()):
+            missing.append("code/formula model")
+
+    return len(missing) == 0, missing
+
+
 def _model_field_names(target: object) -> Optional[Set[str]]:
     """Return the declared field names for a Pydantic model (v1 or v2)."""
     cls = target if isinstance(target, type) else target.__class__
