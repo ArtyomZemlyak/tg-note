@@ -172,7 +172,8 @@ class DoclingMCPSettings(BaseModel):
         description="Working directory for launching Docling MCP server (stdio transport).",
     )
     timeout: Optional[int] = Field(
-        default=None, description="Optional per-server timeout override for Docling MCP requests."
+        default=180,
+        description="Optional per-server timeout override for Docling MCP requests (default: 180 seconds for document/image processing).",
     )
     tool_name: str = Field(
         default="convert_document_from_content",
