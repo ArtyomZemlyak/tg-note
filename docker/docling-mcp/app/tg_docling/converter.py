@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from functools import lru_cache
 from pathlib import Path
 from typing import Dict, Optional, Set
@@ -38,6 +37,7 @@ from docling.datamodel.vlm_model_specs import (
 from docling.document_converter import DocumentConverter, PdfFormatOption
 from docling_mcp.settings import conversion as conversion_settings
 from docling_mcp.tools import conversion as conversion_tools
+from loguru import logger
 
 try:  # Optional dependency
     from docling_ocr_onnxtr.pipeline_options import OnnxtrOcrOptions
@@ -45,8 +45,6 @@ except Exception:  # pragma: no cover
     OnnxtrOcrOptions = None
 
 from config.settings import DoclingSettings
-
-logger = logging.getLogger(__name__)
 
 # AICODE-NOTE: Layout model presets map - exported for use in model_sync.py
 _LAYOUT_PRESET_MAP = {
