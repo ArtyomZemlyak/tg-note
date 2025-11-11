@@ -399,16 +399,51 @@ def _sync_builtin_model(
         return backend_result
 
     # AICODE-NOTE: Log detailed model information for all model types
+    # For layout models, use direct HuggingFace download to ensure correct repo_id
     if model_name == "layout" and full_settings is not None:
         layout_preset = full_settings.pipeline.layout.preset
         layout_spec = _LAYOUT_PRESET_MAP.get(layout_preset)
         if layout_spec:
+            repo_id = getattr(layout_spec, "repo_id", None)
+            revision = getattr(layout_spec, "revision", None)
+            model_repo_folder = getattr(layout_spec, "model_repo_folder", None)
+
             logger.info(
                 f"Downloading Docling layout bundle: preset='{layout_preset}', "
-                f"repo_id='{getattr(layout_spec, 'repo_id', 'N/A')}', "
-                f"revision='{getattr(layout_spec, 'revision', 'N/A')}', "
-                f"folder='{getattr(layout_spec, 'model_repo_folder', 'N/A')}'"
+                f"repo_id='{repo_id}', revision='{revision}', folder='{model_repo_folder}'"
             )
+
+            # Use direct HuggingFace download instead of download_model_bundles
+            # to ensure we get the correct repo_id from our preset
+            if repo_id and model_repo_folder:
+                target_dir = base_dir / model_repo_folder
+                target_dir.mkdir(parents=True, exist_ok=True)
+
+                if target_dir.exists() and any(target_dir.iterdir()) and not force:
+                    logger.info(f"Layout model already cached at {target_dir}")
+                    result.update(
+                        {
+                            "status": "skipped",
+                            "reason": "already cached",
+                            "path": str(target_dir),
+                        }
+                    )
+                    return result
+
+                logger.info(f"Downloading layout model from {repo_id} to {target_dir}")
+                try:
+                    local_dir = _snapshot_download_with_hf_transfer_fallback(
+                        repo_id=repo_id,
+                        revision=revision,
+                        target_dir=target_dir,
+                        allow_patterns=None,
+                        ignore_patterns=None,
+                    )
+                    result.update({"status": "downloaded", "path": str(local_dir)})
+                    return result
+                except Exception as exc:
+                    logger.error(f"Failed to download layout model from HuggingFace: {exc}")
+                    # Fall through to try download_model_bundles as fallback
         else:
             logger.info(f"Downloading Docling layout bundle with preset '{layout_preset}'")
     elif model_name in [
