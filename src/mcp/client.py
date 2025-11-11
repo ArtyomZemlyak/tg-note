@@ -172,14 +172,17 @@ class MCPClient:
                 )
 
             # Create fastmcp.Client - it handles all transport logic and auto-detection
+            # AICODE-NOTE: init_timeout affects both connection and initial tool calls,
+            # so we set it to a reasonable value that allows for slower operations like OCR
             self._client = Client(
                 transport=transport_config,
                 timeout=float(self.timeout),
-                init_timeout=10.0,  # Connection timeout
+                init_timeout=60.0,  # Initial request timeout (connection + first tool calls)
             )
 
             # AICODE-NOTE: Wrap connection attempt with asyncio.wait_for to ensure
-            # we don't hang indefinitely if the server is unavailable
+            # we don't hang indefinitely if the server is unavailable.
+            # This timeout should be shorter than init_timeout to catch connection hangs.
             connection_timeout = 30.0  # 30 seconds max for connection attempt
 
             # Connect using async context manager - fastmcp.Client handles connection

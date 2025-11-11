@@ -82,7 +82,7 @@ async def test_connect_stdio_uses_stdio_transport(monkeypatch):
     assert captured["transport"].command == "python"
     assert captured["transport"].args == ["server.py"]
     assert captured["timeout"] == pytest.approx(float(client.timeout))
-    assert captured["init_timeout"] == pytest.approx(10.0)
+    assert captured["init_timeout"] == pytest.approx(60.0)
 
     tools = client.get_tools()
     assert len(tools) == 1
