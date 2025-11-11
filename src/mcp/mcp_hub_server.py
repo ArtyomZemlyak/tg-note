@@ -38,6 +38,8 @@ except ImportError:
     print("Error: fastmcp not installed. Install with: pip install fastmcp")
     sys.exit(1)
 
+# Import logging utilities
+from src.core.log_utils import truncate_for_log
 from src.mcp.docling_integration import ensure_docling_mcp_spec
 
 # Import memory storage components
@@ -511,7 +513,7 @@ def store_memory(
     logger.info(f"  User: {user_id}")
     logger.info(f"  Category: {category}")
     logger.info(f"  Content length: {len(content)} chars")
-    logger.debug(f"  Content preview: {content[:200]}...")
+    logger.debug(f"  Content preview: {content[:50]}...")
     logger.debug(f"  Tags: {tags}")
 
     try:
@@ -525,7 +527,9 @@ def store_memory(
             content=content, category=category, tags=tags or [], metadata=metadata or {}
         )
         logger.info(f"✅ Store successful: ID={result.get('id', 'N/A')}")
-        logger.debug(f"  Result: {json.dumps(result, ensure_ascii=False)}")
+        logger.debug(
+            f"  Result: {json.dumps(truncate_for_log(result, max_length=50), ensure_ascii=False)}"
+        )
         return result
     except Exception as e:
         logger.error(f"❌ Error storing memory: {e}", exc_info=True)
@@ -574,7 +578,7 @@ def retrieve_memory(
         count = result.get("count", 0)
         logger.info(f"✅ Retrieve successful: found {count} memories")
         if count > 0:
-            logger.debug(f"  First result preview: {str(result.get('memories', [{}])[0])[:200]}...")
+            logger.debug(f"  First result preview: {str(result.get('memories', [{}])[0])[:50]}...")
         return result
     except Exception as e:
         logger.error(f"❌ Error retrieving memory: {e}", exc_info=True)

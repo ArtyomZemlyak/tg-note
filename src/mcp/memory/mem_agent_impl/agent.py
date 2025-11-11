@@ -7,6 +7,7 @@ from typing import Optional, Tuple, Union
 
 from loguru import logger
 
+from src.core.log_utils import truncate_for_log
 from src.mcp.memory.mem_agent_impl.engine import execute_sandboxed_code
 
 # Configure logging for mem-agent
@@ -322,7 +323,7 @@ class Agent:
         logger.info("💬 MEM-AGENT CHAT STARTED")
         logger.info("=" * 80)
         logger.info(f"  Message length: {len(message)} chars")
-        logger.info(f"  Message preview: {message[:200]}...")
+        logger.info(f"  Message preview: {message[:50]}...")
         logger.info(f"  Memory path: {self.memory_path}")
         logger.info(f"  Model: {self.model}")
         logger.info("=" * 80)
@@ -359,7 +360,7 @@ class Agent:
         result = ({}, "")
         if python_code:
             logger.info("🐍 Executing Python code...")
-            logger.debug(f"  Code preview: {python_code[:200]}...")
+            logger.debug(f"  Code preview: {python_code[:50]}...")
             try:
                 create_memory_if_not_exists(self.memory_path)
                 result = execute_sandboxed_code(

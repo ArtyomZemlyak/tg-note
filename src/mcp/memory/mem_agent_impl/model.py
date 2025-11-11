@@ -10,6 +10,7 @@ from config.settings import (
     MEM_AGENT_OPENAI_API_KEY,
     OPENROUTER_API_KEY,
 )
+from src.core.log_utils import truncate_for_log
 from src.mcp.memory.mem_agent_impl.schemas import ChatMessage, Role
 
 
@@ -103,7 +104,7 @@ def get_model_response(
 
         response_content = completion.choices[0].message.content
         logger.info(f"✅ Model response received: {len(response_content)} chars")
-        logger.debug(f"  Response preview: {response_content[:200]}...")
+        logger.debug(f"  Response preview: {response_content[:50]}...")
 
         return response_content
 

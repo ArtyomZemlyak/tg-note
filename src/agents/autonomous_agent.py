@@ -530,7 +530,7 @@ class AutonomousAgent(BaseAgent):
         context = AgentContext(task=task)
         iteration = 0
 
-        logger.info(f"[AutonomousAgent] Starting agent loop with task: {task[:100]}...")
+        logger.info(f"[AutonomousAgent] Starting agent loop with task: {task[:50]}...")
 
         while iteration < self.max_iterations:
             iteration += 1

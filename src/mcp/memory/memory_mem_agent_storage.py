@@ -137,7 +137,7 @@ class MemAgentStorage(BaseMemoryStorage):
         """
         try:
             response = self.agent.chat(message)
-            logger.debug(f"Agent response: {response.reply[:100]}...")
+            logger.debug(f"Agent response: {response.reply[:50]}...")
             return response
         except Exception as e:
             logger.error(f"Error chatting with agent: {e}", exc_info=True)
@@ -170,7 +170,7 @@ class MemAgentStorage(BaseMemoryStorage):
         logger.info(f"  Content length: {len(content)} chars")
         logger.info(f"  Category: {category}")
         logger.info(f"  Tags: {tags}")
-        logger.debug(f"  Content preview: {content[:200]}...")
+        logger.debug(f"  Content preview: {content[:50]}...")
         logger.info("=" * 60)
 
         try:
@@ -195,7 +195,7 @@ class MemAgentStorage(BaseMemoryStorage):
             response = self._chat_with_agent(instruction)
 
             logger.info("✅ Store completed successfully")
-            logger.debug(f"  Agent reply: {response.reply[:100]}...")
+            logger.debug(f"  Agent reply: {response.reply[:50]}...")
 
             return {
                 "success": True,
