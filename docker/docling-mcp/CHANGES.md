@@ -7,8 +7,10 @@
 **Problem:** Container startup would occasionally fail with error: "An error happened while trying to locate the files on the Hub and we cannot find the appropriate snapshot folder for the specified revision on the local disk."
 
 **Root Cause:**
-- HuggingFace cache directories (`HF_HOME`) were not always created before model download attempts
-- The `data/docling/models` directory was missing on fresh installations, causing volume mount issues
+- HuggingFace cache directories (`HF_HOME=/opt/docling-mcp/cache/huggingface`) were not initialized before model download attempts
+- Even when models were manually placed in `data/docling/models` (volume), HuggingFace's `snapshot_download()` still needed proper cache directory structure in `HF_HOME`
+- Volume mapping: `./data/docling/models` → `/opt/docling-mcp/models` (Docling models), `~/.cache/` → `/opt/docling-mcp/cache` (HuggingFace cache)
+- The error occurred because `snapshot_download()` expects cache directories to exist even when downloading to a custom `local_dir`
 
 **Solution:**
 - **model_sync.py**: Added automatic directory creation for `target_dir` and `HF_HOME` in `_snapshot_download_with_hf_transfer_fallback()` before calling `snapshot_download()`
