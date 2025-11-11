@@ -14,7 +14,7 @@ from docling_mcp.shared import mcp as d_mcp
 from pydantic import BaseModel, Field
 from tg_docling.config import DEFAULT_SETTINGS_PATH, load_docling_settings
 from tg_docling.converter import install_converter
-from tg_docling.logging import configure_logging
+from tg_docling.logging import configure_logging, limit_content_for_log
 from tg_docling.model_sync import sync_models
 
 from config.settings import DoclingSettings, Settings
@@ -61,7 +61,8 @@ def _run_startup_sync(settings: DoclingSettings) -> None:
 
     logger.info("Running startup model synchronisation")
     result = sync_models(settings, force=False)
-    logger.debug("Startup sync result: %s", json.dumps(result, indent=2))
+    limited_result = limit_content_for_log(result)
+    logger.debug("Startup sync result: %s", json.dumps(limited_result, indent=2))
 
 
 def _apply_env_overrides(settings: DoclingSettings) -> DoclingSettings:
