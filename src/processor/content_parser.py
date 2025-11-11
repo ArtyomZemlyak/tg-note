@@ -225,10 +225,12 @@ class ContentParser:
                 file_texts = []
                 for file_data in file_contents:
                     # AICODE-NOTE: For saved images, include path so agent can reference them
+                    # Images are saved to {kb_path}/images/, but documents are in {kb_path}/topics/
+                    # So the relative path from topics/ to images/ is ../images/
                     if "saved_path" in file_data and "saved_filename" in file_data:
                         file_texts.append(
                             f"\n\n--- Содержимое файла: {file_data['file_name']} "
-                            f"(сохранено как: images/{file_data['saved_filename']}) ---\n"
+                            f"(сохранено как: ../images/{file_data['saved_filename']}) ---\n"
                             f"{file_data['content']}"
                         )
                     else:
