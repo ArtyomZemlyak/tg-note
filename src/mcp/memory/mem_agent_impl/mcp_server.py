@@ -112,7 +112,7 @@ async def chat_with_memory(question: str, memory_path: Optional[str] = None) -> 
     logger.info("=" * 60)
     logger.info("💬 CHAT_WITH_MEMORY called")
     logger.info(f"  Question length: {len(question)} chars")
-    logger.info(f"  Question preview: {question[:200]}...")
+    logger.info(f"  Question preview: {question[:50]}...")
     logger.info(f"  Memory path: {memory_path or 'default'}")
     logger.info("=" * 60)
 
@@ -129,7 +129,7 @@ async def chat_with_memory(question: str, memory_path: Optional[str] = None) -> 
         result = response.reply or "I processed your request but have no specific reply."
         logger.info(f"✅ Chat completed successfully")
         logger.info(f"  Response length: {len(result)} chars")
-        logger.debug(f"  Response preview: {result[:200]}...")
+        logger.debug(f"  Response preview: {result[:50]}...")
         return result
 
     except Exception as e:
@@ -161,7 +161,7 @@ async def query_memory(query: str, memory_path: Optional[str] = None) -> str:
     logger.info("=" * 60)
     logger.info("🔍 QUERY_MEMORY called")
     logger.info(f"  Query length: {len(query)} chars")
-    logger.info(f"  Query: {query[:200]}...")
+    logger.info(f"  Query: {query[:50]}...")
     logger.info(f"  Memory path: {memory_path or 'default'}")
     logger.info("=" * 60)
 
@@ -202,7 +202,7 @@ async def save_to_memory(information: str, memory_path: Optional[str] = None) ->
         >>> await save_to_memory("The user's name is Alice and she works at Google")
         "I've saved that information to memory."
     """
-    logger.info(f"save_to_memory called with information: {information[:100]}...")
+    logger.info(f"save_to_memory called with information: {information[:50]}...")
 
     try:
         save_instruction = f"Please save the following information to memory: {information}"

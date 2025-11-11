@@ -26,6 +26,7 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
+from src.core.log_utils import truncate_for_log
 from src.mcp.memory.memory_factory import MemoryStorageFactory
 
 # Import shared memory storage and factory
@@ -241,7 +242,9 @@ class MemoryMCPServer:
         """
         logger.info("=" * 60)
         logger.info(f"🔧 TOOL CALL: {name}")
-        logger.info(f"📥 Arguments: {json.dumps(arguments, ensure_ascii=False, indent=2)}")
+        logger.info(
+            f"📥 Arguments: {json.dumps(truncate_for_log(arguments, max_length=50), ensure_ascii=False, indent=2)}"
+        )
 
         try:
             if name == "store_memory":
@@ -257,7 +260,9 @@ class MemoryMCPServer:
                     metadata=arguments.get("metadata"),
                 )
                 logger.info(f"✅ Store successful: {result.get('id', 'N/A')}")
-                logger.debug(f"📤 Result: {json.dumps(result, ensure_ascii=False)}")
+                logger.debug(
+                    f"📤 Result: {json.dumps(truncate_for_log(result, max_length=50), ensure_ascii=False)}"
+                )
 
             elif name == "retrieve_memory":
                 logger.info("🔍 Executing retrieve_memory...")
@@ -275,7 +280,7 @@ class MemoryMCPServer:
                 logger.info(f"✅ Retrieve successful: found {count} memories")
                 if count > 0:
                     logger.debug(
-                        f"📤 First result preview: {str(result.get('memories', [{}])[0])[:200]}..."
+                        f"📤 First result preview: {str(result.get('memories', [{}])[0])[:50]}..."
                     )
 
             elif name == "list_categories":
@@ -308,7 +313,9 @@ class MemoryMCPServer:
             logger.error(f"❌ TOOL EXECUTION ERROR: {name}")
             logger.error(f"Error type: {type(e).__name__}")
             logger.error(f"Error message: {str(e)}")
-            logger.error(f"Arguments were: {json.dumps(arguments, ensure_ascii=False, indent=2)}")
+            logger.error(
+                f"Arguments were: {json.dumps(truncate_for_log(arguments, max_length=50), ensure_ascii=False, indent=2)}"
+            )
             logger.error("=" * 60, exc_info=True)
 
             error_result = {

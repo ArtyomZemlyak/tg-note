@@ -238,7 +238,7 @@ class QwenCodeCLIAgent(BaseAgent):
         logger.info(
             "[QwenCodeCLIAgent] Starting autonomous content processing with qwen-code CLI..."
         )
-        logger.debug(f"[QwenCodeCLIAgent] Content preview: {content.get('text', '')[:100]}...")
+        logger.debug(f"[QwenCodeCLIAgent] Content preview: {content.get('text', '')[:50]}...")
 
         try:
             # Step 1: Prepare prompt for qwen-code (with MCP tools info)
@@ -327,7 +327,7 @@ class QwenCodeCLIAgent(BaseAgent):
 
             logger.info(f"[QwenCodeCLIAgent] Successfully processed content: title='{title}'")
             logger.info(f"[QwenCodeCLIAgent] Summary: {parsed_result.get('summary', '')}")
-            logger.debug(f"[QwenCodeCLIAgent] Markdown preview: {markdown_result[:200]}...")
+            logger.debug(f"[QwenCodeCLIAgent] Markdown preview: {markdown_result[:50]}...")
             return result
 
         except ValueError as ve:
