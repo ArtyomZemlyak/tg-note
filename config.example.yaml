@@ -167,6 +167,10 @@ MEDIA_PROCESSING_ENABLED: true
 #   - true  (default) — Docling container downloads required models on startup
 #   - false           — Skip automatic sync (загрузка выполняется только при изменении настроек)
 #
+# mcp:
+#   - timeout: Timeout for Docling MCP requests in seconds (default: 180 for document/image processing)
+#             Increase this if processing large files or complex documents with OCR
+#
 # ocr_config:
 #   - backend: rapidocr | easyocr | tesseract | tesseract_cli | onnxtr | none
 #   - languages: Override OCR languages (falls back to ocr_languages when empty)
@@ -188,6 +192,8 @@ MEDIA_PROCESSING_DOCLING:
   keep_images: false
   generate_page_images: false
   startup_sync: true
+  mcp:
+    timeout: 180  # Timeout for Docling MCP requests (seconds). Increase for large files.
   ocr_languages:
     - eng  # English (ISO 639-3)
     - rus  # Russian (ISO 639-3)

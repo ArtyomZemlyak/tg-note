@@ -13,6 +13,12 @@ Supported MCP features:
 - ✅ SSE transport (auto-detected)
 - ✅ Streaming HTTP transport (auto-detected)
 
+KNOWN ISSUES:
+- HTTP-based transports may have internal timeout defaults that override the configured
+  timeout parameter. If you experience early timeouts (e.g., 10 seconds), increase the
+  per-server timeout or MCP_TIMEOUT setting. We use asyncio.wait_for as a workaround
+  to enforce longer timeouts at the application level.
+
 References:
 - MCP Protocol: https://modelcontextprotocol.io/
 - MCP Specification: https://modelcontextprotocol.io/docs/specification
@@ -170,10 +176,14 @@ class MCPClient:
                 )
 
             # Create fastmcp.Client - it handles all transport logic and auto-detection
+            # AICODE-NOTE: For HTTP-based transports (SSE), the timeout parameter should control
+            # request timeouts. However, fastmcp may have internal HTTP client defaults that
+            # override this. We set a long timeout here and also wrap individual calls with
+            # asyncio.wait_for for additional safety.
             self._client = Client(
                 transport=transport_config,
                 timeout=float(self.timeout),
-                init_timeout=10.0,  # Connection timeout
+                init_timeout=30.0,  # Connection timeout (increased from 10s for slower networks)
             )
 
             # Connect using async context manager - fastmcp.Client handles connection
@@ -269,28 +279,57 @@ class MCPClient:
                 f"[MCPClient] Calling tool: {tool_name} with args: {self._limit_content_for_log(arguments)}"
             )
 
-            # Call tool using fastmcp.Client
-            response = await self._client.call_tool(
-                tool_name,
-                arguments or {},
+            # AICODE-NOTE: Wrap call_tool with asyncio.wait_for to enforce custom timeout
+            # The fastmcp Client's timeout parameter may not apply to individual requests,
+            # so we use asyncio.wait_for to ensure the timeout is respected.
+            import asyncio
+
+            response = await asyncio.wait_for(
+                self._client.call_tool(
+                    tool_name,
+                    arguments or {},
+                ),
+                timeout=float(self.timeout),
             )
 
             # Parse fastmcp response into our format
             return self._parse_tool_response(response)
 
         except Exception as e:
+            error_str = str(e).lower()
+
+            # AICODE-NOTE: Provide helpful error messages for common issues
+            if "timeout" in error_str or "timed out" in error_str:
+                logger.error(
+                    f"[MCPClient] Tool call timed out after {self.timeout}s: {tool_name}. "
+                    f"Consider increasing the timeout for this operation."
+                )
+                return {
+                    "success": False,
+                    "error": (
+                        f"Operation timed out after {self.timeout} seconds. "
+                        f"This operation may require more time to complete. "
+                        f"Consider increasing MCP_TIMEOUT or the per-server timeout setting."
+                    ),
+                }
+
             logger.error(f"[MCPClient] Tool call failed: {e}", exc_info=True)
 
             # Try to reconnect if connection lost
-            if "connection" in str(e).lower() or "closed" in str(e).lower():
+            if "connection" in error_str or "closed" in error_str:
                 logger.warning("[MCPClient] Connection lost, attempting to reconnect...")
                 if await self.reconnect():
                     logger.info("[MCPClient] Reconnected successfully, retrying tool call...")
                     # Retry the tool call once
                     try:
-                        response = await self._client.call_tool(
-                            tool_name,
-                            arguments or {},
+                        import asyncio
+
+                        response = await asyncio.wait_for(
+                            self._client.call_tool(
+                                tool_name,
+                                arguments or {},
+                            ),
+                            timeout=float(self.timeout),
                         )
                         return self._parse_tool_response(response)
                     except Exception as retry_error:
