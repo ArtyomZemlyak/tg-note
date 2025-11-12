@@ -7,7 +7,7 @@ Follows DRY (Don't Repeat Yourself) principle
 import asyncio
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 from loguru import logger
 
@@ -20,6 +20,10 @@ from src.knowledge_base.credentials_manager import CredentialsManager
 from src.knowledge_base.git_ops import GitOperations
 from src.knowledge_base.repository import RepositoryManager
 from src.processor.content_parser import ContentParser
+from src.processor.markdown_link_fixer import (
+    LinkValidationResult,
+    validate_and_fix_links_before_commit,
+)
 
 
 class BaseKBService:
@@ -192,6 +196,9 @@ class BaseKBService:
         AICODE-NOTE: This ensures that all KB changes are committed and pushed
         before releasing KB lock, maintaining consistency across multiple users.
 
+        IMPORTANT: Validates and fixes markdown links (images and internal pages)
+        before committing to prevent broken links in KB.
+
         Args:
             git_ops: Git operations handler
             user_id: User ID for settings lookup
@@ -205,10 +212,23 @@ class BaseKBService:
         if not git_ops.enabled:
             return True, "Git not enabled"
 
+        # AICODE-NOTE: Validate and fix markdown links before commit
+        # This prevents broken image/link paths from being committed
+        validation_result = await self._validate_and_fix_markdown_links(git_ops.repo_path)
+
+        if validation_result and validation_result.has_changes():
+            self.logger.info(
+                f"Fixed {validation_result.images_fixed} images and "
+                f"{validation_result.links_fixed} links before commit"
+            )
+
         # Update status message if provided
         if chat_id and processing_msg_id:
+            status_text = "📤 Сохраняю изменения в git..."
+            if validation_result and validation_result.has_broken_links():
+                status_text += f"\n⚠️ Некоторые ссылки требуют ручного исправления"
             await self.bot.edit_message_text(
-                "📤 Сохраняю изменения в git...",
+                status_text,
                 chat_id=chat_id,
                 message_id=processing_msg_id,
             )
@@ -448,3 +468,93 @@ class BaseKBService:
                 text=f"💡 (часть {i}/{len(message_chunks)}):\n\n{chunk}",
                 parse_mode="HTML",
             )
+
+    async def _validate_and_fix_markdown_links(
+        self, kb_path: Path
+    ) -> Optional[LinkValidationResult]:
+        """
+        Validate and fix markdown links before commit.
+
+        Checks:
+        - Image paths: ![alt](path)
+        - Internal markdown links: [text](page.md)
+
+        Auto-fixes:
+        - Calculates correct relative paths
+        - Finds files by name if path is wrong
+        - Adds TODO comments if can't fix
+
+        Args:
+            kb_path: Path to knowledge base
+
+        Returns:
+            LinkValidationResult or None if validation disabled/failed
+        """
+        try:
+            # Get list of changed markdown files from git status
+            # This is more efficient than checking all files
+            changed_files = self._get_changed_markdown_files(kb_path)
+
+            if not changed_files:
+                self.logger.debug("No markdown files changed, skipping link validation")
+                return None
+
+            self.logger.info(
+                f"Validating and fixing links in {len(changed_files)} changed markdown files..."
+            )
+
+            # Run validation and auto-fix
+            result = validate_and_fix_links_before_commit(kb_path, changed_files)
+
+            # Log results
+            if result.has_changes():
+                self.logger.info(f"✓ Fixed links: {result}")
+
+            if result.has_broken_links():
+                self.logger.warning(
+                    f"⚠️ Some links could not be fixed automatically. "
+                    f"TODO comments added: {result.images_broken} images, "
+                    f"{result.links_broken} links"
+                )
+
+            return result
+
+        except Exception as e:
+            self.logger.error(f"Error during link validation: {e}", exc_info=True)
+            return None
+
+    def _get_changed_markdown_files(self, kb_path: Path) -> List[Path]:
+        """
+        Get list of markdown files that have been modified/added.
+
+        Args:
+            kb_path: Path to knowledge base
+
+        Returns:
+            List of changed markdown file paths
+        """
+        try:
+            # Try to use GitOperations to get changed files
+            git_ops = GitOperations(kb_path)
+            if not git_ops.enabled:
+                # Git not enabled, check all markdown files
+                return list(kb_path.rglob("*.md"))
+
+            # Get status of modified/added files
+            changed = []
+            for item in git_ops.repo.index.diff(None):  # Modified files
+                file_path = kb_path / item.a_path
+                if file_path.suffix == ".md" and file_path.exists():
+                    changed.append(file_path)
+
+            for item in git_ops.repo.untracked_files:  # Untracked files
+                file_path = kb_path / item
+                if file_path.suffix == ".md" and file_path.exists():
+                    changed.append(file_path)
+
+            return changed
+
+        except Exception as e:
+            self.logger.warning(f"Could not get git status, checking all markdown files: {e}")
+            # Fallback: check all markdown files
+            return list(kb_path.rglob("*.md"))
