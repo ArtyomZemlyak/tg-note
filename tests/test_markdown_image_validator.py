@@ -137,6 +137,24 @@ def test_incorrect_relative_path(temp_kb):
     assert len(errors[0].suggestion) > 0
 
 
+def test_suggest_nested_image_path(temp_kb):
+    """Test that suggestions include nested image directories."""
+    validator = MarkdownImageValidator(temp_kb)
+
+    nested_dir = temp_kb / "images" / "reports" / "q1"
+    nested_dir.mkdir(parents=True, exist_ok=True)
+    (nested_dir / "chart.png").write_text("fake image")
+
+    md_file = temp_kb / "topics" / "nested.md"
+    md_file.write_text("# Nested\n\n![Chart](images/chart.png)")
+
+    _, issues = validator.validate_markdown_file(md_file)
+
+    errors = [i for i in issues if i.severity == ValidationIssue.SEVERITY_ERROR]
+    assert len(errors) == 1
+    assert errors[0].suggestion == "../images/reports/q1/chart.png"
+
+
 def test_empty_alt_text_warning(temp_kb):
     """Test warning for empty alt text."""
     validator = MarkdownImageValidator(temp_kb)

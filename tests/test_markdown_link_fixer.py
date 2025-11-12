@@ -258,5 +258,68 @@ def test_no_duplicate_todo_comments(temp_kb):
     assert content.count("<!-- TODO:") == 1
 
 
+def test_add_todo_for_each_broken_image_same_line(temp_kb):
+    """Test that each broken image on the same line gets its own TODO comment."""
+    fixer = MarkdownLinkFixer(temp_kb)
+
+    md_file = temp_kb / "test.md"
+    md_file.write_text(
+        "![First](images/missing1.jpg) and ![Second](images/missing2.jpg)"
+    )
+
+    modified, images_fixed, links_fixed = fixer.validate_and_fix_file(md_file)
+
+    assert modified is True
+    assert images_fixed == 0
+    assert links_fixed == 0
+
+    content = md_file.read_text()
+    assert content.count("<!-- TODO: Broken image path -->") == 2
+
+
+def test_add_todo_for_each_broken_link_same_line(temp_kb):
+    """Test that each broken markdown link on the same line gets its own TODO comment."""
+    fixer = MarkdownLinkFixer(temp_kb)
+
+    md_file = temp_kb / "test.md"
+    md_file.write_text("[Doc1](missing-one.md) and [Doc2](missing-two.md)")
+
+    modified, images_fixed, links_fixed = fixer.validate_and_fix_file(md_file)
+
+    assert modified is True
+    assert images_fixed == 0
+    assert links_fixed == 0
+
+    content = md_file.read_text()
+    assert content.count("<!-- TODO: Broken link -->") == 2
+
+
+def test_choose_nearest_markdown_link_candidate(temp_kb):
+    """Test that the fixer prefers the closest matching markdown file."""
+    fixer = MarkdownLinkFixer(temp_kb)
+
+    section1 = temp_kb / "topics" / "section1"
+    section2 = temp_kb / "topics" / "section2"
+    section2_sub = section2 / "sub"
+
+    section1.mkdir(parents=True, exist_ok=True)
+    section2_sub.mkdir(parents=True, exist_ok=True)
+
+    (section1 / "target.md").write_text("# Section 1 target")
+    (section2 / "target.md").write_text("# Section 2 target")
+
+    md_file = section2_sub / "note.md"
+    md_file.write_text("# Note\n\n[Target](target.md)")
+
+    modified, images_fixed, links_fixed = fixer.validate_and_fix_file(md_file)
+
+    assert modified is True
+    assert images_fixed == 0
+    assert links_fixed == 1
+
+    content = md_file.read_text()
+    assert "[Target](../target.md)" in content
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

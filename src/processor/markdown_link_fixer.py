@@ -3,8 +3,9 @@ Markdown Link Fixer
 Validates and fixes links (images and internal pages) in markdown files before git commit.
 """
 
+import os
 import re
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Dict, List, Optional, Set, Tuple
 
 from loguru import logger
@@ -137,36 +138,43 @@ class MarkdownLinkFixer:
         modified_lines = []
 
         for line in lines:
-            modified_line = line
-            matches = list(self.IMAGE_PATTERN.finditer(line))
-
-            for match in reversed(matches):  # Reverse to preserve positions
+            last_index = 0
+            reconstructed_line_parts = []
+            for match in self.IMAGE_PATTERN.finditer(line):
                 alt_text = match.group(1)
                 img_path = match.group(2)
+                start, end = match.span()
 
-                # Skip URLs
+                reconstructed_line_parts.append(line[last_index:start])
+                original_ref = line[start:end]
+
                 if img_path.startswith(("http://", "https://")):
+                    reconstructed_line_parts.append(original_ref)
+                    last_index = end
                     continue
 
-                # Try to fix the path
                 fixed_path = self._try_fix_image_path(img_path, md_file)
 
                 if fixed_path and fixed_path != img_path:
-                    # Replace in line
-                    old_ref = f"![{alt_text}]({img_path})"
                     new_ref = f"![{alt_text}]({fixed_path})"
-                    modified_line = modified_line.replace(old_ref, new_ref, 1)
+                    reconstructed_line_parts.append(new_ref)
+                    last_index = end
                     fixes_count += 1
                     logger.debug(f"Fixed image: {img_path} → {fixed_path}")
-                elif not fixed_path:
-                    # Can't fix - add TODO comment
-                    old_ref = f"![{alt_text}]({img_path})"
-                    new_ref = f"![{alt_text}]({img_path}) <!-- TODO: Broken image path -->"
-                    if "<!-- TODO:" not in modified_line:  # Don't add duplicate
-                        modified_line = modified_line.replace(old_ref, new_ref, 1)
+                elif fixed_path is None:
+                    if "<!-- TODO: Broken image path -->" not in line[end:]:
+                        new_ref = f"![{alt_text}]({img_path}) <!-- TODO: Broken image path -->"
                         logger.warning(f"Can't fix image path: {img_path} in {md_file.name}")
+                    else:
+                        new_ref = original_ref
+                    reconstructed_line_parts.append(new_ref)
+                    last_index = end
+                else:
+                    reconstructed_line_parts.append(original_ref)
+                    last_index = end
 
-            modified_lines.append(modified_line)
+            reconstructed_line_parts.append(line[last_index:])
+            modified_lines.append("".join(reconstructed_line_parts))
 
         return "\n".join(modified_lines), fixes_count
 
@@ -181,43 +189,36 @@ class MarkdownLinkFixer:
         Returns:
             Fixed path or None if can't fix
         """
-        # Try to resolve current path
         md_dir = md_file.parent
         resolved = (md_dir / img_path).resolve()
 
-        # If it exists and is valid, path is correct
         if resolved.exists() and resolved.is_file():
             try:
-                # Check if it's within images directory
                 resolved.relative_to(self.images_dir)
-                return None  # Path is already correct
+                return None
             except ValueError:
-                pass  # Not in images dir, continue trying to fix
+                pass
 
-        # Extract filename
         filename = Path(img_path).name
 
-        # Search for file in images directory
-        if self.images_dir.exists():
-            for img_file in self.images_dir.rglob(filename):
-                if img_file.is_file():
-                    # Calculate correct relative path
-                    try:
-                        rel_path = img_file.relative_to(md_dir)
-                        return str(rel_path)
-                    except ValueError:
-                        # Can't create relative path, try from KB root
-                        try:
-                            rel_from_kb = img_file.relative_to(self.kb_root)
-                            # Calculate how many levels up from md_file to kb_root
-                            md_rel_to_kb = md_file.relative_to(self.kb_root)
-                            levels_up = len(md_rel_to_kb.parent.parts)
-                            prefix = "../" * levels_up
-                            return prefix + str(rel_from_kb)
-                        except ValueError:
-                            pass
+        if not self.images_dir.exists():
+            return None
 
-        return None  # Can't fix
+        candidates = [
+            candidate
+            for candidate in self.images_dir.rglob(filename)
+            if candidate.is_file()
+        ]
+
+        if not candidates:
+            return None
+
+        best_relative = self._select_best_candidate(candidates, md_dir)
+
+        if not best_relative or best_relative == img_path:
+            return None
+
+        return best_relative
 
     def _fix_markdown_links(self, content: str, md_file: Path) -> Tuple[str, int]:
         """
@@ -235,40 +236,48 @@ class MarkdownLinkFixer:
         modified_lines = []
 
         for line in lines:
-            modified_line = line
-            matches = list(self.LINK_PATTERN.finditer(line))
-
-            for match in reversed(matches):
+            last_index = 0
+            reconstructed_line_parts = []
+            for match in self.LINK_PATTERN.finditer(line):
                 link_text = match.group(1)
                 link_path = match.group(2)
+                start, end = match.span()
 
-                # Skip URLs and anchors
+                reconstructed_line_parts.append(line[last_index:start])
+                original_link = line[start:end]
+
                 if link_path.startswith(("http://", "https://", "#", "mailto:")):
+                    reconstructed_line_parts.append(original_link)
+                    last_index = end
                     continue
 
-                # Only process .md links
                 if not link_path.endswith(".md") and ".md#" not in link_path:
+                    reconstructed_line_parts.append(original_link)
+                    last_index = end
                     continue
 
-                # Try to fix the path
                 fixed_path = self._try_fix_markdown_link(link_path, md_file)
 
                 if fixed_path and fixed_path != link_path:
-                    # Replace in line
-                    old_link = f"[{link_text}]({link_path})"
                     new_link = f"[{link_text}]({fixed_path})"
-                    modified_line = modified_line.replace(old_link, new_link, 1)
+                    reconstructed_line_parts.append(new_link)
+                    last_index = end
                     fixes_count += 1
                     logger.debug(f"Fixed link: {link_path} → {fixed_path}")
-                elif not fixed_path:
-                    # Can't fix - add TODO comment
-                    old_link = f"[{link_text}]({link_path})"
-                    new_link = f"[{link_text}]({link_path}) <!-- TODO: Broken link -->"
-                    if "<!-- TODO:" not in modified_line:
-                        modified_line = modified_line.replace(old_link, new_link, 1)
+                elif fixed_path is None:
+                    if "<!-- TODO: Broken link -->" not in line[end:]:
+                        new_link = f"[{link_text}]({link_path}) <!-- TODO: Broken link -->"
                         logger.warning(f"Can't fix link: {link_path} in {md_file.name}")
+                    else:
+                        new_link = original_link
+                    reconstructed_line_parts.append(new_link)
+                    last_index = end
+                else:
+                    reconstructed_line_parts.append(original_link)
+                    last_index = end
 
-            modified_lines.append(modified_line)
+            reconstructed_line_parts.append(line[last_index:])
+            modified_lines.append("".join(reconstructed_line_parts))
 
         return "\n".join(modified_lines), fixes_count
 
@@ -302,25 +311,63 @@ class MarkdownLinkFixer:
         # Extract filename
         filename = Path(path_part).name
 
-        # Search for file in KB
+        candidates: List[Path] = []
         for found_file in self.kb_root.rglob(filename):
             if found_file.is_file() and found_file.suffix == ".md":
-                # Calculate correct relative path
-                try:
-                    rel_path = found_file.relative_to(md_dir)
-                    return str(rel_path) + anchor
-                except ValueError:
-                    # Can't create relative path, try from KB root
-                    try:
-                        rel_from_kb = found_file.relative_to(self.kb_root)
-                        md_rel_to_kb = md_file.relative_to(self.kb_root)
-                        levels_up = len(md_rel_to_kb.parent.parts)
-                        prefix = "../" * levels_up
-                        return prefix + str(rel_from_kb) + anchor
-                    except ValueError:
-                        pass
+                candidates.append(found_file)
 
-        return None  # Can't fix
+        if not candidates:
+            return None
+
+        best_relative = self._select_best_candidate(candidates, md_dir)
+
+        if not best_relative or best_relative == path_part:
+            return None
+
+        return best_relative + anchor
+
+    def _select_best_candidate(self, candidates: List[Path], start_dir: Path) -> Optional[str]:
+        """
+        Select the closest relative path among candidate files.
+        """
+        best: Optional[Tuple[Tuple[int, int, int], str]] = None
+
+        for candidate in candidates:
+            relative_path = self._make_relative_path(candidate, start_dir)
+            if not relative_path:
+                continue
+
+            score = self._score_relative_path(relative_path)
+
+            if best is None or score < best[0]:
+                best = (score, relative_path)
+
+        return best[1] if best else None
+
+    def _make_relative_path(self, target: Path, start_dir: Path) -> Optional[str]:
+        """
+        Build a POSIX-style relative path from start_dir to target.
+        """
+        try:
+            rel = os.path.relpath(target, start_dir)
+        except ValueError:
+            return None
+
+        rel_path = PurePosixPath(rel).as_posix()
+        return rel_path
+
+    def _score_relative_path(self, relative_path: str) -> Tuple[int, int, int]:
+        """
+        Score relative paths to choose the closest candidate.
+
+        Lower scores are better. The tuple consists of:
+        (number of upward ".." segments, total segments, total length)
+        """
+        segments = [segment for segment in relative_path.split("/") if segment]
+        upwards = sum(1 for segment in segments if segment == "..")
+        depth = len(segments)
+        length = len(relative_path)
+        return upwards, depth, length
 
     def validate_and_fix_kb(
         self, changed_files: Optional[List[Path]] = None, dry_run: bool = False
