@@ -326,3 +326,119 @@ async def test_download_and_process_telegram_file_accepts_kb_images_dir():
 
     # Test passes if no TypeError about unexpected parameters
     assert True
+
+
+def test_compute_file_hash(file_processor):
+    """Test that file hash computation works correctly"""
+    test_content = b"test file content"
+    hash1 = file_processor._compute_file_hash(test_content)
+
+    # Hash should be consistent
+    hash2 = file_processor._compute_file_hash(test_content)
+    assert hash1 == hash2
+
+    # Different content should produce different hash
+    different_content = b"different content"
+    hash3 = file_processor._compute_file_hash(different_content)
+    assert hash1 != hash3
+
+    # Hash should be hex string
+    assert isinstance(hash1, str)
+    assert len(hash1) == 64  # SHA256 produces 64 hex characters
+
+
+def test_find_existing_image_by_hash(file_processor, tmp_path):
+    """Test finding existing images by hash"""
+    # Create test images directory
+    images_dir = tmp_path / "images"
+    images_dir.mkdir()
+
+    # Create a test image
+    test_content = b"test image content"
+    test_file = images_dir / "img_1234567890_abcd1234.jpg"
+    test_file.write_bytes(test_content)
+
+    # Compute hash
+    file_hash = file_processor._compute_file_hash(test_content)
+
+    # Should find existing file
+    found = file_processor._find_existing_image_by_hash(file_hash, images_dir, ".jpg")
+    assert found is not None
+    assert found == test_file
+
+    # Should not find file with different hash
+    different_hash = file_processor._compute_file_hash(b"different content")
+    not_found = file_processor._find_existing_image_by_hash(different_hash, images_dir, ".jpg")
+    assert not_found is None
+
+    # Should not find file with different extension
+    not_found_ext = file_processor._find_existing_image_by_hash(file_hash, images_dir, ".png")
+    assert not_found_ext is None
+
+
+@pytest.mark.asyncio
+async def test_download_deduplication(file_processor, tmp_path):
+    """Test that duplicate images are detected and not saved twice"""
+    from unittest.mock import AsyncMock, MagicMock
+
+    # Create test images directory
+    images_dir = tmp_path / "images"
+    images_dir.mkdir()
+
+    # Create mock bot and file info
+    mock_bot = MagicMock()
+    test_image_content = b"test image content for deduplication"
+    mock_bot.download_file = AsyncMock(return_value=test_image_content)
+
+    mock_file_info = MagicMock()
+    mock_file_info.file_path = "photos/test.jpg"
+
+    # Mock process_file to return success
+    async def mock_process_file(path):
+        return {
+            "text": "test",
+            "metadata": {},
+            "format": "jpg",
+        }
+
+    file_processor.process_file = mock_process_file
+
+    # First download - should create new file
+    result1 = await file_processor.download_and_process_telegram_file(
+        bot=mock_bot,
+        file_info=mock_file_info,
+        original_filename="test.jpg",
+        kb_images_dir=images_dir,
+        file_id="testfile1",
+        message_date=1000000000,
+    )
+
+    assert result1 is not None
+    assert "saved_path" in result1
+    assert "saved_filename" in result1
+
+    # Count files after first download
+    files_after_first = list(images_dir.glob("img_*.jpg"))
+    assert len(files_after_first) == 1
+    first_filename = result1["saved_filename"]
+
+    # Second download of same image - should reuse existing file
+    result2 = await file_processor.download_and_process_telegram_file(
+        bot=mock_bot,
+        file_info=mock_file_info,
+        original_filename="test.jpg",
+        kb_images_dir=images_dir,
+        file_id="testfile2",  # Different file_id
+        message_date=1000000100,  # Different timestamp
+    )
+
+    assert result2 is not None
+    assert "saved_path" in result2
+    assert "saved_filename" in result2
+
+    # Should still have only one file (deduplication worked)
+    files_after_second = list(images_dir.glob("img_*.jpg"))
+    assert len(files_after_second) == 1
+
+    # Should reuse the same filename
+    assert result2["saved_filename"] == first_filename

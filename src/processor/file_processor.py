@@ -4,6 +4,7 @@ Handles various file formats using Docling via MCP or local converter.
 """
 
 import base64
+import hashlib
 import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
@@ -817,6 +818,49 @@ class FileProcessor:
         self.logger.warning("No Docling backend configured for processing.")
         return None
 
+    def _compute_file_hash(self, file_content: bytes) -> str:
+        """
+        Compute SHA256 hash of file content.
+
+        Args:
+            file_content: File content as bytes
+
+        Returns:
+            SHA256 hash as hex string
+        """
+        return hashlib.sha256(file_content).hexdigest()
+
+    def _find_existing_image_by_hash(
+        self, file_hash: str, images_dir: Path, extension: str
+    ) -> Optional[Path]:
+        """
+        Find existing image with same hash in images directory.
+
+        Args:
+            file_hash: SHA256 hash of the file
+            images_dir: Directory containing images
+            extension: File extension (e.g., '.jpg')
+
+        Returns:
+            Path to existing file if found, None otherwise
+        """
+        # AICODE-NOTE: Check all images with the same extension
+        pattern = f"img_*{extension}"
+        for existing_file in images_dir.glob(pattern):
+            if existing_file.is_file():
+                try:
+                    with open(existing_file, "rb") as f:
+                        existing_hash = self._compute_file_hash(f.read())
+                    if existing_hash == file_hash:
+                        self.logger.info(
+                            f"Found duplicate image: {existing_file.name} (hash: {file_hash[:8]}...)"
+                        )
+                        return existing_file
+                except Exception as e:
+                    self.logger.warning(f"Error checking file {existing_file}: {e}")
+                    continue
+        return None
+
     async def download_and_process_telegram_file(
         self,
         bot,
@@ -876,23 +920,45 @@ class FileProcessor:
             is_image = extension in ["jpg", "jpeg", "png", "gif", "tiff", "bmp", "webp"]
             save_to_kb = kb_images_dir is not None and is_image
 
+            # Download file first to check for duplicates
+            downloaded_file = await bot.download_file(file_info.file_path)
+
             if save_to_kb:
                 # AICODE-NOTE: Save images to KB for later reference in markdown files
-                # Generate unique filename using timestamp and file_id
-                # Convert to absolute path to avoid file URI errors
+                # Check for duplicates before saving
                 kb_images_dir_abs = kb_images_dir.resolve()
                 kb_images_dir_abs.mkdir(parents=True, exist_ok=True)
 
-                # Generate unique filename
-                import time
+                # Compute hash of downloaded file
+                file_hash = self._compute_file_hash(downloaded_file)
 
-                timestamp = message_date or int(time.time())
-                # Use first 8 chars of file_id as identifier (if available)
-                file_suffix = f"_{file_id[:8]}" if file_id else ""
-                unique_filename = f"img_{timestamp}{file_suffix}{file_extension}"
+                # Check if this image already exists
+                existing_file = self._find_existing_image_by_hash(
+                    file_hash, kb_images_dir_abs, file_extension
+                )
 
-                save_path = kb_images_dir_abs / unique_filename
-                self.logger.info(f"Downloading Telegram image to KB: {save_path}")
+                if existing_file:
+                    # Use existing file instead of saving duplicate
+                    save_path = existing_file
+                    unique_filename = existing_file.name
+                    self.logger.info(f"Reusing existing image (duplicate detected): {save_path}")
+                else:
+                    # Generate unique filename using timestamp and file_id
+                    import time
+
+                    timestamp = message_date or int(time.time())
+                    # Use first 8 chars of file_id as identifier (if available)
+                    file_suffix = f"_{file_id[:8]}" if file_id else ""
+                    unique_filename = f"img_{timestamp}{file_suffix}{file_extension}"
+
+                    save_path = kb_images_dir_abs / unique_filename
+                    self.logger.info(f"Saving new image to KB: {save_path}")
+
+                    # Write file only if it's not a duplicate
+                    with open(save_path, "wb") as f:
+                        f.write(downloaded_file)
+
+                    self.logger.info(f"File downloaded to: {save_path}")
             else:
                 # Use temporary directory for non-images or when KB path not provided
                 temp_dir = tempfile.mkdtemp(prefix="tg_note_file_")
@@ -900,13 +966,10 @@ class FileProcessor:
                 save_path = Path(temp_dir) / temp_filename
                 self.logger.info(f"Downloading Telegram file to temp: {save_path}")
 
-            # Download file
-            downloaded_file = await bot.download_file(file_info.file_path)
+                with open(save_path, "wb") as f:
+                    f.write(downloaded_file)
 
-            with open(save_path, "wb") as f:
-                f.write(downloaded_file)
-
-            self.logger.info(f"File downloaded to: {save_path}")
+                self.logger.info(f"File downloaded to: {save_path}")
 
             # AICODE-NOTE: Validate saved image path (for images saved to KB)
             if save_to_kb and is_image:
