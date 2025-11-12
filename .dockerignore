@@ -77,6 +77,16 @@ docker-compose*.yml
 *.tmp
 *.cache
 
+# Large model files (should be downloaded in container or mounted)
+*.tar.gz
+*.tar
+*.zip
+*.7z
+*.rar
+*.tar.xz
+*.tar.bz2
+docling_models.*
+
 # Poetry
 poetry.lock
 

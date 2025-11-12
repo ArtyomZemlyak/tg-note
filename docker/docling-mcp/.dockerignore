@@ -1,0 +1,64 @@
+# .dockerignore for docling-mcp
+# This file is used when building docling-mcp service from docker/docling-mcp/ directory
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+!README.md
+!CHANGES.md
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Misc
+.DS_Store
+*.bak
+*.tmp
+*.cache
+
+# Large model files (should be downloaded in container or mounted)
+*.tar.gz
+*.tar
+*.zip
+*.7z
+*.rar
+*.tar.xz
+*.tar.bz2
+models/
+cache/
