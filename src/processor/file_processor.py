@@ -775,17 +775,8 @@ class FileProcessor:
 
         raw_extension = file_path.suffix.lower().lstrip(".")
 
-        # AICODE-NOTE: Validate image path before processing with docling
-        # This ensures we're sending valid paths to docling for OCR
-        is_image = raw_extension in ["jpg", "jpeg", "png", "gif", "tiff", "bmp", "webp"]
-
-        if is_image:
-            is_valid, error_msg = validate_image_path(file_path, self.images_dir)
-            if not is_valid:
-                self.logger.error(f"[FileProcessor] Image validation failed: {error_msg}")
-                self.logger.error(f"[FileProcessor] File path: {file_path}")
-                self.logger.error(f"[FileProcessor] Expected KB images dir: {self.images_dir}")
-                return None
+        # AICODE-NOTE: Image path validation is handled in download_and_process_telegram_file
+        # before the file is saved, so we don't need to validate again here
         file_format = self.detect_file_format(file_path)
 
         if not file_format:
