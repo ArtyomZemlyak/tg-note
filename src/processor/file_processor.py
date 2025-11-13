@@ -450,6 +450,22 @@ class FileProcessor:
             "structuredContent"
         )
 
+        # AICODE-NOTE: DEBUG - Log what Docling actually returns
+        self.logger.debug(
+            f"[DEBUG] Docling MCP result structure: "
+            f"has_content={bool(content)}, "
+            f"content_len={len(content) if isinstance(content, list) else 'N/A'}, "
+            f"has_structured_content={bool(structured_content)}, "
+            f"structured_content_keys={list(structured_content.keys()) if isinstance(structured_content, dict) else 'N/A'}"
+        )
+        if isinstance(structured_content, dict):
+            self.logger.debug(
+                f"[DEBUG] Structured content: {list(structured_content.keys())}"
+            )
+        if isinstance(content, list) and content:
+            content_types = [item.get("type") if isinstance(item, dict) else getattr(item, "type", None) for item in content[:5]]
+            self.logger.debug(f"[DEBUG] Content item types (first 5): {content_types}")
+
         # AICODE-NOTE: Check if result contains document_key (from convert_document_from_content)
         # First check if markdown is already included in the response (export_format was used)
         document_key = None
@@ -459,6 +475,20 @@ class FileProcessor:
             document_key = structured_content.get("document_key")
             # Check if markdown was already exported
             markdown_text = structured_content.get("markdown")
+            
+            # AICODE-NOTE: DEBUG - Check if markdown contains base64 images
+            if markdown_text:
+                import re
+                base64_image_pattern = r'data:image/[^;]+;base64,'
+                base64_images = re.findall(base64_image_pattern, markdown_text)
+                if base64_images:
+                    self.logger.info(
+                        f"[DEBUG] Found {len(base64_images)} base64-encoded images in markdown"
+                    )
+                else:
+                    self.logger.debug(
+                        "[DEBUG] No base64-encoded images found in markdown"
+                    )
 
             if markdown_text:
                 self.logger.info(
@@ -474,11 +504,17 @@ class FileProcessor:
                         "export_format": structured_content.get("export_format", "markdown"),
                     }
                 }
-                # AICODE-NOTE: Extract images/tables from PDF even when markdown is already exported
-                if kb_images_dir and document_key:
-                    extracted_elements = await self._extract_elements_from_document(
-                        client, document_key, kb_images_dir, source_filename
+                # AICODE-NOTE: Try to extract images from markdown if they're embedded as base64
+                if kb_images_dir:
+                    # First try extracting from markdown (base64 embedded images)
+                    extracted_elements = await self._extract_elements_from_markdown(
+                        markdown_text, kb_images_dir, source_filename
                     )
+                    # If no elements found in markdown, try document-based extraction
+                    if not extracted_elements and document_key:
+                        extracted_elements = await self._extract_elements_from_document(
+                            client, document_key, kb_images_dir, source_filename
+                        )
                     if extracted_elements:
                         metadata["extracted_elements"] = extracted_elements
                 return markdown_text, metadata
@@ -527,11 +563,17 @@ class FileProcessor:
                             "from_cache": structured_content.get("from_cache", False),
                         }
                     }
-                    # AICODE-NOTE: Extract images/tables from PDF
+                    # AICODE-NOTE: Try to extract images from markdown if they're embedded as base64
                     if kb_images_dir:
-                        extracted_elements = await self._extract_elements_from_document(
-                            client, document_key, kb_images_dir, source_filename
+                        # First try extracting from markdown (base64 embedded images)
+                        extracted_elements = await self._extract_elements_from_markdown(
+                            markdown_text, kb_images_dir, source_filename
                         )
+                        # If no elements found in markdown, try document-based extraction
+                        if not extracted_elements and document_key:
+                            extracted_elements = await self._extract_elements_from_document(
+                                client, document_key, kb_images_dir, source_filename
+                            )
                         if extracted_elements:
                             metadata["extracted_elements"] = extracted_elements
                     return markdown_text, metadata
@@ -594,6 +636,15 @@ class FileProcessor:
                     uri = getattr(resource, "uri", None) if resource else None
                 if uri:
                     resource_uris.append(uri)
+                    self.logger.debug(f"[DEBUG] Found resource URI: {uri}")
+        
+        # AICODE-NOTE: DEBUG - Log resource URIs found
+        if resource_uris:
+            self.logger.info(
+                f"[DEBUG] Found {len(resource_uris)} resource URIs in Docling response"
+            )
+        else:
+            self.logger.debug("[DEBUG] No resource URIs found in Docling response")
 
         metadata: Dict[str, Any] = {}
         metadata["docling_mcp"] = {
@@ -623,6 +674,133 @@ class FileProcessor:
 
         combined_text = "\n\n".join(part.strip() for part in text_fragments if part).strip()
         return combined_text or None, metadata
+
+    async def _extract_elements_from_markdown(
+        self,
+        markdown_text: str,
+        kb_images_dir: Path,
+        source_filename: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Extract images and tables from markdown text (if embedded as base64).
+        
+        Args:
+            markdown_text: Markdown text that may contain base64-encoded images
+            kb_images_dir: KB images directory for saving extracted images
+            source_filename: Optional source filename for generating unique names
+            
+        Returns:
+            Dict with extracted_images and extracted_tables lists, or None if no elements found
+        """
+        import re
+        import base64
+        import time
+        
+        extracted_images: List[Dict[str, Any]] = []
+        extracted_tables: List[Dict[str, Any]] = []
+        
+        # Generate base name for extracted files
+        base_name = Path(source_filename).stem if source_filename else "pdf_extracted"
+        timestamp = int(time.time())
+        
+        # AICODE-NOTE: Extract base64-encoded images from markdown
+        # Pattern: ![alt_text](data:image/png;base64,...) or ![alt_text](data:image/jpeg;base64,...)
+        image_pattern = r'!\[([^\]]*)\]\(data:image/([^;]+);base64,([^)]+)\)'
+        
+        for idx, match in enumerate(re.finditer(image_pattern, markdown_text)):
+            alt_text = match.group(1)  # Подпись к изображению!
+            image_type = match.group(2).lower()  # png, jpeg, etc.
+            base64_data = match.group(3)
+            
+            try:
+                # Decode base64 image
+                image_bytes = base64.b64decode(base64_data)
+                
+                # Determine file extension
+                ext_map = {
+                    "png": ".png",
+                    "jpeg": ".jpg",
+                    "jpg": ".jpg",
+                    "gif": ".gif",
+                    "webp": ".webp",
+                }
+                extension = ext_map.get(image_type, ".png")
+                
+                # Generate unique filename
+                image_filename = f"pdf_{base_name}_{timestamp}_{idx}{extension}"
+                save_path = kb_images_dir / image_filename
+                
+                # Save image
+                kb_images_dir.mkdir(parents=True, exist_ok=True)
+                save_path.write_bytes(image_bytes)
+                
+                extracted_images.append(
+                    {
+                        "type": "image",
+                        "filename": image_filename,
+                        "path": str(save_path),
+                        "relative_path": f"../images/{image_filename}",
+                        "mime_type": f"image/{image_type}",
+                        "size": len(image_bytes),
+                        "caption": alt_text if alt_text else None,  # Подпись!
+                    }
+                )
+                
+                self.logger.info(
+                    f"Extracted image from markdown: {image_filename} "
+                    f"({len(image_bytes)} bytes, caption: '{alt_text}')"
+                )
+            except Exception as e:
+                self.logger.warning(
+                    f"Failed to extract image from markdown (match {idx}): {e}", exc_info=True
+                )
+                continue
+        
+        # AICODE-NOTE: Extract tables from markdown (if Docling includes them as JSON code blocks)
+        # Pattern: ```json\n{table_data}\n```
+        json_code_block_pattern = r'```json\s*\n(.*?)\n```'
+        
+        for idx, match in enumerate(re.finditer(json_code_block_pattern, markdown_text, re.DOTALL)):
+            json_text = match.group(1).strip()
+            try:
+                import json
+                table_data = json.loads(json_text)
+                
+                # Check if this looks like table data
+                if isinstance(table_data, dict) and (
+                    "table" in str(table_data).lower()
+                    or "rows" in table_data
+                    or "cells" in table_data
+                ):
+                    # Save table as JSON
+                    table_filename = f"table_{base_name}_{timestamp}_{idx}.json"
+                    table_path = kb_images_dir.parent / "tables" / table_filename
+                    table_path.parent.mkdir(parents=True, exist_ok=True)
+                    
+                    with open(table_path, "w", encoding="utf-8") as f:
+                        json.dump(table_data, f, indent=2, ensure_ascii=False)
+                    
+                    extracted_tables.append(
+                        {
+                            "type": "table",
+                            "filename": table_filename,
+                            "path": str(table_path),
+                            "relative_path": f"../tables/{table_filename}",
+                            "data": table_data,
+                        }
+                    )
+                    
+                    self.logger.info(f"Extracted table from markdown: {table_filename}")
+            except Exception as e:
+                self.logger.debug(f"JSON code block is not a table: {e}")
+                continue
+        
+        if extracted_images or extracted_tables:
+            return {
+                "images": extracted_images,
+                "tables": extracted_tables,
+            }
+        return None
 
     async def _extract_elements_from_document(
         self,

@@ -6,7 +6,19 @@ This document explains how PDF element extraction (images, tables) works in tg-n
 
 ## Current Implementation Status
 
-⚠️ **IMPORTANT**: The current implementation is a **foundation** that needs to be completed based on actual Docling MCP API capabilities.
+⚠️ **IMPORTANT**: The current implementation supports **two methods** for extracting images and tables:
+
+1. ✅ **From markdown (base64 embedded images)** - **IMPLEMENTED**
+   - If Docling embeds images as base64 in markdown (when `keep_images=True`)
+   - Extracts images and their captions (alt text) from markdown
+   - Parses JSON code blocks for table data
+
+2. ⏳ **From resource URIs** - **PARTIALLY IMPLEMENTED**
+   - Assumes Docling returns resource URIs (needs verification)
+   - Currently searches for resource URIs in MCP response
+
+3. ⏳ **From document key** - **PLACEHOLDER**
+   - Searches for resource export tools (needs Docling API verification)
 
 ## How It Should Work
 
@@ -86,32 +98,31 @@ Docling can export to markdown in two ways:
 
 ### Step 4: Image Extraction from Markdown
 
-**Current limitation**: The implementation assumes Docling returns resource URIs, but it might actually embed images as base64 in markdown.
+**✅ IMPLEMENTED**: The code now extracts images and tables from markdown if Docling embeds them.
 
-**What needs to be implemented:**
+**How it works:**
 
-1. **Parse markdown for embedded images:**
+1. **Parse markdown for embedded base64 images:**
    ```python
-   # Extract base64 images from markdown
-   import re
-   
-   # Pattern: ![alt](data:image/png;base64,...)
+   # Pattern: ![alt_text](data:image/png;base64,...)
    image_pattern = r'!\[([^\]]*)\]\(data:image/([^;]+);base64,([^)]+)\)'
    
    for match in re.finditer(image_pattern, markdown_text):
-       alt_text = match.group(1)
+       alt_text = match.group(1)  # Caption/subtitle!
        image_type = match.group(2)  # png, jpeg, etc.
        base64_data = match.group(3)
        
        # Decode and save
        image_bytes = base64.b64decode(base64_data)
-       # Save to KB...
+       # Save to KB/images/ with caption metadata
    ```
 
 2. **Extract table data from markdown:**
-   - Docling might include tables as markdown tables
-   - Or as JSON blocks in markdown
-   - Need to parse and extract
+   - Parses JSON code blocks: ````json\n{table_data}\n````
+   - Checks if JSON contains table structure (rows, cells)
+   - Saves to `tables/` directory
+
+**Important**: This only works if Docling's `export_to_markdown()` embeds images as base64 (requires `keep_images=True` in Docling config).
 
 ### Step 5: Table Extraction
 
