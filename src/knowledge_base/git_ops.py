@@ -298,130 +298,157 @@ class GitOperations:
         if not self.enabled or not self.repo:
             return False, "Git operations disabled"
 
-        # Check if there are uncommitted changes
+        # AICODE-NOTE: Auto-stash uncommitted changes before pull to prevent sync errors
+        # This prevents "Repository has uncommitted changes" error
+        stashed = False
         if self.repo.is_dirty(untracked_files=False):
-            logger.warning("Repository has uncommitted changes, cannot pull")
-            return False, "Repository has uncommitted changes. Commit or stash them first."
-
-        # Validate remote
-        try:
-            remote_obj = self.repo.remote(remote)
-        except ValueError:
-            available = ", ".join(r.name for r in self.repo.remotes) or "<none>"
-            error_msg = (
-                f"Remote '{remote}' not found. Available remotes: {available}. "
-                f"To set a remote, run: git remote add origin <url>"
-            )
-            logger.error(f"Failed to pull: {error_msg}")
-            return False, error_msg
-
-        # Determine current branch
-        active_branch_name: Optional[str] = None
-        try:
-            active_branch_name = self.repo.active_branch.name  # type: ignore[attr-defined]
-        except Exception:
-            # Detached HEAD or no branch
-            logger.warning("Not on any branch (detached HEAD), cannot pull")
-            return False, "Not on any branch (detached HEAD state)"
-
-        # Determine which branch to pull from
-        target_branch = branch if branch not in (None, "", "auto", "current", "HEAD") else None
-        if target_branch is None:
-            # Try to get tracking branch
+            logger.info("Repository has uncommitted changes, stashing...")
             try:
-                tracking = self.repo.active_branch.tracking_branch()  # type: ignore[attr-defined]
-                if tracking:
-                    target_branch = tracking.remote_head
-                else:
-                    # No tracking branch set, assume same name as local branch
-                    target_branch = active_branch_name
-            except Exception:
-                target_branch = active_branch_name
+                # Stash changes with a descriptive message
+                self.repo.git.stash("save", "--include-untracked", "Auto-stash before pull")
+                stashed = True
+                logger.info("Successfully stashed uncommitted changes")
+            except Exception as stash_error:
+                logger.error(f"Failed to stash changes: {stash_error}")
+                return False, f"Failed to stash uncommitted changes: {str(stash_error)}"
 
-        # Perform pull
+        # Wrap the entire pull operation in try-finally to ensure stash is restored
         try:
-            pull_info = remote_obj.pull(target_branch)
-
-            # Check if there were any changes
-            if pull_info and len(pull_info) > 0:
-                flags = pull_info[0].flags
-                if flags & 4:  # HEAD_UPTODATE flag
-                    logger.info(f"Already up to date with {remote}/{target_branch}")
-                    return True, "Already up to date"
-                elif flags & 64:  # FAST_FORWARD flag
-                    logger.info(f"Successfully pulled (fast-forward) from {remote}/{target_branch}")
-                    return True, "Successfully pulled (fast-forward)"
-                else:
-                    logger.info(f"Successfully pulled from {remote}/{target_branch}")
-                    return True, "Successfully pulled"
-            else:
-                logger.info(f"Pull completed from {remote}/{target_branch}")
-                return True, "Pull completed"
-
-        except GitCommandError as gce:  # type: ignore[misc]
-            error_msg = _mask_credentials_in_message(str(gce))
-            # Check for merge conflicts
-            if "conflict" in error_msg.lower() or "merge" in error_msg.lower():
-                logger.error(f"Merge conflict during pull: {error_msg}")
-                return False, f"Merge conflict during pull. Please resolve manually."
-            # Check if remote branch doesn't exist
-            elif "couldn't find remote ref" in error_msg or "unknown revision" in error_msg.lower():
-                logger.warning(
-                    f"Remote branch '{target_branch}' doesn't exist on {remote}. Creating and pushing it."
+            # Validate remote
+            try:
+                remote_obj = self.repo.remote(remote)
+            except ValueError:
+                available = ", ".join(r.name for r in self.repo.remotes) or "<none>"
+                error_msg = (
+                    f"Remote '{remote}' not found. Available remotes: {available}. "
+                    f"To set a remote, run: git remote add origin <url>"
                 )
-                # AICODE-NOTE: When remote branch doesn't exist, create it locally and push to remote
+                logger.error(f"Failed to pull: {error_msg}")
+                return False, error_msg
+
+            # Determine current branch
+            active_branch_name: Optional[str] = None
+            try:
+                active_branch_name = self.repo.active_branch.name  # type: ignore[attr-defined]
+            except Exception:
+                # Detached HEAD or no branch
+                logger.warning("Not on any branch (detached HEAD), cannot pull")
+                return False, "Not on any branch (detached HEAD state)"
+
+            # Determine which branch to pull from
+            target_branch = branch if branch not in (None, "", "auto", "current", "HEAD") else None
+            if target_branch is None:
+                # Try to get tracking branch
                 try:
-                    # Store current branch to potentially restore it later
-                    original_branch = active_branch_name
-
-                    # Check if local branch exists
-                    if active_branch_name != target_branch:
-                        # Check if we're in detached HEAD state
-                        if original_branch is None:
-                            logger.error(
-                                "Cannot create remote branch from detached HEAD state. "
-                                "Please checkout a branch first."
-                            )
-                            return False, "Cannot create remote branch from detached HEAD state"
-
-                        # Create local branch if it doesn't exist
-                        if target_branch not in [b.name for b in self.repo.branches]:
-                            self.repo.create_head(target_branch)
-                            logger.info(f"Created local branch '{target_branch}'")
-
-                        # Checkout to the target branch
-                        try:
-                            self.repo.heads[target_branch].checkout()
-                            logger.info(f"Checked out to branch '{target_branch}'")
-                        except Exception as checkout_error:
-                            logger.error(
-                                f"Failed to checkout branch '{target_branch}': {checkout_error}"
-                            )
-                            return (
-                                False,
-                                f"Failed to checkout branch '{target_branch}': {checkout_error}",
-                            )
-
-                    # Push the branch to remote (this will create it on remote)
-                    push_success = self.push(remote, target_branch)
-                    if push_success:
-                        logger.info(
-                            f"Successfully created and pushed branch '{target_branch}' to {remote}"
-                        )
-                        return True, f"Created branch '{target_branch}' on remote and pushed"
+                    tracking = self.repo.active_branch.tracking_branch()  # type: ignore[attr-defined]
+                    if tracking:
+                        target_branch = tracking.remote_head
                     else:
-                        logger.error(f"Failed to push newly created branch '{target_branch}'")
-                        return False, f"Failed to push newly created branch '{target_branch}'"
-                except Exception as e:
-                    logger.error(f"Failed to create and push branch '{target_branch}': {e}")
-                    return False, f"Failed to create and push branch: {str(e)}"
-            else:
-                logger.error(f"Failed to pull (git): {gce}")
-                return False, f"Git error during pull: {error_msg}"
-        except Exception as e:
-            error_msg = f"{type(e).__name__}: {e}"
-            logger.error(f"Failed to pull from {remote}/{target_branch}: {error_msg}")
-            return False, f"Error during pull: {error_msg}"
+                        # No tracking branch set, assume same name as local branch
+                        target_branch = active_branch_name
+                except Exception:
+                    target_branch = active_branch_name
+
+            # Perform pull
+            try:
+                pull_info = remote_obj.pull(target_branch)
+
+                # Check if there were any changes
+                if pull_info and len(pull_info) > 0:
+                    flags = pull_info[0].flags
+                    if flags & 4:  # HEAD_UPTODATE flag
+                        logger.info(f"Already up to date with {remote}/{target_branch}")
+                        return True, "Already up to date"
+                    elif flags & 64:  # FAST_FORWARD flag
+                        logger.info(
+                            f"Successfully pulled (fast-forward) from {remote}/{target_branch}"
+                        )
+                        return True, "Successfully pulled (fast-forward)"
+                    else:
+                        logger.info(f"Successfully pulled from {remote}/{target_branch}")
+                        return True, "Successfully pulled"
+                else:
+                    logger.info(f"Pull completed from {remote}/{target_branch}")
+                    return True, "Pull completed"
+
+            except GitCommandError as gce:  # type: ignore[misc]
+                error_msg = _mask_credentials_in_message(str(gce))
+                # Check for merge conflicts
+                if "conflict" in error_msg.lower() or "merge" in error_msg.lower():
+                    logger.error(f"Merge conflict during pull: {error_msg}")
+                    return False, f"Merge conflict during pull. Please resolve manually."
+                # Check if remote branch doesn't exist
+                elif (
+                    "couldn't find remote ref" in error_msg
+                    or "unknown revision" in error_msg.lower()
+                ):
+                    logger.warning(
+                        f"Remote branch '{target_branch}' doesn't exist on {remote}. Creating and pushing it."
+                    )
+                    # AICODE-NOTE: When remote branch doesn't exist, create it locally and push to remote
+                    try:
+                        # Store current branch to potentially restore it later
+                        original_branch = active_branch_name
+
+                        # Check if local branch exists
+                        if active_branch_name != target_branch:
+                            # Check if we're in detached HEAD state
+                            if original_branch is None:
+                                logger.error(
+                                    "Cannot create remote branch from detached HEAD state. "
+                                    "Please checkout a branch first."
+                                )
+                                return False, "Cannot create remote branch from detached HEAD state"
+
+                            # Create local branch if it doesn't exist
+                            if target_branch not in [b.name for b in self.repo.branches]:
+                                self.repo.create_head(target_branch)
+                                logger.info(f"Created local branch '{target_branch}'")
+
+                            # Checkout to the target branch
+                            try:
+                                self.repo.heads[target_branch].checkout()
+                                logger.info(f"Checked out to branch '{target_branch}'")
+                            except Exception as checkout_error:
+                                logger.error(
+                                    f"Failed to checkout branch '{target_branch}': {checkout_error}"
+                                )
+                                return (
+                                    False,
+                                    f"Failed to checkout branch '{target_branch}': {checkout_error}",
+                                )
+
+                        # Push the branch to remote (this will create it on remote)
+                        push_success = self.push(remote, target_branch)
+                        if push_success:
+                            logger.info(
+                                f"Successfully created and pushed branch '{target_branch}' to {remote}"
+                            )
+                            return True, f"Created branch '{target_branch}' on remote and pushed"
+                        else:
+                            logger.error(f"Failed to push newly created branch '{target_branch}'")
+                            return False, f"Failed to push newly created branch '{target_branch}'"
+                    except Exception as e:
+                        logger.error(f"Failed to create and push branch '{target_branch}': {e}")
+                        return False, f"Failed to create and push branch: {str(e)}"
+                else:
+                    logger.error(f"Failed to pull (git): {gce}")
+                    return False, f"Git error during pull: {error_msg}"
+            except Exception as e:
+                error_msg = f"{type(e).__name__}: {e}"
+                logger.error(f"Failed to pull from {remote}/{target_branch}: {error_msg}")
+                return False, f"Error during pull: {error_msg}"
+        finally:
+            # AICODE-NOTE: Always try to restore stashed changes after pull attempt
+            if stashed:
+                try:
+                    self.repo.git.stash("pop")
+                    logger.info("Successfully restored stashed changes")
+                except Exception as pop_error:
+                    logger.warning(f"Could not auto-restore stashed changes: {pop_error}")
+                    logger.info(
+                        "Changes are saved in stash. Use 'git stash pop' to restore manually"
+                    )
 
     def _is_https_remote(self, remote_name: str) -> bool:
         """

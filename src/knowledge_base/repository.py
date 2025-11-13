@@ -147,17 +147,26 @@ class RepositoryManager:
         if not GIT_AVAILABLE:
             return False, "Git is not available", None
 
+        stashed = False
         try:
             repo = Repo(kb_path)
 
-            # Check if there are uncommitted changes
+            # AICODE-NOTE: Auto-stash uncommitted changes before pull to prevent sync errors
+            # This prevents "Repository has uncommitted changes" error
             if repo.is_dirty():
-                logger.warning(f"Repository at {kb_path} has uncommitted changes")
-                return (
-                    False,
-                    "Repository has uncommitted changes. Commit or stash them first.",
-                    kb_path,
-                )
+                logger.info(f"Repository at {kb_path} has uncommitted changes, stashing...")
+                try:
+                    # Stash changes with a descriptive message
+                    repo.git.stash("save", "--include-untracked", "Auto-stash before pull")
+                    stashed = True
+                    logger.info("Successfully stashed uncommitted changes")
+                except Exception as stash_error:
+                    logger.error(f"Failed to stash changes: {stash_error}")
+                    return (
+                        False,
+                        f"Failed to stash uncommitted changes: {str(stash_error)}",
+                        kb_path,
+                    )
 
             # Pull from remote
             origin = repo.remote(name="origin")
@@ -166,6 +175,17 @@ class RepositoryManager:
             # AICODE-NOTE: Ensure KB structure exists after pull
             # New changes from GitHub might require structure updates
             self._ensure_kb_structure(kb_path)
+
+            # Try to restore stashed changes
+            if stashed:
+                try:
+                    repo.git.stash("pop")
+                    logger.info("Successfully restored stashed changes")
+                except Exception as pop_error:
+                    logger.warning(f"Could not auto-restore stashed changes: {pop_error}")
+                    logger.info(
+                        "Changes are saved in stash. Use 'git stash pop' to restore manually"
+                    )
 
             logger.info(f"Pulled updates for {kb_path}")
             return True, "Successfully pulled latest updates", kb_path
