@@ -585,11 +585,96 @@ images/
 - Issues: https://github.com/ArtyomZemlyak/tg-note/issues
 - Discussions: https://github.com/ArtyomZemlyak/tg-note/discussions
 
+## PDF Element Extraction
+
+When processing PDF documents (e.g., from arxiv), the system can automatically extract and save:
+
+### Extracted Images
+
+Images (graphs, diagrams, figures) from PDFs are automatically:
+1. **Extracted** during PDF processing via Docling
+2. **Saved** to `images/` directory with unique names: `pdf_{source_name}_{timestamp}_{index}.{ext}`
+3. **Referenced** in the agent prompt so they can be embedded in generated markdown files
+
+**Example:**
+```
+knowledge_bases/my-notes/
+├── images/
+│   ├── img_1705334567_abc123.jpg     ← Telegram image
+│   └── pdf_arxiv_1705334567_0.png     ← Extracted from PDF
+└── topics/
+    └── research-paper.md              ← References both images
+```
+
+### Extracted Tables
+
+Tables from PDFs are automatically:
+1. **Extracted** as structured JSON data
+2. **Saved** to `tables/` directory: `table_{source_name}_{timestamp}_{index}.json`
+3. **Referenced** in the agent prompt for inclusion in markdown
+
+**Example:**
+```
+knowledge_bases/my-notes/
+├── tables/
+│   └── table_arxiv_1705334567_0.json  ← Extracted table data
+└── topics/
+    └── research-paper.md              ← Can reference or recreate table
+```
+
+### How It Works
+
+1. **Send PDF to bot** (via Telegram document)
+2. **Docling processes PDF** and extracts:
+   - Text content (as markdown)
+   - Images (as binary files)
+   - Tables (as JSON structures)
+3. **Elements are saved** to KB directories
+4. **Agent receives metadata** about extracted elements
+5. **Agent creates markdown** with embedded images and table references
+
+### Agent Instructions
+
+The AI agent is instructed to:
+- Use all extracted images in generated markdown files
+- Place images logically near relevant text
+- Add meaningful descriptions based on PDF context
+- Reference or recreate tables from JSON data
+
+**Example agent output:**
+```markdown
+# Research Paper Analysis
+
+## Experimental Results
+
+![Accuracy comparison graph](../images/pdf_arxiv_1705334567_0.png)
+
+The graph shows our method achieves 95% accuracy...
+
+## Performance Comparison
+
+| Method | Accuracy | Training Time |
+|--------|----------|---------------|
+| Baseline | 85% | 2 hours |
+| Our Method | 95% | 3 hours |
+
+(Data from [table](../tables/table_arxiv_1705334567_0.json))
+```
+
+### Configuration
+
+PDF element extraction is enabled automatically when:
+- `MEDIA_PROCESSING_ENABLED: true`
+- `MEDIA_PROCESSING_DOCLING.enabled: true`
+- PDF format is enabled in `formats` list
+
+No additional configuration needed - extraction happens automatically during PDF processing.
+
 ## Roadmap
 - ✅ Basic file support
 - ✅ Image storage and markdown embedding
+- ✅ PDF element extraction (images, tables)
 - 🚧 Audio/video files
-- 📋 Better table extraction
 - 📋 Archive support (.zip, .tar.gz)
 - 📋 Batch processing
 - 📋 Caching

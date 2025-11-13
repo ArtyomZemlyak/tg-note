@@ -190,9 +190,19 @@ class FileProcessor:
         return tools[0]
 
     async def _process_with_mcp(
-        self, file_path: Path, file_format: str
+        self,
+        file_path: Path,
+        file_format: str,
+        kb_images_dir: Optional[Path] = None,
     ) -> Optional[Dict[str, Any]]:
-        """Process file using Docling MCP server."""
+        """
+        Process file using Docling MCP server.
+        
+        Args:
+            file_path: Path to file to process
+            file_format: File format extension
+            kb_images_dir: Optional KB images directory for saving extracted images/tables
+        """
         client = await self._get_docling_client()
         if not client:
             self.logger.warning("[FileProcessor] Docling MCP client unavailable.")
@@ -225,7 +235,9 @@ class FileProcessor:
             )
             return None
 
-        text_content, metadata = await self._extract_text_from_mcp_result(client, result)
+        text_content, metadata = await self._extract_text_from_mcp_result(
+            client, result, kb_images_dir=kb_images_dir, source_filename=file_path.name
+        )
         if text_content is None:
             text_content = ""
 
@@ -414,9 +426,24 @@ class FileProcessor:
         return arguments
 
     async def _extract_text_from_mcp_result(
-        self, client: MCPClient, call_result: Dict[str, Any]
+        self,
+        client: MCPClient,
+        call_result: Dict[str, Any],
+        kb_images_dir: Optional[Path] = None,
+        source_filename: Optional[str] = None,
     ) -> Tuple[Optional[str], Dict[str, Any]]:
-        """Extract textual content and metadata from Docling MCP tool result."""
+        """
+        Extract textual content and metadata from Docling MCP tool result.
+        
+        Args:
+            client: MCP client for fetching resources
+            call_result: Result from Docling MCP tool call
+            kb_images_dir: Optional KB images directory for saving extracted images
+            source_filename: Optional source filename for generating unique image names
+            
+        Returns:
+            Tuple of (text_content, metadata) where metadata may include extracted_images
+        """
         raw_result = call_result.get("result") or {}
         content = call_result.get("content") or raw_result.get("content") or []
         structured_content = call_result.get("structured_content") or raw_result.get(
@@ -447,6 +474,13 @@ class FileProcessor:
                         "export_format": structured_content.get("export_format", "markdown"),
                     }
                 }
+                # AICODE-NOTE: Extract images/tables from PDF even when markdown is already exported
+                if kb_images_dir and document_key:
+                    extracted_elements = await self._extract_elements_from_document(
+                        client, document_key, kb_images_dir, source_filename
+                    )
+                    if extracted_elements:
+                        metadata["extracted_elements"] = extracted_elements
                 return markdown_text, metadata
 
         # If no markdown in response but we have document_key, export it separately
@@ -493,6 +527,13 @@ class FileProcessor:
                             "from_cache": structured_content.get("from_cache", False),
                         }
                     }
+                    # AICODE-NOTE: Extract images/tables from PDF
+                    if kb_images_dir:
+                        extracted_elements = await self._extract_elements_from_document(
+                            client, document_key, kb_images_dir, source_filename
+                        )
+                        if extracted_elements:
+                            metadata["extracted_elements"] = extracted_elements
                     return markdown_text, metadata
                 else:
                     self.logger.warning(
@@ -565,6 +606,14 @@ class FileProcessor:
         if json_payloads:
             metadata["docling_json"] = json_payloads
 
+        # AICODE-NOTE: Extract images/tables from resources if KB directory provided
+        if kb_images_dir and resource_uris:
+            extracted_elements = await self._extract_elements_from_resources(
+                client, resource_uris, kb_images_dir, source_filename
+            )
+            if extracted_elements:
+                metadata["extracted_elements"] = extracted_elements
+
         if not text_fragments and resource_uris:
             fetched_text, resource_info = await self._fetch_resources_text(client, resource_uris)
             if fetched_text:
@@ -574,6 +623,205 @@ class FileProcessor:
 
         combined_text = "\n\n".join(part.strip() for part in text_fragments if part).strip()
         return combined_text or None, metadata
+
+    async def _extract_elements_from_document(
+        self,
+        client: MCPClient,
+        document_key: str,
+        kb_images_dir: Path,
+        source_filename: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Extract images and tables from a Docling document.
+        
+        Args:
+            client: MCP client for fetching resources
+            document_key: Docling document key
+            kb_images_dir: KB images directory for saving extracted images
+            source_filename: Optional source filename for generating unique names
+            
+        Returns:
+            Dict with extracted_images and extracted_tables lists, or None if no elements found
+        """
+        try:
+            # AICODE-NOTE: Try to get document resources via export or list_resources tool
+            # Docling may expose resources through different tools
+            tools = await client.list_tools()
+            resource_tool = None
+            
+            # Look for resource-related tools
+            for tool in tools:
+                tool_name = tool.get("name", "").lower()
+                if "resource" in tool_name or "export" in tool_name:
+                    resource_tool = tool.get("name")
+                    break
+            
+            if not resource_tool:
+                self.logger.debug(
+                    f"No resource extraction tool found for document_key: {document_key}"
+                )
+                return None
+            
+            # Try to get resources from document
+            # This is a placeholder - actual implementation depends on Docling API
+            self.logger.info(
+                f"Attempting to extract elements from document {document_key} using {resource_tool}"
+            )
+            
+            # For now, return None - actual implementation will depend on Docling's API
+            # This will be implemented based on actual Docling MCP tool capabilities
+            return None
+            
+        except Exception as e:
+            self.logger.warning(
+                f"Failed to extract elements from document {document_key}: {e}", exc_info=True
+            )
+            return None
+
+    async def _extract_elements_from_resources(
+        self,
+        client: MCPClient,
+        resource_uris: List[str],
+        kb_images_dir: Path,
+        source_filename: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Extract images and tables from Docling resource URIs.
+        
+        Args:
+            client: MCP client for fetching resources
+            resource_uris: List of resource URIs from Docling
+            kb_images_dir: KB images directory for saving extracted images
+            source_filename: Optional source filename for generating unique names
+            
+        Returns:
+            Dict with extracted_images and extracted_tables lists, or None if no elements found
+        """
+        extracted_images: List[Dict[str, Any]] = []
+        extracted_tables: List[Dict[str, Any]] = []
+        
+        import time
+        
+        # Generate base name for extracted files
+        base_name = Path(source_filename).stem if source_filename else "pdf_extracted"
+        timestamp = int(time.time())
+        
+        for idx, uri in enumerate(resource_uris):
+            try:
+                resource = await client.read_resource(uri)
+                if not resource:
+                    continue
+                
+                contents = resource.get("contents") or []
+                
+                for entry in contents:
+                    if not isinstance(entry, dict):
+                        continue
+                    
+                    mime = entry.get("mimeType") or entry.get("mediaType")
+                    if not mime:
+                        continue
+                    
+                    # AICODE-NOTE: Extract images (PNG, JPEG, etc.)
+                    if mime.startswith("image/"):
+                        base64_data = entry.get("data") or entry.get("base64")
+                        if base64_data:
+                            try:
+                                image_bytes = base64.b64decode(base64_data)
+                                
+                                # Determine file extension from MIME type
+                                ext_map = {
+                                    "image/png": ".png",
+                                    "image/jpeg": ".jpg",
+                                    "image/jpg": ".jpg",
+                                    "image/gif": ".gif",
+                                    "image/webp": ".webp",
+                                }
+                                extension = ext_map.get(mime, ".png")
+                                
+                                # Generate unique filename
+                                image_filename = f"pdf_{base_name}_{timestamp}_{idx}{extension}"
+                                save_path = kb_images_dir / image_filename
+                                
+                                # Save image
+                                kb_images_dir.mkdir(parents=True, exist_ok=True)
+                                save_path.write_bytes(image_bytes)
+                                
+                                extracted_images.append(
+                                    {
+                                        "type": "image",
+                                        "filename": image_filename,
+                                        "path": str(save_path),
+                                        "relative_path": f"../images/{image_filename}",
+                                        "mime_type": mime,
+                                        "size": len(image_bytes),
+                                    }
+                                )
+                                
+                                self.logger.info(
+                                    f"Extracted image from PDF: {image_filename} ({len(image_bytes)} bytes)"
+                                )
+                            except Exception as e:
+                                self.logger.warning(
+                                    f"Failed to save extracted image from URI {uri}: {e}"
+                                )
+                    
+                    # AICODE-NOTE: Extract tables (if Docling provides table data)
+                    elif mime == "application/json":
+                        json_data = entry.get("text") or entry.get("data")
+                        if json_data:
+                            try:
+                                import json
+                                
+                                if isinstance(json_data, str):
+                                    table_data = json.loads(json_data)
+                                else:
+                                    table_data = json_data
+                                
+                                # Check if this looks like table data
+                                if isinstance(table_data, dict) and (
+                                    "table" in str(table_data).lower()
+                                    or "rows" in table_data
+                                    or "cells" in table_data
+                                ):
+                                    # Save table as JSON
+                                    table_filename = f"table_{base_name}_{timestamp}_{idx}.json"
+                                    table_path = kb_images_dir.parent / "tables" / table_filename
+                                    table_path.parent.mkdir(parents=True, exist_ok=True)
+                                    
+                                    with open(table_path, "w", encoding="utf-8") as f:
+                                        json.dump(table_data, f, indent=2, ensure_ascii=False)
+                                    
+                                    extracted_tables.append(
+                                        {
+                                            "type": "table",
+                                            "filename": table_filename,
+                                            "path": str(table_path),
+                                            "relative_path": f"../tables/{table_filename}",
+                                            "data": table_data,
+                                        }
+                                    )
+                                    
+                                    self.logger.info(
+                                        f"Extracted table from PDF: {table_filename}"
+                                    )
+                            except Exception as e:
+                                self.logger.debug(
+                                    f"JSON entry from URI {uri} is not a table: {e}"
+                                )
+                                
+            except Exception as e:
+                self.logger.warning(
+                    f"Failed to extract elements from resource URI {uri}: {e}", exc_info=True
+                )
+                continue
+        
+        if extracted_images or extracted_tables:
+            return {
+                "images": extracted_images,
+                "tables": extracted_tables,
+            }
+        return None
 
     async def _fetch_resources_text(
         self, client: MCPClient, uris: List[str]
@@ -752,9 +1000,15 @@ class FileProcessor:
             )
             return None
 
-    async def process_file(self, file_path: Path) -> Optional[Dict[str, Any]]:
+    async def process_file(
+        self, file_path: Path, kb_images_dir: Optional[Path] = None
+    ) -> Optional[Dict[str, Any]]:
         """
         Process file and extract content using Docling (MCP or local).
+        
+        Args:
+            file_path: Path to file to process
+            kb_images_dir: Optional KB images directory for saving extracted images/tables from PDF
         """
         docling_config = self.docling_config
 
@@ -811,7 +1065,7 @@ class FileProcessor:
             return None
 
         if docling_config.use_mcp():
-            return await self._process_with_mcp(file_path, file_format)
+            return await self._process_with_mcp(file_path, file_format, kb_images_dir=kb_images_dir)
         if docling_config.use_local():
             return await self._process_with_local(file_path, file_format)
 
@@ -982,8 +1236,16 @@ class FileProcessor:
                 else:
                     self.logger.info(f"[FileProcessor] ✓ Image path validated: {save_path}")
 
+            # AICODE-NOTE: For PDF files, enable element extraction to KB
+            # For images, kb_images_dir is already set if save_to_kb
+            # For PDFs, we also want to extract images/tables to KB
+            is_pdf = extension == "pdf"
+            extract_to_kb = kb_images_dir is not None and (is_image or is_pdf)
+
             # Process file
-            result = await self.process_file(save_path)
+            result = await self.process_file(
+                save_path, kb_images_dir=kb_images_dir if extract_to_kb else None
+            )
 
             if result and save_to_kb:
                 # AICODE-NOTE: Add saved path to result so ContentParser can reference it
