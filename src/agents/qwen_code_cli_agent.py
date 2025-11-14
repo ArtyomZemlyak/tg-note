@@ -466,6 +466,16 @@ class QwenCodeCLIAgent(BaseAgent):
             # Use non-interactive mode and pass prompt via stdin
             cmd = [self.qwen_cli_path]
 
+            # AICODE-NOTE: Add --include-directories to allow access to ../images
+            # when KB_TOPICS_ONLY=true restricts agent to topics/ folder
+            # This allows agent to read image metadata files without changing working directory
+            images_dir = Path(self.working_directory).parent / "images"
+            if images_dir.exists():
+                cmd.extend(["--include-directories", str(images_dir)])
+                logger.debug(
+                    f"[QwenCodeCLIAgent._execute_qwen_cli] Added --include-directories: {images_dir}"
+                )
+
             # Log command details
             logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] === CLI EXECUTION TRACE START ===")
             logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] Command: {' '.join(cmd)}")
