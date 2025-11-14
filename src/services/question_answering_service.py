@@ -195,6 +195,12 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
             original_instruction = user_agent.get_instruction()
             ask_instr = get_ask_mode_instruction("ru")
 
+            # AICODE-NOTE: Add images instruction to prompt
+            from config.agent_prompts import get_images_instruction
+
+            images_instr = get_images_instruction("ru")
+            ask_instr = ask_instr.format(instruction_images=images_instr)
+
             user_agent.set_instruction(ask_instr)
             self.logger.debug(f"Temporarily changed agent instruction to ask mode")
 

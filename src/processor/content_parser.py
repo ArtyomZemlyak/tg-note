@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 from loguru import logger
 
 from src.processor.file_processor import FileProcessor
+from src.processor.image_metadata import ImageMetadata
 
 
 class ContentParser:
@@ -221,26 +222,45 @@ class ContentParser:
             if file_contents:
                 result["files"] = file_contents
 
-                # Append file contents to text
-                file_texts = []
+                # AICODE-NOTE: New approach - just list image filenames, agent reads .md files
+                # Track unique images to prevent duplicates in prompt
+                seen_images = set()
+                image_filenames = []
+                document_texts = []
+
                 for file_data in file_contents:
-                    # AICODE-NOTE: For saved images, include path so agent can reference them
-                    # Images are saved to {kb_path}/images/, but documents are in {kb_path}/topics/
-                    # So the relative path from topics/ to images/ is ../images/
+                    # AICODE-NOTE: For saved images, just collect filenames
+                    # Images are saved to {kb_path}/images/, agent will read .md files
                     if "saved_path" in file_data and "saved_filename" in file_data:
-                        file_texts.append(
-                            f"\n\n--- Содержимое файла: {file_data['file_name']} "
-                            f"(сохранено как: ../images/{file_data['saved_filename']}) ---\n"
-                            f"{file_data['content']}"
-                        )
+                        saved_filename = file_data["saved_filename"]
+
+                        # Check for duplicates
+                        if saved_filename in seen_images:
+                            self.logger.info(
+                                f"Skipping duplicate image in prompt: {saved_filename}"
+                            )
+                            continue
+                        seen_images.add(saved_filename)
+                        image_filenames.append(saved_filename)
                     else:
-                        file_texts.append(
+                        # Non-image files: use full content as before
+                        document_texts.append(
                             f"\n\n--- Содержимое файла: {file_data['file_name']} ---\n{file_data['content']}"
                         )
 
-                if file_texts:
-                    result["text"] = result.get("text", "") + "\n\n".join(file_texts)
-                    # Regenerate hash with file contents
+                # Add image list if any
+                if image_filenames:
+                    image_list_text = "\n\nМедиафайлы:\nлежат в images/\n" + "\n".join(
+                        image_filenames
+                    )
+                    result["text"] = result.get("text", "") + image_list_text
+
+                # Add document contents if any
+                if document_texts:
+                    result["text"] = result.get("text", "") + "\n\n".join(document_texts)
+
+                # Regenerate hash with file contents
+                if image_filenames or document_texts:
                     result["content_hash"] = self.generate_content_hash(result["text"])
 
         # Add metadata about unsupported media

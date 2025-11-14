@@ -16,6 +16,7 @@ from src.mcp.client import MCPClient
 from src.mcp.docling_integration import ensure_docling_mcp_spec
 from src.mcp.registry.registry import MCPServerSpec
 from src.mcp.registry_client import MCPRegistryClient
+from src.processor.image_metadata import ImageMetadata
 from src.processor.image_path_validator import validate_image_path
 
 
@@ -1099,6 +1100,23 @@ class FileProcessor:
                     )
 
                 temp_file = None  # Don't delete this file in finally block
+
+                # AICODE-NOTE: Create metadata files (.md and .json) for saved images
+                # This helps agent understand image content and reduces prompt length
+                if not existing_file:  # Only create metadata for new images, not duplicates
+                    try:
+                        ImageMetadata.create_metadata_files(
+                            image_path=save_path,
+                            ocr_text=result.get("text", ""),
+                            file_id=file_id or "",
+                            timestamp=message_date or int(__import__("time").time()),
+                            original_filename=original_filename or "image.jpg",
+                            file_hash=file_hash,
+                        )
+                    except Exception as metadata_error:
+                        self.logger.warning(
+                            f"Failed to create metadata files for {save_path}: {metadata_error}"
+                        )
             elif not save_to_kb:
                 temp_file = save_path  # Mark for cleanup
 
