@@ -915,7 +915,8 @@ class FileProcessor:
             # Create JSON filename (same as image but with .json extension)
             json_path = image_path.with_suffix(".json")
 
-            # Build JSON structure with image settings and docling config
+            # AICODE-NOTE: Use Pydantic's model_dump() to export all DoclingSettings
+            # including default values and user overrides - no manual field selection needed
             json_data = {
                 "image": {
                     "saved_filename": image_path.name,
@@ -925,14 +926,7 @@ class FileProcessor:
                     "file_size": image_path.stat().st_size if image_path.exists() else None,
                     "saved_at": message_date,
                 },
-                "docling_config": {
-                    "backend": metadata.get("docling", {}).get("backend"),
-                    "image_ocr_enabled": self.docling_config.image_ocr_enabled,
-                    "ocr_languages": list(self.docling_config.ocr_languages),
-                    "prefer_markdown_output": self.docling_config.prefer_markdown_output,
-                    "fallback_plain_text": self.docling_config.fallback_plain_text,
-                    "max_file_size_mb": self.docling_config.max_file_size_mb,
-                },
+                "docling_config": self.docling_config.model_dump(mode="json"),
                 "docling_metadata": metadata.get("docling_mcp", {}),
                 "processing": {
                     "processed_at": metadata.get("docling", {}).get("processed_at"),
