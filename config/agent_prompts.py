@@ -50,6 +50,10 @@ def get_kb_query_template(locale: str = "ru", version: str | None = None) -> str
     return prompt_registry.get("kb_query.template", locale=locale, version=version)
 
 
+def get_images_instruction(locale: str = "ru", version: str | None = None) -> str:
+    return prompt_registry.get("images.instruction", locale=locale, version=version)
+
+
 # Backward-compatible constants (deprecated): resolve at import time
 QWEN_CODE_AGENT_INSTRUCTION = get_qwen_code_agent_instruction("en")
 QWEN_CODE_CLI_AGENT_INSTRUCTION = get_qwen_code_cli_instruction("ru")
