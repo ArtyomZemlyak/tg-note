@@ -861,6 +861,94 @@ class FileProcessor:
                     continue
         return None
 
+    def _save_image_description_md(self, image_path: Path, markdown_content: str) -> Optional[Path]:
+        """
+        Save clean markdown description of image to .md file.
+
+        Args:
+            image_path: Path to saved image file
+            markdown_content: Clean markdown content from Docling OCR
+
+        Returns:
+            Path to saved .md file or None if failed
+        """
+        try:
+            # Create .md filename (same as image but with .md extension)
+            md_path = image_path.with_suffix(".md")
+
+            # Write clean markdown content (no extra headers or structure)
+            with open(md_path, "w", encoding="utf-8") as f:
+                f.write(markdown_content)
+
+            self.logger.info(f"Saved image description to: {md_path}")
+            return md_path
+
+        except Exception as e:
+            self.logger.error(f"Failed to save image description .md: {e}", exc_info=True)
+            return None
+
+    def _save_image_metadata_json(
+        self,
+        image_path: Path,
+        metadata: Dict[str, Any],
+        original_filename: str,
+        file_id: Optional[str],
+        message_date: Optional[int],
+    ) -> Optional[Path]:
+        """
+        Save image metadata to JSON file alongside the image description.
+
+        Args:
+            image_path: Path to saved image file
+            metadata: Metadata from Docling processing
+            original_filename: Original filename from Telegram
+            file_id: Telegram file_id
+            message_date: Message timestamp
+
+        Returns:
+            Path to saved JSON file or None if failed
+        """
+        import json
+
+        try:
+            # Create JSON filename (same as image but with .json extension)
+            json_path = image_path.with_suffix(".json")
+
+            # Build JSON structure with image settings and docling config
+            json_data = {
+                "image": {
+                    "saved_filename": image_path.name,
+                    "original_filename": original_filename,
+                    "file_id": file_id,
+                    "message_date": message_date,
+                    "file_size": image_path.stat().st_size if image_path.exists() else None,
+                    "saved_at": message_date,
+                },
+                "docling_config": {
+                    "backend": metadata.get("docling", {}).get("backend"),
+                    "image_ocr_enabled": self.docling_config.image_ocr_enabled,
+                    "ocr_languages": list(self.docling_config.ocr_languages),
+                    "prefer_markdown_output": self.docling_config.prefer_markdown_output,
+                    "fallback_plain_text": self.docling_config.fallback_plain_text,
+                    "max_file_size_mb": self.docling_config.max_file_size_mb,
+                },
+                "docling_metadata": metadata.get("docling_mcp", {}),
+                "processing": {
+                    "processed_at": metadata.get("docling", {}).get("processed_at"),
+                },
+            }
+
+            # Write JSON file
+            with open(json_path, "w", encoding="utf-8") as f:
+                json.dump(json_data, f, indent=2, ensure_ascii=False)
+
+            self.logger.info(f"Saved image metadata to: {json_path}")
+            return json_path
+
+        except Exception as e:
+            self.logger.error(f"Failed to save image metadata JSON: {e}", exc_info=True)
+            return None
+
     async def download_and_process_telegram_file(
         self,
         bot,
@@ -989,6 +1077,27 @@ class FileProcessor:
                 # AICODE-NOTE: Add saved path to result so ContentParser can reference it
                 result["saved_path"] = str(save_path)
                 result["saved_filename"] = unique_filename
+
+                # AICODE-NOTE: Save image description and metadata for images
+                # 1. .md file contains clean markdown from OCR (for easy reading)
+                # 2. .json file contains all metadata (settings, config, timestamps)
+                if is_image:
+                    metadata = result.get("metadata", {})
+                    markdown_text = result.get("text", "")
+
+                    # Save clean markdown description
+                    if markdown_text:
+                        self._save_image_description_md(save_path, markdown_text)
+
+                    # Save JSON metadata
+                    self._save_image_metadata_json(
+                        save_path,
+                        metadata,
+                        original_filename or "image.jpg",
+                        file_id,
+                        message_date,
+                    )
+
                 temp_file = None  # Don't delete this file in finally block
             elif not save_to_kb:
                 temp_file = save_path  # Mark for cleanup
