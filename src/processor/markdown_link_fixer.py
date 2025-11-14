@@ -205,9 +205,7 @@ class MarkdownLinkFixer:
             return None
 
         candidates = [
-            candidate
-            for candidate in self.images_dir.rglob(filename)
-            if candidate.is_file()
+            candidate for candidate in self.images_dir.rglob(filename) if candidate.is_file()
         ]
 
         if not candidates:

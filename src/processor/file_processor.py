@@ -1005,6 +1005,7 @@ class FileProcessor:
                             timestamp=message_date or int(__import__("time").time()),
                             original_filename=original_filename or "image.jpg",
                             file_hash=file_hash,
+                            processing_metadata=result.get("metadata"),
                         )
                     except Exception as metadata_error:
                         self.logger.warning(

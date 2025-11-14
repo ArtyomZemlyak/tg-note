@@ -75,10 +75,10 @@ Git push
 async def _auto_commit_and_push(...):
     # ПЕРЕД коммитом:
     validation_result = await self._validate_and_fix_markdown_links(kb_path)
-    
+
     if validation_result.has_changes():
         logger.info(f"Fixed {validation_result.images_fixed} images")
-    
+
     # ЗАТЕМ коммит
     git_ops.auto_commit_and_push(...)
 ```
@@ -311,7 +311,7 @@ See also:
 async def _auto_commit_and_push(...):
     # Закомментировать:
     # validation_result = await self._validate_and_fix_markdown_links(kb_path)
-    
+
     # Коммит без валидации
     git_ops.auto_commit_and_push(...)
 ```

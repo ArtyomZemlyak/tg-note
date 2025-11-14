@@ -194,9 +194,7 @@ class MarkdownImageValidator:
             return None
 
         candidates = [
-            candidate
-            for candidate in self.images_dir.rglob(filename)
-            if candidate.is_file()
+            candidate for candidate in self.images_dir.rglob(filename) if candidate.is_file()
         ]
 
         best_path: Optional[str] = None

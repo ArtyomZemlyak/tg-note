@@ -5,7 +5,7 @@ Handles .md and .json metadata files for saved images
 
 import json
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from loguru import logger
 
@@ -21,23 +21,56 @@ class ImageMetadata:
         timestamp: int,
         original_filename: str,
         file_hash: str,
+        processing_metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
         Create .md and .json metadata files for an image
 
         Args:
             image_path: Path to saved image file
-            ocr_text: Extracted text from OCR
+            ocr_text: Extracted text from OCR (can be plain text or JSON string)
             file_id: Telegram file_id
             timestamp: Unix timestamp when image was received
             original_filename: Original filename from Telegram
             file_hash: SHA256 hash of image file
+            processing_metadata: Optional metadata from file processor (docling settings, etc.)
         """
         # AICODE-NOTE: Create companion .md and .json files for each image
         # This reduces prompt length and helps agent understand image content
         base_path = image_path.with_suffix("")
 
-        # Create .md file with OCR text and description
+        # AICODE-NOTE: Extract markdown from JSON if ocr_text is a JSON string
+        markdown_text = ocr_text
+        structured_data = None
+
+        if ocr_text.strip():
+            try:
+                # Try to parse as JSON
+                parsed = json.loads(ocr_text)
+                if isinstance(parsed, dict):
+                    structured_data = parsed
+                    # Extract text content from JSON structure
+                    # Priority: markdown > text > content
+                    if "markdown" in parsed:
+                        markdown_text = parsed["markdown"]
+                        logger.info(f"Extracted markdown field from structured OCR data")
+                    elif "text" in parsed:
+                        markdown_text = parsed["text"]
+                        logger.info(f"Extracted text field from structured OCR data")
+                    elif "content" in parsed:
+                        markdown_text = parsed["content"]
+                        logger.info(f"Extracted content field from structured OCR data")
+                    else:
+                        # JSON without readable content fields, keep original
+                        logger.warning(
+                            f"JSON structure has no markdown/text/content fields, using raw JSON"
+                        )
+                        markdown_text = json.dumps(parsed, indent=2, ensure_ascii=False)
+            except json.JSONDecodeError:
+                # Not JSON, use as-is
+                pass
+
+        # Create .md file with extracted markdown text
         md_path = Path(str(base_path) + ".md")
         md_content = f"""# Image Description
 
@@ -47,7 +80,7 @@ class ImageMetadata:
 
 ## Extracted Text (OCR)
 
-{ocr_text if ocr_text.strip() else "_No text detected in image_"}
+{markdown_text if markdown_text.strip() else "_No text detected in image_"}
 
 ## Usage Instructions
 
@@ -66,7 +99,7 @@ Example:
         md_path.write_text(md_content, encoding="utf-8")
         logger.info(f"Created metadata file: {md_path}")
 
-        # Create .json file with processing settings
+        # Create .json file with ALL processing settings
         json_path = Path(str(base_path) + ".json")
         json_data = {
             "file_id": file_id,
@@ -74,9 +107,18 @@ Example:
             "original_filename": original_filename,
             "file_hash": file_hash,
             "image_filename": image_path.name,
-            "ocr_extracted": bool(ocr_text.strip()),
-            "ocr_length": len(ocr_text),
+            "ocr_extracted": bool(markdown_text.strip()),
+            "ocr_length": len(markdown_text),
         }
+
+        # AICODE-NOTE: Include structured OCR data if present (from MCP/docling)
+        if structured_data:
+            json_data["ocr_structured"] = structured_data
+
+        # AICODE-NOTE: Include all processing metadata (docling backend, settings, etc.)
+        if processing_metadata:
+            json_data["processing_metadata"] = processing_metadata
+
         json_path.write_text(json.dumps(json_data, indent=2, ensure_ascii=False), encoding="utf-8")
         logger.info(f"Created settings file: {json_path}")
 

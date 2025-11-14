@@ -88,7 +88,7 @@ def test_fix_markdown_link_path(temp_kb):
     # Path exists and is correct, no fix needed
     # (but if validator thinks it's broken, it adds TODO)
     content = md_file.read_text()
-    
+
     # Either no modification OR TODO comment added
     # (depends on whether file can be found)
     if modified:
@@ -263,9 +263,7 @@ def test_add_todo_for_each_broken_image_same_line(temp_kb):
     fixer = MarkdownLinkFixer(temp_kb)
 
     md_file = temp_kb / "test.md"
-    md_file.write_text(
-        "![First](images/missing1.jpg) and ![Second](images/missing2.jpg)"
-    )
+    md_file.write_text("![First](images/missing1.jpg) and ![Second](images/missing2.jpg)")
 
     modified, images_fixed, links_fixed = fixer.validate_and_fix_file(md_file)
 
