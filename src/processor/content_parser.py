@@ -217,7 +217,7 @@ class ContentParser:
                             f"Text/caption will still be extracted."
                         )
 
-            # Add file contents to result
+                # Add file contents to result
             if file_contents:
                 result["files"] = file_contents
 
@@ -237,6 +237,42 @@ class ContentParser:
                         file_texts.append(
                             f"\n\n--- Содержимое файла: {file_data['file_name']} ---\n{file_data['content']}"
                         )
+                    
+                    # AICODE-NOTE: Add information about extracted elements from PDF (images, tables)
+                    metadata = file_data.get("metadata", {})
+                    extracted_elements = metadata.get("extracted_elements")
+                    if extracted_elements:
+                        elements_info = []
+                        
+                        # Add extracted images info
+                        images = extracted_elements.get("images", [])
+                        if images:
+                            images_list = []
+                            for img in images:
+                                rel_path = img.get("relative_path", img.get("path", ""))
+                                images_list.append(f"  - {img.get('filename', 'image')} ({rel_path})")
+                            if images_list:
+                                elements_info.append(
+                                    f"\nИзвлеченные изображения из PDF ({len(images)} шт.):\n" + "\n".join(images_list)
+                                )
+                        
+                        # Add extracted tables info
+                        tables = extracted_elements.get("tables", [])
+                        if tables:
+                            tables_list = []
+                            for tbl in tables:
+                                rel_path = tbl.get("relative_path", tbl.get("path", ""))
+                                tables_list.append(f"  - {tbl.get('filename', 'table')} ({rel_path})")
+                            if tables_list:
+                                elements_info.append(
+                                    f"\nИзвлеченные таблицы из PDF ({len(tables)} шт.):\n" + "\n".join(tables_list)
+                                )
+                        
+                        if elements_info:
+                            file_texts.append("\n".join(elements_info))
+                            file_texts.append(
+                                "\nВАЖНО: Используй эти извлеченные элементы в создаваемом markdown файле!"
+                            )
 
                 if file_texts:
                     result["text"] = result.get("text", "") + "\n\n".join(file_texts)
