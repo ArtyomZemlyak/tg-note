@@ -5,7 +5,11 @@ Handles various file formats using Docling via MCP or local converter.
 
 import base64
 import hashlib
+import re
+import secrets
 import tempfile
+import time
+import unicodedata
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -862,6 +866,99 @@ class FileProcessor:
                     continue
         return None
 
+    @staticmethod
+    def _sanitize_filename_token(value: Optional[str], max_length: int = 16) -> str:
+        """Convert arbitrary identifier to a safe lowercase token."""
+        if not value:
+            return ""
+
+        token = "".join(ch for ch in value if ch.isalnum())
+        if not token:
+            return ""
+        return token.lower()[:max_length]
+
+    def _extract_unique_identifier(
+        self,
+        file_unique_id: Optional[str],
+        file_id: Optional[str],
+        file_hash: Optional[str],
+    ) -> str:
+        """
+        Build a stable identifier for the filename using Telegram metadata.
+
+        Preference order:
+        1. file_unique_id (stable across bots)
+        2. file_id (per-bot) if unique_id not available
+        3. First 8 chars of file hash
+        4. Random hex fallback
+        """
+        for candidate in (file_unique_id, file_id):
+            sanitized = self._sanitize_filename_token(candidate)
+            if sanitized:
+                return sanitized
+
+        if file_hash:
+            return file_hash[:8]
+
+        return secrets.token_hex(4)
+
+    @staticmethod
+    def _create_image_slug(text: str, max_words: int = 6, max_length: int = 40) -> str:
+        """Create a descriptive slug from OCR text."""
+        if not text:
+            return ""
+
+        words = text.strip().split()
+        if not words:
+            return ""
+
+        snippet = " ".join(words[:max_words])
+        normalized = unicodedata.normalize("NFKD", snippet)
+        ascii_only = normalized.encode("ascii", "ignore").decode("ascii").strip()
+        base_text = ascii_only if ascii_only else snippet
+
+        slug_chars = []
+        for ch in base_text.lower():
+            if ch.isalnum():
+                slug_chars.append(ch)
+            elif ch in (" ", "-", "_"):
+                slug_chars.append("_")
+            else:
+                slug_chars.append("_")
+
+        slug = re.sub("_+", "_", "".join(slug_chars)).strip("_")
+        if not slug:
+            return ""
+        return slug[:max_length]
+
+    @staticmethod
+    def _build_image_filename(
+        timestamp: int, identifier: str, extension: str, slug: Optional[str] = None
+    ) -> str:
+        """Compose final image filename using timestamp, identifier and optional slug."""
+        normalized_ext = extension if extension.startswith(".") else f".{extension}"
+        parts = ["img", str(timestamp)]
+        if identifier:
+            parts.append(identifier)
+        if slug:
+            parts.append(slug)
+        return "_".join(parts) + normalized_ext
+
+    @staticmethod
+    def _ensure_unique_path(candidate: Path) -> Path:
+        """Ensure the candidate path is unique by appending a counter when needed."""
+        if not candidate.exists():
+            return candidate
+
+        stem = candidate.stem
+        suffix = candidate.suffix
+        counter = 1
+        while True:
+            new_candidate = candidate.with_name(f"{stem}_{counter}{suffix}")
+            if not new_candidate.exists():
+                return new_candidate
+            counter += 1
+
     async def download_and_process_telegram_file(
         self,
         bot,
@@ -869,6 +966,7 @@ class FileProcessor:
         original_filename: Optional[str] = None,
         kb_images_dir: Optional[Path] = None,
         file_id: Optional[str] = None,
+        file_unique_id: Optional[str] = None,
         message_date: Optional[int] = None,
     ) -> Optional[Dict[str, Any]]:
         """
@@ -880,6 +978,7 @@ class FileProcessor:
             original_filename: Original filename (e.g., "image.jpg", "document.pdf")
             kb_images_dir: If provided, images will be saved to this directory
             file_id: Telegram file_id for generating unique filename
+            file_unique_id: Telegram file_unique_id (stable across bots) for filenames
             message_date: Message timestamp for generating unique filename
 
         Returns:
@@ -920,6 +1019,9 @@ class FileProcessor:
             # Check if this is an image that should be saved to KB
             is_image = extension in ["jpg", "jpeg", "png", "gif", "tiff", "bmp", "webp"]
             save_to_kb = kb_images_dir is not None and is_image
+            timestamp = message_date or int(time.time())
+            existing_file: Optional[Path] = None
+            unique_identifier_for_slug: Optional[str] = None
 
             # Download file first to check for duplicates
             downloaded_file = await bot.download_file(file_info.file_path)
@@ -944,15 +1046,24 @@ class FileProcessor:
                     unique_filename = existing_file.name
                     self.logger.info(f"Reusing existing image (duplicate detected): {save_path}")
                 else:
-                    # Generate unique filename using timestamp and file_id
-                    import time
-
-                    timestamp = message_date or int(time.time())
-                    # Use first 8 chars of file_id as identifier (if available)
-                    file_suffix = f"_{file_id[:8]}" if file_id else ""
-                    unique_filename = f"img_{timestamp}{file_suffix}{file_extension}"
-
-                    save_path = kb_images_dir_abs / unique_filename
+                    # Generate unique, descriptive filename using Telegram identifiers
+                    identifier = self._extract_unique_identifier(
+                        file_unique_id=file_unique_id,
+                        file_id=file_id,
+                        file_hash=file_hash,
+                    )
+                    unique_identifier_for_slug = identifier
+                    resolved_extension = (
+                        file_extension
+                        if file_extension
+                        else (f".{extension}" if extension else ".jpg")
+                    ).lower()
+                    proposed_filename = self._build_image_filename(
+                        timestamp, identifier, resolved_extension
+                    )
+                    save_path = kb_images_dir_abs / proposed_filename
+                    save_path = self._ensure_unique_path(save_path)
+                    unique_filename = save_path.name
                     self.logger.info(f"Saving new image to KB: {save_path}")
 
                     # Write file only if it's not a duplicate
@@ -988,6 +1099,33 @@ class FileProcessor:
 
             if result and save_to_kb:
                 # AICODE-NOTE: Add saved path to result so ContentParser can reference it
+                if is_image and not existing_file:
+                    slug = self._create_image_slug(result.get("text", ""))
+                    if slug:
+                        identifier = unique_identifier_for_slug or self._extract_unique_identifier(
+                            file_unique_id=file_unique_id,
+                            file_id=file_id,
+                            file_hash=None,
+                        )
+                        resolved_extension = save_path.suffix or ".jpg"
+                        descriptive_name = self._build_image_filename(
+                            timestamp, identifier, resolved_extension, slug
+                        )
+                        new_path = save_path.with_name(descriptive_name)
+                        new_path = self._ensure_unique_path(new_path)
+                        if new_path != save_path:
+                            try:
+                                save_path.rename(new_path)
+                                self.logger.info(
+                                    f"Renamed image to include OCR slug: {new_path.name}"
+                                )
+                                save_path = new_path
+                                unique_filename = new_path.name
+                            except Exception as rename_error:
+                                self.logger.warning(
+                                    f"Failed to rename image {save_path} -> {new_path}: {rename_error}"
+                                )
+
                 result["saved_path"] = str(save_path)
                 result["saved_filename"] = unique_filename
 
@@ -1001,8 +1139,8 @@ class FileProcessor:
                         ImageMetadata.create_metadata_files(
                             image_path=save_path,
                             ocr_text=result.get("text", ""),
-                            file_id=file_id or "",
-                            timestamp=message_date or int(__import__("time").time()),
+                            file_id=(file_unique_id or file_id or ""),
+                            timestamp=timestamp,
                             original_filename=original_filename or "image.jpg",
                             file_hash=file_hash,
                             processing_metadata=result.get("metadata"),

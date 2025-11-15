@@ -225,7 +225,7 @@ else:
 ### Image with text
 ```
 1. Send an image (screenshot or document photo)
-2. Image is saved to KB: images/img_1234567890_abcd1234.jpg
+2. Image is saved to KB: images/img_1234567890_abcd1234_api_doc.jpg
 3. Docling extracts text from the image via OCR
 4. Agent receives both the image path and extracted text
 5. Agent creates markdown note with embedded image reference
@@ -238,7 +238,7 @@ else:
 
 This screenshot shows the API documentation.
 
-![API Documentation Screenshot](../images/img_1234567890_abcd1234.jpg)
+![API Documentation Screenshot](../images/img_1234567890_abcd1234_api_doc.jpg)
 
 ## Key Points
 - RESTful endpoints

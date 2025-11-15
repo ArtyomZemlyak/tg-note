@@ -232,7 +232,7 @@ vim config/prompts/ask_mode/instruction.ru.v2.md
   ```
   Медиафайлы:
   лежат в images/
-  img_123.jpg
+img_123_example.jpg
   ```
 
 **Prompt generation:**

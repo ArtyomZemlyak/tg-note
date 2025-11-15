@@ -154,6 +154,7 @@ class ContentParser:
                             ),
                             kb_images_dir=kb_images_dir,
                             file_id=document.file_id,
+                            file_unique_id=getattr(document, "file_unique_id", None),
                             message_date=msg_timestamp,
                         )
 
@@ -192,6 +193,7 @@ class ContentParser:
                                     original_filename="image.jpg",
                                     kb_images_dir=kb_images_dir,
                                     file_id=largest_photo.file_id,
+                                    file_unique_id=getattr(largest_photo, "file_unique_id", None),
                                     message_date=msg_timestamp,
                                 )
                             )

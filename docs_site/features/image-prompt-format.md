@@ -11,13 +11,13 @@ How images are now presented to the agent in the prompt.
 ```
 Пользователь: Вот диаграммы архитектуры
 
---- Изображение: image.jpg (сохранено как: ../images/img_1234567890_abc12345.jpg) ---
+--- Изображение: image.jpg (сохранено как: ../images/img_1234567890_abc12345_coconut_chain.jpg) ---
 Описание: Diagram showing three main components: Frontend (React), API (FastAPI), and Database (PostgreSQL). The frontend communicates with the API via REST endpoints. The API connects to the database using SQLAlchemy ORM. There's also a Redis cache layer between the API and database for performance optimization. The architecture follows microservices pattern with...
-Полное описание доступно в: ../images/img_1234567890_abc12345.md
+Полное описание доступно в: ../images/img_1234567890_abc12345_coconut_chain.md
 
---- Изображение: image2.jpg (сохранено как: ../images/img_1234567891_def67890.jpg) ---
+--- Изображение: image2.jpg (сохранено как: ../images/img_1234567891_def67890_kubernetes.jpg) ---
 Описание: Deployment diagram showing Kubernetes cluster with three environments: development, staging, and production. Each environment has separate namespaces. The production namespace contains 5 replicas of the API service, 3 replicas of the worker service, and...
-Полное описание доступно в: ../images/img_1234567891_def67890.md
+Полное описание доступно в: ../images/img_1234567891_def67890_kubernetes.md
 ```
 
 **Problems:**
@@ -32,8 +32,8 @@ How images are now presented to the agent in the prompt.
 
 Медиафайлы:
 лежат в images/
-img_1234567890_abc12345.jpg
-img_1234567891_def67890.jpg
+img_1234567890_abc12345_coconut_chain.jpg
+img_1234567891_def67890_kubernetes.jpg
 ```
 
 **Benefits:**
@@ -52,8 +52,8 @@ Agent receives:
 ```
 Медиафайлы:
 лежат в images/
-img_1234567890_abc12345.jpg
-img_1234567891_def67890.jpg
+img_1234567890_abc12345_coconut_chain.jpg
+img_1234567891_def67890_kubernetes.jpg
 ```
 
 ### Step 2: Read Metadata Files
@@ -62,14 +62,14 @@ Agent can read descriptions:
 
 ```python
 # Read first image description
-read_file("KB/images/img_1234567890_abc12345.md")
+read_file("KB/images/img_1234567890_abc12345_coconut_chain.md")
 ```
 
 Returns:
 ```markdown
 # Image Description
 
-**File:** img_1234567890_abc12345.jpg
+**File:** img_1234567890_abc12345_coconut_chain.jpg
 **Original:** system_architecture.png
 **Received:** 1234567890
 
@@ -96,7 +96,7 @@ When referencing this image in markdown:
 
 Example:
 ```markdown
-![System architecture diagram](../images/img_1234567890_abc12345.jpg)
+![System architecture diagram](../images/img_1234567890_abc12345_coconut_chain.jpg)
 
 **Описание:** Diagram shows microservices architecture with...
 ```
@@ -110,7 +110,7 @@ Agent creates note:
 
 Our new architecture consists of three main layers.
 
-![Microservices architecture with API Gateway and multiple services](../images/img_1234567890_abc12345.jpg)
+![Microservices architecture with API Gateway and multiple services](../images/img_1234567890_abc12345_coconut_chain.jpg)
 
 **Описание:** The diagram illustrates a microservices architecture where:
 - Frontend communicates through API Gateway
@@ -122,7 +122,7 @@ Our new architecture consists of three main layers.
 
 The deployment uses Kubernetes for orchestration.
 
-![Kubernetes deployment diagram with three environments](../images/img_1234567891_def67890.jpg)
+![Kubernetes deployment diagram with three environments](../images/img_1234567891_def67890_kubernetes.jpg)
 
 **Описание:** Deployment structure showing:
 - Separate namespaces for dev/staging/prod
@@ -170,11 +170,11 @@ From `template.ru.v2.md`:
 
 Медиафайлы:
 лежат в images/
-img_1234567890_abc12345.jpg
+img_1234567890_abc12345_coconut_chain.jpg
 
 **Что делать:**
-1. Для каждого изображения (например, `img_123.jpg`)
-   существует файл описания `img_123.md` в той же папке `images/`
+1. Для каждого изображения (например, `img_123_slug.jpg`)
+   существует файл описания `img_123_slug.md` в той же папке `images/`
 2. Ты можешь прочитать этот файл чтобы узнать что на изображении
    (там есть OCR текст)
 3. Используй изображения в создаваемых markdown файлах
@@ -256,13 +256,13 @@ for file_data in file_contents:
 img_1705334567_abc123.jpg
 ```
 
-**Agent reads:** `../images/img_1705334567_abc123.md`
+**Agent reads:** `../images/img_1705334567_abc123_error_traceback.md`
 
 **Agent creates:**
 ```markdown
 # Production Error - 2024-01-15
 
-![Error traceback showing ConnectionTimeout](../images/img_1705334567_abc123.jpg)
+![Error traceback showing ConnectionTimeout](../images/img_1705334567_abc123_error_traceback.jpg)
 
 **Описание:** Screenshot shows Redis connection timeout error in production...
 ```
@@ -275,9 +275,9 @@ img_1705334567_abc123.jpg
 
 Медиафайлы:
 лежат в images/
-img_001.jpg
-img_002.jpg
-img_003.jpg
+img_001_overview.jpg
+img_002_data_flow.jpg
+img_003_deployment.jpg
 ```
 
 **Agent creates:**
@@ -286,19 +286,19 @@ img_003.jpg
 
 ## Overview
 
-![System overview diagram](../images/img_001.jpg)
+![System overview diagram](../images/img_001_overview.jpg)
 
 **Описание:** High-level view of the system...
 
 ## Data Flow
 
-![Data flow between components](../images/img_002.jpg)
+![Data flow between components](../images/img_002_data_flow.jpg)
 
 **Описание:** Shows how data moves through the system...
 
 ## Deployment
 
-![Kubernetes deployment structure](../images/img_003.jpg)
+![Kubernetes deployment structure](../images/img_003_deployment.jpg)
 
 **Описание:** Production deployment configuration...
 ```
