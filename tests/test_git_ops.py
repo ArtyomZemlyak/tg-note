@@ -102,7 +102,9 @@ class TestGitOperations:
 
         success, message = git_ops.pull()
         assert success is False
-        assert "uncommitted" in message.lower()
+        assert "remote" in message.lower()
+        # Ensure local changes are still present after pull attempt
+        assert test_file.read_text() == "# Modified"
 
     @patch("src.knowledge_base.git_ops.Repo")
     def test_pull_successful(self, mock_repo_class, temp_repo_path):

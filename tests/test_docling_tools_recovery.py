@@ -7,6 +7,27 @@ from types import SimpleNamespace
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def docling_env_paths(monkeypatch, tmp_path_factory):
+    """
+    Configure Docling environment variables to point to a writable location.
+    Prevents tg_docling.env_setup from creating directories under /opt.
+    """
+    root = tmp_path_factory.mktemp("docling-tools")
+    models_dir = root / "models"
+    cache_dir = root / "cache"
+    hf_home = root / "hf"
+
+    for path in (models_dir, cache_dir, hf_home):
+        path.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setenv("DOCLING_MODELS_DIR", str(models_dir))
+    monkeypatch.setenv("DOCLING_CACHE_DIR", str(cache_dir))
+    monkeypatch.setenv("HF_HOME", str(hf_home))
+
+    return SimpleNamespace(models_dir=models_dir, cache_dir=cache_dir, hf_home=hf_home)
+
+
 def _ensure_stub_modules():
     """Install lightweight stubs for external Docling dependencies when running unit tests."""
     # docling_core stubs

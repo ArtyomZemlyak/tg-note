@@ -11,6 +11,27 @@ import pytest
 from config.settings import DoclingModelDownloadSettings
 
 
+@pytest.fixture
+def docling_env_paths(monkeypatch, tmp_path_factory):
+    """
+    Provide writable Docling environment paths so tg_docling.env_setup
+    doesn't attempt to create directories under /opt during tests.
+    """
+    root = tmp_path_factory.mktemp("docling-mcp")
+    models_dir = root / "models"
+    cache_dir = root / "cache"
+    hf_home = root / "hf"
+
+    for path in (models_dir, cache_dir, hf_home):
+        path.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setenv("DOCLING_MODELS_DIR", str(models_dir))
+    monkeypatch.setenv("DOCLING_CACHE_DIR", str(cache_dir))
+    monkeypatch.setenv("HF_HOME", str(hf_home))
+
+    return types.SimpleNamespace(models_dir=models_dir, cache_dir=cache_dir, hf_home=hf_home)
+
+
 def _install_docling_stubs(monkeypatch):
     from types import SimpleNamespace
 
@@ -134,7 +155,7 @@ def _install_huggingface_stub(monkeypatch):
 
 
 @pytest.fixture
-def model_sync(monkeypatch):
+def model_sync(monkeypatch, docling_env_paths):
     _install_docling_stubs(monkeypatch)
     _install_huggingface_stub(monkeypatch)
 
