@@ -129,10 +129,9 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
         # AICODE-NOTE: Use base class method to setup Git operations
         git_ops = self._setup_git_ops(kb_path, user_id)
 
-        # Parse task
-        content = await self.content_parser.parse_group_with_files(
-            group, bot=self.bot, kb_path=kb_path
-        )
+        # Parse task with correct paths based on kb_topics_only setting
+        content_parser = self._get_content_parser(user_id)
+        content = await content_parser.parse_group_with_files(group, bot=self.bot, kb_path=kb_path)
         task_text = content.get("text", "")
 
         if not task_text:

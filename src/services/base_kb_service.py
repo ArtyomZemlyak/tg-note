@@ -68,8 +68,21 @@ class BaseKBService:
         self.settings_manager = settings_manager
         self.credentials_manager = credentials_manager
         self.rate_limiter = rate_limiter
-        self.content_parser = ContentParser()
+        # ContentParser initialization deferred - will be created per-user with kb_topics_only setting
         self.logger = logger
+
+    def _get_content_parser(self, user_id: int) -> ContentParser:
+        """
+        Get ContentParser instance with correct kb_topics_only setting for user.
+
+        Args:
+            user_id: User ID for settings lookup
+
+        Returns:
+            ContentParser instance configured for user
+        """
+        kb_topics_only = self.settings_manager.get_setting(user_id, "KB_TOPICS_ONLY")
+        return ContentParser(kb_topics_only=kb_topics_only)
 
     def _setup_git_ops(self, kb_path: Path, user_id: int) -> GitOperations:
         """

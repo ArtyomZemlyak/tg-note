@@ -17,9 +17,16 @@ from src.processor.image_metadata import ImageMetadata
 class ContentParser:
     """Parses message content and extracts information"""
 
-    def __init__(self):
-        """Initialize content parser with file processor"""
+    def __init__(self, kb_topics_only: bool = True):
+        """
+        Initialize content parser with file processor
+
+        Args:
+            kb_topics_only: If True, agent works in topics/ folder (images path: ../images/)
+                          If False, agent works in KB root (images path: images/)
+        """
         self.file_processor = FileProcessor()
+        self.kb_topics_only = kb_topics_only
         self.logger = logger
 
         if self.file_processor.is_available():
@@ -250,7 +257,12 @@ class ContentParser:
 
                 # Add image list if any
                 if image_filenames:
-                    image_list_text = "\n\nМедиафайлы:\nлежат в images/\n" + "\n".join(
+                    # Determine correct path to images based on agent working directory
+                    # If kb_topics_only=True: agent works in topics/, so path is ../images/
+                    # If kb_topics_only=False: agent works in KB root, so path is images/
+                    images_path = "../images/" if self.kb_topics_only else "images/"
+
+                    image_list_text = f"\n\nМедиафайлы:\nлежат в {images_path}\n" + "\n".join(
                         image_filenames
                     )
                     result["text"] = result.get("text", "") + image_list_text

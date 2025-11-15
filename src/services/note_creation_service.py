@@ -154,11 +154,12 @@ class NoteCreationService(BaseKBService, INoteCreationService):
                 )
                 return
 
-            # Parse content
-            content = await self.content_parser.parse_group_with_files(
+            # Parse content with correct paths based on kb_topics_only setting
+            content_parser = self._get_content_parser(user_id)
+            content = await content_parser.parse_group_with_files(
                 group, bot=self.bot, kb_path=kb_path
             )
-            content_hash = self.content_parser.generate_hash(content)
+            content_hash = content_parser.generate_hash(content)
 
             # Check if already processed
             if self.tracker.is_processed(content_hash):

@@ -60,7 +60,7 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
         self.user_context_manager = user_context_manager
         self.settings_manager = settings_manager
         self.rate_limiter = rate_limiter
-        self.content_parser = ContentParser()
+        # Note: content_parser is created per-request in BaseKBService._get_content_parser()
         self.logger = logger
         self.response_formatter = ResponseFormatter()
 
@@ -89,8 +89,9 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
                 )
                 return
 
-            # Parse question
-            content = await self.content_parser.parse_group_with_files(
+            # Parse question with correct paths based on kb_topics_only setting
+            content_parser = self._get_content_parser(user_id)
+            content = await content_parser.parse_group_with_files(
                 group, bot=self.bot, kb_path=kb_path
             )
             question_text = content.get("text", "")
