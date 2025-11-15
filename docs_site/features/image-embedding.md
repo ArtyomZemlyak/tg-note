@@ -103,7 +103,7 @@ The AI agent is specially instructed to:
 
 When processing content, the agent sees:
 ```
---- Содержимое файла: image.jpg (сохранено как: images/img_1705334567_abc123.jpg) ---
+--- Содержимое файла: image.jpg (сохранено как: images/img_1705334567_abc123_error_traceback.jpg) ---
 [OCR extracted text here]
 ```
 
@@ -113,25 +113,25 @@ The agent knows markdown file structure:
 
 | Note Location | Image Reference |
 |--------------|-----------------|
-| `KB/index.md` | `![alt](images/img_xxx.jpg)` |
-| `KB/topics/note.md` | `![alt](../images/img_xxx.jpg)` |
-| `KB/topics/sub/note.md` | `![alt](../../images/img_xxx.jpg)` |
+| `KB/index.md` | `![alt](images/img_xxx_slug.jpg)` |
+| `KB/topics/note.md` | `![alt](../images/img_xxx_slug.jpg)` |
+| `KB/topics/sub/note.md` | `![alt](../../images/img_xxx_slug.jpg)` |
 
 ### 3. Add Meaningful Descriptions
 
 **Bad:**
 ```markdown
-![image](images/img_123.jpg)
+![image](images/img_123_example.jpg)
 ```
 
 **Good:**
 ```markdown
-![API authentication flow diagram](images/img_123.jpg)
+![API authentication flow diagram](images/img_123_example.jpg)
 ```
 
 **Excellent:**
 ```markdown
-![OAuth2 authentication flow showing 3 steps: 1) Request token 2) Validate credentials 3) Return JWT](images/img_123.jpg)
+![OAuth2 authentication flow showing 3 steps: 1) Request token 2) Validate credentials 3) Return JWT](images/img_123_example.jpg)
 ```
 
 ### 4. Place Images Logically
@@ -149,12 +149,12 @@ Images are saved with unique, traceable names:
 
 ### Format
 ```
-img_{timestamp}_{file_id}{extension}
+img_{timestamp}_{stable-id}_{ocr-slug}{extension}
 ```
 
 ### Example
 ```
-img_1705334567_abc12345.jpg
+img_1705334567_agacagia_error_traceback.jpg
 ```
 
 ### Components
@@ -163,7 +163,8 @@ img_1705334567_abc12345.jpg
 |------|--------|---------|
 | `img_` | Fixed prefix | Identifies as bot-saved image |
 | `1705334567` | Unix timestamp | When message received |
-| `abc12345` | Telegram file_id (first 8 chars) | Unique identifier |
+| `agacagia` | Telegram `file_unique_id` (sanitized) | Stable identifier across bots |
+| `error_traceback` | OCR-derived slug (first few keywords) | Human-readable context |
 | `.jpg` | Original extension | Preserves format |
 
 ### Benefits

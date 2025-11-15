@@ -31,9 +31,9 @@ def compute_file_hash(file_path):
 
 
 def extract_timestamp_from_filename(filename):
-    """Extract timestamp from image filename like img_1762860964_AgACAgIA.jpg"""
+    """Extract timestamp from image filename like img_1762860964_AgACAgIA_coconut.jpg"""
     try:
-        # Format: img_<timestamp>_<file_id>.ext
+        # Format: img_<timestamp>_<file_id>[_<slug>].ext
         parts = filename.split("_")
         if len(parts) >= 2 and parts[0] == "img":
             return int(parts[1])

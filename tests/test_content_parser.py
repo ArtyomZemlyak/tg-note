@@ -172,6 +172,6 @@ def test_image_path_format_in_file_contents():
 
     assert len(file_texts) == 1
     # Verify that image path uses ../images/ (relative from topics/ to images/)
-    assert "../images/img_1234567890_AgACAgIA.jpg" in file_texts[0]
-    # Ensure it doesn't use the incorrect path
-    assert "images/img_1234567890_AgACAgIA.jpg" not in file_texts[0] or "../" in file_texts[0]
+    assert "../images/img_1234567890_" in file_texts[0]
+    # Ensure it doesn't use the incorrect absolute path
+    assert "(сохранено как: images/" not in file_texts[0]

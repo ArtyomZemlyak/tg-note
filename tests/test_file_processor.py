@@ -318,6 +318,7 @@ async def test_download_and_process_telegram_file_accepts_kb_images_dir():
             original_filename="test.jpg",
             kb_images_dir=test_kb_images_dir,
             file_id=test_file_id,
+            file_unique_id="unique_test_file",
             message_date=test_message_date,
         )
     except Exception:
@@ -410,6 +411,7 @@ async def test_download_deduplication(file_processor, tmp_path):
         original_filename="test.jpg",
         kb_images_dir=images_dir,
         file_id="testfile1",
+        file_unique_id="unique_testfile1",
         message_date=1000000000,
     )
 
@@ -429,6 +431,7 @@ async def test_download_deduplication(file_processor, tmp_path):
         original_filename="test.jpg",
         kb_images_dir=images_dir,
         file_id="testfile2",  # Different file_id
+        file_unique_id="unique_testfile2",
         message_date=1000000100,  # Different timestamp
     )
 
@@ -442,3 +445,45 @@ async def test_download_deduplication(file_processor, tmp_path):
 
     # Should reuse the same filename
     assert result2["saved_filename"] == first_filename
+
+
+@pytest.mark.asyncio
+async def test_download_generates_descriptive_filename(file_processor, tmp_path):
+    """New images should get filenames with OCR-based slug."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    images_dir = tmp_path / "images"
+    images_dir.mkdir()
+
+    mock_bot = MagicMock()
+    mock_bot.download_file = AsyncMock(return_value=b"descriptive image bytes")
+
+    mock_file_info = MagicMock()
+    mock_file_info.file_path = "photos/test.jpg"
+
+    async def mock_process_file(path):
+        return {
+            "text": "Coconut Chain Layout Diagram reference",
+            "metadata": {},
+            "format": "jpg",
+            "file_name": "test.jpg",
+        }
+
+    file_processor.process_file = mock_process_file
+
+    result = await file_processor.download_and_process_telegram_file(
+        bot=mock_bot,
+        file_info=mock_file_info,
+        original_filename="test.jpg",
+        kb_images_dir=images_dir,
+        file_id="testfile3",
+        file_unique_id="AgACSlugID123456",
+        message_date=1000000200,
+    )
+
+    assert result is not None
+    saved_name = result["saved_filename"]
+    assert saved_name.startswith("img_1000000200")
+    assert "coconut_chain_layout_diagram" in saved_name
+    assert saved_name.endswith(".jpg")
+    assert (images_dir / saved_name).exists()
