@@ -91,7 +91,7 @@ When referencing this image in markdown:
 
 Example:
 ```markdown
-![Description based on OCR](../images/{image_path.name})
+![Description based on OCR](../media/{image_path.name})
 
 **Image shows:** [Describe what the image contains based on OCR]
 ```
@@ -123,18 +123,18 @@ Example:
         logger.info(f"Created settings file: {json_path}")
 
     @staticmethod
-    def read_metadata(image_filename: str, images_dir: Path) -> Optional[Dict]:
+    def read_metadata(image_filename: str, media_dir: Path) -> Optional[Dict]:
         """
         Read metadata for an image
 
         Args:
             image_filename: Name of image file
-            images_dir: Directory containing images
+            media_dir: Directory containing media assets
 
         Returns:
             Dict with 'description' (from .md) and 'settings' (from .json), or None if not found
         """
-        image_path = images_dir / image_filename
+        image_path = media_dir / image_filename
         if not image_path.exists():
             return None
 
@@ -167,18 +167,18 @@ Example:
         return result if result["description"] or result["settings"] else None
 
     @staticmethod
-    def get_image_description_summary(image_filename: str, images_dir: Path) -> str:
+    def get_image_description_summary(image_filename: str, media_dir: Path) -> str:
         """
         Get a brief summary of image content for agent prompt
 
         Args:
             image_filename: Name of image file
-            images_dir: Directory containing images
+            media_dir: Directory containing media assets
 
         Returns:
             Brief text description of image content
         """
-        metadata = ImageMetadata.read_metadata(image_filename, images_dir)
+        metadata = ImageMetadata.read_metadata(image_filename, media_dir)
         if not metadata:
             return "No description available"
 

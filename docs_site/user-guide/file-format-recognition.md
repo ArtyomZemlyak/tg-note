@@ -27,7 +27,7 @@ tg-note supports automatic recognition and processing of various file formats us
 ### Automatic processing
 1. Send a file to the bot (attachment or forwarded)
 2. The bot downloads the file
-   - **Images**: Saved to `images/` directory in your KB with unique names
+   - **Images**: Saved to `media/` directory in your KB with unique names
    - **Documents**: Processed temporarily (not saved as files)
 3. Docling processes the file and extracts text (OCR for images)
 4. The content is merged with the message text for analysis
@@ -225,7 +225,7 @@ else:
 ### Image with text
 ```
 1. Send an image (screenshot or document photo)
-2. Image is saved to KB: images/img_1234567890_abcd1234_api_doc.jpg
+2. Image is saved to KB: media/img_1234567890_abcd1234_api_doc.jpg
 3. Docling extracts text from the image via OCR
 4. Agent receives both the image path and extracted text
 5. Agent creates markdown note with embedded image reference
@@ -238,7 +238,7 @@ else:
 
 This screenshot shows the API documentation.
 
-![API Documentation Screenshot](../images/img_1234567890_abcd1234_api_doc.jpg)
+![API Documentation Screenshot](../media/img_1234567890_abcd1234_api_doc.jpg)
 
 ## Key Points
 - RESTful endpoints
@@ -521,16 +521,16 @@ print(f"Supported: {processor.get_supported_formats()}")
 When you send an image to the bot:
 1. **Unique filename generation**: `img_{timestamp}_{file_id_prefix}{extension}`
    - Example: `img_1705334567_abcd1234.jpg`
-2. **Storage location**: `{your-kb}/images/`
-3. **Automatic directory creation**: `images/` folder is created if it doesn't exist
+2. **Storage location**: `{your-kb}/media/`
+3. **Automatic directory creation**: `media/` folder is created if it doesn't exist
 
 ### How agent uses images
 
 The AI agent (especially qwen-cli) is instructed to:
 1. **Detect saved images** in the incoming message content
 2. **Use relative paths** when referencing images in markdown:
-   - From root: `![description](images/img_xxx.jpg)`
-   - From topics/: `![description](../images/img_xxx.jpg)`
+   - From root: `![description](media/img_xxx.jpg)`
+   - From topics/: `![description](../media/img_xxx.jpg)`
 3. **Add meaningful descriptions** (alt text) for accessibility
 4. **Place images logically** near relevant text content
 
@@ -552,13 +552,13 @@ Your KB structure with images:
 knowledge_bases/my-notes/
 ├── index.md
 ├── README.md
-├── images/                           # ← Images directory
+├── media/                           # ← Images directory
 │   ├── img_1705334567_abcd1234.jpg  # ← Saved images
 │   ├── img_1705334580_efgh5678.png
 │   └── img_1705334592_ijkl9012.jpg
 └── topics/
-    ├── screenshot-notes.md           # ← References ../images/img_xxx.jpg
-    └── diagrams.md                   # ← References ../images/img_yyy.png
+    ├── screenshot-notes.md           # ← References ../media/img_xxx.jpg
+    └── diagrams.md                   # ← References ../media/img_yyy.png
 ```
 
 ### Git and images
@@ -566,12 +566,12 @@ knowledge_bases/my-notes/
 **Important**: Images are binary files and will be committed to your KB repository:
 - ✅ **Good**: Screenshots, diagrams, important visual content
 - ⚠️ **Consider**: Large images may bloat your git history
-- 💡 **Tip**: Use `.gitignore` to exclude `images/` if you don't want images in git
+- 💡 **Tip**: Use `.gitignore` to exclude `media/` if you don't want images in git
 
 Example `.gitignore` in KB root (optional):
 ```gitignore
 # Exclude images from git
-images/
+media/
 ```
 
 ## Known issues

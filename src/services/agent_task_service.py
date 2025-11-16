@@ -219,17 +219,17 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
             original_instruction = user_agent.get_instruction()
             instr = get_qwen_code_agent_instruction("ru")
 
-            # AICODE-NOTE: Add images instruction to prompt
-            from config.agent_prompts import get_images_instruction
+            # AICODE-NOTE: Add media handling instruction to prompt
+            from config.agent_prompts import get_media_instruction
             from src.bot.response_formatter import ResponseFormatter
 
-            images_instr = get_images_instruction("ru")
+            media_instr = get_media_instruction("ru")
             response_formatter = ResponseFormatter()
             response_formatter_prompt = response_formatter.generate_prompt_text()
 
-            # Combine the default instruction with images and ResponseFormatter prompt
+            # Combine the default instruction with media guidance and ResponseFormatter prompt
             instr = instr.format(
-                instruction_images=images_instr, response_format=response_formatter_prompt
+                instruction_media=media_instr, response_format=response_formatter_prompt
             )
 
             user_agent.set_instruction(instr)

@@ -50,8 +50,8 @@ def get_kb_query_template(locale: str = "ru", version: str | None = None) -> str
     return prompt_registry.get("kb_query.template", locale=locale, version=version)
 
 
-def get_images_instruction(locale: str = "ru", version: str | None = None) -> str:
-    return prompt_registry.get("images.instruction", locale=locale, version=version)
+def get_media_instruction(locale: str = "ru", version: str | None = None) -> str:
+    return prompt_registry.get("media.instruction", locale=locale, version=version)
 
 
 # Backward-compatible constants (deprecated): resolve at import time

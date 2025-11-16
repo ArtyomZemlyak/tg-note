@@ -7,7 +7,7 @@ Automatic image storage and embedding in knowledge base notes.
 ## Overview
 
 When you send images to the tg-note bot, they are:
-1. **Saved permanently** to your knowledge base (`images/` folder)
+1. **Saved permanently** to your knowledge base (`media/` folder)
 2. **Processed via OCR** to extract text content
 3. **Referenced by the AI agent** when creating markdown notes
 
@@ -35,7 +35,7 @@ Bot: 🔄 Processing message...
 ┌──────────────────────────────────────────┐
 │ FileProcessor                            │
 │ • Generate unique name                   │
-│ • Save to: KB/images/img_1705334567.jpg  │
+│ • Save to: KB/media/img_1705334567.jpg  │
 │ • Extract text via Docling OCR          │
 └────────┬─────────────────────────────────┘
          │
@@ -44,7 +44,7 @@ Bot: 🔄 Processing message...
 │ ContentParser                            │
 │ • Merge OCR text with message            │
 │ • Include image path in prompt           │
-│ • Format: "сохранено как: images/..."   │
+│ • Format: "сохранено как: media/..."   │
 └────────┬─────────────────────────────────┘
          │
          ▼
@@ -59,7 +59,7 @@ Bot: 🔄 Processing message...
 ┌──────────────────────────────────────────┐
 │ Knowledge Base                           │
 │ • Note saved with image reference        │
-│ • Image file persisted in images/        │
+│ • Image file persisted in media/        │
 └──────────────────────────────────────────┘
 ```
 
@@ -68,7 +68,7 @@ Bot: 🔄 Processing message...
 **File structure:**
 ```
 knowledge_bases/my-notes/
-├── images/
+├── media/
 │   └── img_1705334567_abc123.jpg    ← Your image
 └── topics/
     └── api-docs-screenshot.md       ← Note with reference
@@ -80,7 +80,7 @@ knowledge_bases/my-notes/
 
 Screenshot of the authentication section from our API docs.
 
-![API Authentication Documentation](../images/img_1705334567_abc123.jpg)
+![API Authentication Documentation](../media/img_1705334567_abc123.jpg)
 
 ## Key Information Extracted
 
@@ -103,7 +103,7 @@ The AI agent is specially instructed to:
 
 When processing content, the agent sees:
 ```
---- Содержимое файла: image.jpg (сохранено как: images/img_1705334567_abc123_error_traceback.jpg) ---
+--- Содержимое файла: image.jpg (сохранено как: media/img_1705334567_abc123_error_traceback.jpg) ---
 [OCR extracted text here]
 ```
 
@@ -113,25 +113,25 @@ The agent knows markdown file structure:
 
 | Note Location | Image Reference |
 |--------------|-----------------|
-| `KB/index.md` | `![alt](images/img_xxx_slug.jpg)` |
-| `KB/topics/note.md` | `![alt](../images/img_xxx_slug.jpg)` |
-| `KB/topics/sub/note.md` | `![alt](../../images/img_xxx_slug.jpg)` |
+| `KB/index.md` | `![alt](media/img_xxx_slug.jpg)` |
+| `KB/topics/note.md` | `![alt](../media/img_xxx_slug.jpg)` |
+| `KB/topics/sub/note.md` | `![alt](../../media/img_xxx_slug.jpg)` |
 
 ### 3. Add Meaningful Descriptions
 
 **Bad:**
 ```markdown
-![image](images/img_123_example.jpg)
+![image](media/img_123_example.jpg)
 ```
 
 **Good:**
 ```markdown
-![API authentication flow diagram](images/img_123_example.jpg)
+![API authentication flow diagram](media/img_123_example.jpg)
 ```
 
 **Excellent:**
 ```markdown
-![OAuth2 authentication flow showing 3 steps: 1) Request token 2) Validate credentials 3) Return JWT](images/img_123_example.jpg)
+![OAuth2 authentication flow showing 3 steps: 1) Request token 2) Validate credentials 3) Return JWT](media/img_123_example.jpg)
 ```
 
 ### 4. Place Images Logically
@@ -195,15 +195,15 @@ Complete architecture overview from multiple diagrams.
 
 ## Overview Diagram
 
-![System architecture overview showing 5 main components](../images/img_1705334567_abc123.png)
+![System architecture overview showing 5 main components](../media/img_1705334567_abc123.png)
 
 ## Data Flow Diagram
 
-![Data flow between frontend, API, and database layers](../images/img_1705334580_def456.png)
+![Data flow between frontend, API, and database layers](../media/img_1705334580_def456.png)
 
 ## Deployment Diagram
 
-![Kubernetes cluster deployment structure with 3 environments](../images/img_1705334592_ghi789.png)
+![Kubernetes cluster deployment structure with 3 environments](../media/img_1705334592_ghi789.png)
 
 ## Analysis
 
@@ -228,7 +228,7 @@ TIMEOUT=30
 **Agent combines:**
 1. Your message text: "Here's the config file screenshot"
 2. OCR extracted text: "API_KEY=..., BASE_URL=..., ..."
-3. Image path: "images/img_xxx.jpg"
+3. Image path: "media/img_xxx.jpg"
 
 **Agent creates:**
 ```markdown
@@ -236,7 +236,7 @@ TIMEOUT=30
 
 Screenshot of production configuration.
 
-![Production config.env file](../images/img_1705334567_abc123.jpg)
+![Production config.env file](../media/img_1705334567_abc123.jpg)
 
 ## Configuration Values
 
@@ -261,20 +261,20 @@ TIMEOUT=30
 Images accumulate over time:
 - **Average screenshot**: 50-500 KB
 - **1000 images**: ~200 MB
-- **Monitor**: Check `images/` folder size
+- **Monitor**: Check `media/` folder size
 
 ### Cleanup Options
 
 #### Option 1: Manual Cleanup
 ```bash
 # List all images sorted by date
-ls -lt knowledge_bases/my-notes/images/
+ls -lt knowledge_bases/my-notes/media/
 
 # Remove specific image
-rm knowledge_bases/my-notes/images/img_1705334567_abc123.jpg
+rm knowledge_bases/my-notes/media/img_1705334567_abc123.jpg
 
 # Remove images older than 30 days
-find knowledge_bases/my-notes/images/ -name "img_*.jpg" -mtime +30 -delete
+find knowledge_bases/my-notes/media/ -name "img_*.jpg" -mtime +30 -delete
 ```
 
 #### Option 2: Exclude from Git
@@ -282,17 +282,17 @@ find knowledge_bases/my-notes/images/ -name "img_*.jpg" -mtime +30 -delete
 Add to KB `.gitignore`:
 ```gitignore
 # Don't commit images to git
-images/
+media/
 ```
 
 Or keep git but track only specific formats:
 ```gitignore
 # Exclude large images
-images/*.png
-images/*.tiff
+media/*.png
+media/*.tiff
 
 # Keep small JPEGs
-!images/*.jpg
+!media/*.jpg
 ```
 
 #### Option 3: Automatic Cleanup (Future)
@@ -313,13 +313,13 @@ Create diagram libraries:
 # Architecture Diagrams
 
 ## Component Diagram
-![](../images/img_comp_2024.png)
+![](../media/img_comp_2024.png)
 
 ## Sequence Diagram
-![](../images/img_seq_2024.png)
+![](../media/img_seq_2024.png)
 
 ## Deployment Diagram
-![](../images/img_deploy_2024.png)
+![](../media/img_deploy_2024.png)
 ```
 
 ### 2. Meeting Whiteboards
@@ -335,7 +335,7 @@ Bot: ✅ Saved successfully!
 ```markdown
 # Team Brainstorming - 2024-01-15
 
-![Whiteboard photo from team meeting](../images/img_1705334567_abc123.jpg)
+![Whiteboard photo from team meeting](../media/img_1705334567_abc123.jpg)
 
 ## Ideas Discussed
 [OCR extracted key points]
@@ -424,8 +424,8 @@ MEDIA_PROCESSING_DOCLING:
 ### Images not displaying?
 
 **Check:**
-1. Relative path correct? `../images/` from `topics/`
-2. Image file exists? Verify in `images/` folder
+1. Relative path correct? `../media/` from `topics/`
+2. Image file exists? Verify in `media/` folder
 3. Filename matches? Check exact name in markdown
 
 ---
@@ -444,7 +444,7 @@ MEDIA_PROCESSING_DOCLING:
 ```markdown
 # FastAPI Async Endpoint Implementation
 
-![FastAPI async function showing database query pattern](../images/img_1705334567_abc123.jpg)
+![FastAPI async function showing database query pattern](../media/img_1705334567_abc123.jpg)
 
 ## Code Analysis
 
@@ -468,7 +468,7 @@ The screenshot shows an async endpoint using SQLAlchemy async session...
 ```markdown
 # Q4 2024 Revenue Analysis
 
-![Line graph showing 45% revenue increase in Q4 2024](../images/img_1705334567_abc123.jpg)
+![Line graph showing 45% revenue increase in Q4 2024](../media/img_1705334567_abc123.jpg)
 
 ## Insights
 
@@ -489,7 +489,7 @@ The screenshot shows an async endpoint using SQLAlchemy async session...
 ```markdown
 # Production Error Investigation - 2024-01-15
 
-![Error traceback showing ConnectionTimeout in Redis client](../images/img_1705334567_abc123.jpg)
+![Error traceback showing ConnectionTimeout in Redis client](../media/img_1705334567_abc123.jpg)
 
 ## Error Details
 

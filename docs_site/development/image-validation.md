@@ -33,8 +33,8 @@ When agents create or edit markdown files via `file_create` or `file_edit` tools
 
 | Severity | Description | Example |
 |----------|-------------|---------|
-| **ERROR** | Image file not found | `![Photo](images/missing.jpg)` - file doesn't exist |
-| **WARNING** | Image outside KB images/ directory | `![Logo](../assets/logo.png)` - not in KB structure |
+| **ERROR** | Image file not found | `![Photo](media/missing.jpg)` - file doesn't exist |
+| **WARNING** | Image outside KB media/ directory | `![Logo](../assets/logo.png)` - not in KB structure |
 | **INFO** | Poor alt text quality | `![image](photo.jpg)` - generic description |
 
 ---
@@ -49,7 +49,7 @@ When agents create markdown files:
 # src/agents/tools/file_tools.py - FileCreateTool
 result = await tool.execute({
     "path": "topics/example.md",
-    "content": "# Example\n\n![Chart](../images/chart.jpg)"
+    "content": "# Example\n\n![Chart](../media/chart.jpg)"
 })
 
 # Result includes validation status:
@@ -110,9 +110,9 @@ Found issues in 2 file(s):
 
 📄 topics/api-docs.md
 --------------------------------------------------------------------------------
-  ❌ Line 15: Image file not found: images/api-diagram.png (resolved to: /home/user/knowledge_base/topics/images/api-diagram.png)
-     Image path: images/api-diagram.png
-     💡 Suggestion: ../images/api-diagram.png
+  ❌ Line 15: Image file not found: media/api-diagram.png (resolved to: /home/user/knowledge_base/topics/media/api-diagram.png)
+     Image path: media/api-diagram.png
+     💡 Suggestion: ../media/api-diagram.png
 
 📄 topics/tutorial.md
 --------------------------------------------------------------------------------
@@ -188,22 +188,22 @@ print(report)
 **Problem:**
 ```markdown
 <!-- File: topics/guide.md -->
-![Chart](images/chart.jpg)
+![Chart](media/chart.jpg)
 ```
 
 **Error:**
 ```
-❌ Image file not found: images/chart.jpg
-   💡 Suggestion: ../images/chart.jpg
+❌ Image file not found: media/chart.jpg
+   💡 Suggestion: ../media/chart.jpg
 ```
 
 **Fix:**
 ```markdown
 <!-- File: topics/guide.md -->
-![Chart](../images/chart.jpg)
+![Chart](../media/chart.jpg)
 ```
 
-**Explanation:** From `topics/` directory, need `../` to go up to KB root, then into `images/`.
+**Explanation:** From `topics/` directory, need `../` to go up to KB root, then into `media/`.
 
 ---
 
@@ -221,12 +221,12 @@ print(report)
 
 **Fix:** Copy image to KB images directory:
 ```bash
-cp ~/Downloads/screenshot.png knowledge_base/images/screenshot_20240115.png
+cp ~/Downloads/screenshot.png knowledge_base/media/screenshot_20240115.png
 ```
 
 Then update markdown:
 ```markdown
-![Screenshot from 2024-01-15](../images/screenshot_20240115.png)
+![Screenshot from 2024-01-15](../media/screenshot_20240115.png)
 ```
 
 ---
@@ -235,7 +235,7 @@ Then update markdown:
 
 **Problem:**
 ```markdown
-![image](../images/chart.jpg)
+![image](../media/chart.jpg)
 ```
 
 **Info:**
@@ -245,7 +245,7 @@ Then update markdown:
 
 **Fix:**
 ```markdown
-![Q4 2024 Revenue Growth Chart showing 45% increase](../images/chart.jpg)
+![Q4 2024 Revenue Growth Chart showing 45% increase](../media/chart.jpg)
 ```
 
 ---
@@ -257,9 +257,9 @@ Agents are instructed via system prompts to:
 ### 1. Use Correct Relative Paths
 
 ```
-From KB root:          ![alt](images/img.jpg)
-From topics/:          ![alt](../images/img.jpg)
-From topics/sub/:      ![alt](../../images/img.jpg)
+From KB root:          ![alt](media/img.jpg)
+From topics/:          ![alt](../media/img.jpg)
+From topics/sub/:      ![alt](../../media/img.jpg)
 ```
 
 See: `config/prompts/content_processing/template.ru.v2.md`
@@ -310,12 +310,12 @@ For each image reference:
 3. **Resolve relative to markdown file**:
    ```python
    markdown_dir = Path("/kb/topics")
-   img_path = "../images/photo.jpg"
+   img_path = "../media/photo.jpg"
    resolved = (markdown_dir / img_path).resolve()
-   # Result: /kb/images/photo.jpg
+   # Result: /kb/media/photo.jpg
    ```
 4. **Check existence**: `resolved.exists()`
-5. **Verify in KB**: Check if inside `kb_root/images/`
+5. **Verify in KB**: Check if inside `kb_root/media/`
 
 ---
 
@@ -417,9 +417,9 @@ assert file_path.suffix.lower() == ".md"
 
 **Case-sensitive filesystems:**
 ```markdown
-![Photo](Images/photo.jpg)  <!-- Looks for: images/photo.jpg -->
+![Photo](Images/photo.jpg)  <!-- Looks for: media/photo.jpg -->
 ```
-Fix: Use lowercase `images/` directory name.
+Fix: Use lowercase `media/` directory name.
 
 **Symlinks:**
 Validator follows symlinks via `Path.resolve()`. If symlink broken, validation fails.
@@ -436,7 +436,7 @@ result = await file_create_tool.execute({
     "path": "topics/api-guide.md",
     "content": """# API Guide
 
-![Authentication flow diagram](../images/auth_flow_20240115.png)
+![Authentication flow diagram](../media/auth_flow_20240115.png)
 
 ## Overview
 ...
@@ -457,7 +457,7 @@ result = await file_create_tool.execute({
     "path": "topics/tutorial.md",
     "content": """# Tutorial
 
-![Screenshot](images/screen.jpg)  # Wrong: should be ../images/
+![Screenshot](media/screen.jpg)  # Wrong: should be ../media/
 """
 })
 

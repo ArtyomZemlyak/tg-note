@@ -30,7 +30,7 @@ When a Telegram image is processed:
 
 ```python
 # In FileProcessor.download_and_process_telegram_file()
-save_path = kb_images_dir / "img_1234567890_abc12345_coconut_chain.jpg"
+save_path = kb_media_dir / "img_1234567890_abc12345_coconut_chain.jpg"
 # Download and save image
 # Process with Docling OCR
 
@@ -100,15 +100,15 @@ When ContentParser builds the prompt for the agent:
 
 **Old approach (problem):**
 ```
---- Содержимое файла: image.jpg (сохранено как: ../images/img_123_example.jpg) ---
+--- Содержимое файла: image.jpg (сохранено как: ../media/img_123_example.jpg) ---
 [10KB of OCR text here]
 ```
 
 **New approach (solution):**
 ```
---- Изображение: image.jpg (сохранено как: ../images/img_123_example.jpg) ---
+--- Изображение: image.jpg (сохранено как: ../media/img_123_example.jpg) ---
 Описание: [Brief 500 char summary of OCR]
-Полное описание доступно в: ../images/img_123_example.md
+Полное описание доступно в: ../media/img_123_example.md
 ```
 
 ### 4. Duplicate Detection
@@ -137,7 +137,7 @@ The agent receives updated instructions in `template.ru.v2.md`:
 **Solution:** Add description both in alt-text AND as text below:
 
 ```markdown
-![Brief description](../images/img_123_example.jpg)
+![Brief description](../media/img_123_example.jpg)
 
 **Описание:** Full detailed description visible in GitHub...
 ```
@@ -150,11 +150,11 @@ The agent receives updated instructions in `template.ru.v2.md`:
 
 ```markdown
 <!-- BAD - duplicate! -->
-![Aspect 1](../images/img_123_example.jpg)
-![Aspect 2](../images/img_123_example.jpg)
+![Aspect 1](../media/img_123_example.jpg)
+![Aspect 2](../media/img_123_example.jpg)
 
 <!-- GOOD - single comprehensive description -->
-![Complete description](../images/img_123_example.jpg)
+![Complete description](../media/img_123_example.jpg)
 
 **Описание:** Image shows both:
 - Aspect 1: ...
@@ -169,10 +169,10 @@ The agent receives updated instructions in `template.ru.v2.md`:
 
 ```markdown
 <!-- BAD -->
-![Diagram](../images/img_123_example.jpg) <!-- TODO: Broken image path -->
+![Diagram](../media/img_123_example.jpg) <!-- TODO: Broken image path -->
 
 <!-- GOOD -->
-![Diagram](../images/img_123_example.jpg)
+![Diagram](../media/img_123_example.jpg)
 ```
 
 ### 4. Read Metadata Files
@@ -180,8 +180,8 @@ The agent receives updated instructions in `template.ru.v2.md`:
 Agent can read `.md` files for full context:
 
 ```
-Prompt says: "Полное описание доступно в: ../images/img_123_example.md"
-Agent can: read_file("KB/images/img_123_example.md")
+Prompt says: "Полное описание доступно в: ../media/img_123_example.md"
+Agent can: read_file("KB/media/img_123_example.md")
 Result: Full OCR text and usage instructions
 ```
 
@@ -197,7 +197,7 @@ Create `.md` and `.json` companion files for an image.
 
 ```python
 ImageMetadata.create_metadata_files(
-    image_path=Path("images/img_123_example.jpg"),
+    image_path=Path("media/img_123_example.jpg"),
     ocr_text="Extracted text from image",
     file_id="telegram_file_id",
     timestamp=1234567890,
@@ -207,15 +207,15 @@ ImageMetadata.create_metadata_files(
 ```
 
 **Creates:**
-- `images/img_123_example.md` - Description with OCR text
-- `images/img_123_example.json` - Settings and metadata
+- `media/img_123_example.md` - Description with OCR text
+- `media/img_123_example.json` - Settings and metadata
 
 #### `read_metadata()`
 
 Read metadata for an image.
 
 ```python
-metadata = ImageMetadata.read_metadata("img_123_example.jpg", images_dir)
+metadata = ImageMetadata.read_metadata("img_123_example.jpg", media_dir)
 # Returns: {
 #   "description": "...",  # Content of .md file
 #   "settings": {...}      # Content of .json file
@@ -227,7 +227,7 @@ metadata = ImageMetadata.read_metadata("img_123_example.jpg", images_dir)
 Get brief summary for agent prompt (max 500 chars).
 
 ```python
-summary = ImageMetadata.get_image_description_summary("img_123_example.jpg", images_dir)
+summary = ImageMetadata.get_image_description_summary("img_123_example.jpg", media_dir)
 # Returns: "Brief OCR text..." (truncated to 500 chars)
 ```
 
@@ -266,7 +266,7 @@ Agent can read full `.md` files when needed for detailed context.
 
 ```
 knowledge_bases/my-notes/
-├── images/
+├── media/
 │   ├── img_1234567890_abc12345_coconut_chain.jpg      # Image file
 │   ├── img_1234567890_abc12345_coconut_chain.md       # Description (human-readable)
 │   ├── img_1234567890_abc12345_coconut_chain.json     # Settings (machine-readable)
@@ -284,7 +284,7 @@ knowledge_bases/my-notes/
 
 Our architecture consists of three layers:
 
-![System architecture diagram showing frontend, API, and database layers](../../images/img_1234567890_abc12345_coconut_chain.jpg)
+![System architecture diagram showing frontend, API, and database layers](../../media/img_1234567890_abc12345_coconut_chain.jpg)
 
 **Описание:** The diagram illustrates:
 - Frontend layer with React components
@@ -323,8 +323,8 @@ To add metadata to existing images:
 from pathlib import Path
 from src.processor.image_metadata import ImageMetadata
 
-    images_dir = Path("knowledge_bases/my-notes/images")
-    for img in images_dir.glob("img_*.jpg"):
+    media_dir = Path("knowledge_bases/my-notes/media")
+    for img in media_dir.glob("img_*.jpg"):
         if not Path(str(img.with_suffix("")) + ".md").exists():
             # Create metadata with empty OCR
             ImageMetadata.create_metadata_files(

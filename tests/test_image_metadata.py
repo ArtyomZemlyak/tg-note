@@ -15,8 +15,8 @@ class TestImageMetadata:
     def setup_method(self):
         """Create temporary directory for tests"""
         self.temp_dir = tempfile.mkdtemp()
-        self.images_dir = Path(self.temp_dir) / "images"
-        self.images_dir.mkdir(parents=True, exist_ok=True)
+        self.media_dir = Path(self.temp_dir) / "media"
+        self.media_dir.mkdir(parents=True, exist_ok=True)
 
     def teardown_method(self):
         """Clean up temporary directory"""
@@ -27,7 +27,7 @@ class TestImageMetadata:
     def test_create_metadata_files(self):
         """Test creating .md and .json metadata files"""
         # Create test image file
-        image_path = self.images_dir / "img_1234567890_abc12345.jpg"
+        image_path = self.media_dir / "img_1234567890_abc12345.jpg"
         image_path.write_bytes(b"fake image data")
 
         ocr_text = "Test OCR text\nLine 2"
@@ -66,7 +66,7 @@ class TestImageMetadata:
 
     def test_create_metadata_no_ocr(self):
         """Test creating metadata when no OCR text available"""
-        image_path = self.images_dir / "img_test.jpg"
+        image_path = self.media_dir / "img_test.jpg"
         image_path.write_bytes(b"fake image data")
 
         ImageMetadata.create_metadata_files(
@@ -88,7 +88,7 @@ class TestImageMetadata:
 
     def test_read_metadata(self):
         """Test reading metadata from files"""
-        image_path = self.images_dir / "img_test.jpg"
+        image_path = self.media_dir / "img_test.jpg"
         image_path.write_bytes(b"fake image data")
 
         # Create metadata
@@ -102,7 +102,7 @@ class TestImageMetadata:
         )
 
         # Read metadata
-        metadata = ImageMetadata.read_metadata("img_test.jpg", self.images_dir)
+        metadata = ImageMetadata.read_metadata("img_test.jpg", self.media_dir)
 
         assert metadata is not None
         assert "description" in metadata
@@ -112,12 +112,12 @@ class TestImageMetadata:
 
     def test_read_metadata_nonexistent(self):
         """Test reading metadata for non-existent image"""
-        metadata = ImageMetadata.read_metadata("nonexistent.jpg", self.images_dir)
+        metadata = ImageMetadata.read_metadata("nonexistent.jpg", self.media_dir)
         assert metadata is None
 
     def test_get_image_description_summary(self):
         """Test getting brief summary of image content"""
-        image_path = self.images_dir / "img_test.jpg"
+        image_path = self.media_dir / "img_test.jpg"
         image_path.write_bytes(b"fake image data")
 
         long_ocr_text = "A" * 1000  # Long text to test truncation
@@ -131,7 +131,7 @@ class TestImageMetadata:
             file_hash="hash123",
         )
 
-        summary = ImageMetadata.get_image_description_summary("img_test.jpg", self.images_dir)
+        summary = ImageMetadata.get_image_description_summary("img_test.jpg", self.media_dir)
 
         # Summary should be truncated
         assert len(summary) <= 503  # 500 chars + "..."
@@ -139,7 +139,7 @@ class TestImageMetadata:
 
     def test_get_image_description_summary_no_ocr(self):
         """Test getting summary when no OCR available"""
-        image_path = self.images_dir / "img_test.jpg"
+        image_path = self.media_dir / "img_test.jpg"
         image_path.write_bytes(b"fake image data")
 
         ImageMetadata.create_metadata_files(
@@ -151,7 +151,7 @@ class TestImageMetadata:
             file_hash="hash123",
         )
 
-        summary = ImageMetadata.get_image_description_summary("img_test.jpg", self.images_dir)
+        summary = ImageMetadata.get_image_description_summary("img_test.jpg", self.media_dir)
 
         assert "original_name.jpg" in summary
 
@@ -162,8 +162,8 @@ class TestImageMetadataIntegration:
     def setup_method(self):
         """Create temporary directory for tests"""
         self.temp_dir = tempfile.mkdtemp()
-        self.images_dir = Path(self.temp_dir) / "images"
-        self.images_dir.mkdir(parents=True, exist_ok=True)
+        self.media_dir = Path(self.temp_dir) / "media"
+        self.media_dir.mkdir(parents=True, exist_ok=True)
 
     def teardown_method(self):
         """Clean up temporary directory"""
@@ -175,7 +175,7 @@ class TestImageMetadataIntegration:
         """Test that metadata files follow naming convention"""
         # Create image with specific name
         image_name = "img_1234567890_abc12345.jpg"
-        image_path = self.images_dir / image_name
+        image_path = self.media_dir / image_name
         image_path.write_bytes(b"test")
 
         ImageMetadata.create_metadata_files(
@@ -188,8 +188,8 @@ class TestImageMetadataIntegration:
         )
 
         # Check naming convention
-        expected_md = self.images_dir / "img_1234567890_abc12345.md"
-        expected_json = self.images_dir / "img_1234567890_abc12345.json"
+        expected_md = self.media_dir / "img_1234567890_abc12345.md"
+        expected_json = self.media_dir / "img_1234567890_abc12345.json"
 
         assert expected_md.exists()
         assert expected_json.exists()
@@ -203,7 +203,7 @@ class TestImageMetadataIntegration:
         ]
 
         for img_name, ocr_text in images:
-            image_path = self.images_dir / img_name
+            image_path = self.media_dir / img_name
             image_path.write_bytes(b"test")
 
             ImageMetadata.create_metadata_files(
@@ -217,6 +217,6 @@ class TestImageMetadataIntegration:
 
         # Verify all metadata files created
         for img_name, ocr_text in images:
-            metadata = ImageMetadata.read_metadata(img_name, self.images_dir)
+            metadata = ImageMetadata.read_metadata(img_name, self.media_dir)
             assert metadata is not None
             assert ocr_text in metadata["description"]

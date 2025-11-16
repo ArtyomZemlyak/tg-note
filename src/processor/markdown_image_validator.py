@@ -87,7 +87,7 @@ class MarkdownImageValidator:
             kb_root: Root path of knowledge base
         """
         self.kb_root = Path(kb_root).resolve()
-        self.images_dir = self.kb_root / "images"
+        self.media_dir = self.kb_root / "media"
 
     def validate_markdown_file(
         self, markdown_file: Path, check_alt_text: bool = True
@@ -158,14 +158,14 @@ class MarkdownImageValidator:
                         )
                     )
                 else:
-                    # Check if resolved path is actually in KB images directory
+                    # Check if resolved path is actually in KB media directory
                     try:
-                        resolved_path.relative_to(self.images_dir)
+                        resolved_path.relative_to(self.media_dir)
                     except ValueError:
                         issues.append(
                             ValidationIssue(
                                 severity=ValidationIssue.SEVERITY_WARNING,
-                                message=f"Image is outside KB images directory: {resolved_path}",
+                                message=f"Image is outside KB media directory: {resolved_path}",
                                 image_ref=img_ref,
                             )
                         )
@@ -190,11 +190,11 @@ class MarkdownImageValidator:
         """
         filename = Path(img_path).name
 
-        if not self.images_dir.exists():
+        if not self.media_dir.exists():
             return None
 
         candidates = [
-            candidate for candidate in self.images_dir.rglob(filename) if candidate.is_file()
+            candidate for candidate in self.media_dir.rglob(filename) if candidate.is_file()
         ]
 
         best_path: Optional[str] = None
@@ -318,13 +318,13 @@ class MarkdownImageValidator:
         Returns:
             List of unreferenced image file paths
         """
-        if not self.images_dir.exists():
+        if not self.media_dir.exists():
             return []
 
         # Collect all image files
         all_images: Set[Path] = set()
         for img_ext in self.IMAGE_EXTENSIONS:
-            all_images.update(self.images_dir.glob(f"*{img_ext}"))
+            all_images.update(self.media_dir.glob(f"*{img_ext}"))
 
         # Collect all referenced images
         referenced_images: Set[Path] = set()

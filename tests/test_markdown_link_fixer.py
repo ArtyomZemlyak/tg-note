@@ -15,15 +15,15 @@ def temp_kb():
     """Create temporary KB structure."""
     with tempfile.TemporaryDirectory() as tmpdir:
         kb_root = Path(tmpdir)
-        images_dir = kb_root / "images"
+        media_dir = kb_root / "media"
         topics_dir = kb_root / "topics"
 
-        images_dir.mkdir()
+        media_dir.mkdir()
         topics_dir.mkdir()
 
         # Create test images
-        (images_dir / "chart.jpg").write_bytes(b"fake")
-        (images_dir / "diagram.png").write_bytes(b"fake")
+        (media_dir / "chart.jpg").write_bytes(b"fake")
+        (media_dir / "diagram.png").write_bytes(b"fake")
 
         # Create test markdown files
         (kb_root / "index.md").write_text("# Index")
@@ -41,7 +41,7 @@ def test_fix_incorrect_image_path(temp_kb):
     md_file = topics_dir / "test.md"
 
     # Wrong path: missing ../
-    md_file.write_text("# Test\n\n![Chart](images/chart.jpg)")
+    md_file.write_text("# Test\n\n![Chart](media/chart.jpg)")
 
     # Fix it
     modified, images_fixed, links_fixed = fixer.validate_and_fix_file(md_file)
@@ -51,7 +51,7 @@ def test_fix_incorrect_image_path(temp_kb):
 
     # Check fixed content
     content = md_file.read_text()
-    assert "![Chart](../images/chart.jpg)" in content
+    assert "![Chart](../media/chart.jpg)" in content
 
 
 def test_fix_missing_image_add_todo(temp_kb):
@@ -59,7 +59,7 @@ def test_fix_missing_image_add_todo(temp_kb):
     fixer = MarkdownLinkFixer(temp_kb)
 
     md_file = temp_kb / "test.md"
-    md_file.write_text("# Test\n\n![Missing](images/missing.jpg)")
+    md_file.write_text("# Test\n\n![Missing](media/missing.jpg)")
 
     # Try to fix
     modified, images_fixed, links_fixed = fixer.validate_and_fix_file(md_file)
@@ -144,8 +144,8 @@ def test_multiple_fixes_in_one_file(temp_kb):
     md_file.write_text(
         """# Test
 
-![Chart](images/chart.jpg)
-![Diagram](images/diagram.png)
+![Chart](media/chart.jpg)
+![Diagram](media/diagram.png)
 
 See also:
 - [Page 1](../page1.md)
@@ -162,8 +162,8 @@ See also:
     assert links_fixed >= 0
 
     content = md_file.read_text()
-    assert "![Chart](../images/chart.jpg)" in content
-    assert "![Diagram](../images/diagram.png)" in content
+    assert "![Chart](../media/chart.jpg)" in content
+    assert "![Diagram](../media/diagram.png)" in content
 
 
 def test_preserve_anchor_in_links(temp_kb):
@@ -190,7 +190,7 @@ def test_dry_run_mode(temp_kb):
 
     topics_dir = temp_kb / "topics"
     md_file = topics_dir / "test.md"
-    original = "# Test\n\n![Chart](images/chart.jpg)"
+    original = "# Test\n\n![Chart](media/chart.jpg)"
     md_file.write_text(original)
 
     # Dry run
@@ -212,8 +212,8 @@ def test_validate_kb_with_changed_files(temp_kb):
     file1 = topics_dir / "file1.md"
     file2 = topics_dir / "file2.md"
 
-    file1.write_text("![Chart](images/chart.jpg)")
-    file2.write_text("![Diagram](images/diagram.png)")
+    file1.write_text("![Chart](media/chart.jpg)")
+    file2.write_text("![Diagram](media/diagram.png)")
 
     # Validate only file1
     result = fixer.validate_and_fix_kb(changed_files=[file1], dry_run=False)
@@ -223,10 +223,10 @@ def test_validate_kb_with_changed_files(temp_kb):
     assert result.images_fixed == 1
 
     # file1 should be fixed
-    assert "![Chart](../images/chart.jpg)" in file1.read_text()
+    assert "![Chart](../media/chart.jpg)" in file1.read_text()
 
     # file2 should NOT be fixed
-    assert "![Diagram](images/diagram.png)" in file2.read_text()
+    assert "![Diagram](media/diagram.png)" in file2.read_text()
 
 
 def test_case_insensitive_extension(temp_kb):
@@ -235,7 +235,7 @@ def test_case_insensitive_extension(temp_kb):
 
     topics_dir = temp_kb / "topics"
     md_file = topics_dir / "TEST.MD"  # Uppercase extension
-    md_file.write_text("![Chart](images/chart.jpg)")
+    md_file.write_text("![Chart](media/chart.jpg)")
 
     modified, images_fixed, _ = fixer.validate_and_fix_file(md_file)
 
@@ -248,7 +248,7 @@ def test_no_duplicate_todo_comments(temp_kb):
     fixer = MarkdownLinkFixer(temp_kb)
 
     md_file = temp_kb / "test.md"
-    md_file.write_text("![Missing](images/missing.jpg) <!-- TODO: Broken image path -->")
+    md_file.write_text("![Missing](media/missing.jpg) <!-- TODO: Broken image path -->")
 
     # Try to fix again
     modified, _, _ = fixer.validate_and_fix_file(md_file)
@@ -263,7 +263,7 @@ def test_add_todo_for_each_broken_image_same_line(temp_kb):
     fixer = MarkdownLinkFixer(temp_kb)
 
     md_file = temp_kb / "test.md"
-    md_file.write_text("![First](images/missing1.jpg) and ![Second](images/missing2.jpg)")
+    md_file.write_text("![First](media/missing1.jpg) and ![Second](media/missing2.jpg)")
 
     modified, images_fixed, links_fixed = fixer.validate_and_fix_file(md_file)
 

@@ -1,7 +1,7 @@
 # Инструкция
 {instruction}
 
-{instruction_images}
+{instruction_media}
 
 
 # Входящая информация

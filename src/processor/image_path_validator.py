@@ -7,13 +7,13 @@ from pathlib import Path
 from typing import Optional
 
 
-def validate_image_path(file_path: Path, kb_images_dir: Optional[Path] = None) -> tuple[bool, str]:
+def validate_image_path(file_path: Path, kb_media_dir: Optional[Path] = None) -> tuple[bool, str]:
     """
     Validate image file path before processing.
 
     Args:
         file_path: Path to image file
-        kb_images_dir: Expected KB images directory (if provided)
+        kb_media_dir: Expected KB media directory (if provided)
 
     Returns:
         Tuple of (is_valid, error_message)
@@ -21,7 +21,7 @@ def validate_image_path(file_path: Path, kb_images_dir: Optional[Path] = None) -
     Examples:
         >>> from pathlib import Path
         >>> # Valid image
-        >>> validate_image_path(Path("images/photo.jpg"))
+        >>> validate_image_path(Path("media/photo.jpg"))
         (True, '')
 
         >>> # Missing file
@@ -45,19 +45,19 @@ def validate_image_path(file_path: Path, kb_images_dir: Optional[Path] = None) -
     if file_path.suffix.lower() not in image_extensions:
         return False, f"File is not an image (extension: {file_path.suffix})"
 
-    # If KB images directory provided, verify image is within it
-    if kb_images_dir:
+    # If KB media directory provided, verify image is within it
+    if kb_media_dir:
         try:
             # Resolve both paths to absolute
             file_resolved = file_path.resolve()
-            kb_dir_resolved = kb_images_dir.resolve()
+            kb_dir_resolved = kb_media_dir.resolve()
 
-            # Check if file is within KB images directory
+            # Check if file is within KB media directory
             file_resolved.relative_to(kb_dir_resolved)
         except ValueError:
             return (
                 False,
-                f"Image is outside KB images directory. Expected in: {kb_images_dir}, got: {file_path}",
+                f"Image is outside KB media directory. Expected in: {kb_media_dir}, got: {file_path}",
             )
 
     return True, ""

@@ -22,8 +22,8 @@ class ContentParser:
         Initialize content parser with file processor
 
         Args:
-            kb_topics_only: If True, agent works in topics/ folder (images path: ../images/)
-                          If False, agent works in KB root (images path: images/)
+            kb_topics_only: If True, agent works in topics/ folder (media path: ../media/)
+                          If False, agent works in KB root (media path: media/)
         """
         self.file_processor = FileProcessor()
         self.kb_topics_only = kb_topics_only
@@ -119,7 +119,7 @@ class ContentParser:
         Args:
             group: MessageGroup object with messages attribute
             bot: Bot messaging interface (required for downloading files)
-            kb_path: Path to knowledge base root (for saving images)
+            kb_path: Path to knowledge base root (for saving media files)
 
         Returns:
             Parsed content dictionary with file contents and image references
@@ -133,10 +133,10 @@ class ContentParser:
         if bot and self.file_processor.is_available():
             file_contents = []
 
-            # AICODE-NOTE: Prepare KB images directory for saving Telegram images
-            kb_images_dir = None
+            # AICODE-NOTE: Prepare KB media directory for saving Telegram media files
+            kb_media_dir = None
             if kb_path:
-                kb_images_dir = Path(kb_path) / "images"
+                kb_media_dir = Path(kb_path) / "media"
 
             for msg in group.messages:
                 msg_timestamp = msg.get("timestamp") or msg.get("date")
@@ -152,7 +152,7 @@ class ContentParser:
                             original_filename=(
                                 document.file_name if hasattr(document, "file_name") else None
                             ),
-                            kb_images_dir=kb_images_dir,
+                            kb_media_dir=kb_media_dir,
                             file_id=document.file_id,
                             file_unique_id=getattr(document, "file_unique_id", None),
                             message_date=msg_timestamp,
@@ -178,7 +178,7 @@ class ContentParser:
                     except Exception as e:
                         self.logger.error(f"Error processing document: {e}", exc_info=True)
 
-                # Process photos (images)
+                # Process photos (currently supported media asset)
                 if msg.get("photo"):
                     photos = msg.get("photo")
                     if photos:
@@ -191,7 +191,7 @@ class ContentParser:
                                     bot=bot,
                                     file_info=file_info,
                                     original_filename="image.jpg",
-                                    kb_images_dir=kb_images_dir,
+                                    kb_media_dir=kb_media_dir,
                                     file_id=largest_photo.file_id,
                                     file_unique_id=getattr(largest_photo, "file_unique_id", None),
                                     message_date=msg_timestamp,
@@ -206,7 +206,7 @@ class ContentParser:
                                     "format": file_result["format"],
                                     "file_name": file_result.get("file_name", "image.jpg"),
                                 }
-                                # AICODE-NOTE: Save path for images so agent can reference them
+                                # AICODE-NOTE: Save path for media files so agent can reference them
                                 if "saved_path" in file_result:
                                     file_data["saved_path"] = file_result["saved_path"]
                                     file_data["saved_filename"] = file_result["saved_filename"]
@@ -231,50 +231,50 @@ class ContentParser:
             if file_contents:
                 result["files"] = file_contents
 
-                # AICODE-NOTE: New approach - just list image filenames, agent reads .md files
-                # Track unique images to prevent duplicates in prompt
-                seen_images = set()
-                image_filenames = []
+                # AICODE-NOTE: New approach - just list media filenames, agent reads .md files
+                # Track unique media assets to prevent duplicates in prompt
+                seen_media_files = set()
+                media_filenames = []
                 document_texts = []
 
                 for file_data in file_contents:
-                    # AICODE-NOTE: For saved images, just collect filenames
-                    # Images are saved to {kb_path}/images/, agent will read .md files
+                    # AICODE-NOTE: For saved media files, just collect filenames
+                    # Assets are saved to {kb_path}/media/, agent will read .md files
                     if "saved_path" in file_data and "saved_filename" in file_data:
                         saved_filename = file_data["saved_filename"]
 
                         # Check for duplicates
-                        if saved_filename in seen_images:
+                        if saved_filename in seen_media_files:
                             self.logger.info(
-                                f"Skipping duplicate image in prompt: {saved_filename}"
+                                f"Skipping duplicate media reference in prompt: {saved_filename}"
                             )
                             continue
-                        seen_images.add(saved_filename)
-                        image_filenames.append(saved_filename)
+                        seen_media_files.add(saved_filename)
+                        media_filenames.append(saved_filename)
                     else:
                         # Non-image files: use full content as before
                         document_texts.append(
                             f"\n\n--- Содержимое файла: {file_data['file_name']} ---\n{file_data['content']}"
                         )
 
-                # Add image list if any
-                if image_filenames:
-                    # Determine correct path to images based on agent working directory
-                    # If kb_topics_only=True: agent works in topics/, so path is ../images/
-                    # If kb_topics_only=False: agent works in KB root, so path is images/
-                    images_path = "../images/" if self.kb_topics_only else "images/"
+                # Add media list if any
+                if media_filenames:
+                    # Determine correct path to media based on agent working directory
+                    # If kb_topics_only=True: agent works in topics/, so path is ../media/
+                    # If kb_topics_only=False: agent works in KB root, so path is media/
+                    media_path = "../media/" if self.kb_topics_only else "media/"
 
-                    image_list_text = f"\n\nМедиафайлы:\nлежат в {images_path}\n" + "\n".join(
-                        image_filenames
+                    media_list_text = f"\n\nМедиафайлы:\nлежат в {media_path}\n" + "\n".join(
+                        media_filenames
                     )
-                    result["text"] = result.get("text", "") + image_list_text
+                    result["text"] = result.get("text", "") + media_list_text
 
                 # Add document contents if any
                 if document_texts:
                     result["text"] = result.get("text", "") + "\n\n".join(document_texts)
 
                 # Regenerate hash with file contents
-                if image_filenames or document_texts:
+                if media_filenames or document_texts:
                     result["content_hash"] = self.generate_content_hash(result["text"])
 
         # Add metadata about unsupported media
