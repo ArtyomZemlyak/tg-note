@@ -64,16 +64,16 @@ class QwenCodeCLIAgent(BaseAgent):
         super().__init__(config)
 
         # Initialize ResponseFormatter to get its prompt text
-        from config.agent_prompts import get_images_instruction
+        from config.agent_prompts import get_media_instruction
         from src.bot.response_formatter import ResponseFormatter
 
         response_formatter = ResponseFormatter()
         response_formatter_prompt = response_formatter.generate_prompt_text()
-        images_instr = get_images_instruction("ru")
+        media_instr = get_media_instruction("ru")
 
-        # Combine the default instruction with images and ResponseFormatter prompt
+        # Combine the default instruction with media-specific guidance and ResponseFormatter prompt
         default_instruction_with_formatter = self.DEFAULT_INSTRUCTION.format(
-            instruction_images=images_instr, response_format=response_formatter_prompt
+            instruction_media=media_instr, response_format=response_formatter_prompt
         )
 
         self.instruction = instruction or default_instruction_with_formatter
@@ -370,15 +370,15 @@ class QwenCodeCLIAgent(BaseAgent):
                 url_list = "\n".join([f"- {url}" for url in urls])
                 urls_section = get_urls_section_template("ru").format(url_list=url_list)
 
-            # AICODE-NOTE: Get images instruction for content processing template
-            from config.agent_prompts import get_images_instruction
+            # AICODE-NOTE: Get media handling instruction for content processing template
+            from config.agent_prompts import get_media_instruction
 
-            images_instr = get_images_instruction("ru")
+            media_instr = get_media_instruction("ru")
 
             # Use template from config
             base_prompt = get_content_processing_template("ru").format(
                 instruction=self.instruction,
-                instruction_images=images_instr,
+                instruction_media=media_instr,
                 text=text,
                 urls_section=urls_section,
             )
@@ -408,15 +408,15 @@ class QwenCodeCLIAgent(BaseAgent):
             url_list = "\n".join([f"- {url}" for url in urls])
             urls_section = get_urls_section_template("ru").format(url_list=url_list)
 
-        # AICODE-NOTE: Get images instruction for content processing template
-        from config.agent_prompts import get_images_instruction
+        # AICODE-NOTE: Get media handling instruction for content processing template
+        from config.agent_prompts import get_media_instruction
 
-        images_instr = get_images_instruction("ru")
+        media_instr = get_media_instruction("ru")
 
         # Use template from config
         return get_content_processing_template("ru").format(
             instruction=self.instruction,
-            instruction_images=images_instr,
+            instruction_media=media_instr,
             text=text,
             urls_section=urls_section,
         )
@@ -466,14 +466,14 @@ class QwenCodeCLIAgent(BaseAgent):
             # Use non-interactive mode and pass prompt via stdin
             cmd = [self.qwen_cli_path]
 
-            # AICODE-NOTE: Add --include-directories to allow access to ../images
+            # AICODE-NOTE: Add --include-directories to allow access to ../media
             # when KB_TOPICS_ONLY=true restricts agent to topics/ folder
-            # This allows agent to read image metadata files without changing working directory
-            images_dir = Path(self.working_directory).parent / "images"
-            if images_dir.exists():
-                cmd.extend(["--include-directories", str(images_dir)])
+            # This allows agent to read media metadata files without changing working directory
+            media_dir = Path(self.working_directory).parent / "media"
+            if media_dir.exists():
+                cmd.extend(["--include-directories", str(media_dir)])
                 logger.debug(
-                    f"[QwenCodeCLIAgent._execute_qwen_cli] Added --include-directories: {images_dir}"
+                    f"[QwenCodeCLIAgent._execute_qwen_cli] Added --include-directories: {media_dir}"
                 )
 
             # Log command details

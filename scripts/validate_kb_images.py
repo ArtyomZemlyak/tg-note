@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-CLI tool for validating image paths in knowledge base markdown files.
+CLI tool for validating media references in knowledge base markdown files.
 
 Usage:
     python scripts/validate_kb_images.py /path/to/kb --verbose
@@ -15,12 +15,12 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.processor.markdown_image_validator import validate_kb_images
+from src.processor.markdown_media_validator import validate_kb_media
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Validate image paths in knowledge base markdown files"
+        description="Validate media references in knowledge base markdown files"
     )
     parser.add_argument(
         "kb_path",
@@ -63,7 +63,7 @@ def main():
     print()
 
     # Run validation
-    error_count = validate_kb_images(kb_path, verbose=args.verbose)
+    error_count = validate_kb_media(kb_path, verbose=args.verbose)
 
     # Determine exit code
     if error_count > 0:

@@ -20,13 +20,13 @@
 ### 1. Пути к изображениям
 
 ```markdown
-![Chart](images/chart.jpg)  <!-- ❌ Неправильно из topics/ -->
+![Chart](media/chart.jpg)  <!-- ❌ Неправильно из topics/ -->
 ```
 
 **Auto-fix →**
 
 ```markdown
-![Chart](../images/chart.jpg)  <!-- ✅ Исправлено -->
+![Chart](../media/chart.jpg)  <!-- ✅ Исправлено -->
 ```
 
 ### 2. Внутренние ссылки на страницы
@@ -44,7 +44,7 @@
 ### 3. TODO комментарии если не удалось исправить
 
 ```markdown
-![Missing](images/missing.jpg) <!-- TODO: Broken image path -->
+![Missing](media/missing.jpg) <!-- TODO: Broken image path -->
 [Link](nonexistent.md) <!-- TODO: Broken link -->
 ```
 
@@ -91,10 +91,10 @@ async def _auto_commit_and_push(...):
 
 ```python
 # Файл: KB/topics/subfolder/note.md
-# Изображение: KB/images/chart.jpg
+# Изображение: KB/media/chart.jpg
 
 # Нужно подняться на 2 уровня:
-../../images/chart.jpg
+../../media/chart.jpg
 ```
 
 Fixer автоматически вычисляет количество `../`.
@@ -108,10 +108,10 @@ Fixer автоматически вычисляет количество `../`.
 ![Chart](wrong/path/chart.jpg)
 
 <!-- Fixer находит файл -->
-KB/images/chart.jpg exists!
+KB/media/chart.jpg exists!
 
 <!-- Вычисляет правильный путь -->
-![Chart](../images/chart.jpg)
+![Chart](../media/chart.jpg)
 ```
 
 ### 3. TODO если не найден
@@ -119,7 +119,7 @@ KB/images/chart.jpg exists!
 Файл не существует → добавляется TODO:
 
 ```markdown
-![Chart](images/missing.jpg) <!-- TODO: Broken image path -->
+![Chart](media/missing.jpg) <!-- TODO: Broken image path -->
 ```
 
 ---
@@ -140,7 +140,7 @@ KB/images/chart.jpg exists!
 
 ```
 [INFO] Validating and fixing links in 3 changed markdown files...
-[DEBUG] Fixed image: images/chart.jpg → ../images/chart.jpg
+[DEBUG] Fixed image: media/chart.jpg → ../media/chart.jpg
 [INFO] ✓ Fixed links: Files fixed: 2, Images fixed: 3, Links fixed: 1
 ```
 
@@ -205,7 +205,7 @@ python3 -m pytest tests/test_markdown_link_fixer.py -v
 
 | Тест | Что проверяет |
 |------|---------------|
-| `fix_incorrect_image_path` | Исправление `images/x.jpg` → `../images/x.jpg` |
+| `fix_incorrect_image_path` | Исправление `media/x.jpg` → `../media/x.jpg` |
 | `fix_missing_image_add_todo` | Добавление TODO для отсутствующего файла |
 | `fix_markdown_link_from_root_to_topics` | Исправление ссылок между директориями |
 | `skip_http_urls` | Игнорирование внешних URL |
@@ -247,8 +247,8 @@ src/services/
 <!-- KB/topics/guide.md -->
 # Guide
 
-![Chart](images/chart.jpg)
-![Diagram](../images/diagram.png)
+![Chart](media/chart.jpg)
+![Diagram](../media/diagram.png)
 
 See also:
 - [Page 1](page1.md)
@@ -261,8 +261,8 @@ See also:
 <!-- KB/topics/guide.md -->
 # Guide
 
-![Chart](../images/chart.jpg)         ← Исправлено
-![Diagram](../images/diagram.png)     ← Уже правильно
+![Chart](../media/chart.jpg)         ← Исправлено
+![Diagram](../media/diagram.png)     ← Уже правильно
 
 See also:
 - [Page 1](page1.md)                  ← TODO добавлен
@@ -273,7 +273,7 @@ See also:
 
 ```
 [INFO] Validating and fixing links in 1 changed markdown files...
-[DEBUG] Fixed image: images/chart.jpg → ../images/chart.jpg
+[DEBUG] Fixed image: media/chart.jpg → ../media/chart.jpg
 [DEBUG] Fixed link: ../topics/page2.md → page2.md
 [WARNING] Can't fix link: page1.md in guide.md
 [INFO] ✓ Fixed links: Files fixed: 1, Images fixed: 1, Links fixed: 1
@@ -287,7 +287,7 @@ See also:
 
 ```markdown
 <!-- KB/topics/note.md -->
-![Chart](../images/chart.jpg)  ← Правильно
+![Chart](../media/chart.jpg)  ← Правильно
 [Link](page1.md)  ← Существует в той же папке
 ```
 
@@ -325,7 +325,7 @@ async def _auto_commit_and_push(...):
 **Проблема:** Fixer не может найти файлы и добавляет TODO.
 
 **Решение:**
-1. Проверьте структуру KB - файлы должны быть в `images/` и `topics/`
+1. Проверьте структуру KB - файлы должны быть в `media/` и `topics/`
 2. Проверьте имена файлов - они должны совпадать с ссылками
 3. Вручную исправьте первый файл, затем используйте его как образец
 
@@ -336,7 +336,7 @@ async def _auto_commit_and_push(...):
 **Решение:**
 1. Проверьте что файлы действительно существуют
 2. Используйте относительные пути от текущего файла
-3. Проверьте что изображения в `KB/images/`, а не где-то еще
+3. Проверьте что изображения в `KB/media/`, а не где-то еще
 
 ### Очень медленная валидация
 

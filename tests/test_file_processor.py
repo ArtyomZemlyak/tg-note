@@ -289,8 +289,8 @@ def test_build_mcp_arguments_with_base64(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_download_and_process_telegram_file_accepts_kb_images_dir():
-    """Test that download_and_process_telegram_file accepts kb_images_dir parameter"""
+async def test_download_and_process_telegram_file_accepts_kb_media_dir():
+    """Test that download_and_process_telegram_file accepts kb_media_dir parameter"""
     from pathlib import Path
     from unittest.mock import AsyncMock, MagicMock
 
@@ -305,7 +305,7 @@ async def test_download_and_process_telegram_file_accepts_kb_images_dir():
     mock_file_info = MagicMock()
     mock_file_info.file_path = "photos/test.jpg"
 
-    test_kb_images_dir = Path("/tmp/test_kb/images")
+    test_kb_media_dir = Path("/tmp/test_kb/media")
     test_file_id = "test_file_123"
     test_message_date = 1234567890
 
@@ -316,7 +316,7 @@ async def test_download_and_process_telegram_file_accepts_kb_images_dir():
             bot=mock_bot,
             file_info=mock_file_info,
             original_filename="test.jpg",
-            kb_images_dir=test_kb_images_dir,
+            kb_media_dir=test_kb_media_dir,
             file_id=test_file_id,
             file_unique_id="unique_test_file",
             message_date=test_message_date,
@@ -350,30 +350,30 @@ def test_compute_file_hash(file_processor):
 
 def test_find_existing_image_by_hash(file_processor, tmp_path):
     """Test finding existing images by hash"""
-    # Create test images directory
-    images_dir = tmp_path / "images"
-    images_dir.mkdir()
+    # Create test media directory
+    media_dir = tmp_path / "media"
+    media_dir.mkdir()
 
     # Create a test image
     test_content = b"test image content"
-    test_file = images_dir / "img_1234567890_abcd1234.jpg"
+    test_file = media_dir / "img_1234567890_abcd1234.jpg"
     test_file.write_bytes(test_content)
 
     # Compute hash
     file_hash = file_processor._compute_file_hash(test_content)
 
     # Should find existing file
-    found = file_processor._find_existing_image_by_hash(file_hash, images_dir, ".jpg")
+    found = file_processor._find_existing_image_by_hash(file_hash, media_dir, ".jpg")
     assert found is not None
     assert found == test_file
 
     # Should not find file with different hash
     different_hash = file_processor._compute_file_hash(b"different content")
-    not_found = file_processor._find_existing_image_by_hash(different_hash, images_dir, ".jpg")
+    not_found = file_processor._find_existing_image_by_hash(different_hash, media_dir, ".jpg")
     assert not_found is None
 
     # Should not find file with different extension
-    not_found_ext = file_processor._find_existing_image_by_hash(file_hash, images_dir, ".png")
+    not_found_ext = file_processor._find_existing_image_by_hash(file_hash, media_dir, ".png")
     assert not_found_ext is None
 
 
@@ -382,9 +382,9 @@ async def test_download_deduplication(file_processor, tmp_path):
     """Test that duplicate images are detected and not saved twice"""
     from unittest.mock import AsyncMock, MagicMock
 
-    # Create test images directory
-    images_dir = tmp_path / "images"
-    images_dir.mkdir()
+    # Create test media directory
+    media_dir = tmp_path / "media"
+    media_dir.mkdir()
 
     # Create mock bot and file info
     mock_bot = MagicMock()
@@ -409,7 +409,7 @@ async def test_download_deduplication(file_processor, tmp_path):
         bot=mock_bot,
         file_info=mock_file_info,
         original_filename="test.jpg",
-        kb_images_dir=images_dir,
+        kb_media_dir=media_dir,
         file_id="testfile1",
         file_unique_id="unique_testfile1",
         message_date=1000000000,
@@ -420,7 +420,7 @@ async def test_download_deduplication(file_processor, tmp_path):
     assert "saved_filename" in result1
 
     # Count files after first download
-    files_after_first = list(images_dir.glob("img_*.jpg"))
+    files_after_first = list(media_dir.glob("img_*.jpg"))
     assert len(files_after_first) == 1
     first_filename = result1["saved_filename"]
 
@@ -429,7 +429,7 @@ async def test_download_deduplication(file_processor, tmp_path):
         bot=mock_bot,
         file_info=mock_file_info,
         original_filename="test.jpg",
-        kb_images_dir=images_dir,
+        kb_media_dir=media_dir,
         file_id="testfile2",  # Different file_id
         file_unique_id="unique_testfile2",
         message_date=1000000100,  # Different timestamp
@@ -440,7 +440,7 @@ async def test_download_deduplication(file_processor, tmp_path):
     assert "saved_filename" in result2
 
     # Should still have only one file (deduplication worked)
-    files_after_second = list(images_dir.glob("img_*.jpg"))
+    files_after_second = list(media_dir.glob("img_*.jpg"))
     assert len(files_after_second) == 1
 
     # Should reuse the same filename
@@ -452,8 +452,8 @@ async def test_download_generates_descriptive_filename(file_processor, tmp_path)
     """New images should get filenames with OCR-based slug."""
     from unittest.mock import AsyncMock, MagicMock
 
-    images_dir = tmp_path / "images"
-    images_dir.mkdir()
+    media_dir = tmp_path / "media"
+    media_dir.mkdir()
 
     mock_bot = MagicMock()
     mock_bot.download_file = AsyncMock(return_value=b"descriptive image bytes")
@@ -475,7 +475,7 @@ async def test_download_generates_descriptive_filename(file_processor, tmp_path)
         bot=mock_bot,
         file_info=mock_file_info,
         original_filename="test.jpg",
-        kb_images_dir=images_dir,
+        kb_media_dir=media_dir,
         file_id="testfile3",
         file_unique_id="AgACSlugID123456",
         message_date=1000000200,
@@ -486,4 +486,4 @@ async def test_download_generates_descriptive_filename(file_processor, tmp_path)
     assert saved_name.startswith("img_1000000200")
     assert "coconut_chain_layout_diagram" in saved_name
     assert saved_name.endswith(".jpg")
-    assert (images_dir / saved_name).exists()
+    assert (media_dir / saved_name).exists()

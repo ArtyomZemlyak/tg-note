@@ -141,7 +141,7 @@ async def test_parse_group_with_files_kb_path_parameter():
 
 
 def test_image_path_format_in_file_contents():
-    """Test that image paths use ../images/ for documents in topics/ folder"""
+    """Test that media paths use ../media/ for documents in topics/ folder"""
     from pathlib import Path
 
     parser = ContentParser()
@@ -154,7 +154,7 @@ def test_image_path_format_in_file_contents():
             "metadata": {},
             "format": "image",
             "file_name": "image.jpg",
-            "saved_path": "/tmp/test_kb/images/img_1234567890_AgACAgIA.jpg",
+            "saved_path": "/tmp/test_kb/media/img_1234567890_AgACAgIA.jpg",
             "saved_filename": "img_1234567890_AgACAgIA.jpg",
         }
     ]
@@ -166,12 +166,12 @@ def test_image_path_format_in_file_contents():
         if "saved_path" in file_data and "saved_filename" in file_data:
             file_texts.append(
                 f"\n\n--- Содержимое файла: {file_data['file_name']} "
-                f"(сохранено как: ../images/{file_data['saved_filename']}) ---\n"
+                f"(сохранено как: ../media/{file_data['saved_filename']}) ---\n"
                 f"{file_data['content']}"
             )
 
     assert len(file_texts) == 1
-    # Verify that image path uses ../images/ (relative from topics/ to images/)
-    assert "../images/img_1234567890_" in file_texts[0]
+    # Verify that media path uses ../media/ (relative from topics/ to media/)
+    assert "../media/img_1234567890_" in file_texts[0]
     # Ensure it doesn't use the incorrect absolute path
-    assert "(сохранено как: images/" not in file_texts[0]
+    assert "(сохранено как: media/" not in file_texts[0]

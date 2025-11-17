@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Script to clean up duplicate images in knowledge base.
+Script to clean up duplicate images in the knowledge base media directory.
 
 This script:
-1. Scans the images directory for duplicate images based on file hash
+1. Scans the media directory for duplicate images based on file hash
 2. Keeps the oldest file (by timestamp in filename)
 3. Removes newer duplicates
 4. Reports what was removed
 
 Usage:
-    python scripts/cleanup_duplicate_images.py [--dry-run] <images_dir>
+    python scripts/cleanup_duplicate_images.py [--dry-run] <media_dir>
 
 Example:
-    python scripts/cleanup_duplicate_images.py --dry-run knowledge_base/tg-note-kb/images
-    python scripts/cleanup_duplicate_images.py knowledge_base/tg-note-kb/images
+    python scripts/cleanup_duplicate_images.py --dry-run knowledge_base/tg-note-kb/media
+    python scripts/cleanup_duplicate_images.py knowledge_base/tg-note-kb/media
 """
 
 import argparse
@@ -42,7 +42,7 @@ def extract_timestamp_from_filename(filename):
     return 0
 
 
-def find_duplicates(images_dir):
+def find_duplicates(media_dir):
     """
     Find duplicate images grouped by hash.
 
@@ -51,11 +51,11 @@ def find_duplicates(images_dir):
     """
     hash_to_files = defaultdict(list)
 
-    print(f"Scanning directory: {images_dir}")
+    print(f"Scanning directory: {media_dir}")
 
     # Scan all image files
     for ext in [".jpg", ".jpeg", ".png", ".gif", ".tiff", ".bmp", ".webp"]:
-        for image_file in images_dir.glob(f"img_*{ext}"):
+        for image_file in media_dir.glob(f"img_*{ext}"):
             if image_file.is_file():
                 try:
                     file_hash = compute_file_hash(image_file)
@@ -122,10 +122,10 @@ def format_bytes(bytes_count):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Clean up duplicate images in knowledge base",
+        description="Clean up duplicate images stored in the KB media directory",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("images_dir", type=Path, help="Path to images directory")
+    parser.add_argument("media_dir", type=Path, help="Path to media directory")
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -135,12 +135,12 @@ def main():
     args = parser.parse_args()
 
     # Validate directory
-    if not args.images_dir.exists():
-        print(f"❌ Error: Directory does not exist: {args.images_dir}", file=sys.stderr)
+    if not args.media_dir.exists():
+        print(f"❌ Error: Directory does not exist: {args.media_dir}", file=sys.stderr)
         sys.exit(1)
 
-    if not args.images_dir.is_dir():
-        print(f"❌ Error: Not a directory: {args.images_dir}", file=sys.stderr)
+    if not args.media_dir.is_dir():
+        print(f"❌ Error: Not a directory: {args.media_dir}", file=sys.stderr)
         sys.exit(1)
 
     # Find duplicates
@@ -148,7 +148,7 @@ def main():
     print("🔍 Scanning for duplicate images...")
     print("=" * 60)
 
-    duplicates = find_duplicates(args.images_dir)
+    duplicates = find_duplicates(args.media_dir)
 
     if not duplicates:
         print("\n✅ No duplicates found!")

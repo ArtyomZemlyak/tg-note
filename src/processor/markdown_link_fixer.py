@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Set, Tuple
 
 from loguru import logger
 
-from src.processor.markdown_image_validator import MarkdownImageValidator
+from src.processor.markdown_media_validator import MarkdownMediaValidator
 
 
 class LinkValidationResult:
@@ -72,8 +72,8 @@ class MarkdownLinkFixer:
             kb_root: Root path of knowledge base
         """
         self.kb_root = Path(kb_root).resolve()
-        self.images_dir = self.kb_root / "images"
-        self.image_validator = MarkdownImageValidator(kb_root)
+        self.media_dir = self.kb_root / "media"
+        self.image_validator = MarkdownMediaValidator(kb_root)
 
     def validate_and_fix_file(self, md_file: Path, dry_run: bool = False) -> Tuple[bool, int, int]:
         """
@@ -194,18 +194,18 @@ class MarkdownLinkFixer:
 
         if resolved.exists() and resolved.is_file():
             try:
-                resolved.relative_to(self.images_dir)
+                resolved.relative_to(self.media_dir)
                 return None
             except ValueError:
                 pass
 
         filename = Path(img_path).name
 
-        if not self.images_dir.exists():
+        if not self.media_dir.exists():
             return None
 
         candidates = [
-            candidate for candidate in self.images_dir.rglob(filename) if candidate.is_file()
+            candidate for candidate in self.media_dir.rglob(filename) if candidate.is_file()
         ]
 
         if not candidates:

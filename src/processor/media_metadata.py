@@ -1,6 +1,6 @@
 """
-Image Metadata Management
-Handles .md and .json metadata files for saved images
+Media Metadata Management
+Handles .md and .json metadata files for saved media assets
 """
 
 import json
@@ -10,8 +10,8 @@ from typing import Any, Dict, Optional
 from loguru import logger
 
 
-class ImageMetadata:
-    """Manages metadata files for saved images"""
+class MediaMetadata:
+    """Manages metadata files for saved media assets"""
 
     @staticmethod
     def create_metadata_files(
@@ -24,19 +24,19 @@ class ImageMetadata:
         processing_metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
-        Create .md and .json metadata files for an image
+        Create .md and .json metadata files for a media asset.
 
         Args:
-            image_path: Path to saved image file
+            image_path: Path to saved media file (currently images)
             ocr_text: Extracted text from OCR (can be plain text or JSON string)
             file_id: Telegram file_id
-            timestamp: Unix timestamp when image was received
+            timestamp: Unix timestamp when asset was received
             original_filename: Original filename from Telegram
-            file_hash: SHA256 hash of image file
+            file_hash: SHA256 hash of file
             processing_metadata: Optional metadata from file processor (docling settings, etc.)
         """
-        # AICODE-NOTE: Create companion .md and .json files for each image
-        # This reduces prompt length and helps agent understand image content
+        # AICODE-NOTE: Create companion .md and .json files for each media asset
+        # This reduces prompt length and helps agent understand the attachment content
         base_path = image_path.with_suffix("")
 
         # AICODE-NOTE: Extract markdown from JSON if ocr_text is a JSON string
@@ -91,7 +91,7 @@ When referencing this image in markdown:
 
 Example:
 ```markdown
-![Description based on OCR](../images/{image_path.name})
+![Description based on OCR](../media/{image_path.name})
 
 **Image shows:** [Describe what the image contains based on OCR]
 ```
@@ -106,7 +106,7 @@ Example:
             "timestamp": timestamp,
             "original_filename": original_filename,
             "file_hash": file_hash,
-            "image_filename": image_path.name,
+            "media_filename": image_path.name,
             "ocr_extracted": bool(markdown_text.strip()),
             "ocr_length": len(markdown_text),
         }
@@ -123,18 +123,18 @@ Example:
         logger.info(f"Created settings file: {json_path}")
 
     @staticmethod
-    def read_metadata(image_filename: str, images_dir: Path) -> Optional[Dict]:
+    def read_metadata(media_filename: str, media_dir: Path) -> Optional[Dict]:
         """
         Read metadata for an image
 
         Args:
-            image_filename: Name of image file
-            images_dir: Directory containing images
+            media_filename: Name of media file
+            media_dir: Directory containing media assets
 
         Returns:
             Dict with 'description' (from .md) and 'settings' (from .json), or None if not found
         """
-        image_path = images_dir / image_filename
+        image_path = media_dir / media_filename
         if not image_path.exists():
             return None
 
@@ -167,18 +167,18 @@ Example:
         return result if result["description"] or result["settings"] else None
 
     @staticmethod
-    def get_image_description_summary(image_filename: str, images_dir: Path) -> str:
+    def get_media_description_summary(media_filename: str, media_dir: Path) -> str:
         """
         Get a brief summary of image content for agent prompt
 
         Args:
-            image_filename: Name of image file
-            images_dir: Directory containing images
+            media_filename: Name of media file
+            media_dir: Directory containing media assets
 
         Returns:
             Brief text description of image content
         """
-        metadata = ImageMetadata.read_metadata(image_filename, images_dir)
+        metadata = MediaMetadata.read_metadata(media_filename, media_dir)
         if not metadata:
             return "No description available"
 
@@ -194,4 +194,4 @@ Example:
                     # Return first 500 chars of OCR
                     return ocr_section[:50] + ("..." if len(ocr_section) > 50 else "")
 
-        return f"Image file: {settings.get('original_filename', image_filename)}"
+        return f"Media file: {settings.get('original_filename', media_filename)}"

@@ -20,8 +20,8 @@ from src.mcp.client import MCPClient
 from src.mcp.docling_integration import ensure_docling_mcp_spec
 from src.mcp.registry.registry import MCPServerSpec
 from src.mcp.registry_client import MCPRegistryClient
-from src.processor.image_metadata import ImageMetadata
-from src.processor.image_path_validator import validate_image_path
+from src.processor.media_metadata import MediaMetadata
+from src.processor.media_path_validator import validate_media_path
 
 
 class FileProcessor:
@@ -836,14 +836,14 @@ class FileProcessor:
         return hashlib.sha256(file_content).hexdigest()
 
     def _find_existing_image_by_hash(
-        self, file_hash: str, images_dir: Path, extension: str
+        self, file_hash: str, media_dir: Path, extension: str
     ) -> Optional[Path]:
         """
-        Find existing image with same hash in images directory.
+        Find existing image with same hash in media directory.
 
         Args:
             file_hash: SHA256 hash of the file
-            images_dir: Directory containing images
+            media_dir: Directory containing media assets
             extension: File extension (e.g., '.jpg')
 
         Returns:
@@ -851,7 +851,7 @@ class FileProcessor:
         """
         # AICODE-NOTE: Check all images with the same extension
         pattern = f"img_*{extension}"
-        for existing_file in images_dir.glob(pattern):
+        for existing_file in media_dir.glob(pattern):
             if existing_file.is_file():
                 try:
                     with open(existing_file, "rb") as f:
@@ -964,7 +964,7 @@ class FileProcessor:
         bot,
         file_info,
         original_filename: Optional[str] = None,
-        kb_images_dir: Optional[Path] = None,
+        kb_media_dir: Optional[Path] = None,
         file_id: Optional[str] = None,
         file_unique_id: Optional[str] = None,
         message_date: Optional[int] = None,
@@ -976,7 +976,7 @@ class FileProcessor:
             bot: Bot instance for downloading
             file_info: Telegram file info object
             original_filename: Original filename (e.g., "image.jpg", "document.pdf")
-            kb_images_dir: If provided, images will be saved to this directory
+            kb_media_dir: If provided, media assets (currently images) will be saved to this directory
             file_id: Telegram file_id for generating unique filename
             file_unique_id: Telegram file_unique_id (stable across bots) for filenames
             message_date: Message timestamp for generating unique filename
@@ -1018,7 +1018,7 @@ class FileProcessor:
 
             # Check if this is an image that should be saved to KB
             is_image = extension in ["jpg", "jpeg", "png", "gif", "tiff", "bmp", "webp"]
-            save_to_kb = kb_images_dir is not None and is_image
+            save_to_kb = kb_media_dir is not None and is_image
             timestamp = message_date or int(time.time())
             existing_file: Optional[Path] = None
             unique_identifier_for_slug: Optional[str] = None
@@ -1027,17 +1027,17 @@ class FileProcessor:
             downloaded_file = await bot.download_file(file_info.file_path)
 
             if save_to_kb:
-                # AICODE-NOTE: Save images to KB for later reference in markdown files
+                # AICODE-NOTE: Save media assets to KB for later reference in markdown files
                 # Check for duplicates before saving
-                kb_images_dir_abs = kb_images_dir.resolve()
-                kb_images_dir_abs.mkdir(parents=True, exist_ok=True)
+                kb_media_dir_abs = kb_media_dir.resolve()
+                kb_media_dir_abs.mkdir(parents=True, exist_ok=True)
 
                 # Compute hash of downloaded file
                 file_hash = self._compute_file_hash(downloaded_file)
 
                 # Check if this image already exists
                 existing_file = self._find_existing_image_by_hash(
-                    file_hash, kb_images_dir_abs, file_extension
+                    file_hash, kb_media_dir_abs, file_extension
                 )
 
                 if existing_file:
@@ -1061,7 +1061,7 @@ class FileProcessor:
                     proposed_filename = self._build_image_filename(
                         timestamp, identifier, resolved_extension
                     )
-                    save_path = kb_images_dir_abs / proposed_filename
+                    save_path = kb_media_dir_abs / proposed_filename
                     save_path = self._ensure_unique_path(save_path)
                     unique_filename = save_path.name
                     self.logger.info(f"Saving new image to KB: {save_path}")
@@ -1083,9 +1083,9 @@ class FileProcessor:
 
                 self.logger.info(f"File downloaded to: {save_path}")
 
-            # AICODE-NOTE: Validate saved image path (for images saved to KB)
+            # AICODE-NOTE: Validate saved media path (for assets saved to KB)
             if save_to_kb and is_image:
-                is_valid, error_msg = validate_image_path(save_path, kb_images_dir)
+                is_valid, error_msg = validate_media_path(save_path, kb_media_dir)
                 if not is_valid:
                     self.logger.error(f"[FileProcessor] Saved image failed validation: {error_msg}")
                     self.logger.warning(
@@ -1131,12 +1131,12 @@ class FileProcessor:
 
                 temp_file = None  # Don't delete this file in finally block
 
-                # AICODE-NOTE: Create metadata files (.md and .json) for saved images
+                # AICODE-NOTE: Create metadata files (.md and .json) for saved media assets
                 # This helps agent understand image content and reduces prompt length
                 # Only create metadata for new images, not duplicates
                 if is_image and not existing_file:
                     try:
-                        ImageMetadata.create_metadata_files(
+                        MediaMetadata.create_metadata_files(
                             image_path=save_path,
                             ocr_text=result.get("text", ""),
                             file_id=(file_unique_id or file_id or ""),
@@ -1159,7 +1159,7 @@ class FileProcessor:
             return None
 
         finally:
-            # AICODE-NOTE: Only cleanup temporary files, not KB-saved images
+            # AICODE-NOTE: Only cleanup temporary files, not KB-saved media assets
             try:
                 if temp_file and temp_file.exists():
                     temp_file.unlink()
