@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from src.processor.markdown_image_validator import (
-    ImageReference,
-    MarkdownImageValidator,
+from src.processor.markdown_media_validator import (
+    MarkdownMediaValidator,
+    MediaReference,
     ValidationIssue,
     validate_agent_generated_markdown,
 )
@@ -35,7 +35,7 @@ def temp_kb():
 
 def test_find_image_references_basic(temp_kb):
     """Test finding basic image references in markdown."""
-    validator = MarkdownImageValidator(temp_kb)
+    validator = MarkdownMediaValidator(temp_kb)
 
     # Create markdown file with image reference
     md_file = temp_kb / "test.md"
@@ -62,7 +62,7 @@ Some text here.
 
 def test_detect_missing_image(temp_kb):
     """Test detection of missing image files."""
-    validator = MarkdownImageValidator(temp_kb)
+    validator = MarkdownMediaValidator(temp_kb)
 
     # Create markdown file with reference to non-existent image
     md_file = temp_kb / "test.md"
@@ -86,7 +86,7 @@ def test_detect_missing_image(temp_kb):
 
 def test_relative_paths_from_subdirectory(temp_kb):
     """Test validation of relative paths from subdirectory."""
-    validator = MarkdownImageValidator(temp_kb)
+    validator = MarkdownMediaValidator(temp_kb)
 
     # Create markdown in topics/ subdirectory
     topics_dir = temp_kb / "topics"
@@ -111,7 +111,7 @@ def test_relative_paths_from_subdirectory(temp_kb):
 
 def test_incorrect_relative_path(temp_kb):
     """Test detection of incorrect relative path."""
-    validator = MarkdownImageValidator(temp_kb)
+    validator = MarkdownMediaValidator(temp_kb)
 
     # Create markdown in topics/ with wrong path (missing ../)
     topics_dir = temp_kb / "topics"
@@ -139,7 +139,7 @@ def test_incorrect_relative_path(temp_kb):
 
 def test_suggest_nested_image_path(temp_kb):
     """Test that suggestions include nested image directories."""
-    validator = MarkdownImageValidator(temp_kb)
+    validator = MarkdownMediaValidator(temp_kb)
 
     nested_dir = temp_kb / "media" / "reports" / "q1"
     nested_dir.mkdir(parents=True, exist_ok=True)
@@ -157,7 +157,7 @@ def test_suggest_nested_image_path(temp_kb):
 
 def test_empty_alt_text_warning(temp_kb):
     """Test warning for empty alt text."""
-    validator = MarkdownImageValidator(temp_kb)
+    validator = MarkdownMediaValidator(temp_kb)
 
     md_file = temp_kb / "test.md"
     md_content = """# Test Document
@@ -176,7 +176,7 @@ def test_empty_alt_text_warning(temp_kb):
 
 def test_generic_alt_text_info(temp_kb):
     """Test info message for generic alt text."""
-    validator = MarkdownImageValidator(temp_kb)
+    validator = MarkdownMediaValidator(temp_kb)
 
     md_file = temp_kb / "test.md"
     md_content = """# Test Document
@@ -195,7 +195,7 @@ def test_generic_alt_text_info(temp_kb):
 
 def test_skip_http_urls(temp_kb):
     """Test that HTTP/HTTPS URLs are skipped."""
-    validator = MarkdownImageValidator(temp_kb)
+    validator = MarkdownMediaValidator(temp_kb)
 
     md_file = temp_kb / "test.md"
     md_content = """# Test Document
@@ -214,7 +214,7 @@ def test_skip_http_urls(temp_kb):
 
 def test_multiple_images_on_same_line(temp_kb):
     """Test finding multiple images on same line."""
-    validator = MarkdownImageValidator(temp_kb)
+    validator = MarkdownMediaValidator(temp_kb)
 
     md_file = temp_kb / "test.md"
     md_content = """# Test Document
@@ -232,7 +232,7 @@ def test_multiple_images_on_same_line(temp_kb):
 
 def test_validate_kb_directory(temp_kb):
     """Test validation of entire KB directory."""
-    validator = MarkdownImageValidator(temp_kb)
+    validator = MarkdownMediaValidator(temp_kb)
 
     # Create multiple markdown files
     (temp_kb / "file1.md").write_text("![Good](media/test_image.jpg)")
@@ -253,7 +253,7 @@ def test_validate_kb_directory(temp_kb):
 
 def test_find_unreferenced_images(temp_kb):
     """Test finding images not referenced in any markdown."""
-    validator = MarkdownImageValidator(temp_kb)
+    validator = MarkdownMediaValidator(temp_kb)
 
     # Create images
     (temp_kb / "media" / "referenced.jpg").write_text("fake")
@@ -290,7 +290,7 @@ def test_validate_agent_generated_markdown_function(temp_kb):
 
 def test_image_outside_kb_warning(temp_kb):
     """Test warning when image is outside KB images directory."""
-    validator = MarkdownImageValidator(temp_kb)
+    validator = MarkdownMediaValidator(temp_kb)
 
     # Create image outside media/ directory
     outside_img = temp_kb / "outside.jpg"
@@ -310,7 +310,7 @@ def test_image_outside_kb_warning(temp_kb):
 
 def test_generate_report(temp_kb):
     """Test report generation."""
-    validator = MarkdownImageValidator(temp_kb)
+    validator = MarkdownMediaValidator(temp_kb)
 
     # Create files with issues
     (temp_kb / "good.md").write_text("![Good](media/test_image.jpg)")

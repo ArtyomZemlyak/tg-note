@@ -1,4 +1,4 @@
-"""Tests for Image Metadata Management"""
+"""Tests for Media Metadata Management"""
 
 import json
 import tempfile
@@ -6,11 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from src.processor.image_metadata import ImageMetadata
+from src.processor.media_metadata import MediaMetadata
 
 
-class TestImageMetadata:
-    """Test image metadata creation and reading"""
+class TestMediaMetadata:
+    """Test media metadata creation and reading"""
 
     def setup_method(self):
         """Create temporary directory for tests"""
@@ -37,7 +37,7 @@ class TestImageMetadata:
         file_hash = "abc123hash"
 
         # Create metadata files
-        ImageMetadata.create_metadata_files(
+        MediaMetadata.create_metadata_files(
             image_path=image_path,
             ocr_text=ocr_text,
             file_id=file_id,
@@ -69,7 +69,7 @@ class TestImageMetadata:
         image_path = self.media_dir / "img_test.jpg"
         image_path.write_bytes(b"fake image data")
 
-        ImageMetadata.create_metadata_files(
+        MediaMetadata.create_metadata_files(
             image_path=image_path,
             ocr_text="",
             file_id="test123",
@@ -92,7 +92,7 @@ class TestImageMetadata:
         image_path.write_bytes(b"fake image data")
 
         # Create metadata
-        ImageMetadata.create_metadata_files(
+        MediaMetadata.create_metadata_files(
             image_path=image_path,
             ocr_text="Test OCR content",
             file_id="test123",
@@ -102,7 +102,7 @@ class TestImageMetadata:
         )
 
         # Read metadata
-        metadata = ImageMetadata.read_metadata("img_test.jpg", self.media_dir)
+        metadata = MediaMetadata.read_metadata("img_test.jpg", self.media_dir)
 
         assert metadata is not None
         assert "description" in metadata
@@ -112,17 +112,17 @@ class TestImageMetadata:
 
     def test_read_metadata_nonexistent(self):
         """Test reading metadata for non-existent image"""
-        metadata = ImageMetadata.read_metadata("nonexistent.jpg", self.media_dir)
+        metadata = MediaMetadata.read_metadata("nonexistent.jpg", self.media_dir)
         assert metadata is None
 
-    def test_get_image_description_summary(self):
+    def test_get_media_description_summary(self):
         """Test getting brief summary of image content"""
         image_path = self.media_dir / "img_test.jpg"
         image_path.write_bytes(b"fake image data")
 
         long_ocr_text = "A" * 1000  # Long text to test truncation
 
-        ImageMetadata.create_metadata_files(
+        MediaMetadata.create_metadata_files(
             image_path=image_path,
             ocr_text=long_ocr_text,
             file_id="test123",
@@ -131,18 +131,18 @@ class TestImageMetadata:
             file_hash="hash123",
         )
 
-        summary = ImageMetadata.get_image_description_summary("img_test.jpg", self.media_dir)
+        summary = MediaMetadata.get_media_description_summary("img_test.jpg", self.media_dir)
 
         # Summary should be truncated
         assert len(summary) <= 503  # 500 chars + "..."
         assert "A" in summary
 
-    def test_get_image_description_summary_no_ocr(self):
+    def test_get_media_description_summary_no_ocr(self):
         """Test getting summary when no OCR available"""
         image_path = self.media_dir / "img_test.jpg"
         image_path.write_bytes(b"fake image data")
 
-        ImageMetadata.create_metadata_files(
+        MediaMetadata.create_metadata_files(
             image_path=image_path,
             ocr_text="",
             file_id="test123",
@@ -151,13 +151,13 @@ class TestImageMetadata:
             file_hash="hash123",
         )
 
-        summary = ImageMetadata.get_image_description_summary("img_test.jpg", self.media_dir)
+        summary = MediaMetadata.get_media_description_summary("img_test.jpg", self.media_dir)
 
         assert "original_name.jpg" in summary
 
 
-class TestImageMetadataIntegration:
-    """Integration tests for image metadata with file processing"""
+class TestMediaMetadataIntegration:
+    """Integration tests for media metadata with file processing"""
 
     def setup_method(self):
         """Create temporary directory for tests"""
@@ -178,7 +178,7 @@ class TestImageMetadataIntegration:
         image_path = self.media_dir / image_name
         image_path.write_bytes(b"test")
 
-        ImageMetadata.create_metadata_files(
+        MediaMetadata.create_metadata_files(
             image_path=image_path,
             ocr_text="Test",
             file_id="abc12345",
@@ -206,7 +206,7 @@ class TestImageMetadataIntegration:
             image_path = self.media_dir / img_name
             image_path.write_bytes(b"test")
 
-            ImageMetadata.create_metadata_files(
+            MediaMetadata.create_metadata_files(
                 image_path=image_path,
                 ocr_text=ocr_text,
                 file_id="test",
@@ -217,6 +217,6 @@ class TestImageMetadataIntegration:
 
         # Verify all metadata files created
         for img_name, ocr_text in images:
-            metadata = ImageMetadata.read_metadata(img_name, self.media_dir)
+            metadata = MediaMetadata.read_metadata(img_name, self.media_dir)
             assert metadata is not None
             assert ocr_text in metadata["description"]

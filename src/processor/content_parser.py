@@ -11,7 +11,6 @@ from typing import Any, Dict, List, Optional
 from loguru import logger
 
 from src.processor.file_processor import FileProcessor
-from src.processor.image_metadata import ImageMetadata
 
 
 class ContentParser:

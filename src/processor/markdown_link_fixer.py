@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Set, Tuple
 
 from loguru import logger
 
-from src.processor.markdown_image_validator import MarkdownImageValidator
+from src.processor.markdown_media_validator import MarkdownMediaValidator
 
 
 class LinkValidationResult:
@@ -73,7 +73,7 @@ class MarkdownLinkFixer:
         """
         self.kb_root = Path(kb_root).resolve()
         self.media_dir = self.kb_root / "media"
-        self.image_validator = MarkdownImageValidator(kb_root)
+        self.image_validator = MarkdownMediaValidator(kb_root)
 
     def validate_and_fix_file(self, md_file: Path, dry_run: bool = False) -> Tuple[bool, int, int]:
         """

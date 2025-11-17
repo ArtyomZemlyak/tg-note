@@ -1,12 +1,12 @@
-# Image Metadata System
+# Media Metadata System
 
-System for managing image descriptions and preventing duplicates.
+System for managing media descriptions and preventing duplicates.
 
 ---
 
 ## Overview
 
-The Image Metadata System solves several problems with image handling:
+The Media Metadata System solves several problems with image handling:
 
 1. **Large prompts**: OCR text from images was included in full in agent prompts
 2. **Duplicates**: Same images were inserted multiple times with different descriptions
@@ -15,7 +15,7 @@ The Image Metadata System solves several problems with image handling:
 
 ### Solution
 
-For each saved image (e.g., `img_1234567890_abc12345_coconut_chain.jpg`), the system creates two companion files:
+For each saved media asset (e.g., `img_1234567890_abc12345_coconut_chain.jpg`), the system creates two companion files:
 
 - `img_1234567890_abc12345_coconut_chain.md` - Human-readable description with OCR text
 - `img_1234567890_abc12345_coconut_chain.json` - Machine-readable settings and metadata
@@ -35,7 +35,7 @@ save_path = kb_media_dir / "img_1234567890_abc12345_coconut_chain.jpg"
 # Process with Docling OCR
 
 # Create metadata files
-ImageMetadata.create_metadata_files(
+MediaMetadata.create_metadata_files(
     image_path=save_path,
     ocr_text=extracted_text,
     file_id=telegram_file_id,
@@ -88,7 +88,7 @@ When referencing this image in markdown:
   "timestamp": 1234567890,
   "original_filename": "user_image.jpg",
   "file_hash": "sha256_hash_here",
-  "image_filename": "img_1234567890_abc12345_coconut_chain.jpg",
+  "media_filename": "img_1234567890_abc12345_coconut_chain.jpg",
   "ocr_extracted": true,
   "ocr_length": 1234
 }
@@ -189,14 +189,14 @@ Result: Full OCR text and usage instructions
 
 ## API Reference
 
-### ImageMetadata Class
+### MediaMetadata Class
 
 #### `create_metadata_files()`
 
 Create `.md` and `.json` companion files for an image.
 
 ```python
-ImageMetadata.create_metadata_files(
+MediaMetadata.create_metadata_files(
     image_path=Path("media/img_123_example.jpg"),
     ocr_text="Extracted text from image",
     file_id="telegram_file_id",
@@ -215,19 +215,19 @@ ImageMetadata.create_metadata_files(
 Read metadata for an image.
 
 ```python
-metadata = ImageMetadata.read_metadata("img_123_example.jpg", media_dir)
+metadata = MediaMetadata.read_metadata("img_123_example.jpg", media_dir)
 # Returns: {
 #   "description": "...",  # Content of .md file
 #   "settings": {...}      # Content of .json file
 # }
 ```
 
-#### `get_image_description_summary()`
+#### `get_media_description_summary()`
 
 Get brief summary for agent prompt (max 500 chars).
 
 ```python
-summary = ImageMetadata.get_image_description_summary("img_123_example.jpg", media_dir)
+summary = MediaMetadata.get_media_description_summary("img_123_example.jpg", media_dir)
 # Returns: "Brief OCR text..." (truncated to 500 chars)
 ```
 
@@ -299,7 +299,7 @@ Our architecture consists of three layers:
 Run tests:
 
 ```bash
-pytest tests/test_image_metadata.py -v
+pytest tests/test_media_metadata.py -v
 ```
 
 **Test coverage:**
@@ -321,13 +321,13 @@ To add metadata to existing images:
 
 ```python
 from pathlib import Path
-from src.processor.image_metadata import ImageMetadata
+from src.processor.media_metadata import MediaMetadata
 
     media_dir = Path("knowledge_bases/my-notes/media")
     for img in media_dir.glob("img_*.jpg"):
         if not Path(str(img.with_suffix("")) + ".md").exists():
             # Create metadata with empty OCR
-            ImageMetadata.create_metadata_files(
+            MediaMetadata.create_metadata_files(
                 image_path=img,
                 ocr_text="",
                 file_id="",
@@ -343,4 +343,4 @@ from src.processor.image_metadata import ImageMetadata
 
 - [Image Embedding](image-embedding.md) - Original image handling system
 - [File Format Recognition](../user-guide/file-format-recognition.md) - Docling OCR integration
-- [Qwen CLI Agent](../agents/qwen-code-cli.md) - Agent that uses image metadata
+- [Qwen CLI Agent](../agents/qwen-code-cli.md) - Agent that uses media metadata

@@ -1,13 +1,13 @@
 """
-Image path validation for file processor.
-Validates image file paths before sending to docling for OCR.
+Media path validation for file processor.
+Validates media file paths before sending to docling for OCR.
 """
 
 from pathlib import Path
 from typing import Optional
 
 
-def validate_image_path(file_path: Path, kb_media_dir: Optional[Path] = None) -> tuple[bool, str]:
+def validate_media_path(file_path: Path, kb_media_dir: Optional[Path] = None) -> tuple[bool, str]:
     """
     Validate image file path before processing.
 
@@ -21,15 +21,15 @@ def validate_image_path(file_path: Path, kb_media_dir: Optional[Path] = None) ->
     Examples:
         >>> from pathlib import Path
         >>> # Valid image
-        >>> validate_image_path(Path("media/photo.jpg"))
+        >>> validate_media_path(Path("media/photo.jpg"))
         (True, '')
 
         >>> # Missing file
-        >>> validate_image_path(Path("/nonexistent/image.jpg"))
+        >>> validate_media_path(Path("/nonexistent/image.jpg"))
         (False, 'Image file does not exist: /nonexistent/image.jpg')
 
         >>> # Wrong extension
-        >>> validate_image_path(Path("document.txt"))
+        >>> validate_media_path(Path("document.txt"))
         (False, "File is not an image (extension: .txt)")
     """
     # Check if file exists
@@ -40,12 +40,12 @@ def validate_image_path(file_path: Path, kb_media_dir: Optional[Path] = None) ->
     if not file_path.is_file():
         return False, f"Path is not a file: {file_path}"
 
-    # Check if it's an image by extension
+    # Check if it's an image by extension (currently only images stored in media dir)
     image_extensions = {".jpg", ".jpeg", ".png", ".gif", ".tiff", ".bmp", ".webp"}
     if file_path.suffix.lower() not in image_extensions:
         return False, f"File is not an image (extension: {file_path.suffix})"
 
-    # If KB media directory provided, verify image is within it
+    # If KB media directory provided, verify asset is within it
     if kb_media_dir:
         try:
             # Resolve both paths to absolute
@@ -61,3 +61,8 @@ def validate_image_path(file_path: Path, kb_media_dir: Optional[Path] = None) ->
             )
 
     return True, ""
+
+
+# Backward compatibility alias (deprecated)
+def validate_image_path(file_path: Path, kb_media_dir: Optional[Path] = None) -> tuple[bool, str]:
+    return validate_media_path(file_path, kb_media_dir)

@@ -20,8 +20,8 @@ from src.mcp.client import MCPClient
 from src.mcp.docling_integration import ensure_docling_mcp_spec
 from src.mcp.registry.registry import MCPServerSpec
 from src.mcp.registry_client import MCPRegistryClient
-from src.processor.image_metadata import ImageMetadata
-from src.processor.image_path_validator import validate_image_path
+from src.processor.media_metadata import MediaMetadata
+from src.processor.media_path_validator import validate_media_path
 
 
 class FileProcessor:
@@ -1083,9 +1083,9 @@ class FileProcessor:
 
                 self.logger.info(f"File downloaded to: {save_path}")
 
-            # AICODE-NOTE: Validate saved image path (for images saved to KB)
+            # AICODE-NOTE: Validate saved media path (for assets saved to KB)
             if save_to_kb and is_image:
-                is_valid, error_msg = validate_image_path(save_path, kb_media_dir)
+                is_valid, error_msg = validate_media_path(save_path, kb_media_dir)
                 if not is_valid:
                     self.logger.error(f"[FileProcessor] Saved image failed validation: {error_msg}")
                     self.logger.warning(
@@ -1131,12 +1131,12 @@ class FileProcessor:
 
                 temp_file = None  # Don't delete this file in finally block
 
-                # AICODE-NOTE: Create metadata files (.md and .json) for saved images
+                # AICODE-NOTE: Create metadata files (.md and .json) for saved media assets
                 # This helps agent understand image content and reduces prompt length
                 # Only create metadata for new images, not duplicates
                 if is_image and not existing_file:
                     try:
-                        ImageMetadata.create_metadata_files(
+                        MediaMetadata.create_metadata_files(
                             image_path=save_path,
                             ocr_text=result.get("text", ""),
                             file_id=(file_unique_id or file_id or ""),

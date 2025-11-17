@@ -350,6 +350,6 @@ Based on:
 
 ## See Also
 
-- [Image Metadata System](image-metadata-system.md) - How `.md` files work
+- [Media Metadata System](media-metadata-system.md) - How `.md` files work
 - [Image Prompt Format](image-prompt-format.md) - New compact format
 - [Image Embedding](image-embedding.md) - Original system

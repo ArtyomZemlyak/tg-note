@@ -134,7 +134,7 @@ Validate specific file:
 
 ```python
 from pathlib import Path
-from src.processor.markdown_image_validator import validate_agent_generated_markdown
+from src.processor.markdown_media_validator import validate_agent_generated_markdown
 
 kb_root = Path("/path/to/kb")
 md_file = kb_root / "topics" / "example.md"
@@ -146,12 +146,12 @@ passed = validate_agent_generated_markdown(md_file, kb_root)
 Validate entire KB:
 
 ```python
-from src.processor.markdown_image_validator import validate_kb_images
+from src.processor.markdown_media_validator import validate_kb_media
 
 kb_root = Path("/path/to/kb")
 
 # Returns number of errors found
-error_count = validate_kb_images(kb_root, verbose=True)
+error_count = validate_kb_media(kb_root, verbose=True)
 
 if error_count == 0:
     print("✅ Validation passed!")
@@ -162,9 +162,9 @@ else:
 Advanced usage with validator class:
 
 ```python
-from src.processor.markdown_image_validator import MarkdownImageValidator
+from src.processor.markdown_media_validator import MarkdownMediaValidator
 
-validator = MarkdownImageValidator(kb_root)
+validator = MarkdownMediaValidator(kb_root)
 
 # Validate single file
 refs, issues = validator.validate_markdown_file(md_file, check_alt_text=True)
@@ -390,9 +390,9 @@ refs, issues = validator.validate_markdown_file(
 
 To add new validation rules:
 
-1. Add check to `MarkdownImageValidator` class
+1. Add check to `MarkdownMediaValidator` class
 2. Create corresponding `ValidationIssue` type
-3. Add tests to `tests/test_markdown_image_validator.py`
+3. Add tests to `tests/test_markdown_media_validator.py`
 4. Update documentation
 
 ---
@@ -473,9 +473,9 @@ assert "validation_warnings" in result
 ### Example 3: Batch Validation
 
 ```python
-from src.processor.markdown_image_validator import MarkdownImageValidator
+from src.processor.markdown_media_validator import MarkdownMediaValidator
 
-validator = MarkdownImageValidator(kb_root)
+validator = MarkdownMediaValidator(kb_root)
 
 # Validate all markdown files
 issues_by_file = validator.validate_kb_directory(check_alt_text=True)

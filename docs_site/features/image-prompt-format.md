@@ -190,7 +190,7 @@ img_1234567890_abc12345_coconut_chain.jpg
 # Old approach
 for file_data in file_contents:
     if "saved_filename" in file_data:
-        summary = ImageMetadata.get_image_description_summary(...)
+        summary = MediaMetadata.get_image_description_summary(...)
         file_texts.append(f"Описание: {summary}\n...")
 
 # New approach
@@ -307,6 +307,6 @@ img_003_deployment.jpg
 
 ## See Also
 
-- [Image Metadata System](image-metadata-system.md) - How .md and .json files work
+- [Media Metadata System](media-metadata-system.md) - How .md and .json files work
 - [Image Embedding](image-embedding.md) - Original image handling system
 - [Qwen CLI Agent](../agents/qwen-code-cli.md) - Agent configuration
