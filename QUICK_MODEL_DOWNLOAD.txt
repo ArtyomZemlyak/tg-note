@@ -1,0 +1,134 @@
+═══════════════════════════════════════════════════════════════════════════════
+БЫСТРАЯ ЗАГРУЗКА МОДЕЛЕЙ DOCLING - ПАМЯТКА
+═══════════════════════════════════════════════════════════════════════════════
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║  СПОСОБ 1: Минимальный Docling (РЕКОМЕНДУЕТСЯ)                           ║
+║  Использует весь ваш код, минимальные зависимости                        ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+# Установка (один раз)
+pip install -r requirements-model-download.txt
+
+# Загрузка моделей
+python scripts/download_docling_models.py
+
+# С принудительной перезагрузкой
+python scripts/download_docling_models.py --force
+
+# С другим конфигом
+python scripts/download_docling_models.py --config /путь/к/config.yaml
+
+# С подробным выводом
+python scripts/download_docling_models.py --verbose
+
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║  СПОСОБ 2: huggingface-cli (БЕЗ кода проекта)                            ║
+║  Только для ручной загрузки конкретных моделей                           ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+# Одной командой
+pip install huggingface-hub hf-transfer && \
+export HF_HUB_ENABLE_HF_TRANSFER=1 && \
+mkdir -p /opt/docling-mcp/models && \
+cd /opt/docling-mcp/models && \
+huggingface-cli download DS4SD/docling-models --include "layout/*" --local-dir . --local-dir-use-symlinks False && \
+huggingface-cli download DS4SD/docling-models --include "tableformer/*" --local-dir . --local-dir-use-symlinks False && \
+huggingface-cli download DS4SD/docling-models --include "code_formula_detection/*" --local-dir . --local-dir-use-symlinks False && \
+huggingface-cli download DS4SD/docling-models --include "picture_classifier/*" --local-dir . --local-dir-use-symlinks False && \
+huggingface-cli download RapidAI/RapidOCR --include "RapidOcr/onnx/PP-OCRv4/*" --local-dir . --local-dir-use-symlinks False
+
+# Или используя скрипт
+bash download_docling_models.sh /opt/docling-mcp/models
+
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║  МОДЕЛИ И РАЗМЕРЫ                                                         ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+layout              ~500 MB   Анализ структуры документа
+tableformer         ~700 MB   Извлечение таблиц
+code_formula        ~400 MB   Детекция кода и формул
+picture_classifier  ~300 MB   Классификация изображений
+rapidocr            ~400 MB   OCR (распознавание текста)
+
+ИТОГО (минимум):    ~2.3 GB
+
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║  НАСТРОЙКА config.yaml                                                    ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+MEDIA_PROCESSING_DOCLING:
+  model_cache:
+    base_dir: /opt/docling-mcp/models  # Путь к моделям
+    builtin_models:
+      layout: true                      # Включить
+      tableformer: true
+      code_formula: true
+      picture_classifier: true
+      rapidocr:
+        enabled: true
+        backends:
+          - onnxruntime
+      
+      # VLM модели - отключить если не нужны (очень большие!)
+      easyocr: false
+      smolvlm: false
+      granitedocling: false
+      smoldocling: false
+      granite_vision: false
+
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║  ПРОВЕРКА РЕЗУЛЬТАТА                                                      ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+# Список файлов
+ls -lh /opt/docling-mcp/models
+
+# Структура
+tree /opt/docling-mcp/models -L 2
+
+# Размер
+du -sh /opt/docling-mcp/models
+
+Должны быть папки:
+  ✓ layout/
+  ✓ tableformer/
+  ✓ code_formula_detection/
+  ✓ picture_classifier/
+  ✓ RapidOcr/
+
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║  ТИПИЧНЫЕ ОШИБКИ                                                          ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+Ошибка: ModuleNotFoundError: No module named 'docling'
+Решение: pip install -r requirements-model-download.txt
+
+Ошибка: Config file not found
+Решение: cp config.example.yaml config.yaml
+
+Ошибка: Permission denied
+Решение: sudo chown -R $USER:$USER /opt/docling-mcp/models
+    или: Используйте ./models вместо /opt/docling-mcp/models
+
+Ошибка: Загрузка зависает
+Решение: export HF_HUB_ENABLE_HF_TRANSFER=0
+
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║  ФАЙЛЫ ДОКУМЕНТАЦИИ                                                       ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+MINIMAL_DOCLING_INSTALL.md       Полная инструкция минимальной установки
+DOWNLOAD_MODELS_README_RU.md     Инструкция для huggingface-cli
+DOWNLOAD_MODELS_COMMAND.txt      Все команды в одном файле
+requirements-model-download.txt  Минимальные зависимости
+scripts/download_docling_models.py  Скрипт загрузки
+download_docling_models.sh       Bash скрипт для huggingface-cli
+
+═══════════════════════════════════════════════════════════════════════════════

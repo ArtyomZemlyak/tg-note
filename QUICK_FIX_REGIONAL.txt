@@ -1,0 +1,200 @@
+═══════════════════════════════════════════════════════════════════════════════
+🚨 БЫСТРОЕ РЕШЕНИЕ - РЕГИОНАЛЬНЫЕ ОГРАНИЧЕНИЯ
+═══════════════════════════════════════════════════════════════════════════════
+
+Если модели не загружаются даже с hf-transfer, скорее всего:
+- 🌍 Региональные ограничения
+- 🐌 HuggingFace медленный в вашем регионе
+- ❌ cas-bridge.xethub.hf.co заблокирован
+
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║  ШАГ 1: ДИАГНОСТИКА (ОБЯЗАТЕЛЬНО!)                                       ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+bash check_huggingface_access.sh
+
+Это покажет:
+- ✅/❌ Доступность HuggingFace
+- ✅/❌ Доступность XET bridge (там таймаутит)
+- 🌍 Ваше местоположение
+- 📶 Скорость соединения
+
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║  РЕШЕНИЕ 1: VPN (САМОЕ ПРОСТОЕ) ⭐⭐⭐⭐⭐                                 ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+Бесплатные VPN:
+  - ProtonVPN: https://protonvpn.com/
+  - Windscribe: https://windscribe.com/ (10 GB/месяц)
+
+Шаги:
+  1. Установить VPN (приложение или OpenVPN)
+  2. Подключиться к серверу США или ЕС
+  3. Проверить: curl https://ipinfo.io/json
+  4. Загрузить модели как обычно:
+
+     export HF_HUB_ENABLE_HF_TRANSFER=1
+     huggingface-cli download docling-project/docling-layout-heron-101 \
+         --local-dir ./layout \
+         --local-dir-use-symlinks False
+
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║  РЕШЕНИЕ 2: HTTP ПРОКСИ                                                   ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+Если у вас есть прокси-сервер:
+
+export HTTP_PROXY="http://your-proxy:8080"
+export HTTPS_PROXY="http://your-proxy:8080"
+export HF_HUB_ENABLE_HF_TRANSFER=1
+
+huggingface-cli download docling-project/docling-layout-heron-101 \
+    --local-dir ./layout \
+    --local-dir-use-symlinks False
+
+
+Где взять прокси:
+  - Свой VPS (лучше всего): ssh your-vps + установить tinyproxy
+  - Публичные прокси: https://free-proxy-list.net/ (небезопасно!)
+  - Платные: Bright Data, Smartproxy
+
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║  РЕШЕНИЕ 3: ЗАГРУЗИТЬ НА VPS, ЗАТЕМ СКАЧАТЬ СЕБЕ                         ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+# 1. На VPS (где HuggingFace доступен)
+ssh your-vps
+cd /tmp
+export HF_HUB_ENABLE_HF_TRANSFER=1
+huggingface-cli download docling-project/docling-layout-heron-101 \
+    --local-dir ./layout \
+    --local-dir-use-symlinks False
+
+tar -czf layout.tar.gz layout/
+
+# 2. На вашей машине
+rsync -avz --progress your-vps:/tmp/layout.tar.gz .
+tar -xzf layout.tar.gz
+
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║  РЕШЕНИЕ 4: GIT LFS ЧЕРЕЗ ПРОКСИ                                          ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+git config --global http.proxy http://your-proxy:8080
+git config --global https.proxy http://your-proxy:8080
+
+git lfs install
+git clone https://huggingface.co/docling-project/docling-layout-heron-101 layout/
+
+git config --global --unset http.proxy
+git config --global --unset https.proxy
+
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║  РЕШЕНИЕ 5: MODELSCOPE (ДЛЯ КИТАЯ/АЗИИ)                                  ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+pip install modelscope
+
+# Поиск похожих моделей на ModelScope
+python3 << 'EOF'
+from modelscope.hub.api import HubApi
+api = HubApi()
+results = api.list_models(task='document-layout-analysis', library='pytorch')
+for m in results[:5]:
+    print(f"{m.model_id}: https://modelscope.cn/models/{m.model_id}")
+EOF
+
+⚠️  Docling модели могут отсутствовать на ModelScope!
+
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║  РЕШЕНИЕ 6: ПОПРОСИТЬ В СООБЩЕСТВЕ                                        ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+Если ничего не помогает - попросите кого-то загрузить и поделиться:
+
+Reddit:
+  - r/MachineLearning
+  - r/LocalLLaMA
+
+Discord:
+  - HuggingFace
+  - AI communities
+
+Telegram:
+  - ML/AI группы
+
+Шаблон запроса:
+  "Hi! Unable to download docling-project/docling-layout-heron-101 
+  due to regional restrictions. Could someone share via 
+  Google Drive/Mega? Size: ~500 MB. Thanks!"
+
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║  РЕКОМЕНДАЦИИ ПО СТРАНАМ                                                  ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+🇨🇳 Китай:
+  - ModelScope (лучше всего)
+  - VPN обязателен для HuggingFace
+
+🇷🇺 Россия:
+  - VPN (ExpressVPN, NordVPN)
+  - Прокси через VPS в ЕС
+
+🇮🇷 Иран:
+  - VPN обязателен
+  - Shadowsocks/V2Ray
+
+🌍 Другие:
+  - VPN к ближайшему серверу
+  - Попробуйте ночью (меньше нагрузка)
+
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║  МОЯ РЕКОМЕНДАЦИЯ                                                         ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+Для быстрого решения:
+  1. Установить ProtonVPN (бесплатно, без регистрации карты)
+  2. Подключиться к серверу США
+  3. Загрузить модели
+
+Для долгосрочного:
+  1. Арендовать дешёвый VPS ($5/мес: DigitalOcean, Vultr)
+  2. Настроить HTTP прокси (tinyproxy)
+  3. Использовать постоянно
+
+Для экономии:
+  1. Попросить в сообществе
+  2. Скачать готовые архивы
+  3. Сохранить в облако (Google Drive, Mega)
+
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║  ПОСЛЕ УСПЕШНОЙ ЗАГРУЗКИ - СОЗДАЙТЕ БЭКАП!                                ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+# Упаковать модели
+tar -czf docling-models-backup.tar.gz models/
+
+# Загрузить в облако (на будущее)
+# Google Drive / Dropbox / Mega / Yandex.Disk
+
+# Или на свой сервер
+rsync -avz models/ your-server:/backups/docling-models/
+
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📖 ПОДРОБНАЯ ДОКУМЕНТАЦИЯ:
+   - REGIONAL_RESTRICTIONS_SOLUTION.md (полное руководство)
+   - check_huggingface_access.sh (диагностика)
+
+═══════════════════════════════════════════════════════════════════════════════
