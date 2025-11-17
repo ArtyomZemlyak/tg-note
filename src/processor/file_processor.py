@@ -5,6 +5,7 @@ Handles various file formats using Docling via MCP or local converter.
 
 import base64
 import hashlib
+import json
 import re
 import secrets
 import tempfile
@@ -33,6 +34,14 @@ class FileProcessor:
         "process_document",
         "process_file",
         "docling_process",
+    )
+    _SLUG_JSON_TEXT_FIELDS: Tuple[str, ...] = (
+        "markdown",
+        "text",
+        "content",
+        "description",
+        "title",
+        "summary",
     )
 
     def __init__(self) -> None:
@@ -902,13 +911,60 @@ class FileProcessor:
 
         return secrets.token_hex(4)
 
-    @staticmethod
-    def _create_image_slug(text: str, max_words: int = 6, max_length: int = 40) -> str:
-        """Create a descriptive slug from OCR text."""
-        if not text:
+    @classmethod
+    def _extract_slug_source(cls, raw_text: str) -> str:
+        """Extract meaningful text for slug generation, preferring markdown in JSON payloads."""
+        if not raw_text:
             return ""
 
-        words = text.strip().split()
+        stripped = raw_text.strip()
+        if not stripped:
+            return ""
+
+        if stripped[0] in ("{", "["):
+            try:
+                payload = json.loads(stripped)
+            except json.JSONDecodeError:
+                pass
+            else:
+                extracted = cls._extract_text_from_json_payload(payload)
+                if extracted:
+                    return extracted
+        return stripped
+
+    @classmethod
+    def _extract_text_from_json_payload(cls, payload: Any) -> Optional[str]:
+        """Recursively extract markdown/text fields from JSON payloads."""
+        if isinstance(payload, dict):
+            for key in cls._SLUG_JSON_TEXT_FIELDS:
+                value = payload.get(key)
+                if isinstance(value, str):
+                    value = value.strip()
+                    if value:
+                        return value
+            for value in payload.values():
+                extracted = cls._extract_text_from_json_payload(value)
+                if extracted:
+                    return extracted
+        elif isinstance(payload, list):
+            for item in payload:
+                extracted = cls._extract_text_from_json_payload(item)
+                if extracted:
+                    return extracted
+        elif isinstance(payload, str):
+            value = payload.strip()
+            if value:
+                return value
+        return None
+
+    @classmethod
+    def _create_image_slug(cls, text: str, max_words: int = 6, max_length: int = 40) -> str:
+        """Create a descriptive slug from OCR text."""
+        slug_source = cls._extract_slug_source(text)
+        if not slug_source:
+            return ""
+
+        words = slug_source.strip().split()
         if not words:
             return ""
 

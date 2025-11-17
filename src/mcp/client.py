@@ -24,9 +24,17 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastmcp import Client
-from fastmcp.client.transports import StdioTransport
 from loguru import logger
+
+try:
+    from fastmcp import Client
+    from fastmcp.client.transports import StdioTransport
+except ImportError as fastmcp_error:  # pragma: no cover - dependency optional during tests
+    Client = None  # type: ignore[assignment]
+    StdioTransport = None  # type: ignore[assignment]
+    FASTMCP_IMPORT_ERROR = fastmcp_error
+else:
+    FASTMCP_IMPORT_ERROR = None
 
 
 @dataclass
@@ -125,6 +133,12 @@ class MCPClient:
             config: Server configuration (auto-detects transport type)
             timeout: Timeout in seconds for MCP requests (default: 600 seconds)
         """
+        if Client is None:
+            raise RuntimeError(
+                "fastmcp is required to use MCPClient. Install it with 'pip install fastmcp' "
+                "or follow the project's setup instructions."
+            ) from FASTMCP_IMPORT_ERROR
+
         self.config = config
         self.timeout = timeout
         self.is_connected = False

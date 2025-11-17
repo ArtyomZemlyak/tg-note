@@ -3,6 +3,7 @@ Tests for FileProcessor
 """
 
 import base64
+import json
 from pathlib import Path
 
 import pytest
@@ -485,5 +486,65 @@ async def test_download_generates_descriptive_filename(file_processor, tmp_path)
     saved_name = result["saved_filename"]
     assert saved_name.startswith("img_1000000200")
     assert "coconut_chain_layout_diagram" in saved_name
+    assert saved_name.endswith(".jpg")
+    assert (media_dir / saved_name).exists()
+
+
+def test_create_image_slug_prefers_markdown_from_json(file_processor):
+    """Slug generation should prioritize markdown field when OCR text is JSON."""
+    payload = {
+        "document_key": "02bf4b57570723b044f0f74bb5b91e0f",
+        "from_cache": False,
+        "markdown": "Standup board summary for sprint alpha",
+    }
+    slug = file_processor._create_image_slug(json.dumps(payload))
+    assert slug.startswith("standup_board_summary")
+
+
+@pytest.mark.asyncio
+async def test_download_filename_uses_json_markdown_slug(file_processor, tmp_path):
+    """Image filename should be derived from markdown field inside JSON OCR text."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    media_dir = tmp_path / "media"
+    media_dir.mkdir()
+
+    mock_bot = MagicMock()
+    mock_bot.download_file = AsyncMock(return_value=b"json slug image bytes")
+
+    mock_file_info = MagicMock()
+    mock_file_info.file_path = "photos/test.jpg"
+
+    markdown_text = "Roadmap planning board snapshot for Q1"
+
+    async def mock_process_file(path):
+        return {
+            "text": json.dumps(
+                {
+                    "from_cache": False,
+                    "document_key": "slug-doc",
+                    "markdown": markdown_text,
+                }
+            ),
+            "metadata": {},
+            "format": "jpg",
+            "file_name": "test.jpg",
+        }
+
+    file_processor.process_file = mock_process_file
+
+    result = await file_processor.download_and_process_telegram_file(
+        bot=mock_bot,
+        file_info=mock_file_info,
+        original_filename="test.jpg",
+        kb_media_dir=media_dir,
+        file_id="slugjson1",
+        file_unique_id="AgACSlugJSON123",
+        message_date=1000000300,
+    )
+
+    assert result is not None
+    saved_name = result["saved_filename"]
+    assert "roadmap_planning_board_snapshot" in saved_name
     assert saved_name.endswith(".jpg")
     assert (media_dir / saved_name).exists()

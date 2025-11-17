@@ -3,6 +3,8 @@ Media path validation for file processor.
 Validates media file paths before sending to docling for OCR.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 from typing import Optional
 
