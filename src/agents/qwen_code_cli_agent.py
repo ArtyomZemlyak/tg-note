@@ -1,6 +1,15 @@
 """
 Qwen Code CLI Agent
 Python wrapper for qwen-code CLI tool with autonomous agent capabilities
+
+This agent uses the promptic service for unified prompt management.
+All prompts are obtained via a single render() call:
+
+    prompt = prompt_service.render(
+        "note_mode_prompt",
+        version="latest",
+        vars={"text": content, "urls": urls}
+    )
 """
 
 import asyncio
@@ -13,12 +22,8 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
-from config.agent_prompts import (
-    MAX_TITLE_LENGTH,
-    get_content_processing_template,
-    get_qwen_code_cli_instruction,
-    get_urls_section_template,
-)
+from config.agent_prompts import MAX_TITLE_LENGTH
+from src.prompts import prompt_service
 
 from .base_agent import BaseAgent
 
@@ -33,9 +38,30 @@ class QwenCodeCLIAgent(BaseAgent):
     - TODO plan generation via qwen-code
     - Built-in tool support (web search, git, github, shell commands)
     - Configurable instruction system
+    - Unified prompt management via promptic service
+
+    AICODE-NOTE: All prompts are now obtained via the promptic service
+    using a single render() call with version and variable support.
     """
 
-    DEFAULT_INSTRUCTION = get_qwen_code_cli_instruction("ru")
+    # Default instruction is loaded on first access (class-level property)
+    # AICODE-NOTE: Using a cached property-like approach to avoid loading at import time
+    _default_instruction_cache = None
+
+    @classmethod
+    def get_default_instruction(cls) -> str:
+        """Get the default instruction (cached)."""
+        if cls._default_instruction_cache is None:
+            cls._default_instruction_cache = prompt_service.render_agent_instruction(
+                locale="ru",
+                version="latest",
+            )
+        return cls._default_instruction_cache
+
+    @property
+    def DEFAULT_INSTRUCTION(self) -> str:
+        """Property for backward compatibility with code that accesses DEFAULT_INSTRUCTION."""
+        return self.get_default_instruction()
 
     def __init__(
         self,
@@ -63,20 +89,10 @@ class QwenCodeCLIAgent(BaseAgent):
         """
         super().__init__(config)
 
-        # Initialize ResponseFormatter to get its prompt text
-        from config.agent_prompts import get_media_instruction
-        from src.bot.response_formatter import ResponseFormatter
-
-        response_formatter = ResponseFormatter()
-        response_formatter_prompt = response_formatter.generate_prompt_text()
-        media_instr = get_media_instruction("ru")
-
-        # Combine the default instruction with media-specific guidance and ResponseFormatter prompt
-        default_instruction_with_formatter = self.DEFAULT_INSTRUCTION.format(
-            instruction_media=media_instr, response_format=response_formatter_prompt
-        )
-
-        self.instruction = instruction or default_instruction_with_formatter
+        # AICODE-NOTE: Get the complete agent instruction using promptic service
+        # This renders the instruction with all components (media instruction, response formatter)
+        # in a single call using file-first architecture and versioning
+        self.instruction = instruction or self.get_default_instruction()
         self.qwen_cli_path = qwen_cli_path
 
         # Get working directory - handle case where cwd doesn't exist
@@ -349,45 +365,10 @@ class QwenCodeCLIAgent(BaseAgent):
 
     async def _prepare_prompt_async(self, content: Dict) -> str:
         """
-        Prepare prompt for qwen-code CLI using template from config (async version)
+        Prepare prompt for qwen-code CLI using promptic service (async version).
 
-        Args:
-            content: Content dictionary
-
-        Returns:
-            Formatted prompt string
-        """
-        # If content already has a pre-built prompt (e.g., from /ask mode), use it directly
-        if "prompt" in content:
-            base_prompt = content["prompt"]
-        else:
-            text = content.get("text", "")
-            urls = content.get("urls", [])
-
-            # Build URLs section if URLs present
-            urls_section = ""
-            if urls:
-                url_list = "\n".join([f"- {url}" for url in urls])
-                urls_section = get_urls_section_template("ru").format(url_list=url_list)
-
-            # AICODE-NOTE: Get media handling instruction for content processing template
-            from config.agent_prompts import get_media_instruction
-
-            media_instr = get_media_instruction("ru")
-
-            # Use template from config
-            base_prompt = get_content_processing_template("ru").format(
-                instruction=self.instruction,
-                instruction_media=media_instr,
-                text=text,
-                urls_section=urls_section,
-            )
-
-        return base_prompt
-
-    def _prepare_prompt(self, content: Dict) -> str:
-        """
-        Prepare prompt for qwen-code CLI using template from config
+        AICODE-NOTE: This method uses the promptic service to render the complete
+        note mode prompt in a single call with version and variable support.
 
         Args:
             content: Content dictionary
@@ -399,26 +380,45 @@ class QwenCodeCLIAgent(BaseAgent):
         if "prompt" in content:
             return content["prompt"]
 
-        text = content.get("text", "")
-        urls = content.get("urls", [])
+        # Use promptic service to render complete note mode prompt in ONE LINE
+        return prompt_service.render(
+            "note_mode_prompt",
+            version="latest",
+            locale="ru",
+            vars={
+                "text": content.get("text", ""),
+                "urls": content.get("urls", []),
+                "instruction": self.instruction,  # Use custom instruction if set
+            },
+        )
 
-        # Build URLs section if URLs present
-        urls_section = ""
-        if urls:
-            url_list = "\n".join([f"- {url}" for url in urls])
-            urls_section = get_urls_section_template("ru").format(url_list=url_list)
+    def _prepare_prompt(self, content: Dict) -> str:
+        """
+        Prepare prompt for qwen-code CLI using promptic service.
 
-        # AICODE-NOTE: Get media handling instruction for content processing template
-        from config.agent_prompts import get_media_instruction
+        AICODE-NOTE: This method uses the promptic service to render the complete
+        note mode prompt in a single call with version and variable support.
 
-        media_instr = get_media_instruction("ru")
+        Args:
+            content: Content dictionary
 
-        # Use template from config
-        return get_content_processing_template("ru").format(
-            instruction=self.instruction,
-            instruction_media=media_instr,
-            text=text,
-            urls_section=urls_section,
+        Returns:
+            Formatted prompt string
+        """
+        # If content already has a pre-built prompt (e.g., from /ask mode), use it directly
+        if "prompt" in content:
+            return content["prompt"]
+
+        # Use promptic service to render complete note mode prompt in ONE LINE
+        return prompt_service.render(
+            "note_mode_prompt",
+            version="latest",
+            locale="ru",
+            vars={
+                "text": content.get("text", ""),
+                "urls": content.get("urls", []),
+                "instruction": self.instruction,  # Use custom instruction if set
+            },
         )
 
     async def _execute_qwen_cli(self, prompt: str) -> str:
