@@ -1,27 +1,58 @@
 """
 Agent Prompts Configuration (Refactored)
+
 Centralized configuration for all agent prompts and instructions.
 
-Prompts are stored as versioned files under `config/prompts/` and loaded via
-`src.prompts.registry.prompt_registry`. This module keeps non-prompt constants
-and exposes helper accessors plus backward-compatible constants for existing imports.
+This module provides a unified interface for prompt management using the promptic library.
+Prompts are stored as versioned files under `config/prompts/` and loaded via the
+`PrompticService` from `src.prompts.promptic_service`.
+
+USAGE (Recommended - Single render() call):
+    from src.prompts import prompt_service
+
+    # Complete note mode prompt in ONE LINE:
+    prompt = prompt_service.render(
+        "note_mode_prompt",
+        version="latest",
+        vars={"text": "User content", "urls": ["https://example.com"]},
+        export_to="output/prompt.md"  # optional
+    )
+
+    # Complete ask mode prompt in ONE LINE:
+    prompt = prompt_service.render(
+        "ask_mode_prompt",
+        version="latest",
+        vars={"question": "What is GPT?", "kb_path": "/kb"}
+    )
+
+USAGE (Legacy - individual getters):
+    from config.agent_prompts import get_qwen_code_cli_instruction
+
+    instruction = get_qwen_code_cli_instruction(locale="ru")
+
+AICODE-NOTE: This module now wraps the PrompticService for backwards compatibility.
+New code should use prompt_service.render() directly for the cleanest API.
 """
 
 from __future__ import annotations
 
-from src.prompts.registry import prompt_registry
+from src.prompts.promptic_service import prompt_service
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Agent Default Instructions (via registry)
+# Agent Default Instructions (via promptic service)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
 def get_qwen_code_agent_instruction(locale: str = "en", version: str | None = None) -> str:
-    return prompt_registry.get("autonomous_agent.instruction", locale=locale, version=version)
+    """Get autonomous agent instruction (for QwenCodeAgent)."""
+    return prompt_service.render_autonomous_agent_instruction(
+        locale=locale, version=version or "latest"
+    )
 
 
 def get_qwen_code_cli_instruction(locale: str = "ru", version: str | None = None) -> str:
-    return prompt_registry.get("qwen_code_cli.instruction", locale=locale, version=version)
+    """Get Qwen CLI agent instruction (for QwenCodeCLIAgent - note mode)."""
+    return prompt_service.render_agent_instruction(locale=locale, version=version or "latest")
 
 
 STUB_AGENT_INSTRUCTION = (
@@ -30,37 +61,163 @@ STUB_AGENT_INSTRUCTION = (
 )
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Prompt Templates for Content Processing (via registry)
+# Prompt Templates for Content Processing (via promptic service)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
 def get_content_processing_template(locale: str = "ru", version: str | None = None) -> str:
-    return prompt_registry.get("content_processing.template", locale=locale, version=version)
+    """Get content processing template."""
+    return prompt_service._legacy_render("content_processing", locale, version or "latest", {})
 
 
 def get_urls_section_template(locale: str = "ru", version: str | None = None) -> str:
-    return prompt_registry.get("content_processing.urls_section", locale=locale, version=version)
+    """Get URLs section template."""
+    return prompt_service._legacy_render("urls_section", locale, version or "latest", {})
 
 
 def get_ask_mode_instruction(locale: str = "ru", version: str | None = None) -> str:
-    return prompt_registry.get("ask_mode.instruction", locale=locale, version=version)
+    """Get ask mode agent instruction."""
+    return prompt_service.render_ask_instruction(locale=locale, version=version or "latest")
 
 
 def get_kb_query_template(locale: str = "ru", version: str | None = None) -> str:
-    return prompt_registry.get("kb_query.template", locale=locale, version=version)
+    """Get KB query template."""
+    return prompt_service._legacy_render("kb_query", locale, version or "latest", {})
 
 
 def get_media_instruction(locale: str = "ru", version: str | None = None) -> str:
-    return prompt_registry.get("media.instruction", locale=locale, version=version)
+    """Get media handling instruction."""
+    return prompt_service.render_media_instruction(locale=locale, version=version or "latest")
 
 
-# Backward-compatible constants (deprecated): resolve at import time
-QWEN_CODE_AGENT_INSTRUCTION = get_qwen_code_agent_instruction("en")
-QWEN_CODE_CLI_AGENT_INSTRUCTION = get_qwen_code_cli_instruction("ru")
-CONTENT_PROCESSING_PROMPT_TEMPLATE = get_content_processing_template("ru")
-URLS_SECTION_TEMPLATE = get_urls_section_template("ru")
-ASK_MODE_AGENT_INSTRUCTION = get_ask_mode_instruction("ru")
-KB_QUERY_PROMPT_TEMPLATE = get_kb_query_template("ru")
+# ═══════════════════════════════════════════════════════════════════════════════
+# Unified Prompt Rendering (NEW - Recommended API)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def render_note_mode_prompt(
+    text: str,
+    urls: list | None = None,
+    locale: str = "ru",
+    version: str = "latest",
+    export_to: str | None = None,
+) -> str:
+    """
+    Render complete note mode prompt in ONE LINE.
+
+    This is the recommended way to get prompts for the note processing mode.
+
+    Args:
+        text: User text content to process
+        urls: List of URLs from the content
+        locale: Locale for the prompt
+        version: Version specification
+        export_to: Optional path to export rendered prompt
+
+    Returns:
+        Complete rendered prompt for note mode
+
+    Example:
+        prompt = render_note_mode_prompt(
+            text="Article about GPT-4...",
+            urls=["https://openai.com/research/gpt-4"],
+        )
+    """
+    return prompt_service.render(
+        "note_mode_prompt",
+        version=version,
+        locale=locale,
+        vars={"text": text, "urls": urls or []},
+        export_to=export_to,
+    )
+
+
+def render_ask_mode_prompt(
+    question: str,
+    kb_path: str,
+    context: str = "",
+    locale: str = "ru",
+    version: str = "latest",
+    export_to: str | None = None,
+) -> str:
+    """
+    Render complete ask mode prompt in ONE LINE.
+
+    This is the recommended way to get prompts for the question answering mode.
+
+    Args:
+        question: User's question
+        kb_path: Path to the knowledge base
+        context: Optional conversation context
+        locale: Locale for the prompt
+        version: Version specification
+        export_to: Optional path to export rendered prompt
+
+    Returns:
+        Complete rendered prompt for ask mode
+
+    Example:
+        prompt = render_ask_mode_prompt(
+            question="What is GPT-4?",
+            kb_path="/path/to/kb",
+        )
+    """
+    return prompt_service.render(
+        "ask_mode_prompt",
+        version=version,
+        locale=locale,
+        vars={"question": question, "kb_path": kb_path, "context": context},
+        export_to=export_to,
+    )
+
+
+# Backward-compatible constants (deprecated): lazy loading to avoid circular imports
+# AICODE-NOTE: These constants use lazy loading to prevent circular imports.
+# The values are resolved on first access, not at module import time.
+# New code should use the functions or prompt_service directly.
+
+
+class _LazyPromptLoader:
+    """Lazy loader for backward-compatible prompt constants."""
+
+    _cache = {}
+
+    @classmethod
+    def get(cls, name: str):
+        """Get a lazily-loaded prompt constant."""
+        if name not in cls._cache:
+            if name == "QWEN_CODE_AGENT_INSTRUCTION":
+                cls._cache[name] = get_qwen_code_agent_instruction("en")
+            elif name == "QWEN_CODE_CLI_AGENT_INSTRUCTION":
+                cls._cache[name] = get_qwen_code_cli_instruction("ru")
+            elif name == "CONTENT_PROCESSING_PROMPT_TEMPLATE":
+                cls._cache[name] = get_content_processing_template("ru")
+            elif name == "URLS_SECTION_TEMPLATE":
+                cls._cache[name] = get_urls_section_template("ru")
+            elif name == "ASK_MODE_AGENT_INSTRUCTION":
+                cls._cache[name] = get_ask_mode_instruction("ru")
+            elif name == "KB_QUERY_PROMPT_TEMPLATE":
+                cls._cache[name] = get_kb_query_template("ru")
+            else:
+                raise KeyError(f"Unknown lazy prompt constant: {name}")
+        return cls._cache[name]
+
+
+# AICODE-NOTE: Use __getattr__ for lazy loading of module-level constants
+# This prevents circular imports when the module is first loaded
+def __getattr__(name: str):
+    """Lazy load prompt constants on first access."""
+    if name in (
+        "QWEN_CODE_AGENT_INSTRUCTION",
+        "QWEN_CODE_CLI_AGENT_INSTRUCTION",
+        "CONTENT_PROCESSING_PROMPT_TEMPLATE",
+        "URLS_SECTION_TEMPLATE",
+        "ASK_MODE_AGENT_INSTRUCTION",
+        "KB_QUERY_PROMPT_TEMPLATE",
+    ):
+        return _LazyPromptLoader.get(name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Agent Mode Instruction (kept inline; single authoritative definition)
