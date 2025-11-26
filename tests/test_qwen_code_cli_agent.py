@@ -8,7 +8,8 @@ import pytest
 
 from src.agents.base_agent import BaseAgent, KBStructure
 from src.agents.qwen_code_cli_agent import QwenCodeCLIAgent
-from src.prompts.registry import prompt_registry
+from promptic import render as promptic_render
+from pathlib import Path
 
 
 class TestQwenCodeCLIAgent:
@@ -92,8 +93,14 @@ class TestQwenCodeCLIAgent:
         assert agent.instruction in prompt
 
     def test_registry_fallback_latest_version(self):
-        """Registry returns latest version when no version specified"""
-        text = prompt_registry.get("qwen_code_cli.instruction", locale="ru")
+        """Promptic returns latest version when no version specified"""
+        prompts_dir = Path(__file__).parent.parent / "config" / "prompts"
+        text = promptic_render(
+            "qwen_code_cli/instruction",
+            base_dir=prompts_dir,
+            version="latest",
+            vars={}
+        )
         assert isinstance(text, str) and len(text) > 0
 
     def test_prepare_prompt_no_urls(self, agent):

@@ -12,7 +12,8 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
-from config.agent_prompts import get_qwen_code_agent_instruction
+from promptic import render as promptic_render
+from pathlib import Path
 
 # from .base_agent import AgentResult as BaseAgentResult
 from .base_agent import BaseAgent, KBStructure

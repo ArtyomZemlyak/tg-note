@@ -7,7 +7,7 @@ Follows Single Responsibility Principle
 from pathlib import Path
 from typing import Optional
 
-from config.agent_prompts import get_qwen_code_agent_instruction
+from promptic import render as promptic_render
 from src.bot.bot_port import BotPort
 from src.bot.response_formatter import ResponseFormatter
 from src.bot.settings_manager import SettingsManager
@@ -217,19 +217,32 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
         instr = ""
         if hasattr(user_agent, "get_instruction") and hasattr(user_agent, "set_instruction"):
             original_instruction = user_agent.get_instruction()
-            instr = get_qwen_code_agent_instruction("ru")
-
-            # AICODE-NOTE: Add media handling instruction to prompt
-            from config.agent_prompts import get_media_instruction
+            
+            # AICODE-NOTE: Use promptic directly to render agent mode instruction
+            prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
+            
+            # Get media instruction
+            media_instr = promptic_render(
+                "media/instruction",
+                base_dir=prompts_dir,
+                version="latest",
+                vars={}
+            )
+            
+            # Get response formatter prompt
             from src.bot.response_formatter import ResponseFormatter
-
-            media_instr = get_media_instruction("ru")
             response_formatter = ResponseFormatter()
             response_formatter_prompt = response_formatter.generate_prompt_text()
-
-            # Combine the default instruction with media guidance and ResponseFormatter prompt
-            instr = instr.format(
-                instruction_media=media_instr, response_format=response_formatter_prompt
+            
+            # Get autonomous agent instruction and format it
+            instr = promptic_render(
+                "autonomous_agent/instruction",
+                base_dir=prompts_dir,
+                version="latest",
+                vars={
+                    "instruction_media": media_instr,
+                    "response_format": response_formatter_prompt,
+                }
             )
 
             user_agent.set_instruction(instr)

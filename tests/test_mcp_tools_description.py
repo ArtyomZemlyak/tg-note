@@ -13,7 +13,8 @@ import pytest
 from src.agents.autonomous_agent import AutonomousAgent
 from src.agents.qwen_code_cli_agent import QwenCodeCLIAgent
 from src.mcp.tools_description import format_mcp_tools_for_prompt, get_mcp_tools_description
-from src.prompts.registry import PromptRegistry
+from promptic import render as promptic_render
+from pathlib import Path
 
 
 class TestMCPToolsDescription:
@@ -95,15 +96,19 @@ class TestMCPToolsDescription:
         assert formatted == ""
 
     def test_prompt_registry_lookup(self, tmp_path):
-        """PromptRegistry should locate highest version file"""
+        """Promptic should locate highest version file"""
         # Create temporary prompt files
         base = tmp_path / "config" / "prompts" / "demo"
         base.mkdir(parents=True)
-        (base / "greeting.en.v1.md").write_text("hello v1", encoding="utf-8")
-        (base / "greeting.en.v2.md").write_text("hello v2", encoding="utf-8")
+        (base / "greeting.v1.md").write_text("hello v1", encoding="utf-8")
+        (base / "greeting.v2.md").write_text("hello v2", encoding="utf-8")
 
-        reg = PromptRegistry(base_dirs=[tmp_path / "config" / "prompts"])
-        latest = reg.get("demo.greeting", locale="en")
+        latest = promptic_render(
+            "demo/greeting",
+            base_dir=tmp_path / "config" / "prompts",
+            version="latest",
+            vars={}
+        )
         assert latest == "hello v2"
 
 

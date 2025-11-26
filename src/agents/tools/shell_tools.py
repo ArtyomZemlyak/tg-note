@@ -11,7 +11,7 @@ from typing import Any, Dict
 
 from loguru import logger
 
-from config.agent_prompts import DANGEROUS_SHELL_PATTERNS
+from config.constants import DANGEROUS_SHELL_PATTERNS
 
 from .base_tool import BaseTool, ToolContext
 
