@@ -11,8 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from loguru import logger
-
-from config.prompt_helper import render_prompt as promptic_render
+from promptic import load_prompt
 
 # from .base_agent import AgentResult as BaseAgentResult
 from .base_agent import BaseAgent, KBStructure
@@ -236,16 +235,12 @@ class AutonomousAgent(BaseAgent):
         if cls._default_instruction_cache is None:
             prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
 
-            # Get autonomous agent instruction
-            cls._default_instruction_cache = promptic_render(
-                "autonomous_agent/instruction",
-                base_dir=prompts_dir,
-                version="latest",
-                vars={
-                    "instruction_media": "",
-                    "response_format": "",
-                },
-            )
+            # Get autonomous agent instruction using promptic
+            instruction = load_prompt(str(prompts_dir / "autonomous_agent"), version="latest")
+            # Replace template variables
+            instruction = instruction.replace("{instruction_media}", "")
+            instruction = instruction.replace("{response_format}", "")
+            cls._default_instruction_cache = instruction
         return cls._default_instruction_cache
 
     def __init__(

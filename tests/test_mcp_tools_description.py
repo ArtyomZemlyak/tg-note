@@ -9,8 +9,8 @@ from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from promptic import load_prompt
 
-from config.prompt_helper import render_prompt as promptic_render
 from src.agents.autonomous_agent import AutonomousAgent
 from src.agents.qwen_code_cli_agent import QwenCodeCLIAgent
 from src.mcp.tools_description import format_mcp_tools_for_prompt, get_mcp_tools_description
@@ -95,16 +95,14 @@ class TestMCPToolsDescription:
         assert formatted == ""
 
     def test_prompt_registry_lookup(self, tmp_path):
-        """Promptic should locate highest version file"""
-        # Create temporary prompt files
-        base = tmp_path / "config" / "prompts" / "demo"
+        """Promptic should locate highest version file using _vX naming convention"""
+        # Create temporary prompt files with correct naming convention (_vX.md)
+        base = tmp_path / "demo"
         base.mkdir(parents=True)
-        (base / "greeting.v1.md").write_text("hello v1", encoding="utf-8")
-        (base / "greeting.v2.md").write_text("hello v2", encoding="utf-8")
+        (base / "greeting_v1.md").write_text("hello v1", encoding="utf-8")
+        (base / "greeting_v2.md").write_text("hello v2", encoding="utf-8")
 
-        latest = promptic_render(
-            "demo/greeting", base_dir=tmp_path / "config" / "prompts", version="latest", vars={}
-        )
+        latest = load_prompt(str(base), version="latest")
         assert latest == "hello v2"
 
 
