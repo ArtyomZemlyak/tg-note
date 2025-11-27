@@ -2,16 +2,11 @@
 Qwen Code CLI Agent
 Python wrapper for qwen-code CLI tool with autonomous agent capabilities
 
-This agent uses promptic directly for prompt management.
-All prompts are obtained via a single render() call:
+This agent uses the promptic library for prompt management.
+All prompts are loaded via promptic.load_prompt() with version support:
 
-    from promptic import render as promptic_render
-    prompt = promptic_render(
-        "content_processing/template",
-        base_dir=prompts_dir,
-        version="latest",
-        vars={"text": content, "urls": urls}
-    )
+    from promptic import load_prompt
+    prompt = load_prompt("config/prompts/content_processing", version="latest")
 """
 
 import asyncio
@@ -23,9 +18,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from loguru import logger
+from promptic import load_prompt
 
 from config.constants import MAX_TITLE_LENGTH
-from promptic import render as promptic_render
 
 from .base_agent import BaseAgent
 
@@ -55,36 +50,27 @@ class QwenCodeCLIAgent(BaseAgent):
         """Get the default instruction (cached)."""
         if cls._default_instruction_cache is None:
             prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
-            
+
             # Get media instruction
-            media_instr = promptic_render(
-                "media/instruction",
-                base_dir=prompts_dir,
-                version="latest",
-                vars={}
-            )
-            
+            media_instr = load_prompt(str(prompts_dir / "media"), version="latest")
+
             # Get response formatter prompt
             from src.bot.response_formatter import ResponseFormatter
+
             response_formatter = ResponseFormatter()
             response_format_json = response_formatter.generate_prompt_text()
-            response_formatter_prompt = promptic_render(
-                "response_formatter/instruction",
-                base_dir=prompts_dir,
-                version="latest",
-                vars={"response_format": response_format_json}
+            response_formatter_prompt = load_prompt(
+                str(prompts_dir / "response_formatter"), version="latest"
             )
-            
+            response_formatter_prompt = response_formatter_prompt.replace(
+                "{response_format}", response_format_json
+            )
+
             # Get qwen code cli instruction
-            cls._default_instruction_cache = promptic_render(
-                "qwen_code_cli/instruction",
-                base_dir=prompts_dir,
-                version="latest",
-                vars={
-                    "instruction_media": media_instr,
-                    "response_format": response_formatter_prompt,
-                }
-            )
+            instruction = load_prompt(str(prompts_dir / "qwen_code_cli"), version="latest")
+            instruction = instruction.replace("{instruction_media}", media_instr)
+            instruction = instruction.replace("{response_format}", response_formatter_prompt)
+            cls._default_instruction_cache = instruction
         return cls._default_instruction_cache
 
     @property
@@ -409,40 +395,32 @@ class QwenCodeCLIAgent(BaseAgent):
         if "prompt" in content:
             return content["prompt"]
 
-        # Use promptic directly to render complete note mode prompt
         prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
-        
+
         # Get URLs section if there are URLs
         urls_section = ""
         urls = content.get("urls", [])
         if urls:
             url_list = "\n".join([f"- {url}" for url in urls])
-            urls_section = promptic_render(
-                "content_processing/urls_section",
-                base_dir=prompts_dir,
-                version="latest",
-                vars={"url_list": url_list}
-            )
-        
-        # Render content processing template
-        return promptic_render(
-            "content_processing/template",
-            base_dir=prompts_dir,
-            version="latest",
-            vars={
-                "instruction": self.instruction,
-                "instruction_media": "",  # Already included in instruction
-                "text": content.get("text", ""),
-                "urls_section": urls_section,
-            },
-        )
+            urls_template = load_prompt(str(prompts_dir / "content_processing"), version="v1")
+            # urls_section template is in the same dir, need to load it directly
+            urls_section_path = prompts_dir / "content_processing" / "urls_section_v1.md"
+            urls_section = urls_section_path.read_text().replace("{url_list}", url_list)
+
+        # Load and render content processing template
+        template = load_prompt(str(prompts_dir / "content_processing"), version="latest")
+        template = template.replace("{instruction}", self.instruction)
+        template = template.replace("{instruction_media}", "")
+        template = template.replace("{text}", content.get("text", ""))
+        template = template.replace("{urls_section}", urls_section)
+        return template
 
     def _prepare_prompt(self, content: Dict) -> str:
         """
-        Prepare prompt for qwen-code CLI using promptic service.
+        Prepare prompt for qwen-code CLI using promptic.
 
-        AICODE-NOTE: This method uses the promptic service to render the complete
-        note mode prompt in a single call with version and variable support.
+        AICODE-NOTE: This method uses promptic load_prompt() to get the template
+        and then performs variable substitution.
 
         Args:
             content: Content dictionary
@@ -454,33 +432,23 @@ class QwenCodeCLIAgent(BaseAgent):
         if "prompt" in content:
             return content["prompt"]
 
-        # Use promptic directly to render complete note mode prompt
         prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
-        
+
         # Get URLs section if there are URLs
         urls_section = ""
         urls = content.get("urls", [])
         if urls:
             url_list = "\n".join([f"- {url}" for url in urls])
-            urls_section = promptic_render(
-                "content_processing/urls_section",
-                base_dir=prompts_dir,
-                version="latest",
-                vars={"url_list": url_list}
-            )
-        
-        # Render content processing template
-        return promptic_render(
-            "content_processing/template",
-            base_dir=prompts_dir,
-            version="latest",
-            vars={
-                "instruction": self.instruction,
-                "instruction_media": "",  # Already included in instruction
-                "text": content.get("text", ""),
-                "urls_section": urls_section,
-            },
-        )
+            urls_section_path = prompts_dir / "content_processing" / "urls_section_v1.md"
+            urls_section = urls_section_path.read_text().replace("{url_list}", url_list)
+
+        # Load and render content processing template
+        template = load_prompt(str(prompts_dir / "content_processing"), version="latest")
+        template = template.replace("{instruction}", self.instruction)
+        template = template.replace("{instruction_media}", "")
+        template = template.replace("{text}", content.get("text", ""))
+        template = template.replace("{urls_section}", urls_section)
+        return template
 
     async def _execute_qwen_cli(self, prompt: str) -> str:
         """

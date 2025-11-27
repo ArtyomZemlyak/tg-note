@@ -3,16 +3,11 @@ Question Answering Service
 Handles question answering based on knowledge base
 Follows Single Responsibility Principle
 
-AICODE-NOTE: This service now uses promptic directly for prompt management.
-All prompts for ask mode are obtained via a single render() call:
+AICODE-NOTE: This service uses promptic for prompt management.
+All prompts for ask mode are loaded via promptic.load_prompt():
 
-    from promptic import render as promptic_render
-    prompt = promptic_render(
-        "kb_query/template",
-        base_dir=prompts_dir,
-        version="latest",
-        vars={"question": "...", "kb_path": "...", "response_format": "..."}
-    )
+    from promptic import load_prompt
+    prompt = load_prompt("config/prompts/kb_query", version="latest")
 """
 
 from datetime import datetime
@@ -20,6 +15,7 @@ from pathlib import Path
 from typing import Optional
 
 from loguru import logger
+from promptic import load_prompt
 
 from src.agents.base_agent import BaseAgent
 from src.bot.bot_port import BotPort
@@ -29,8 +25,6 @@ from src.core.rate_limiter import RateLimiter
 from src.knowledge_base.repository import RepositoryManager
 from src.processor.content_parser import ContentParser
 from src.processor.message_aggregator import MessageGroup
-from promptic import render as promptic_render
-from pathlib import Path
 from src.services.base_kb_service import BaseKBService
 from src.services.interfaces import IQuestionAnsweringService, IUserContextManager
 
@@ -204,43 +198,29 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
         # Temporarily change agent instruction to ask mode
         # This prevents the agent from using note creation instructions
         original_instruction = None
+        prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
         if hasattr(user_agent, "get_instruction") and hasattr(user_agent, "set_instruction"):
             original_instruction = user_agent.get_instruction()
-            # AICODE-NOTE: Get ask mode instruction using promptic directly
-            prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
-            ask_instr = promptic_render(
-                "ask_mode/instruction",
-                base_dir=prompts_dir,
-                version="latest",
-                vars={}
-            )
+            # AICODE-NOTE: Get ask mode instruction using promptic
+            ask_instr = load_prompt(str(prompts_dir / "ask_mode"), version="latest")
             user_agent.set_instruction(ask_instr)
             self.logger.debug(f"Temporarily changed agent instruction to ask mode")
 
         # Get conversation context
         context = self.user_context_manager.get_conversation_context(user_id)
 
-        # AICODE-NOTE: Use promptic directly to render complete ask mode prompt
-        # This combines KB query template, response formatter, and context
-        prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
-        
-        # Get response formatter prompt
+        # AICODE-NOTE: Use promptic to load KB query template
         from src.bot.response_formatter import ResponseFormatter
+
         response_formatter = ResponseFormatter()
         response_format_json = response_formatter.generate_prompt_text()
-        
-        # Render KB query template with variables
-        query_prompt = promptic_render(
-            "kb_query/template",
-            base_dir=prompts_dir,
-            version="latest",
-            vars={
-                "question": question,
-                "kb_path": str(agent_working_dir),
-                "response_format": response_format_json,
-            },
-        )
-        
+
+        # Load and render KB query template with variables
+        query_prompt = load_prompt(str(prompts_dir / "kb_query"), version="latest")
+        query_prompt = query_prompt.replace("{question}", question)
+        query_prompt = query_prompt.replace("{kb_path}", str(agent_working_dir))
+        query_prompt = query_prompt.replace("{response_format}", response_format_json)
+
         # Add context if available
         if context:
             query_prompt = f"{context}\n\n{query_prompt}"
