@@ -10,7 +10,7 @@ from typing import Any, Dict
 
 from loguru import logger
 
-from config.agent_prompts import SAFE_GIT_COMMANDS
+from config.constants import SAFE_GIT_COMMANDS
 from src.core.events import EventType
 
 from ._event_publisher import publish_kb_git_event

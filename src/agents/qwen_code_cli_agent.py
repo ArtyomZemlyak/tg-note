@@ -2,11 +2,13 @@
 Qwen Code CLI Agent
 Python wrapper for qwen-code CLI tool with autonomous agent capabilities
 
-This agent uses the promptic service for unified prompt management.
+This agent uses promptic directly for prompt management.
 All prompts are obtained via a single render() call:
 
-    prompt = prompt_service.render(
-        "note_mode_prompt",
+    from promptic import render as promptic_render
+    prompt = promptic_render(
+        "content_processing/template",
+        base_dir=prompts_dir,
         version="latest",
         vars={"text": content, "urls": urls}
     )
@@ -22,8 +24,8 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
-from config.agent_prompts import MAX_TITLE_LENGTH
-from src.prompts import prompt_service
+from config.constants import MAX_TITLE_LENGTH
+from promptic import render as promptic_render
 
 from .base_agent import BaseAgent
 
@@ -52,9 +54,36 @@ class QwenCodeCLIAgent(BaseAgent):
     def get_default_instruction(cls) -> str:
         """Get the default instruction (cached)."""
         if cls._default_instruction_cache is None:
-            cls._default_instruction_cache = prompt_service.render_agent_instruction(
-                locale="ru",
+            prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
+            
+            # Get media instruction
+            media_instr = promptic_render(
+                "media/instruction",
+                base_dir=prompts_dir,
                 version="latest",
+                vars={}
+            )
+            
+            # Get response formatter prompt
+            from src.bot.response_formatter import ResponseFormatter
+            response_formatter = ResponseFormatter()
+            response_format_json = response_formatter.generate_prompt_text()
+            response_formatter_prompt = promptic_render(
+                "response_formatter/instruction",
+                base_dir=prompts_dir,
+                version="latest",
+                vars={"response_format": response_format_json}
+            )
+            
+            # Get qwen code cli instruction
+            cls._default_instruction_cache = promptic_render(
+                "qwen_code_cli/instruction",
+                base_dir=prompts_dir,
+                version="latest",
+                vars={
+                    "instruction_media": media_instr,
+                    "response_format": response_formatter_prompt,
+                }
             )
         return cls._default_instruction_cache
 
@@ -380,15 +409,31 @@ class QwenCodeCLIAgent(BaseAgent):
         if "prompt" in content:
             return content["prompt"]
 
-        # Use promptic service to render complete note mode prompt in ONE LINE
-        return prompt_service.render(
-            "note_mode_prompt",
+        # Use promptic directly to render complete note mode prompt
+        prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
+        
+        # Get URLs section if there are URLs
+        urls_section = ""
+        urls = content.get("urls", [])
+        if urls:
+            url_list = "\n".join([f"- {url}" for url in urls])
+            urls_section = promptic_render(
+                "content_processing/urls_section",
+                base_dir=prompts_dir,
+                version="latest",
+                vars={"url_list": url_list}
+            )
+        
+        # Render content processing template
+        return promptic_render(
+            "content_processing/template",
+            base_dir=prompts_dir,
             version="latest",
-            locale="ru",
             vars={
+                "instruction": self.instruction,
+                "instruction_media": "",  # Already included in instruction
                 "text": content.get("text", ""),
-                "urls": content.get("urls", []),
-                "instruction": self.instruction,  # Use custom instruction if set
+                "urls_section": urls_section,
             },
         )
 
@@ -409,15 +454,31 @@ class QwenCodeCLIAgent(BaseAgent):
         if "prompt" in content:
             return content["prompt"]
 
-        # Use promptic service to render complete note mode prompt in ONE LINE
-        return prompt_service.render(
-            "note_mode_prompt",
+        # Use promptic directly to render complete note mode prompt
+        prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
+        
+        # Get URLs section if there are URLs
+        urls_section = ""
+        urls = content.get("urls", [])
+        if urls:
+            url_list = "\n".join([f"- {url}" for url in urls])
+            urls_section = promptic_render(
+                "content_processing/urls_section",
+                base_dir=prompts_dir,
+                version="latest",
+                vars={"url_list": url_list}
+            )
+        
+        # Render content processing template
+        return promptic_render(
+            "content_processing/template",
+            base_dir=prompts_dir,
             version="latest",
-            locale="ru",
             vars={
+                "instruction": self.instruction,
+                "instruction_media": "",  # Already included in instruction
                 "text": content.get("text", ""),
-                "urls": content.get("urls", []),
-                "instruction": self.instruction,  # Use custom instruction if set
+                "urls_section": urls_section,
             },
         )
 
