@@ -2,14 +2,14 @@
 Tests for Qwen Code CLI Agent
 """
 
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, Mock, mock_open, patch
 
 import pytest
 
+from config.prompt_helper import render_prompt as promptic_render
 from src.agents.base_agent import BaseAgent, KBStructure
 from src.agents.qwen_code_cli_agent import QwenCodeCLIAgent
-from promptic import render as promptic_render
-from pathlib import Path
 
 
 class TestQwenCodeCLIAgent:
@@ -96,10 +96,7 @@ class TestQwenCodeCLIAgent:
         """Promptic returns latest version when no version specified"""
         prompts_dir = Path(__file__).parent.parent / "config" / "prompts"
         text = promptic_render(
-            "qwen_code_cli/instruction",
-            base_dir=prompts_dir,
-            version="latest",
-            vars={}
+            "qwen_code_cli/instruction", base_dir=prompts_dir, version="latest", vars={}
         )
         assert isinstance(text, str) and len(text) > 0
 

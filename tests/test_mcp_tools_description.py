@@ -10,11 +10,10 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
+from config.prompt_helper import render_prompt as promptic_render
 from src.agents.autonomous_agent import AutonomousAgent
 from src.agents.qwen_code_cli_agent import QwenCodeCLIAgent
 from src.mcp.tools_description import format_mcp_tools_for_prompt, get_mcp_tools_description
-from promptic import render as promptic_render
-from pathlib import Path
 
 
 class TestMCPToolsDescription:
@@ -104,10 +103,7 @@ class TestMCPToolsDescription:
         (base / "greeting.v2.md").write_text("hello v2", encoding="utf-8")
 
         latest = promptic_render(
-            "demo/greeting",
-            base_dir=tmp_path / "config" / "prompts",
-            version="latest",
-            vars={}
+            "demo/greeting", base_dir=tmp_path / "config" / "prompts", version="latest", vars={}
         )
         assert latest == "hello v2"
 

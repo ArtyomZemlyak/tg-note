@@ -7,7 +7,7 @@ Follows Single Responsibility Principle
 from pathlib import Path
 from typing import Optional
 
-from promptic import render as promptic_render
+from config.prompt_helper import render_prompt as promptic_render
 from src.bot.bot_port import BotPort
 from src.bot.response_formatter import ResponseFormatter
 from src.bot.settings_manager import SettingsManager
@@ -217,23 +217,21 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
         instr = ""
         if hasattr(user_agent, "get_instruction") and hasattr(user_agent, "set_instruction"):
             original_instruction = user_agent.get_instruction()
-            
+
             # AICODE-NOTE: Use promptic directly to render agent mode instruction
             prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
-            
+
             # Get media instruction
             media_instr = promptic_render(
-                "media/instruction",
-                base_dir=prompts_dir,
-                version="latest",
-                vars={}
+                "media/instruction", base_dir=prompts_dir, version="latest", vars={}
             )
-            
+
             # Get response formatter prompt
             from src.bot.response_formatter import ResponseFormatter
+
             response_formatter = ResponseFormatter()
             response_formatter_prompt = response_formatter.generate_prompt_text()
-            
+
             # Get autonomous agent instruction and format it
             instr = promptic_render(
                 "autonomous_agent/instruction",
@@ -242,7 +240,7 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
                 vars={
                     "instruction_media": media_instr,
                     "response_format": response_formatter_prompt,
-                }
+                },
             )
 
             user_agent.set_instruction(instr)

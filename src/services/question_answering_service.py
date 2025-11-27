@@ -3,10 +3,10 @@ Question Answering Service
 Handles question answering based on knowledge base
 Follows Single Responsibility Principle
 
-AICODE-NOTE: This service now uses promptic directly for prompt management.
-All prompts for ask mode are obtained via a single render() call:
+AICODE-NOTE: This service now uses prompt_helper for prompt management.
+All prompts for ask mode are obtained via a single render_prompt() call:
 
-    from promptic import render as promptic_render
+    from config.prompt_helper import render_prompt as promptic_render
     prompt = promptic_render(
         "kb_query/template",
         base_dir=prompts_dir,
@@ -21,6 +21,7 @@ from typing import Optional
 
 from loguru import logger
 
+from config.prompt_helper import render_prompt as promptic_render
 from src.agents.base_agent import BaseAgent
 from src.bot.bot_port import BotPort
 from src.bot.response_formatter import ResponseFormatter
@@ -29,8 +30,6 @@ from src.core.rate_limiter import RateLimiter
 from src.knowledge_base.repository import RepositoryManager
 from src.processor.content_parser import ContentParser
 from src.processor.message_aggregator import MessageGroup
-from promptic import render as promptic_render
-from pathlib import Path
 from src.services.base_kb_service import BaseKBService
 from src.services.interfaces import IQuestionAnsweringService, IUserContextManager
 
@@ -209,10 +208,7 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
             # AICODE-NOTE: Get ask mode instruction using promptic directly
             prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
             ask_instr = promptic_render(
-                "ask_mode/instruction",
-                base_dir=prompts_dir,
-                version="latest",
-                vars={}
+                "ask_mode/instruction", base_dir=prompts_dir, version="latest", vars={}
             )
             user_agent.set_instruction(ask_instr)
             self.logger.debug(f"Temporarily changed agent instruction to ask mode")
@@ -223,12 +219,13 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
         # AICODE-NOTE: Use promptic directly to render complete ask mode prompt
         # This combines KB query template, response formatter, and context
         prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
-        
+
         # Get response formatter prompt
         from src.bot.response_formatter import ResponseFormatter
+
         response_formatter = ResponseFormatter()
         response_format_json = response_formatter.generate_prompt_text()
-        
+
         # Render KB query template with variables
         query_prompt = promptic_render(
             "kb_query/template",
@@ -240,7 +237,7 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
                 "response_format": response_format_json,
             },
         )
-        
+
         # Add context if available
         if context:
             query_prompt = f"{context}\n\n{query_prompt}"

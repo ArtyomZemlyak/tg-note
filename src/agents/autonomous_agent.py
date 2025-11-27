@@ -12,8 +12,7 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
-from promptic import render as promptic_render
-from pathlib import Path
+from config.prompt_helper import render_prompt as promptic_render
 
 # from .base_agent import AgentResult as BaseAgentResult
 from .base_agent import BaseAgent, KBStructure
@@ -227,7 +226,27 @@ class AutonomousAgent(BaseAgent):
     - TODO планирование и автономное выполнение
     """
 
-    DEFAULT_INSTRUCTION = get_qwen_code_agent_instruction("en")
+    # AICODE-NOTE: Default instruction is loaded lazily via get_default_instruction()
+    # to avoid circular imports and to use the promptic-based prompt loading system
+    _default_instruction_cache: Optional[str] = None
+
+    @classmethod
+    def get_default_instruction(cls) -> str:
+        """Get the default instruction (cached)."""
+        if cls._default_instruction_cache is None:
+            prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
+
+            # Get autonomous agent instruction
+            cls._default_instruction_cache = promptic_render(
+                "autonomous_agent/instruction",
+                base_dir=prompts_dir,
+                version="latest",
+                vars={
+                    "instruction_media": "",
+                    "response_format": "",
+                },
+            )
+        return cls._default_instruction_cache
 
     def __init__(
         self,
@@ -278,7 +297,7 @@ class AutonomousAgent(BaseAgent):
 
         # Combine the default instruction with the ResponseFormatter prompt
         default_instruction_with_formatter = (
-            f"{self.DEFAULT_INSTRUCTION}\n\n{response_formatter_prompt}"
+            f"{self.get_default_instruction()}\n\n{response_formatter_prompt}"
         )
 
         self.instruction = instruction or default_instruction_with_formatter

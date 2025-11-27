@@ -2,10 +2,10 @@
 Qwen Code CLI Agent
 Python wrapper for qwen-code CLI tool with autonomous agent capabilities
 
-This agent uses promptic directly for prompt management.
-All prompts are obtained via a single render() call:
+This agent uses the prompt_helper module for prompt management.
+All prompts are obtained via a single render_prompt() call:
 
-    from promptic import render as promptic_render
+    from config.prompt_helper import render_prompt as promptic_render
     prompt = promptic_render(
         "content_processing/template",
         base_dir=prompts_dir,
@@ -25,7 +25,7 @@ from typing import Any, Dict, List, Optional
 from loguru import logger
 
 from config.constants import MAX_TITLE_LENGTH
-from promptic import render as promptic_render
+from config.prompt_helper import render_prompt as promptic_render
 
 from .base_agent import BaseAgent
 
@@ -55,26 +55,24 @@ class QwenCodeCLIAgent(BaseAgent):
         """Get the default instruction (cached)."""
         if cls._default_instruction_cache is None:
             prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
-            
+
             # Get media instruction
             media_instr = promptic_render(
-                "media/instruction",
-                base_dir=prompts_dir,
-                version="latest",
-                vars={}
+                "media/instruction", base_dir=prompts_dir, version="latest", vars={}
             )
-            
+
             # Get response formatter prompt
             from src.bot.response_formatter import ResponseFormatter
+
             response_formatter = ResponseFormatter()
             response_format_json = response_formatter.generate_prompt_text()
             response_formatter_prompt = promptic_render(
                 "response_formatter/instruction",
                 base_dir=prompts_dir,
                 version="latest",
-                vars={"response_format": response_format_json}
+                vars={"response_format": response_format_json},
             )
-            
+
             # Get qwen code cli instruction
             cls._default_instruction_cache = promptic_render(
                 "qwen_code_cli/instruction",
@@ -83,7 +81,7 @@ class QwenCodeCLIAgent(BaseAgent):
                 vars={
                     "instruction_media": media_instr,
                     "response_format": response_formatter_prompt,
-                }
+                },
             )
         return cls._default_instruction_cache
 
@@ -411,7 +409,7 @@ class QwenCodeCLIAgent(BaseAgent):
 
         # Use promptic directly to render complete note mode prompt
         prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
-        
+
         # Get URLs section if there are URLs
         urls_section = ""
         urls = content.get("urls", [])
@@ -421,9 +419,9 @@ class QwenCodeCLIAgent(BaseAgent):
                 "content_processing/urls_section",
                 base_dir=prompts_dir,
                 version="latest",
-                vars={"url_list": url_list}
+                vars={"url_list": url_list},
             )
-        
+
         # Render content processing template
         return promptic_render(
             "content_processing/template",
@@ -456,7 +454,7 @@ class QwenCodeCLIAgent(BaseAgent):
 
         # Use promptic directly to render complete note mode prompt
         prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
-        
+
         # Get URLs section if there are URLs
         urls_section = ""
         urls = content.get("urls", [])
@@ -466,9 +464,9 @@ class QwenCodeCLIAgent(BaseAgent):
                 "content_processing/urls_section",
                 base_dir=prompts_dir,
                 version="latest",
-                vars={"url_list": url_list}
+                vars={"url_list": url_list},
             )
-        
+
         # Render content processing template
         return promptic_render(
             "content_processing/template",
