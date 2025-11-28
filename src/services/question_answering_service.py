@@ -3,11 +3,8 @@ Question Answering Service
 Handles question answering based on knowledge base
 Follows Single Responsibility Principle
 
-AICODE-NOTE: This service uses promptic for prompt management.
-All prompts for ask mode are loaded via promptic.load_prompt():
-
-    from promptic import load_prompt
-    prompt = load_prompt("config/prompts/kb_query", version="latest")
+AICODE-NOTE: This service uses file-first prompt management via PromptService.
+Prompts are exported to data/prompts/ on mode switch and read from there.
 """
 
 from datetime import datetime
@@ -15,7 +12,6 @@ from pathlib import Path
 from typing import Optional
 
 from loguru import logger
-from promptic import load_prompt
 
 from src.agents.base_agent import BaseAgent
 from src.bot.bot_port import BotPort
@@ -25,6 +21,7 @@ from src.core.rate_limiter import RateLimiter
 from src.knowledge_base.repository import RepositoryManager
 from src.processor.content_parser import ContentParser
 from src.processor.message_aggregator import MessageGroup
+from src.prompts import PromptService
 from src.services.base_kb_service import BaseKBService
 from src.services.interfaces import IQuestionAnsweringService, IUserContextManager
 
@@ -50,6 +47,7 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
         user_context_manager: IUserContextManager,
         settings_manager: SettingsManager,
         rate_limiter: Optional[RateLimiter] = None,
+        prompt_provider: Optional[PromptService] = None,
     ):
         """
         Initialize question answering service
@@ -60,12 +58,14 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
             user_context_manager: User context manager
             settings_manager: Settings manager for user-specific settings
             rate_limiter: Rate limiter for agent calls (optional)
+            prompt_provider: Prompt provider for getting exported prompts (optional)
         """
         self.bot = bot
         self.repo_manager = repo_manager
         self.user_context_manager = user_context_manager
         self.settings_manager = settings_manager
         self.rate_limiter = rate_limiter
+        self._prompt_provider = prompt_provider
         # Note: content_parser is created per-request in BaseKBService._get_content_parser()
         self.logger = logger
         self.response_formatter = ResponseFormatter()
@@ -198,25 +198,25 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
         # Temporarily change agent instruction to ask mode
         # This prevents the agent from using note creation instructions
         original_instruction = None
-        prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
         if hasattr(user_agent, "get_instruction") and hasattr(user_agent, "set_instruction"):
             original_instruction = user_agent.get_instruction()
-            # AICODE-NOTE: Get ask mode instruction using promptic
-            ask_instr = load_prompt(str(prompts_dir / "ask_mode"), version="latest")
-            user_agent.set_instruction(ask_instr)
-            self.logger.debug(f"Temporarily changed agent instruction to ask mode")
+            # AICODE-NOTE: Get ask mode instruction from exported prompts (file-first approach)
+            ask_instr = self._get_ask_instruction()
+            if ask_instr:
+                user_agent.set_instruction(ask_instr)
+                self.logger.debug(f"Temporarily changed agent instruction to ask mode")
 
         # Get conversation context
         context = self.user_context_manager.get_conversation_context(user_id)
 
-        # AICODE-NOTE: Use promptic to load KB query template
+        # AICODE-NOTE: Load KB query template from exported prompts
         from src.bot.response_formatter import ResponseFormatter
 
         response_formatter = ResponseFormatter()
         response_format_json = response_formatter.generate_prompt_text()
 
         # Load and render KB query template with variables
-        query_prompt = load_prompt(str(prompts_dir / "kb_query"), version="latest")
+        query_prompt = self._get_query_prompt()
         query_prompt = query_prompt.replace("{question}", question)
         query_prompt = query_prompt.replace("{kb_path}", str(agent_working_dir))
         query_prompt = query_prompt.replace("{response_format}", response_format_json)
@@ -264,6 +264,54 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
             if original_instruction is not None and hasattr(user_agent, "set_instruction"):
                 user_agent.set_instruction(original_instruction)
                 self.logger.debug(f"Restored original agent instruction")
+
+    def _get_ask_instruction(self) -> Optional[str]:
+        """
+        Get ask mode instruction from prompt provider or fallback to render().
+
+        Returns:
+            Ask mode instruction string, or None if not available
+        """
+        # Try to get from prompt provider (file-first approach)
+        if self._prompt_provider is not None:
+            try:
+                # AICODE-NOTE: ask_mode prompts should be exported when user switches to /ask
+                prompt_path = self._prompt_provider.get_prompt_path("ask")
+                # Look for instruction file in exported prompts
+                for f in prompt_path.glob("instruction*.md"):
+                    return f.read_text(encoding="utf-8")
+            except Exception as e:
+                self.logger.warning(f"Failed to get ask instruction from provider: {e}")
+
+        # Fallback to direct render (for backward compatibility)
+        try:
+            from promptic import render
+
+            prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
+            return render(str(prompts_dir / "ask_mode"), version="latest")
+        except Exception as e:
+            self.logger.warning(f"Failed to load ask instruction: {e}")
+            return None
+
+    def _get_query_prompt(self) -> str:
+        """
+        Get KB query prompt template from prompt provider or fallback to render().
+
+        Returns:
+            KB query prompt template string
+        """
+        # Try to get from prompt provider (file-first approach)
+        if self._prompt_provider is not None:
+            try:
+                return self._prompt_provider.render_for_mode("ask")
+            except Exception as e:
+                self.logger.warning(f"Failed to get query prompt from provider: {e}")
+
+        # Fallback to direct render (for backward compatibility)
+        from promptic import render
+
+        prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
+        return render(str(prompts_dir / "kb_query"), version="latest")
 
     async def _send_error_notification(
         self, processing_msg_id: int, chat_id: int, error_message: str

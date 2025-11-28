@@ -18,6 +18,7 @@ from src.knowledge_base.manager import KnowledgeBaseManager
 from src.knowledge_base.repository import RepositoryManager
 from src.knowledge_base.sync_manager import get_sync_manager
 from src.processor.message_aggregator import MessageGroup
+from src.prompts import PromptService
 from src.services.base_kb_service import BaseKBService
 from src.services.interfaces import INoteCreationService, IUserContextManager
 from src.tracker.processing_tracker import ProcessingTracker
@@ -47,6 +48,7 @@ class NoteCreationService(BaseKBService, INoteCreationService):
         settings_manager: SettingsManager,
         credentials_manager: Optional[CredentialsManager] = None,
         rate_limiter: Optional[RateLimiter] = None,
+        prompt_provider: Optional[PromptService] = None,
     ):
         """
         Initialize note creation service
@@ -59,6 +61,7 @@ class NoteCreationService(BaseKBService, INoteCreationService):
             settings_manager: Settings manager
             credentials_manager: Credentials manager (optional)
             rate_limiter: Rate limiter for agent calls (optional)
+            prompt_provider: Prompt provider for getting exported prompts (optional)
         """
         # AICODE-NOTE: Initialize base class with common dependencies
         super().__init__(bot, repo_manager, settings_manager, credentials_manager, rate_limiter)
@@ -66,6 +69,7 @@ class NoteCreationService(BaseKBService, INoteCreationService):
         # Note-specific dependencies
         self.tracker = tracker
         self.user_context_manager = user_context_manager
+        self._prompt_provider = prompt_provider
 
     async def create_note(
         self, group: MessageGroup, processing_msg_id: int, chat_id: int, user_id: int, user_kb: dict
@@ -186,9 +190,17 @@ class NoteCreationService(BaseKBService, INoteCreationService):
             if not await self._check_rate_limit(user_id, chat_id, processing_msg_id):
                 return
 
+            # AICODE-NOTE: Build complete prompt for note creation
+            note_prompt = self._get_note_prompt(content)
+            note_content = {
+                "text": content.get("text", ""),
+                "urls": content.get("urls", []),
+                "prompt": note_prompt,
+            }
+
             try:
                 self.logger.info(f"[NOTE_SERVICE] Processing content with agent for user {user_id}")
-                processed_content = await user_agent.process(content)
+                processed_content = await user_agent.process(note_content)
             except Exception as agent_error:
                 self.logger.error(f"Agent processing failed: {agent_error}", exc_info=True)
                 await self.bot.edit_message_text(
@@ -306,6 +318,75 @@ class NoteCreationService(BaseKBService, INoteCreationService):
                 chat_id=chat_id,
                 status="completed",
             )
+
+    def _get_note_prompt(self, content: dict) -> str:
+        """
+        Get note creation prompt from prompt provider or fallback to render().
+
+        Args:
+            content: Content dictionary with text, urls, etc.
+
+        Returns:
+            Note creation prompt string
+        """
+        from src.bot.response_formatter import ResponseFormatter
+
+        response_formatter = ResponseFormatter()
+        response_format_json = response_formatter.generate_prompt_text()
+
+        # Try to get from prompt provider (file-first approach)
+        if self._prompt_provider is not None:
+            try:
+                # AICODE-NOTE: note prompts should be exported when user switches to /note
+                # Get base prompt using promptic render
+                note_prompt = self._prompt_provider.render_for_mode("note")
+
+                # Prepare URLs section if needed
+                urls_section = ""
+                urls = content.get("urls", [])
+                if urls:
+                    url_list = "\n".join([f"- {url}" for url in urls])
+                    # Try to load urls_section template from exported directory
+                    try:
+                        exported_path = self._prompt_provider.get_exported_path("note")
+                        urls_section_path = exported_path / "urls_section.md"
+                        if urls_section_path.exists():
+                            urls_section = urls_section_path.read_text().replace(
+                                "{url_list}", url_list
+                            )
+                    except Exception:
+                        pass
+
+                # Replace placeholders
+                note_prompt = note_prompt.replace("{text}", content.get("text", ""))
+                note_prompt = note_prompt.replace("{urls_section}", urls_section)
+                note_prompt = note_prompt.replace("{response_format}", response_format_json)
+                return note_prompt
+
+            except Exception as e:
+                self.logger.warning(f"Failed to get note prompt from provider: {e}")
+
+        # Fallback to direct render (for backward compatibility)
+        from promptic import render
+
+        prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
+
+        # Get URLs section if there are URLs
+        urls_section = ""
+        urls = content.get("urls", [])
+        if urls:
+            url_list = "\n".join([f"- {url}" for url in urls])
+            urls_section_path = prompts_dir / "content_processing" / "urls_section_v1.md"
+            if urls_section_path.exists():
+                urls_section = urls_section_path.read_text().replace("{url_list}", url_list)
+
+        # Load and render content processing template
+        note_prompt = render(str(prompts_dir / "content_processing"), version="latest")
+        note_prompt = note_prompt.replace("{text}", content.get("text", ""))
+        note_prompt = note_prompt.replace("{urls_section}", urls_section)
+        note_prompt = note_prompt.replace("{response_format}", response_format_json)
+
+        return note_prompt
 
     async def _send_error_notification(
         self, processing_msg_id: int, chat_id: int, error_message: str

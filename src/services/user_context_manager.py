@@ -5,7 +5,7 @@ Follows Single Responsibility Principle
 """
 
 import asyncio
-from typing import Dict, Optional
+from typing import TYPE_CHECKING, Dict, Optional
 
 from loguru import logger
 
@@ -17,6 +17,9 @@ from src.core.enums import UserMode
 from src.processor.message_aggregator import MessageAggregator
 from src.services.conversation_context import ConversationContextManager
 from src.services.interfaces import IUserContextManager
+
+if TYPE_CHECKING:
+    from src.prompts.service import PromptService
 
 
 class UserContextManager(IUserContextManager):
@@ -40,6 +43,7 @@ class UserContextManager(IUserContextManager):
         conversation_context_manager: ConversationContextManager,
         background_task_manager: Optional[BackgroundTaskManager] = None,
         timeout_callback=None,
+        prompt_service: Optional["PromptService"] = None,
     ):
         """
         Initialize user context manager
@@ -49,11 +53,13 @@ class UserContextManager(IUserContextManager):
             conversation_context_manager: Manager for conversation contexts
             background_task_manager: Централизованный менеджер фоновых задач
             timeout_callback: Callback for message aggregator timeouts
+            prompt_service: Optional PromptService for exporting prompts on mode change
         """
         self.settings_manager = settings_manager
         self.conversation_context_manager = conversation_context_manager
         self.background_task_manager = background_task_manager
         self.timeout_callback = timeout_callback
+        self._prompt_service = prompt_service
 
         # User-specific caches
         self.user_aggregators: Dict[int, MessageAggregator] = {}
@@ -188,14 +194,24 @@ class UserContextManager(IUserContextManager):
 
     def set_user_mode(self, user_id: int, mode: str) -> None:
         """
-        Set mode for user
+        Set mode for user and export prompts for that mode.
 
         Args:
             user_id: User ID
-            mode: Mode to set ('note' or 'ask')
+            mode: Mode to set ('note', 'ask', or 'agent')
         """
         self.user_modes[user_id] = mode
         self.logger.info(f"User {user_id} switched to {mode} mode")
+
+        # AICODE-NOTE: Export prompts for the new mode using file-first approach
+        # This ensures prompts are available before the agent needs them
+        if self._prompt_service is not None:
+            try:
+                # Export prompts for qwen CLI filesystem access
+                self._prompt_service.ensure_exported(mode)
+                self.logger.debug(f"Exported prompts for mode '{mode}'")
+            except Exception as e:
+                self.logger.warning(f"Failed to export prompts for mode '{mode}': {e}")
 
     def get_conversation_context(self, user_id: int) -> str:
         """

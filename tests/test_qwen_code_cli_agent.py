@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, Mock, mock_open, patch
 
 import pytest
-from promptic import load_prompt
+from promptic import render
 
 from src.agents.base_agent import BaseAgent, KBStructure
 from src.agents.qwen_code_cli_agent import QwenCodeCLIAgent
@@ -95,12 +95,12 @@ class TestQwenCodeCLIAgent:
     def test_promptic_returns_latest_version(self):
         """Promptic returns latest version (v4) when version='latest' is specified"""
         prompts_dir = Path(__file__).parent.parent / "config" / "prompts"
-        text = load_prompt(str(prompts_dir / "qwen_code_cli"), version="latest")
+        text = render(str(prompts_dir / "qwen_code_cli"), version="latest")
         assert isinstance(text, str) and len(text) > 0
         # Verify it's actually the v4 version by checking content length
         # v4 is the longest version with most complete instructions
         v4_text = (prompts_dir / "qwen_code_cli" / "instruction_v4.md").read_text()
-        assert text == v4_text, "load_prompt with 'latest' should return v4 version"
+        assert text == v4_text, "render with 'latest' should return v4 version"
 
     def test_prepare_prompt_no_urls(self, agent):
         """Test prompt preparation without URLs"""

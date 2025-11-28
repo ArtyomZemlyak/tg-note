@@ -39,7 +39,7 @@ dependencies = [
     "aiohttp>=3.9.1,<4.0.0",
     "requests>=2.32.2,<3.0.0",
     # Prompt management
-    "promptic @ git+https://github.com/ArtyomZemlyak/promptic.git@v0.1.2",
+    "promptic @ git+https://github.com/ArtyomZemlyak/promptic.git@v0.1.3",
     # Logging
     "loguru>=0.7.2,<0.8.0",
     # HuggingFace for model management

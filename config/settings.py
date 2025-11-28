@@ -1165,6 +1165,28 @@ class Settings(BaseSettings):
     KB_GIT_REMOTE: str = Field(default="origin", description="Git remote name")
     KB_GIT_BRANCH: str = Field(default="main", description="Git branch name")
 
+    # Prompt Management Settings (can be in YAML)
+    PROMPTS_SOURCE_PATH: Path = Field(
+        default=Path("./config/prompts"),
+        description="Source directory for versioned prompt templates",
+    )
+    PROMPTS_EXPORT_PATH: Path = Field(
+        default=Path("./data/prompts"),
+        description="Directory for exported prompts (for qwen CLI filesystem access)",
+    )
+    PROMPTS_DEFAULT_VERSION: str = Field(
+        default="latest",
+        description="Default prompt version to export and use",
+    )
+    PROMPTS_MODE_MAPPING: Dict[str, str] = Field(
+        default={
+            "note": "content_processing",
+            "ask": "kb_query",
+            "agent": "autonomous_agent",
+        },
+        description="Mapping of user modes to prompt subdirectories",
+    )
+
     # Conversation Context Settings (can be in YAML)
     CONTEXT_ENABLED: bool = Field(
         default=True, description="Enable conversation context for agents"

@@ -2,12 +2,13 @@
 Agent Task Service
 Handles free-form agent tasks in agent mode
 Follows Single Responsibility Principle
+
+AICODE-NOTE: This service uses file-first prompt management via PromptService.
+Prompts are exported to data/prompts/ on mode switch and read from there.
 """
 
 from pathlib import Path
 from typing import Optional
-
-from promptic import load_prompt
 
 from src.bot.bot_port import BotPort
 from src.bot.response_formatter import ResponseFormatter
@@ -17,6 +18,7 @@ from src.knowledge_base.credentials_manager import CredentialsManager
 from src.knowledge_base.repository import RepositoryManager
 from src.knowledge_base.sync_manager import get_sync_manager
 from src.processor.message_aggregator import MessageGroup
+from src.prompts import PromptService
 from src.services.base_kb_service import BaseKBService
 from src.services.interfaces import IAgentTaskService, IUserContextManager
 
@@ -45,6 +47,7 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
         settings_manager: SettingsManager,
         credentials_manager: Optional[CredentialsManager] = None,
         rate_limiter: Optional[RateLimiter] = None,
+        prompt_provider: Optional[PromptService] = None,
     ):
         """
         Initialize agent task service
@@ -56,6 +59,7 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
             settings_manager: Settings manager for user-specific settings
             credentials_manager: Credentials manager (optional)
             rate_limiter: Rate limiter for agent calls (optional)
+            prompt_provider: Prompt provider for getting exported prompts (optional)
         """
         # AICODE-NOTE: Initialize base class with common dependencies
         super().__init__(bot, repo_manager, settings_manager, credentials_manager, rate_limiter)
@@ -63,6 +67,7 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
         # Agent-specific dependencies
         self.user_context_manager = user_context_manager
         self.response_formatter = ResponseFormatter()
+        self._prompt_provider = prompt_provider
 
     async def execute_task(
         self, group: MessageGroup, processing_msg_id: int, chat_id: int, user_id: int, user_kb: dict
@@ -219,22 +224,8 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
         if hasattr(user_agent, "get_instruction") and hasattr(user_agent, "set_instruction"):
             original_instruction = user_agent.get_instruction()
 
-            # AICODE-NOTE: Use promptic to load agent mode instruction
-            prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
-
-            # Get media instruction
-            media_instr = load_prompt(str(prompts_dir / "media"), version="latest")
-
-            # Get response formatter prompt
-            from src.bot.response_formatter import ResponseFormatter
-
-            response_formatter = ResponseFormatter()
-            response_formatter_prompt = response_formatter.generate_prompt_text()
-
-            # Get autonomous agent instruction and format it
-            instr = load_prompt(str(prompts_dir / "autonomous_agent"), version="latest")
-            instr = instr.replace("{instruction_media}", media_instr)
-            instr = instr.replace("{response_format}", response_formatter_prompt)
+            # AICODE-NOTE: Get agent mode instruction from prompt provider (file-first approach)
+            instr = self._get_agent_instruction()
 
             user_agent.set_instruction(instr)
             self.logger.debug(f"Temporarily changed agent instruction to agent mode")
@@ -279,6 +270,57 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
             if original_instruction is not None and hasattr(user_agent, "set_instruction"):
                 user_agent.set_instruction(original_instruction)
                 self.logger.debug(f"Restored original agent instruction")
+
+    def _get_agent_instruction(self) -> str:
+        """
+        Get agent mode instruction from prompt provider or fallback to render().
+
+        Returns:
+            Agent mode instruction string with media and response format
+        """
+        from src.bot.response_formatter import ResponseFormatter
+
+        response_formatter = ResponseFormatter()
+        response_formatter_prompt = response_formatter.generate_prompt_text()
+
+        # Try to get from prompt provider (file-first approach)
+        if self._prompt_provider is not None:
+            try:
+                # Get base instruction using promptic render
+                instr = self._prompt_provider.render_for_mode("agent")
+
+                # Get media instruction if available
+                media_instr = ""
+                try:
+                    prompt_path = self._prompt_provider.get_prompt_path("agent")
+                    for f in prompt_path.glob("*media*.md"):
+                        media_instr = f.read_text(encoding="utf-8")
+                        break
+                except Exception:
+                    pass
+
+                # Replace placeholders
+                instr = instr.replace("{instruction_media}", media_instr)
+                instr = instr.replace("{response_format}", response_formatter_prompt)
+                return instr
+
+            except Exception as e:
+                self.logger.warning(f"Failed to get agent instruction from provider: {e}")
+
+        # Fallback to direct render (for backward compatibility)
+        from promptic import render
+
+        prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
+
+        # Get media instruction
+        media_instr = render(str(prompts_dir / "media"), version="latest")
+
+        # Get autonomous agent instruction and format it
+        instr = render(str(prompts_dir / "autonomous_agent"), version="latest")
+        instr = instr.replace("{instruction_media}", media_instr)
+        instr = instr.replace("{response_format}", response_formatter_prompt)
+
+        return instr
 
     async def _send_error_notification(
         self, processing_msg_id: int, chat_id: int, error_message: str

@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from loguru import logger
-from promptic import load_prompt
+from promptic import render
 
 # from .base_agent import AgentResult as BaseAgentResult
 from .base_agent import BaseAgent, KBStructure
@@ -236,7 +236,7 @@ class AutonomousAgent(BaseAgent):
             prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
 
             # Get autonomous agent instruction using promptic
-            instruction = load_prompt(str(prompts_dir / "autonomous_agent"), version="latest")
+            instruction = render(str(prompts_dir / "autonomous_agent"), version="latest")
             # Replace template variables
             instruction = instruction.replace("{instruction_media}", "")
             instruction = instruction.replace("{response_format}", "")

@@ -3,10 +3,10 @@ Qwen Code CLI Agent
 Python wrapper for qwen-code CLI tool with autonomous agent capabilities
 
 This agent uses the promptic library for prompt management.
-All prompts are loaded via promptic.load_prompt() with version support:
+All prompts are loaded via promptic.render() with version support:
 
-    from promptic import load_prompt
-    prompt = load_prompt("config/prompts/content_processing", version="latest")
+    from promptic import render
+    prompt = render("config/prompts/content_processing", version="latest")
 """
 
 import asyncio
@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from loguru import logger
-from promptic import load_prompt
+from promptic import render
 
 from config.constants import MAX_TITLE_LENGTH
 
@@ -52,14 +52,14 @@ class QwenCodeCLIAgent(BaseAgent):
             prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
 
             # Get media instruction
-            media_instr = load_prompt(str(prompts_dir / "media"), version="latest")
+            media_instr = render(str(prompts_dir / "media"), version="latest")
 
             # Get response formatter prompt
             from src.bot.response_formatter import ResponseFormatter
 
             response_formatter = ResponseFormatter()
             response_format_json = response_formatter.generate_prompt_text()
-            response_formatter_prompt = load_prompt(
+            response_formatter_prompt = render(
                 str(prompts_dir / "response_formatter"), version="latest"
             )
             response_formatter_prompt = response_formatter_prompt.replace(
@@ -67,7 +67,7 @@ class QwenCodeCLIAgent(BaseAgent):
             )
 
             # Get qwen code cli instruction
-            instruction = load_prompt(str(prompts_dir / "qwen_code_cli"), version="latest")
+            instruction = render(str(prompts_dir / "qwen_code_cli"), version="latest")
             instruction = instruction.replace("{instruction_media}", media_instr)
             instruction = instruction.replace("{response_format}", response_formatter_prompt)
             cls._default_instruction_cache = instruction
@@ -380,75 +380,57 @@ class QwenCodeCLIAgent(BaseAgent):
 
     async def _prepare_prompt_async(self, content: Dict) -> str:
         """
-        Prepare prompt for qwen-code CLI using promptic service (async version).
+        Get pre-built prompt from content dictionary.
 
-        AICODE-NOTE: This method uses the promptic service to render the complete
-        note mode prompt in a single call with version and variable support.
+        AICODE-NOTE: This method expects the prompt to be already built by the service layer
+        (note_creation_service, question_answering_service, or agent_task_service).
+        Services are responsible for:
+        1. Exporting prompts to data/prompts/ via PromptService.ensure_exported()
+        2. Rendering prompts with all variables
+        3. Passing complete prompt via content["prompt"]
+
+        The agent just receives and uses the ready prompt.
 
         Args:
-            content: Content dictionary
+            content: Content dictionary with pre-built "prompt" field
 
         Returns:
-            Formatted prompt string
+            Pre-built prompt string
+
+        Raises:
+            ValueError: If prompt is missing (services must provide it)
         """
-        # If content already has a pre-built prompt (e.g., from /ask mode), use it directly
-        if "prompt" in content:
-            return content["prompt"]
+        # Services must provide ready prompt
+        if "prompt" not in content:
+            raise ValueError(
+                "Missing 'prompt' in content. Services must build complete prompt "
+                "before passing to agent."
+            )
 
-        prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
-
-        # Get URLs section if there are URLs
-        urls_section = ""
-        urls = content.get("urls", [])
-        if urls:
-            url_list = "\n".join([f"- {url}" for url in urls])
-            urls_template = load_prompt(str(prompts_dir / "content_processing"), version="v1")
-            # urls_section template is in the same dir, need to load it directly
-            urls_section_path = prompts_dir / "content_processing" / "urls_section_v1.md"
-            urls_section = urls_section_path.read_text().replace("{url_list}", url_list)
-
-        # Load and render content processing template
-        template = load_prompt(str(prompts_dir / "content_processing"), version="latest")
-        template = template.replace("{instruction}", self.instruction)
-        template = template.replace("{instruction_media}", "")
-        template = template.replace("{text}", content.get("text", ""))
-        template = template.replace("{urls_section}", urls_section)
-        return template
+        return content["prompt"]
 
     def _prepare_prompt(self, content: Dict) -> str:
         """
-        Prepare prompt for qwen-code CLI using promptic.
+        Get pre-built prompt from content dictionary (sync version for tests).
 
-        AICODE-NOTE: This method uses promptic load_prompt() to get the template
-        and then performs variable substitution.
+        AICODE-NOTE: Mirrors async variant - expects prompt from services.
 
         Args:
-            content: Content dictionary
+            content: Content dictionary with pre-built "prompt" field
 
         Returns:
-            Formatted prompt string
+            Pre-built prompt string
+
+        Raises:
+            ValueError: If prompt is missing
         """
-        # If content already has a pre-built prompt (e.g., from /ask mode), use it directly
-        if "prompt" in content:
-            return content["prompt"]
+        if "prompt" not in content:
+            raise ValueError(
+                "Missing 'prompt' in content. Services must build complete prompt "
+                "before passing to agent."
+            )
 
-        prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
-
-        # Get URLs section if there are URLs
-        urls_section = ""
-        urls = content.get("urls", [])
-        if urls:
-            url_list = "\n".join([f"- {url}" for url in urls])
-            urls_section_path = prompts_dir / "content_processing" / "urls_section_v1.md"
-            urls_section = urls_section_path.read_text().replace("{url_list}", url_list)
-
-        # Load and render content processing template
-        template = load_prompt(str(prompts_dir / "content_processing"), version="latest")
-        template = template.replace("{instruction}", self.instruction)
-        template = template.replace("{instruction_media}", "")
-        template = template.replace("{text}", content.get("text", ""))
-        template = template.replace("{urls_section}", urls_section)
-        return template
+        return content["prompt"]
 
     async def _execute_qwen_cli(self, prompt: str) -> str:
         """
@@ -495,15 +477,27 @@ class QwenCodeCLIAgent(BaseAgent):
             # Use non-interactive mode and pass prompt via stdin
             cmd = [self.qwen_cli_path]
 
-            # AICODE-NOTE: Add --include-directories to allow access to ../media
+            # AICODE-NOTE: Add --include-directories to allow access to ../media and ../data/prompts
             # when KB_TOPICS_ONLY=true restricts agent to topics/ folder
-            # This allows agent to read media metadata files without changing working directory
+            # This allows agent to read media metadata files and prompt files without changing working directory
+            additional_dirs = []
+            
             media_dir = Path(self.working_directory).parent / "media"
             if media_dir.exists():
-                cmd.extend(["--include-directories", str(media_dir)])
+                additional_dirs.append(str(media_dir))
                 logger.debug(
-                    f"[QwenCodeCLIAgent._execute_qwen_cli] Added --include-directories: {media_dir}"
+                    f"[QwenCodeCLIAgent._execute_qwen_cli] Added media directory: {media_dir}"
                 )
+            
+            prompts_dir = Path(self.working_directory).parent / "data" / "prompts"
+            if prompts_dir.exists():
+                additional_dirs.append(str(prompts_dir))
+                logger.debug(
+                    f"[QwenCodeCLIAgent._execute_qwen_cli] Added prompts directory: {prompts_dir}"
+                )
+            
+            if additional_dirs:
+                cmd.extend(["--include-directories", ",".join(additional_dirs)])
 
             # Log command details
             logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] === CLI EXECUTION TRACE START ===")

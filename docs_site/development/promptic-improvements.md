@@ -4,26 +4,27 @@ This document describes improvements that could enhance the promptic library for
 
 ## Current Usage in tg-note
 
-The tg-note project uses promptic for unified prompt management:
+The tg-note project uses promptic for unified prompt management via `PromptService`:
 
 ```python
-from src.prompts import prompt_service
+from src.prompts import create_prompt_service
 
-# Complete note mode prompt in ONE LINE:
-prompt = prompt_service.render(
-    "note_mode_prompt",
-    version="latest",
-    vars={"text": "User content", "urls": ["https://example.com"]},
-    export_to="output/prompt.md"  # optional
-)
+# Create prompt service (uses settings from config)
+prompt_service = create_prompt_service()
 
-# Complete ask mode prompt in ONE LINE:
-prompt = prompt_service.render(
-    "ask_mode_prompt",
-    version="latest",
-    vars={"question": "What is GPT?", "kb_path": "/kb"}
-)
+# Ensure prompts are exported for a mode (e.g., when user switches to /ask)
+prompt_service.ensure_exported("ask")
+
+# Get the exported prompt content
+prompt = prompt_service.get_prompt("ask")
+
+# Get path to exported prompts directory
+prompt_path = prompt_service.get_prompt_path("ask")
 ```
+
+The service uses `promptic.export_version()` under the hood to export versioned prompts
+from `config/prompts/` to `data/prompts/` at runtime. This file-first approach ensures
+prompts are resolved once and cached for the session.
 
 ## Missing Features for tg-note
 

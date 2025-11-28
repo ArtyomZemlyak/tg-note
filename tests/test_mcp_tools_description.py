@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from promptic import load_prompt
+from promptic import render
 
 from src.agents.autonomous_agent import AutonomousAgent
 from src.agents.qwen_code_cli_agent import QwenCodeCLIAgent
@@ -102,7 +102,7 @@ class TestMCPToolsDescription:
         (base / "greeting_v1.md").write_text("hello v1", encoding="utf-8")
         (base / "greeting_v2.md").write_text("hello v2", encoding="utf-8")
 
-        latest = load_prompt(str(base), version="latest")
+        latest = render(str(base), version="latest")
         assert latest == "hello v2"
 
 

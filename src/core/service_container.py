@@ -17,6 +17,7 @@ from src.knowledge_base.credentials_manager import CredentialsManager
 from src.knowledge_base.repository import RepositoryManager
 from src.knowledge_base.user_settings import UserSettings
 from src.mcp.server_manager import MCPServerManager
+from src.prompts import create_prompt_service
 from src.services.agent_task_service import AgentTaskService
 from src.services.conversation_context import ConversationContextManager
 from src.services.message_processor import MessageProcessor
@@ -111,6 +112,13 @@ def configure_services(container: Container) -> None:
         singleton=True,
     )
 
+    # Register prompt service for file-first prompt management
+    container.register(
+        "prompt_service",
+        lambda c: create_prompt_service(),
+        singleton=True,
+    )
+
     # Register bot
     container.register(
         "async_bot", lambda c: AsyncTeleBot(c.get("settings").TELEGRAM_BOT_TOKEN), singleton=True
@@ -137,6 +145,7 @@ def configure_services(container: Container) -> None:
             conversation_context_manager=c.get("conversation_context_manager"),
             background_task_manager=c.get("background_task_manager"),
             timeout_callback=None,  # Will be set later by message processor
+            prompt_service=c.get("prompt_service"),
         ),
         singleton=True,
     )
@@ -151,6 +160,7 @@ def configure_services(container: Container) -> None:
             settings_manager=c.get("settings_manager"),
             credentials_manager=c.get("credentials_manager"),
             rate_limiter=c.get("rate_limiter"),
+            prompt_provider=c.get("prompt_service"),
         ),
         singleton=True,
     )
@@ -163,6 +173,7 @@ def configure_services(container: Container) -> None:
             user_context_manager=c.get("user_context_manager"),
             settings_manager=c.get("settings_manager"),
             rate_limiter=c.get("rate_limiter"),
+            prompt_provider=c.get("prompt_service"),
         ),
         singleton=True,
     )
@@ -176,6 +187,7 @@ def configure_services(container: Container) -> None:
             settings_manager=c.get("settings_manager"),
             credentials_manager=c.get("credentials_manager"),
             rate_limiter=c.get("rate_limiter"),
+            prompt_provider=c.get("prompt_service"),
         ),
         singleton=True,
     )

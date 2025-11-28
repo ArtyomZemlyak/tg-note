@@ -780,11 +780,11 @@ class ResponseFormatter:
         """
         from pathlib import Path
 
-        from promptic import load_prompt
+        from promptic import render
 
         # Load the prompt template using promptic
         prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
-        prompt_template = load_prompt(str(prompts_dir / "response_formatter"), version="latest")
+        prompt_template = render(str(prompts_dir / "response_formatter"), version="latest")
 
         # Generate the values for placeholders
         example = {field.name: field.generate_example() for field in self.fields}
