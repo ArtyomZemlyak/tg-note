@@ -321,72 +321,67 @@ class NoteCreationService(BaseKBService, INoteCreationService):
 
     def _get_note_prompt(self, content: dict) -> str:
         """
-        Get note creation prompt from prompt provider or fallback to render().
+        Get note creation prompt from prompt provider using promptic render.
+
+        AICODE-NOTE: Uses file-first approach with @ref() for shared components.
+        All dynamic content (text, urls_section, response_format) passed via vars.
 
         Args:
             content: Content dictionary with text, urls, etc.
 
         Returns:
-            Note creation prompt string
+            Note creation prompt string with vars substituted
         """
+        from promptic import render
+
         from src.bot.response_formatter import ResponseFormatter
 
         response_formatter = ResponseFormatter()
         response_format_json = response_formatter.generate_prompt_text()
 
-        # Try to get from prompt provider (file-first approach)
-        if self._prompt_provider is not None:
-            try:
-                # AICODE-NOTE: note prompts should be exported when user switches to /note
-                # Get base prompt using promptic render
-                note_prompt = self._prompt_provider.render_for_mode("note")
-
-                # Prepare URLs section if needed
-                urls_section = ""
-                urls = content.get("urls", [])
-                if urls:
-                    url_list = "\n".join([f"- {url}" for url in urls])
-                    # Try to load urls_section template from exported directory
-                    try:
-                        exported_path = self._prompt_provider.get_exported_path("note")
-                        urls_section_path = exported_path / "urls_section.md"
-                        if urls_section_path.exists():
-                            urls_section = urls_section_path.read_text().replace(
-                                "{url_list}", url_list
-                            )
-                    except Exception:
-                        pass
-
-                # Replace placeholders
-                note_prompt = note_prompt.replace("{text}", content.get("text", ""))
-                note_prompt = note_prompt.replace("{urls_section}", urls_section)
-                note_prompt = note_prompt.replace("{response_format}", response_format_json)
-                return note_prompt
-
-            except Exception as e:
-                self.logger.warning(f"Failed to get note prompt from provider: {e}")
-
-        # Fallback to direct render (for backward compatibility)
-        from promptic import render
-
-        prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
-
-        # Get URLs section if there are URLs
+        # Prepare URLs section if there are URLs
         urls_section = ""
         urls = content.get("urls", [])
         if urls:
             url_list = "\n".join([f"- {url}" for url in urls])
-            urls_section_path = prompts_dir / "content_processing" / "urls_section_v1.md"
+            prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
+            urls_section_path = prompts_dir / "content_processing" / "urls_section_v2.md"
             if urls_section_path.exists():
-                urls_section = urls_section_path.read_text().replace("{url_list}", url_list)
+                urls_section = render(
+                    str(urls_section_path),
+                    version="latest",
+                    vars={"url_list": url_list},
+                    render_mode="full",
+                )
 
-        # Load and render content processing template
-        note_prompt = render(str(prompts_dir / "content_processing"), version="latest")
-        note_prompt = note_prompt.replace("{text}", content.get("text", ""))
-        note_prompt = note_prompt.replace("{urls_section}", urls_section)
-        note_prompt = note_prompt.replace("{response_format}", response_format_json)
+        # Prepare vars for substitution
+        vars_dict = {
+            "text": content.get("text", ""),
+            "urls_section": urls_section,
+            "response_format": response_format_json,
+        }
 
-        return note_prompt
+        # Try to get from prompt provider (file-first approach)
+        if self._prompt_provider is not None:
+            try:
+                # AICODE-NOTE: Use render_prompt with latest version and vars
+                return self._prompt_provider.render_prompt(
+                    "content_processing/template",
+                    version="latest",
+                    vars=vars_dict,
+                    render_mode="file_first",
+                )
+            except Exception as e:
+                self.logger.warning(f"Failed to get note prompt from provider: {e}")
+
+        # Fallback to direct render (for backward compatibility)
+        prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
+        return render(
+            str(prompts_dir / "content_processing"),
+            version="latest",
+            vars=vars_dict,
+            render_mode="file_first",
+        )
 
     async def _send_error_notification(
         self, processing_msg_id: int, chat_id: int, error_message: str

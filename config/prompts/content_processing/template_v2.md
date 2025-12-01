@@ -1,8 +1,4 @@
-# Инструкция
-{instruction}
-
-{instruction_media}
-
+@ref(../qwen_code_cli/instruction_v4.md)
 
 # Входящая информация
 

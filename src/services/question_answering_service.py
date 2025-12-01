@@ -215,11 +215,11 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
         response_formatter = ResponseFormatter()
         response_format_json = response_formatter.generate_prompt_text()
 
-        # Load and render KB query template with variables
-        query_prompt = self._get_query_prompt()
-        query_prompt = query_prompt.replace("{question}", question)
-        query_prompt = query_prompt.replace("{kb_path}", str(agent_working_dir))
-        query_prompt = query_prompt.replace("{response_format}", response_format_json)
+        # Load and render KB query template with variables via promptic vars
+        # AICODE-NOTE: All vars (question, kb_path, response_format) passed to render
+        query_prompt = self._get_query_prompt(
+            response_format=response_format_json, question=question, kb_path=str(agent_working_dir)
+        )
 
         # Add context if available
         if context:
@@ -267,7 +267,10 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
 
     def _get_ask_instruction(self) -> Optional[str]:
         """
-        Get ask mode instruction from prompt provider or fallback to render().
+        Get ask mode instruction from prompt provider using promptic render.
+
+        AICODE-NOTE: Uses file-first approach with @ref() for shared components.
+        No need for manual file reading - promptic handles reference resolution.
 
         Returns:
             Ask mode instruction string, or None if not available
@@ -275,11 +278,10 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
         # Try to get from prompt provider (file-first approach)
         if self._prompt_provider is not None:
             try:
-                # AICODE-NOTE: ask_mode prompts should be exported when user switches to /ask
-                prompt_path = self._prompt_provider.get_prompt_path("ask")
-                # Look for instruction file in exported prompts
-                for f in prompt_path.glob("instruction*.md"):
-                    return f.read_text(encoding="utf-8")
+                # AICODE-NOTE: Use render_prompt with latest version and file_first mode
+                return self._prompt_provider.render_prompt(
+                    "ask_mode/instruction", version="latest", render_mode="file_first"
+                )
             except Exception as e:
                 self.logger.warning(f"Failed to get ask instruction from provider: {e}")
 
@@ -288,22 +290,40 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
             from promptic import render
 
             prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
-            return render(str(prompts_dir / "ask_mode"), version="latest")
+            return render(
+                str(prompts_dir / "ask_mode"),
+                version="latest",
+                render_mode="file_first",
+            )
         except Exception as e:
             self.logger.warning(f"Failed to load ask instruction: {e}")
             return None
 
-    def _get_query_prompt(self) -> str:
+    def _get_query_prompt(self, response_format: str, question: str, kb_path: str) -> str:
         """
-        Get KB query prompt template from prompt provider or fallback to render().
+        Get KB query prompt template from prompt provider using promptic render.
+
+        AICODE-NOTE: Uses file-first approach with @ref() for shared components.
+        All dynamic content (response_format, question, kb_path) passed via vars.
+
+        Args:
+            response_format: JSON format for agent response (passed via vars)
+            question: User's question (passed via vars)
+            kb_path: Path to knowledge base (passed via vars)
 
         Returns:
-            KB query prompt template string
+            KB query prompt template string with vars substituted
         """
+        # Prepare vars for substitution
+        vars_dict = {"response_format": response_format, "question": question, "kb_path": kb_path}
+
         # Try to get from prompt provider (file-first approach)
         if self._prompt_provider is not None:
             try:
-                return self._prompt_provider.render_for_mode("ask")
+                # AICODE-NOTE: Use render_prompt with latest version and vars
+                return self._prompt_provider.render_prompt(
+                    "kb_query/template", version="latest", vars=vars_dict, render_mode="file_first"
+                )
             except Exception as e:
                 self.logger.warning(f"Failed to get query prompt from provider: {e}")
 
@@ -311,7 +331,12 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
         from promptic import render
 
         prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
-        return render(str(prompts_dir / "kb_query"), version="latest")
+        return render(
+            str(prompts_dir / "kb_query"),
+            version="latest",
+            vars=vars_dict,
+            render_mode="file_first",
+        )
 
     async def _send_error_notification(
         self, processing_msg_id: int, chat_id: int, error_message: str

@@ -273,37 +273,34 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
 
     def _get_agent_instruction(self) -> str:
         """
-        Get agent mode instruction from prompt provider or fallback to render().
+        Get agent mode instruction from prompt provider using promptic render.
+
+        AICODE-NOTE: Uses file-first approach with @ref() for shared components.
+        response_format is passed via vars parameter, not inline replacement.
+        Media instruction is referenced via @ref() in the prompt file.
 
         Returns:
-            Agent mode instruction string with media and response format
+            Agent mode instruction string with vars substituted
         """
         from src.bot.response_formatter import ResponseFormatter
 
         response_formatter = ResponseFormatter()
         response_formatter_prompt = response_formatter.generate_prompt_text()
 
+        # Prepare vars for substitution
+        vars_dict = {"response_format": response_formatter_prompt}
+
         # Try to get from prompt provider (file-first approach)
         if self._prompt_provider is not None:
             try:
-                # Get base instruction using promptic render
-                instr = self._prompt_provider.render_for_mode("agent")
-
-                # Get media instruction if available
-                media_instr = ""
-                try:
-                    prompt_path = self._prompt_provider.get_prompt_path("agent")
-                    for f in prompt_path.glob("*media*.md"):
-                        media_instr = f.read_text(encoding="utf-8")
-                        break
-                except Exception:
-                    pass
-
-                # Replace placeholders
-                instr = instr.replace("{instruction_media}", media_instr)
-                instr = instr.replace("{response_format}", response_formatter_prompt)
-                return instr
-
+                # AICODE-NOTE: Use render_prompt with latest version and vars
+                # Qwen_code_cli instruction already references shared components via @ref()
+                return self._prompt_provider.render_prompt(
+                    "qwen_code_cli/instruction",
+                    version="latest",
+                    vars=vars_dict,
+                    render_mode="file_first",
+                )
             except Exception as e:
                 self.logger.warning(f"Failed to get agent instruction from provider: {e}")
 
@@ -312,15 +309,13 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
 
         prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
 
-        # Get media instruction
-        media_instr = render(str(prompts_dir / "media"), version="latest")
-
-        # Get autonomous agent instruction and format it
-        instr = render(str(prompts_dir / "autonomous_agent"), version="latest")
-        instr = instr.replace("{instruction_media}", media_instr)
-        instr = instr.replace("{response_format}", response_formatter_prompt)
-
-        return instr
+        # Use qwen_code_cli instruction with @ref() for shared components
+        return render(
+            str(prompts_dir / "qwen_code_cli"),
+            version="latest",
+            vars=vars_dict,
+            render_mode="file_first",
+        )
 
     async def _send_error_notification(
         self, processing_msg_id: int, chat_id: int, error_message: str
