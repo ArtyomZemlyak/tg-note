@@ -203,15 +203,8 @@ class UserContextManager(IUserContextManager):
         self.user_modes[user_id] = mode
         self.logger.info(f"User {user_id} switched to {mode} mode")
 
-        # AICODE-NOTE: Export prompts for the new mode using file-first approach
-        # This ensures prompts are available before the agent needs them
-        if self._prompt_service is not None:
-            try:
-                # Export prompts for qwen CLI filesystem access
-                self._prompt_service.ensure_exported(mode)
-                self.logger.debug(f"Exported prompts for mode '{mode}'")
-            except Exception as e:
-                self.logger.warning(f"Failed to export prompts for mode '{mode}': {e}")
+        # AICODE-NOTE: Prompts are now exported automatically in render_prompt()
+        # No separate export step needed
 
     def get_conversation_context(self, user_id: int) -> str:
         """

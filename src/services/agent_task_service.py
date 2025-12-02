@@ -293,11 +293,10 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
         # Try to get from prompt provider (file-first approach)
         if self._prompt_provider is not None:
             try:
-                # AICODE-NOTE: Use render_prompt with latest version and vars
-                # Qwen_code_cli instruction already references shared components via @ref()
+                # AICODE-NOTE: Use render_mode="file_first" to export files for qwen CLI
+                # Direct file path - source_base = config/prompts/ (parent of file)
                 return self._prompt_provider.render_prompt(
-                    "qwen_code_cli/instruction",
-                    version="latest",
+                    "agent_mode_v4.md",
                     vars=vars_dict,
                     render_mode="file_first",
                 )
@@ -308,13 +307,13 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
         from promptic import render
 
         prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
-
-        # Use qwen_code_cli instruction with @ref() for shared components
+        export_dir = Path(__file__).parent.parent.parent / "data" / "prompts" / "agent_mode"
         return render(
-            str(prompts_dir / "qwen_code_cli"),
-            version="latest",
+            str(prompts_dir / "agent_mode_v4.md"),
             vars=vars_dict,
             render_mode="file_first",
+            export_to=str(export_dir),
+            overwrite=True,
         )
 
     async def _send_error_notification(

@@ -27,17 +27,24 @@ class PromptService:
 
         Args:
             prompts_dir: Path to prompts directory (default: config/prompts/)
-            export_dir: Path to export directory for rendered prompts (optional)
+            export_dir: Path to export directory for rendered prompts (default: data/prompts/)
         """
         if prompts_dir is None:
             # Default to config/prompts/
             prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
 
+        if export_dir is None:
+            # Default to data/prompts/ for qwen CLI access
+            export_dir = Path(__file__).parent.parent.parent / "data" / "prompts"
+            export_dir.mkdir(parents=True, exist_ok=True)
+
         self.prompts_dir = prompts_dir
         self.export_dir = export_dir
         self.logger = logger.bind(service="PromptService")
 
-        self.logger.debug(f"PromptService initialized with prompts_dir={self.prompts_dir}")
+        self.logger.debug(
+            f"PromptService initialized with prompts_dir={self.prompts_dir}, export_dir={self.export_dir}"
+        )
 
     def render_prompt(
         self,
@@ -47,45 +54,76 @@ class PromptService:
         render_mode: str = "file_first",
     ) -> str:
         """
-        Render a prompt using promptic.
+        Render a prompt using promptic with export to files.
 
-        AICODE-NOTE: Uses promptic.render() with file-first mode by default.
-        References between prompts (@ref()) are resolved by promptic.
+        AICODE-NOTE: Uses promptic.render() with export_to parameter.
+        Files are exported to export_dir, and main file content is returned as string.
+        With render_mode="file_first", @ref() links are preserved and agent reads files.
 
         Args:
-            prompt_path: Relative path to prompt (e.g., "ask_mode", "autonomous_agent")
-            version: Version to load (default: "latest")
+            prompt_path: Relative path to prompt file (e.g., "note_mode_v2.md", "ask_mode_v2.md")
+                For files with .md extension - used directly (no version resolution)
+                For directories - version resolution applied
+            version: Version to load (default: "latest") - only used for directory paths
             vars: Variables for substitution (e.g., {"response_format": "..."})
             render_mode: Rendering mode (default: "file_first")
-                - "file_first": Inline referenced content at @ref() locations
-                - "full": Full resolution (not typically needed)
+                - "file_first": Preserve @ref() as file links, export files for agent access
+                - "full": Inline all @ref() content into single string (no export)
 
         Returns:
-            Rendered prompt string
+            Rendered prompt string (main file content)
 
         Raises:
             FileNotFoundError: If prompt path doesn't exist
             Exception: If rendering fails
         """
         full_path = self.prompts_dir / prompt_path
+
+        # AICODE-NOTE: For .md files, source_base = parent dir (config/prompts/)
+        # This allows relative links like qwen_code_cli/instruction.md to resolve correctly
+        # For files with extension - don't use version (file is specified directly)
+        is_direct_file = prompt_path.endswith(".md")
+
+        # Export target name: remove extension and version suffix for cleaner names
+        export_name = prompt_path.replace("/", "_").replace(".md", "")
+        export_target = self.export_dir / export_name
+
         self.logger.debug(
-            f"Rendering prompt: {prompt_path} (version={version}, "
-            f"render_mode={render_mode}, vars={list(vars.keys()) if vars else []})"
+            f"Rendering prompt: {prompt_path} (is_direct_file={is_direct_file}, "
+            f"version={version if not is_direct_file else 'N/A'}, "
+            f"render_mode={render_mode}, export_to={export_target}, "
+            f"vars={list(vars.keys()) if vars else []})"
         )
 
         try:
-            # Use promptic to render the prompt
-            # AICODE-NOTE: render_mode="file_first" inlines @ref() content
-            result = render(
-                path=str(full_path),
-                target_format="markdown",
-                render_mode=render_mode,
-                vars=vars,
-                version=version,
+            # Use promptic to render and export the prompt
+            # AICODE-NOTE: export_to exports files for qwen CLI filesystem access
+            # For direct files (.md) - don't pass version, promptic uses file as-is
+            # For directories - pass version for resolution
+            render_kwargs = {
+                "path": str(full_path),
+                "target_format": "markdown",
+                "render_mode": render_mode,
+                "vars": vars,
+                "export_to": str(export_target),
+                "overwrite": True,
+            }
+            if not is_direct_file:
+                render_kwargs["version"] = version
+
+            result = render(**render_kwargs)
+
+            self.logger.debug(
+                f"Successfully rendered and exported prompt: {prompt_path} to {export_target}"
             )
 
-            self.logger.debug(f"Successfully rendered prompt: {prompt_path}")
-            return result
+            # Return the main file content as string
+            # AICODE-NOTE: ExportResult has root_prompt_content, not content
+            if hasattr(result, "root_prompt_content"):
+                return result.root_prompt_content
+            if hasattr(result, "content"):
+                return result.content
+            return str(result)
 
         except FileNotFoundError:
             self.logger.error(f"Prompt not found: {full_path}")
@@ -135,55 +173,6 @@ class PromptService:
 
         prompt_path = mode_map.get(mode, mode)
         return self.prompts_dir / prompt_path
-
-    def ensure_exported(
-        self, mode: str, version: str = "latest", vars: Optional[Dict[str, Any]] = None
-    ) -> Optional[Path]:
-        """
-        Export prompt to export directory if export_dir is set.
-
-        AICODE-NOTE: This is optional - only used if export_dir is configured.
-        Most use cases don't need export, just direct rendering.
-
-        Args:
-            mode: Mode name ("ask", "agent", "note")
-            version: Version to export
-            vars: Variables for substitution
-
-        Returns:
-            Path to exported prompt, or None if export_dir not set
-        """
-        if self.export_dir is None:
-            self.logger.debug("No export_dir set, skipping export")
-            return None
-
-        # Export using promptic
-        from promptic import export_version
-
-        mode_map = {
-            "ask": "ask_mode",
-            "agent": "autonomous_agent",
-            "note": "content_processing",
-        }
-
-        prompt_path = mode_map.get(mode, mode)
-        source_path = self.prompts_dir / prompt_path
-        target_dir = self.export_dir / mode
-
-        try:
-            export_version(
-                source_path=str(source_path),
-                version_spec=version,
-                target_dir=str(target_dir),
-                overwrite=True,
-                vars=vars,
-            )
-            self.logger.debug(f"Exported prompt {mode} to {target_dir}")
-            return target_dir
-
-        except Exception as e:
-            self.logger.warning(f"Failed to export prompt {mode}: {e}")
-            return None
 
 
 def create_prompt_service(

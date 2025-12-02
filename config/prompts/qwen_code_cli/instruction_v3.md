@@ -118,7 +118,7 @@
 В конце своего ответа добавь блок:
 
 ```agent-result
-{response_format}
+{{response_format}}
 ```
 
 И также добавь блок с метаданными KB:

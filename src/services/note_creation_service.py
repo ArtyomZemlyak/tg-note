@@ -339,48 +339,46 @@ class NoteCreationService(BaseKBService, INoteCreationService):
         response_formatter = ResponseFormatter()
         response_format_json = response_formatter.generate_prompt_text()
 
-        # Prepare URLs section if there are URLs
-        urls_section = ""
+        # Prepare URL list for substitution
         urls = content.get("urls", [])
         if urls:
             url_list = "\n".join([f"- {url}" for url in urls])
-            prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
-            urls_section_path = prompts_dir / "content_processing" / "urls_section_v2.md"
-            if urls_section_path.exists():
-                urls_section = render(
-                    str(urls_section_path),
-                    version="latest",
-                    vars={"url_list": url_list},
-                    render_mode="full",
-                )
+        else:
+            url_list = "нет"
 
         # Prepare vars for substitution
+        # AICODE-NOTE: response_format is used in referenced qwen_code_cli instruction
         vars_dict = {
             "text": content.get("text", ""),
-            "urls_section": urls_section,
+            "url_list": url_list,
             "response_format": response_format_json,
         }
 
-        # Try to get from prompt provider (file-first approach)
+        # Try to get from prompt provider (file-first exports files for qwen CLI)
         if self._prompt_provider is not None:
             try:
-                # AICODE-NOTE: Use render_prompt with latest version and vars
+                # AICODE-NOTE: Use render_mode="file_first" to export files with markdown links preserved
+                # qwen CLI will read exported files from data/prompts/
+                # AICODE-NOTE: Pass direct file path (note_mode_v2.md) - source_base = config/prompts/
+                # This allows relative links like qwen_code_cli/instruction.md to resolve correctly
                 return self._prompt_provider.render_prompt(
-                    "content_processing/template",
-                    version="latest",
+                    "note_mode_v2.md",
                     vars=vars_dict,
                     render_mode="file_first",
                 )
             except Exception as e:
                 self.logger.warning(f"Failed to get note prompt from provider: {e}")
 
-        # Fallback to direct render (for backward compatibility)
+        # Fallback to direct render with export (for backward compatibility)
         prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
+        export_dir = Path(__file__).parent.parent.parent / "data" / "prompts" / "note_mode"
+        # AICODE-NOTE: Direct file path - source_base = config/prompts/ (parent of file)
         return render(
-            str(prompts_dir / "content_processing"),
-            version="latest",
+            str(prompts_dir / "note_mode_v2.md"),
             vars=vars_dict,
             render_mode="file_first",
+            export_to=str(export_dir),
+            overwrite=True,
         )
 
     async def _send_error_notification(

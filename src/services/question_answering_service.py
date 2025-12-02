@@ -278,9 +278,10 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
         # Try to get from prompt provider (file-first approach)
         if self._prompt_provider is not None:
             try:
-                # AICODE-NOTE: Use render_prompt with latest version and file_first mode
+                # AICODE-NOTE: Use render_mode="file_first" to export files for qwen CLI
+                # Direct file path - source_base = config/prompts/ (parent of file)
                 return self._prompt_provider.render_prompt(
-                    "ask_mode/instruction", version="latest", render_mode="file_first"
+                    "ask_mode_v2.md", render_mode="file_first"
                 )
             except Exception as e:
                 self.logger.warning(f"Failed to get ask instruction from provider: {e}")
@@ -290,10 +291,12 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
             from promptic import render
 
             prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
+            export_dir = Path(__file__).parent.parent.parent / "data" / "prompts" / "ask_mode"
             return render(
-                str(prompts_dir / "ask_mode"),
-                version="latest",
+                str(prompts_dir / "ask_mode_v2.md"),
                 render_mode="file_first",
+                export_to=str(export_dir),
+                overwrite=True,
             )
         except Exception as e:
             self.logger.warning(f"Failed to load ask instruction: {e}")
@@ -320,9 +323,10 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
         # Try to get from prompt provider (file-first approach)
         if self._prompt_provider is not None:
             try:
-                # AICODE-NOTE: Use render_prompt with latest version and vars
+                # AICODE-NOTE: Use render_mode="file_first" to export files for qwen CLI
+                # Direct file path - source_base = config/prompts/ (parent of file)
                 return self._prompt_provider.render_prompt(
-                    "kb_query/template", version="latest", vars=vars_dict, render_mode="file_first"
+                    "kb_query_v3.md", vars=vars_dict, render_mode="file_first"
                 )
             except Exception as e:
                 self.logger.warning(f"Failed to get query prompt from provider: {e}")
@@ -331,11 +335,13 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
         from promptic import render
 
         prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
+        export_dir = Path(__file__).parent.parent.parent / "data" / "prompts" / "kb_query"
         return render(
-            str(prompts_dir / "kb_query"),
-            version="latest",
+            str(prompts_dir / "kb_query_v3.md"),
             vars=vars_dict,
             render_mode="file_first",
+            export_to=str(export_dir),
+            overwrite=True,
         )
 
     async def _send_error_notification(

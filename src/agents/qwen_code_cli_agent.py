@@ -385,11 +385,12 @@ class QwenCodeCLIAgent(BaseAgent):
         AICODE-NOTE: This method expects the prompt to be already built by the service layer
         (note_creation_service, question_answering_service, or agent_task_service).
         Services are responsible for:
-        1. Exporting prompts to data/prompts/ via PromptService.ensure_exported()
-        2. Rendering prompts with all variables
+        1. Rendering prompts with all variables using PromptService.render_prompt()
+        2. Prompts are automatically exported to data/prompts/ during rendering (with export_to)
         3. Passing complete prompt via content["prompt"]
 
-        The agent just receives and uses the ready prompt.
+        The agent receives the main prompt string via stdin, and can read additional
+        exported files from data/prompts/ using @ref() links preserved in file_first mode.
 
         Args:
             content: Content dictionary with pre-built "prompt" field
@@ -477,25 +478,33 @@ class QwenCodeCLIAgent(BaseAgent):
             # Use non-interactive mode and pass prompt via stdin
             cmd = [self.qwen_cli_path]
 
-            # AICODE-NOTE: Add --include-directories to allow access to ../media and ../data/prompts
+            # AICODE-NOTE: Add --include-directories to allow access to ../media and data/prompts
             # when KB_TOPICS_ONLY=true restricts agent to topics/ folder
             # This allows agent to read media metadata files and prompt files without changing working directory
             additional_dirs = []
-            
+
             media_dir = Path(self.working_directory).parent / "media"
             if media_dir.exists():
-                additional_dirs.append(str(media_dir))
+                additional_dirs.append(str(media_dir.absolute()))
                 logger.debug(
                     f"[QwenCodeCLIAgent._execute_qwen_cli] Added media directory: {media_dir}"
                 )
-            
-            prompts_dir = Path(self.working_directory).parent / "data" / "prompts"
+
+            # Add data/prompts directory for exported prompts (use absolute path)
+            # Resolve from project root (3 levels up from src/agents/)
+            project_root = Path(__file__).parent.parent.parent
+            prompts_dir = project_root / "data" / "prompts"
             if prompts_dir.exists():
-                additional_dirs.append(str(prompts_dir))
+                prompts_abs = prompts_dir.absolute()
+                additional_dirs.append(str(prompts_abs))
                 logger.debug(
-                    f"[QwenCodeCLIAgent._execute_qwen_cli] Added prompts directory: {prompts_dir}"
+                    f"[QwenCodeCLIAgent._execute_qwen_cli] Added prompts directory: {prompts_abs}"
                 )
-            
+            else:
+                logger.warning(
+                    f"[QwenCodeCLIAgent._execute_qwen_cli] Prompts directory not found: {prompts_dir}"
+                )
+
             if additional_dirs:
                 cmd.extend(["--include-directories", ",".join(additional_dirs)])
 
