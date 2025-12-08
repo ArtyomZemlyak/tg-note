@@ -197,10 +197,42 @@ async def test_chunker_integration(temp_kb):
 
 @pytest.mark.asyncio
 async def test_manager_deletion_support():
-    """Test that manager properly handles deletion logic"""
-    from src.mcp.vector_search.chunking import ChunkingStrategy, DocumentChunker
+    """Test that manager properly handles deletion logic without filesystem coupling"""
     from src.mcp.vector_search.manager import VectorSearchManager
-    from src.mcp.vector_search.vector_stores import FAISSVectorStore
+    from src.mcp.vector_search.vector_stores import BaseVectorStore
+
+    class InMemoryVectorStore(BaseVectorStore):
+        """Simple in-memory store with deletion support for testing"""
+
+        def __init__(self):
+            self.documents = []
+
+        async def add_documents(self, embeddings, documents, ids=None):
+            self.documents.extend(documents)
+
+        async def search(self, query_embedding, top_k=5, filter_dict=None):
+            return []
+
+        async def clear(self):
+            self.documents = []
+
+        async def get_count(self):
+            return len(self.documents)
+
+        async def save(self, path):
+            return None
+
+        async def load(self, path):
+            return None
+
+        def supports_delete_by_filter(self) -> bool:
+            return True
+
+        async def delete_by_filter(self, filter_dict):
+            doc_id = filter_dict.get("document_id")
+            before = len(self.documents)
+            self.documents = [doc for doc in self.documents if doc.get("document_id") != doc_id]
+            return before - len(self.documents)
 
     # Create a mock embedder
     class MockEmbedder:
@@ -209,14 +241,10 @@ async def test_manager_deletion_support():
             self._dimension = 384
 
         async def embed_texts(self, texts):
-            import numpy as np
-
-            return np.random.rand(len(texts), 384).tolist()
+            return [[0.0 for _ in range(self._dimension)] for _ in texts]
 
         async def embed_query(self, query):
-            import numpy as np
-
-            return np.random.rand(384).tolist()
+            return [0.0 for _ in range(self._dimension)]
 
         def get_dimension(self):
             return self._dimension
@@ -225,38 +253,37 @@ async def test_manager_deletion_support():
             return "mock_hash"
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        kb_path = Path(tmpdir) / "kb"
-        kb_path.mkdir()
-
-        # Create initial file
-        (kb_path / "file1.md").write_text("# File 1\n\nContent")
-
         embedder = MockEmbedder()
-        vector_store = FAISSVectorStore(dimension=384)
+        vector_store = InMemoryVectorStore()
         chunker = DocumentChunker(strategy=ChunkingStrategy.FIXED_SIZE, chunk_size=100)
 
         manager = VectorSearchManager(
             embedder=embedder,
             vector_store=vector_store,
             chunker=chunker,
-            kb_root_path=kb_path,
+            index_path=Path(tmpdir) / "index",
         )
 
         await manager.initialize()
 
-        # Index initial file
-        stats = await manager.index_knowledge_base(force=False, kb_root_path=kb_path)
-        assert stats["files_processed"] == 1
-        assert stats["deleted_files"] == 0
+        # Index initial document
+        add_stats = await manager.add_documents(
+            [
+                {
+                    "id": "file1.md",
+                    "content": "# File 1\n\nContent",
+                    "metadata": {"file_path": "file1.md"},
+                }
+            ]
+        )
+        assert add_stats["documents_processed"] == 1
+        assert len(manager._indexed_documents) == 1
 
-        # Delete the file
-        (kb_path / "file1.md").unlink()
-
-        # Reindex - should detect deletion
-        # For FAISS, this should trigger force=True and full reindex
-        stats = await manager.index_knowledge_base(force=False, kb_root_path=kb_path)
-        assert stats["files_processed"] == 0  # No files to process
-        assert len(manager._indexed_documents) == 0  # File removed from index
+        # Delete the document by ID
+        delete_stats = await manager.delete_documents(["file1.md"])
+        assert delete_stats["documents_deleted"] == 1
+        assert len(manager._indexed_documents) == 0
+        assert await vector_store.get_count() == 0
 
 
 if __name__ == "__main__":

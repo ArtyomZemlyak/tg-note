@@ -227,33 +227,29 @@ async def get_vector_search_manager() -> Optional[VectorSearchManager]:
 **Search:**
 - `search(query, top_k)` - Семантический поиск
 
-**Full Indexing:**
-- `index_knowledge_base(force)` - Полная (пере)индексация всех файлов
+**Индексация данных:**
+- `add_documents(documents)` - Добавление/обновление документов (контент передает вызывающий код)
+- `delete_documents(document_ids)` - Удаление документов
+- `update_documents(documents)` - Обновление документов (delete + add)
 - `initialize()` - Инициализация и загрузка существующего индекса
 - `clear_index()` - Очистка индекса
 
-**CRUD Operations (новые):**
-- `add_documents_by_paths(file_paths)` - Добавить конкретные документы
-- `delete_documents_by_paths(file_paths)` - Удалить конкретные документы
-- `update_documents_by_paths(file_paths)` - Обновить конкретные документы (delete + add)
-
 **Metadata Management:**
 - `get_stats()` - Статистика индекса
-- `_get_file_hash()` - Вычисление хэша файла
-- `_save_metadata()` / `_load_metadata()` - Управление метаданными
+- `_save_metadata()` / `_load_metadata()` - Управление метаданными и хэшами контента
 
 **Инкрементальная индексация:**
 
-- Хранит хеши файлов в `metadata.json` в `.vector_index/`
+- Хранит хэши контента документов в `metadata.json` в `.vector_index/`
 - При индексации проверяет изменения по хэшам
-- Индексирует только новые/измененные файлы
+- Индексирует только новые/измененные документы
 - Полная реиндексация при изменении конфигурации (embedder, chunker, vector store)
 
-**Обработка удаленных файлов:**
+**Обработка удаленных документов:**
 
-- **Qdrant (поддерживает удаление):** Удаляет векторы по фильтру `file_path` инкрементально через `delete_by_filter`
-- **FAISS (не поддерживает удаление):** Возвращает ошибку из `delete_documents_by_paths`, требуется полная реиндексация
-- **Метаданные:** Обновляются только после успешного удаления/индексации для корректного состояния при ошибках
+- **Qdrant (поддерживает удаление):** Удаляет векторы по фильтру `document_id` через `delete_by_filter`
+- **FAISS (не поддерживает удаление):** Возвращает ошибку из `delete_documents`, требуется полная реиндексация
+- **Метаданные:** Обновляются только после успешных операций
 
 ### 3. Agent
 
@@ -339,14 +335,14 @@ agent = AutonomousAgent(
    → BotVectorSearchManager._handle_kb_change_event()
    → Батчинг изменений (2 секунды)
    → check_and_reindex_changes()
-   → Сканирование файлов
+   → Сканирование файлов и построение payload документов
    → Вычисление хешей
    → Сравнение с предыдущими хешами
    → Обнаружение: added, modified, deleted
    → Вызов соответствующих MCP Hub операций:
-      - Added files → add_vector_documents
-      - Modified files → update_vector_documents
-      - Deleted files → delete_vector_documents
+      - Added files → add_vector_documents (documents payload)
+      - Modified files → update_vector_documents (documents payload)
+      - Deleted files → delete_vector_documents (document IDs)
    ```
 
 2. **Фоновый мониторинг** (fallback, каждые 5 минут - BOT)
@@ -360,29 +356,14 @@ agent = AutonomousAgent(
    ```
    MCP Hub получает запрос от BOT:
 
-   add_vector_documents(file_paths):
-   → VectorSearchManager.add_documents_by_paths()
-   → Чтение файлов
-   → Chunking
-   → Embedding
-   → Добавление в vector store
-   → Обновление metadata
+   add_vector_documents(documents):
+   → VectorSearchManager.add_documents()
 
-   delete_vector_documents(file_paths):
-   → VectorSearchManager.delete_documents_by_paths()
-   → Если Qdrant: delete_by_filter({"file_path": path})
-   → Если FAISS: возврат ошибки (требуется full reindex)
-   → Обновление metadata
+   delete_vector_documents(document_ids):
+   → VectorSearchManager.delete_documents()
 
-   update_vector_documents(file_paths):
-   → VectorSearchManager.update_documents_by_paths()
-   → delete_documents_by_paths()
-   → add_documents_by_paths()
-   → Обновление metadata
-
-   reindex_vector(force):
-   → VectorSearchManager.index_knowledge_base(force)
-   → Полная переиндексация (fallback)
+   update_vector_documents(documents):
+   → VectorSearchManager.update_documents()
    ```
 
 4. **Преимущества инкрементальных обновлений:**

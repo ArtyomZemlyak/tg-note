@@ -99,14 +99,25 @@ from src.mcp.vector_search import VectorSearchFactory
 from config.settings import settings
 
 # Create vector search manager from settings (dimension is auto-detected)
-manager = VectorSearchFactory.create_from_settings(
-    settings=settings,
-    kb_root_path=Path("./knowledge_base")
-)
+manager = VectorSearchFactory.create_from_settings(settings=settings)
 
 # Initialize and index
 await manager.initialize()
-await manager.index_knowledge_base()
+
+# Load documents from your knowledge base (caller manages file I/O)
+kb_root = Path("./knowledge_base")
+documents = []
+for path in kb_root.rglob("*.md"):
+    rel_path = path.relative_to(kb_root)
+    documents.append(
+        {
+            "id": str(rel_path),
+            "content": path.read_text(encoding="utf-8"),
+            "metadata": {"file_path": str(rel_path)},
+        }
+    )
+
+await manager.add_documents(documents)
 
 # Search
 results = await manager.search(
@@ -176,14 +187,22 @@ manager = VectorSearchManager(
     embedder=embedder,
     vector_store=vector_store,
     chunker=chunker,
-    # kb_root_path is optional for MCP usage
     index_path=Path("./data/vector_index"),
     kb_id="my_knowledge_base"  # Optional: for knowledge base isolation
 )
 
 # Use as before
 await manager.initialize()
-await manager.index_knowledge_base()
+# Add documents (caller supplies content)
+await manager.add_documents(
+    [
+        {
+            "id": "doc1",
+            "content": "User 1's document",
+            "metadata": {"source": "file1.md"},
+        }
+    ]
+)
 ```
 
 ### Knowledge Base Isolation Example

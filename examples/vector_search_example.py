@@ -91,7 +91,10 @@ Used in modern NLP models like GPT, BERT, and others.
 
     # Create vector search manager
     manager = VectorSearchManager(
-        embedder=embedder, vector_store=vector_store, chunker=chunker, kb_root_path=kb_root
+        embedder=embedder,
+        vector_store=vector_store,
+        chunker=chunker,
+        index_path=Path("./data/vector_index"),
     )
 
     # Initialize and index
@@ -99,10 +102,21 @@ Used in modern NLP models like GPT, BERT, and others.
     await manager.initialize()
 
     print("\nIndexing knowledge base...")
-    stats = await manager.index_knowledge_base()
+    documents = []
+    for path in kb_root.rglob("*.md"):
+        rel_path = path.relative_to(kb_root)
+        documents.append(
+            {
+                "id": str(rel_path),
+                "content": path.read_text(encoding="utf-8"),
+                "metadata": {"file_path": str(rel_path)},
+            }
+        )
+
+    stats = await manager.add_documents(documents)
 
     print(f"\nIndexing complete:")
-    print(f"  Files processed: {stats['files_processed']}")
+    print(f"  Documents processed: {stats['documents_processed']}")
     print(f"  Chunks created: {stats['chunks_created']}")
     if stats["errors"]:
         print(f"  Errors: {len(stats['errors'])}")
@@ -167,13 +181,27 @@ async def setup_vector_search_openai():
 
     # Create manager
     manager = VectorSearchManager(
-        embedder=embedder, vector_store=vector_store, chunker=chunker, kb_root_path=kb_root
+        embedder=embedder,
+        vector_store=vector_store,
+        chunker=chunker,
+        index_path=Path("./data/vector_index"),
     )
 
     await manager.initialize()
-    stats = await manager.index_knowledge_base()
+    documents = []
+    for path in kb_root.rglob("*.md"):
+        rel_path = path.relative_to(kb_root)
+        documents.append(
+            {
+                "id": str(rel_path),
+                "content": path.read_text(encoding="utf-8"),
+                "metadata": {"file_path": str(rel_path)},
+            }
+        )
 
-    print(f"\nIndexed {stats['files_processed']} files with OpenAI embeddings")
+    stats = await manager.add_documents(documents)
+
+    print(f"\nIndexed {stats['documents_processed']} documents with OpenAI embeddings")
 
     return manager, kb_root
 
@@ -206,13 +234,27 @@ async def setup_vector_search_qdrant():
 
         # Create manager
         manager = VectorSearchManager(
-            embedder=embedder, vector_store=vector_store, chunker=chunker, kb_root_path=kb_root
+            embedder=embedder,
+            vector_store=vector_store,
+            chunker=chunker,
+            index_path=Path("./data/vector_index"),
         )
 
         await manager.initialize()
-        stats = await manager.index_knowledge_base()
+        documents = []
+        for path in kb_root.rglob("*.md"):
+            rel_path = path.relative_to(kb_root)
+            documents.append(
+                {
+                    "id": str(rel_path),
+                    "content": path.read_text(encoding="utf-8"),
+                    "metadata": {"file_path": str(rel_path)},
+                }
+            )
 
-        print(f"\nIndexed {stats['files_processed']} files in Qdrant")
+        stats = await manager.add_documents(documents)
+
+        print(f"\nIndexed {stats['documents_processed']} documents in Qdrant")
 
         return manager, kb_root
 

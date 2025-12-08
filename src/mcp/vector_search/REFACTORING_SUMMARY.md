@@ -23,11 +23,10 @@
 
 **Предоставляет функциональность:**
 - ✅ **Поиск** - `search(query, top_k)`
-- ✅ **Полная индексация** - `index_knowledge_base(force)`
-- ✅ **CRUD операции** (новые):
-  - `add_documents_by_paths(file_paths)` - добавить документы
-  - `delete_documents_by_paths(file_paths)` - удалить документы
-  - `update_documents_by_paths(file_paths)` - обновить документы
+- ✅ **CRUD операции (данные, не файловая система)**:
+  - `add_documents(documents)` - добавить документы
+  - `delete_documents(document_ids)` - удалить документы
+  - `update_documents(documents)` - обновить документы
 - ✅ **Управление метаданными** - отслеживание хэшей файлов, config hash
 - ✅ **Embeddings & Vector Store** - работа с векторной БД
 
@@ -79,12 +78,10 @@ def get_builtin_tools():
 
 ### 2. VectorSearchManager (`src/mcp/vector_search/manager.py`)
 
-**Добавлены CRUD методы:**
-```python
-async def add_documents_by_paths(self, file_paths: List[str]) -> Dict[str, Any]
-async def delete_documents_by_paths(self, file_paths: List[str]) -> Dict[str, Any]
-async def update_documents_by_paths(self, file_paths: List[str]) -> Dict[str, Any]
-```
+**Обновлены CRUD методы (операции над данными):**
+- `add_documents(documents: List[Dict[str, Any]])`
+- `delete_documents(document_ids: List[str])`
+- `update_documents(documents: List[Dict[str, Any]])`
 
 ### 3. BotVectorSearchManager (`src/bot/vector_search_manager.py`)
 
