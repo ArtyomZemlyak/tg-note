@@ -196,4 +196,12 @@ def create_prompt_service(
     Returns:
         PromptService instance
     """
-    return PromptService(prompts_dir=prompts_dir, export_dir=export_dir)
+    prompt_service = PromptService(prompts_dir=prompts_dir, export_dir=export_dir)
+
+    # AICODE-NOTE: Clear exported prompts on startup to avoid stale files
+    try:
+        prompt_service.clear_exports()
+    except Exception as exc:
+        prompt_service.logger.warning(f"Failed to clear prompt exports on init: {exc}")
+
+    return prompt_service
