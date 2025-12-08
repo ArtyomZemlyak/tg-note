@@ -332,6 +332,7 @@ class VectorSearchManager:
         logger.info(f"Deleting {len(document_ids)} documents")
 
         stats = {
+            "success": True,
             "documents_deleted": 0,
             "errors": [],
         }
@@ -368,11 +369,15 @@ class VectorSearchManager:
                 error_msg = f"Error deleting {doc_id}: {e}"
                 logger.error(error_msg)
                 stats["errors"].append(error_msg)
+                stats["success"] = False
 
         # Save updated metadata
         if stats["documents_deleted"] > 0:
             await self._save_metadata()
             await self.vector_store.save(self.index_path)
+
+        if stats["errors"]:
+            stats["success"] = False
 
         logger.info(
             f"Delete documents complete: {stats['documents_deleted']} documents deleted, "
@@ -401,11 +406,27 @@ class VectorSearchManager:
         # First, delete existing documents
         delete_stats = await self.delete_documents(document_ids)
 
+        if delete_stats.get("success") is False:
+            logger.warning(
+                "Update aborted: failed to delete existing documents; "
+                "vector store may not support deletions."
+            )
+            return {
+                "success": False,
+                "documents_updated": 0,
+                "documents_deleted": delete_stats.get("documents_deleted", 0),
+                "chunks_created": 0,
+                "errors": delete_stats.get("errors", []),
+            }
+
         # Then add new versions
         add_stats = await self.add_documents(documents)
 
         # Combine stats
         stats = {
+            "success": (
+                len(delete_stats.get("errors", [])) == 0 and len(add_stats.get("errors", [])) == 0
+            ),
             "documents_updated": add_stats["documents_processed"],
             "documents_deleted": delete_stats.get("documents_deleted", 0),
             "chunks_created": add_stats["chunks_created"],
@@ -414,13 +435,6 @@ class VectorSearchManager:
 
         logger.info(
             f"Update documents complete: {stats['documents_updated']} documents updated, "
-            f"{stats['chunks_created']} chunks created, {len(stats['errors'])} errors"
-        )
-
-        return stats
-
-        logger.info(
-            f"Update documents complete: {stats['files_updated']} files updated, "
             f"{stats['chunks_created']} chunks created, {len(stats['errors'])} errors"
         )
 

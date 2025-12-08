@@ -433,7 +433,7 @@ class BaseKBService:
 
     async def _send_result(
         self,
-        processing_msg_id: int,
+        processing_msg_id: int | List[int],
         chat_id: int,
         result: dict,
         kb_path: Path,
@@ -443,44 +443,120 @@ class BaseKBService:
         Send task result to user
 
         Args:
-            processing_msg_id: ID of the processing status message
+            processing_msg_id: ID (or list of IDs) of the processing status message(s)
             chat_id: Chat ID
             result: Task execution result
         """
-        # Use response formatter to format the result
         github_base = self._get_github_base_url(kb_path, user_id)
         kb_topics_only = self.settings_manager.get_setting(user_id, "KB_TOPICS_ONLY")
         if kb_topics_only:
             github_base = f"{github_base}/topics"
 
-        response_formatter = ResponseFormatter(github_base)
-        full_message = response_formatter.to_html(result.get("parsed_result"))
+        message_break_after = self._get_response_message_breaks(user_id)
 
-        # Handle long messages by splitting them. We avoid pre-escaping here to keep links clickable.
-        message_chunks = split_long_message(full_message)
-
-        edit_succeeded = await self._safe_edit_message(
-            message_chunks[0],
-            chat_id=chat_id,
-            message_id=processing_msg_id,
-            parse_mode="HTML",
+        response_formatter = ResponseFormatter(
+            github_base, message_break_after=message_break_after
         )
 
-        # If edit failed (e.g., timeout), send as new message
-        if not edit_succeeded:
-            await self.bot.send_message(
-                chat_id=chat_id,
-                text=f"✅ Результат:\n\n{message_chunks[0]}",
-                parse_mode="HTML",
-            )
+        parsed_result = result.get("parsed_result")
+        if not parsed_result:
+            # Fallback: parse markdown if parsed_result is missing
+            parsed_result = response_formatter.parse(result.get("markdown", "") or "")
 
-        # If there are more chunks, send them as separate messages
-        for i, chunk in enumerate(message_chunks[1:], start=2):
-            await self.bot.send_message(
-                chat_id=chat_id,
-                text=f"💡 (часть {i}/{len(message_chunks)}):\n\n{chunk}",
-                parse_mode="HTML",
+        messages = response_formatter.to_messages_html(parsed_result)
+        if not messages:
+            # Fallback to single-block rendering
+            fallback_html = response_formatter.to_html(parsed_result or {})
+            messages = [fallback_html] if fallback_html else [result.get("markdown", "")]
+
+        # Respect Telegram length limits per message
+        message_chunks: List[str] = []
+        for msg in messages:
+            message_chunks.extend(split_long_message(msg))
+
+        if not message_chunks:
+            self.logger.warning("No message content to send")
+            return
+
+        message_ids = self._normalize_processing_message_ids(processing_msg_id)
+        total_parts = len(message_chunks)
+
+        # Update existing placeholders first
+        for idx, chunk in enumerate(message_chunks):
+            text = chunk if idx == 0 else f"💡 (часть {idx+1}/{total_parts}):\n\n{chunk}"
+
+            if idx < len(message_ids):
+                await self._safe_edit_message(
+                    text,
+                    chat_id=chat_id,
+                    message_id=message_ids[idx],
+                    parse_mode="HTML",
+                    disable_web_page_preview=True,
+                )
+            else:
+                sent = await self.bot.send_message(
+                    chat_id=chat_id,
+                    text=text,
+                    parse_mode="HTML",
+                    disable_web_page_preview=True,
+                )
+                message_ids.append(sent.message_id)
+
+        # Clear unused placeholders, if any
+        if len(message_ids) > total_parts:
+            for orphan_id in message_ids[total_parts:]:
+                await self._safe_edit_message(
+                    "✅ Готово",
+                    chat_id=chat_id,
+                    message_id=orphan_id,
+                    parse_mode="HTML",
+                    disable_web_page_preview=True,
+                )
+
+    def _get_response_message_breaks(self, user_id: int) -> List[str]:
+        """Return configured field names after which to insert message breaks."""
+        raw_value = self.settings_manager.get_setting(user_id, "MESSAGE_RESPONSE_BREAK_AFTER")
+
+        if isinstance(raw_value, list):
+            return [str(item).strip() for item in raw_value if str(item).strip()]
+
+        if isinstance(raw_value, str):
+            parts = [item.strip() for item in raw_value.split(",")]
+            return [p for p in parts if p]
+
+        return []
+
+    async def _prepare_processing_placeholders(
+        self,
+        chat_id: int,
+        processing_msg_id: int,
+        count: int,
+        text: str = "Анализирую контент...",
+    ) -> List[int]:
+        """
+        Ensure required number of processing placeholders are present.
+
+        Returns list of message IDs (first is the original processing_msg_id).
+        """
+        count = max(1, count)
+        message_ids = [processing_msg_id]
+
+        await self._safe_edit_message(text, chat_id=chat_id, message_id=processing_msg_id)
+
+        for _ in range(count - 1):
+            sent = await self.bot.send_message(
+                chat_id=chat_id, text=text, disable_web_page_preview=True
             )
+            message_ids.append(sent.message_id)
+
+        return message_ids
+
+    def _normalize_processing_message_ids(self, value: int | List[int]) -> List[int]:
+        """Normalize processing message IDs to a list."""
+        if isinstance(value, list):
+            return value
+        return [value]
+
 
     async def _validate_and_fix_markdown_links(
         self, kb_path: Path

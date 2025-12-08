@@ -1199,6 +1199,13 @@ class Settings(BaseSettings):
     MESSAGE_GROUP_TIMEOUT: int = Field(
         default=30, description="Message grouping timeout in seconds"
     )
+    MESSAGE_RESPONSE_BREAK_AFTER: List[str] = Field(
+        default_factory=lambda: ["deleted", "links_insite"],
+        description=(
+            "Field names (ResponseFormatter) after which to split outbound messages. "
+            "Order follows formatter fields; empty list disables manual splits."
+        ),
+    )
     PROCESSED_LOG_PATH: Path = Field(
         default=Path("./data/processed.json"), description="Path to processed messages log"
     )

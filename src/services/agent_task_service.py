@@ -160,15 +160,22 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
             user_id, message_id, task_text, timestamp
         )
 
-        # Execute task with agent
-        # Try to update status message (but don't fail if it times out)
-        self.logger.info(f"[AGENT_SERVICE] Executing task for user {user_id}: {task_text[:50]}...")
-        await self._safe_edit_message(
-            "🤖 Выполняю задачу...", chat_id=chat_id, message_id=processing_msg_id
+        # Prepare placeholders for multi-part response
+        message_break_after = self._get_response_message_breaks(user_id)
+        placeholder_count = max(1, len(message_break_after) + 1)
+        processing_message_ids = await self._prepare_processing_placeholders(
+            chat_id=chat_id,
+            processing_msg_id=processing_msg_id,
+            count=placeholder_count,
+            text="Анализирую контент",
         )
+        primary_processing_id = processing_message_ids[0]
+
+        # Execute task with agent
+        self.logger.info(f"[AGENT_SERVICE] Executing task for user {user_id}: {task_text[:50]}...")
 
         processed_content = await self._execute_with_agent(
-            kb_path, content, user_id, chat_id, processing_msg_id
+            kb_path, content, user_id, chat_id, primary_processing_id
         )
 
         # Save assistant response to context
@@ -177,7 +184,7 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
         response_timestamp = int(time.time())
         # Build a simple summary of the response for context
         self.user_context_manager.add_assistant_message_to_context(
-            user_id, processing_msg_id, processed_content.get("markdown"), response_timestamp
+            user_id, primary_processing_id, processed_content.get("markdown"), response_timestamp
         )
 
         # AICODE-NOTE: Use base class method for auto-commit and push
@@ -186,7 +193,7 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
         await self._auto_commit_and_push(git_ops, user_id, commit_message)
 
         # Send result to user
-        await self._send_result(processing_msg_id, chat_id, processed_content, kb_path, user_id)
+        await self._send_result(processing_message_ids, chat_id, processed_content, kb_path, user_id)
 
     async def _execute_with_agent(
         self, kb_path: Path, content: dict, user_id: int, chat_id: int, processing_msg_id: int

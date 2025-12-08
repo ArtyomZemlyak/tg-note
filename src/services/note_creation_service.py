@@ -174,10 +174,16 @@ class NoteCreationService(BaseKBService, INoteCreationService):
                 )
                 return
 
-            # Process with agent
-            await self.bot.edit_message_text(
-                "🤖 Анализирую контент...", chat_id=chat_id, message_id=processing_msg_id
+            # Prepare placeholders for multi-part response
+            message_break_after = self._get_response_message_breaks(user_id)
+            placeholder_count = max(1, len(message_break_after) + 1)
+            processing_message_ids = await self._prepare_processing_placeholders(
+                chat_id=chat_id,
+                processing_msg_id=processing_msg_id,
+                count=placeholder_count,
+                text="Анализирую контент...",
             )
+            primary_processing_id = processing_message_ids[0]
 
             self.logger.debug(f"[NOTE_SERVICE] Getting agent for user {user_id}")
             user_agent = await self.user_context_manager.get_or_create_agent(user_id)
@@ -187,7 +193,7 @@ class NoteCreationService(BaseKBService, INoteCreationService):
             self._configure_agent_working_dir(user_agent, agent_working_dir)
 
             # AICODE-NOTE: Use base class method for rate limit check
-            if not await self._check_rate_limit(user_id, chat_id, processing_msg_id):
+            if not await self._check_rate_limit(user_id, chat_id, primary_processing_id):
                 return
 
             # AICODE-NOTE: Build complete prompt for note creation
@@ -233,7 +239,9 @@ class NoteCreationService(BaseKBService, INoteCreationService):
             )
 
             # Send success notification
-            await self._send_result(processing_msg_id, chat_id, processed_content, kb_path, user_id)
+            await self._send_result(
+                processing_message_ids, chat_id, processed_content, kb_path, user_id
+            )
 
     async def _save_to_kb(
         self,

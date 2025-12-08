@@ -110,16 +110,33 @@ class BaseField:
         return escape_html(text)
 
 
+class MessageSeparator(BaseField):
+    """Non-rendered separator to split messages."""
+
+    def __init__(self):
+        super().__init__("__separator__", "")
+
+    def parse(self, response_data: Dict, **kwargs) -> Any:  # noqa: D401
+        """Separators are not parsed."""
+        return None
+
+    def to_html(self, value: Any) -> str:
+        return ""
+
+    def to_md(self, value: Any) -> str:
+        return ""
+
+    def generate_example(self):
+        return ""
+
+
 class SummaryField(BaseField):
     """Summary field for response format."""
 
     def __init__(self):
         super().__init__(
             "summary",
-            "Краткое описание выполненной работы (3-5 предложений). "
-            "Для форматирования используй HTML теги для Telegram: <b>, <i>, <u>, <s>, <a href='URL'>, <code>, <pre>, <blockquote>, <span class='tg-spoiler'>. "
-            "Для переноса строки используй символ новой строки (\\n). "
-            "Полный список доступных тегов и правила использования указаны в инструкции ResponseFormatter.",
+            "Краткое описание о чем была работа (если идет разбор информации), или что было сделано (если была задача специальная)."
         )
 
 
@@ -130,9 +147,6 @@ class AnswerField(BaseField):
         super().__init__(
             "answer",
             'Ответ на вопрос пользователя, если это был вопросный запрос. Поле "answer" заполняй только если пользователь задал вопрос. '
-            "Для форматирования используй HTML теги для Telegram: <b>, <i>, <u>, <s>, <a href='URL'>, <code>, <pre>, <blockquote>, <span class='tg-spoiler'>. "
-            "Для переноса строки используй символ новой строки (\\n). "
-            "Полный список доступных тегов и правила использования указаны в инструкции ResponseFormatter.",
         )
 
 
@@ -310,7 +324,7 @@ class LinksField(BaseField):
 
     def parse(self, response_data: Dict, **kwargs) -> Any:
         """Parse links field with formatting."""
-        raw_links = response_data.get("links", [])
+        raw_links = response_data.get(self.name, [])
         if not isinstance(raw_links, list):
             return []
 
@@ -573,19 +587,15 @@ class LinksField(BaseField):
         )
 
     def to_html(self, value: Any) -> str:
-        """
-        Convert links list to HTML format.
+        """Convert links list to HTML format."""
+        return self._render_links_html(value, "🔗 Связанные сущности:")
 
-        Args:
-            value: List of links
-
-        Returns:
-            str: HTML formatted string
-        """
+    def _render_links_html(self, value: Any, heading: str) -> str:
+        """Render links list to HTML with a custom heading."""
         if not value:
             return ""
 
-        lines = ["<b>🔗 Связанные сущности:</b>"]
+        lines = [f"<b>{heading}</b>"]
         for link in value:
             normalized = (
                 link
@@ -613,19 +623,15 @@ class LinksField(BaseField):
         return "\n".join(lines)
 
     def to_md(self, value: Any) -> str:
-        """
-        Convert links list to markdown format.
+        """Convert links list to markdown format."""
+        return self._render_links_md(value, "🔗 Связанные сущности:")
 
-        Args:
-            value: List of links
-
-        Returns:
-            str: Markdown formatted string
-        """
+    def _render_links_md(self, value: Any, heading: str) -> str:
+        """Render links list to Markdown with a custom heading."""
         if not value:
             return ""
 
-        lines = ["🔗 Связанные сущности:"]
+        lines = [heading]
         for link in value:
             normalized = (
                 link
@@ -726,18 +732,89 @@ class LinksField(BaseField):
         return ""
 
 
+class LinksInsiteField(LinksField):
+    """Insight-focused links field for nuanced connections."""
+
+    def __init__(self, github_url: str = None):
+        BaseField.__init__(
+            self,
+            "links_insite",
+            "# Инсайтные связи с другими файлами/папками/сущностями в базе знаний. "
+            "Фокус на неожиданных совпадениях и редких деталях: специфические режимы "
+            "обучения, одинаковые узкие метрики, редкие приёмы обработки данных, странные "
+            "ограничения или обходы багов. Игнорируй банальные сходства (оба LLM, оба "
+            "используют RL). Всегда указывай, какой конкретный механизм/гиперпараметр/"
+            "артефакт совпадает или отличается, где именно это описано (файл + anchor/label), "
+            "и какой эффект это даёт (метрика, латентный навык, устранённая проблема).",
+        )
+        self.github_url = github_url
+
+    def generate_example(self):
+        """Generate example value for insight links field."""
+        example = [
+            {
+                "files": [
+                    "topics/ai/llm/models/rnj_1.md#curriculum-stages",
+                    "topics/ai/llm/models/deepseek_v3_2_key_innovations.md#curriculum-data-blend",
+                ],
+                "granularity": "detailed",
+                "description": (
+                    "Редкая общность: обе модели вводят curriculum по длине диалогов с ручными "
+                    "порогами 64→256→2k токенов и заморозкой LoRA-адаптеров на первых двух этапах. "
+                    "Укажи, что в обеих заметках это связывают со спадом всплесков perplexity на "
+                    "чат-логах."
+                ),
+            },
+            {
+                "targets": [
+                    {
+                        "path": "topics/ai/llm/llm_architectures_comparison.md#routing",
+                        "label": "Сравнение роутинга экспертов",
+                    },
+                    {"path": "topics/ai/llm/models/jamba_model.md#router-loss"},
+                ],
+                "granularity": "detailed",
+                "description": (
+                    "Неочевидное отличие: Jamba штрафует неверный роутинг через auxiliary router loss, "
+                    "а в сравнении архитектур есть упоминание похожего штрафа только для длинных "
+                    "промптов. Раскрой, что оба связывают это с падением токен-дропа в длинных "
+                    "контекстах, но достигают эффекта разными коэффициентами."
+                ),
+            },
+            {
+                "folder": "topics/ai/rlhf/edge-cases",
+                "granularity": "summary",
+                "description": (
+                    "Инсайт по качеству: часть выборок Rnj-1 помечена как «контекстные ловушки» с "
+                    "ручным аннотированием противоречий. В папке edge-cases есть аналогичные "
+                    "примеры для чат-ассистентов; попроси указать, какие типы ловушек совпадают "
+                    "и чем они снижали отказ на safety-промптах."
+                ),
+            },
+        ]
+        return f"""{example} {self.text}"""
+
+    def to_html(self, value: Any) -> str:
+        """Convert insight links list to HTML format."""
+        return self._render_links_html(value, "🧠 Инсайтные связи:")
+
+    def to_md(self, value: Any) -> str:
+        """Convert insight links list to Markdown format."""
+        return self._render_links_md(value, "🧠 Инсайтные связи:")
+
+
 class InsiteField(BaseField):
     """Answer field for response format."""
 
     def __init__(self):
         super().__init__(
             "insite",
-            "Текстовое поле (str). Проанализируй контент сообщения, найденные тобой связи, информацию в базе знаний."
-            "И выведи по настоящему интересные инсайты:"
-            "- потенциальные мощные прорывы"
-            "- применение нескольких технологий вместе, которые дополняют друг друга"
-            "- Каждый инсайт должен быть подкреплён чёткой причинно-следственной логикой:"
-            "почему именно эта комбинация работает, какие ограничения она снимает, какие новые степени свободы открывает.",
+            "Текстовое поле (str). Построй максимально нюансные инсайты на основе контента сообщения,"
+            " найденных связей (особенно links_insite) и базы знаний. Подсвечивай конкретные механизмы,"
+            " гиперпараметры, редкие режимы обучения, тонкие сбои или обходы. Формируй инсайтные гипотезы:"
+            " какие нетривиальные эффекты могут возникнуть при сочетании найденных паттернов, какие"
+            " ограничения снимаются, какие скрытые навыки/метрики могут вырасти. Каждый вывод — с явной"
+            " причинно-следственной логикой и указанием, откуда взята деталь (файл + anchor/label).",
         )
 
     def to_html(self, value: Any) -> str:
@@ -760,16 +837,20 @@ class InsiteField(BaseField):
 class ResponseFormatter:
     """Class to represent and generate response format for agent prompts."""
 
-    def __init__(self, github_url: str = None):
-        self.fields: list[BaseField] = [
+    def __init__(self, github_url: str = None, message_break_after: Optional[List[str]] = None):
+        base_fields: list[BaseField] = [
             SummaryField(),
             AnswerField(),
             FilesCreatedField(github_url),
             FilesEditedField(github_url),
             FilesDeletedField(github_url),
             LinksField(github_url),
+            LinksInsiteField(github_url),
             InsiteField(),
         ]
+        self.fields: list[BaseField] = self._apply_message_breaks(
+            base_fields, message_break_after or []
+        )
 
     def generate_prompt_text(self) -> str:
         """
@@ -778,24 +859,13 @@ class ResponseFormatter:
         Returns:
             str: Formatted prompt text
         """
-        from pathlib import Path
-
-        from promptic import render
-
-        # Load the prompt template using promptic
-        prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
-        prompt_template = render(str(prompts_dir / "response_formatter"), version="latest")
-
-        # Generate the values for placeholders
-        example = {field.name: field.generate_example() for field in self.fields}
-
-        # Convert to JSON string for use in prompt
         import json
+        # Generate the values for placeholders
+        example = {
+            field.name: field.generate_example() for field in self._iter_content_fields()
+        }
 
-        response_format = json.dumps(example, ensure_ascii=False, indent=2)
-
-        # Replace placeholders with actual values
-        prompt_text = prompt_template.replace("{response_format}", response_format)
+        prompt_text = json.dumps(example, ensure_ascii=False, indent=2)
 
         return prompt_text
 
@@ -820,7 +890,9 @@ class ResponseFormatter:
                 # Fix unescaped newlines in JSON strings
                 json_text = self._fix_json_newlines(json_text)
                 data = json.loads(json_text)
-                parsed_data = {field.name: field.parse(data) for field in self.fields}
+                parsed_data = {
+                    field.name: field.parse(data) for field in self._iter_content_fields()
+                }
                 return parsed_data
             except json.JSONDecodeError:
                 # If JSON parsing fails, return empty dict
@@ -869,7 +941,10 @@ class ResponseFormatter:
         Returns:
             str: HTML formatted string
         """
-        lines = [field.to_html(response_data.get(field.name, None)) for field in self.fields]
+        lines = [
+            field.to_html(response_data.get(field.name, None))
+            for field in self._iter_content_fields()
+        ]
 
         return "\n\n".join([l for l in lines if l])
 
@@ -883,6 +958,60 @@ class ResponseFormatter:
         Returns:
             str: Markdown formatted string
         """
-        lines = [field.to_md(response_data.get(field.name, None)) for field in self.fields]
+        lines = [
+            field.to_md(response_data.get(field.name, None))
+            for field in self._iter_content_fields()
+        ]
 
         return "\n\n".join([l for l in lines if l])
+
+    def to_messages_md(self, response_data: Dict[str, Any]) -> List[str]:
+        """Convert response data to a list of markdown messages with separators."""
+        return self._to_messages(response_data, mode="md")
+
+    def to_messages_html(self, response_data: Dict[str, Any]) -> List[str]:
+        """Convert response data to a list of HTML messages with separators."""
+        return self._to_messages(response_data, mode="html")
+
+    def _to_messages(self, response_data: Dict[str, Any], mode: str) -> List[str]:
+        """Render messages split by separators in the configured order."""
+        messages: List[str] = []
+        current_parts: List[str] = []
+
+        for field in self.fields:
+            if isinstance(field, MessageSeparator):
+                if current_parts:
+                    messages.append("\n\n".join(current_parts))
+                    current_parts = []
+                continue
+
+            renderer = field.to_md if mode == "md" else field.to_html
+            rendered = renderer(response_data.get(field.name, None))
+            if rendered:
+                current_parts.append(rendered)
+
+        if current_parts:
+            messages.append("\n\n".join(current_parts))
+
+        return messages
+
+    def _apply_message_breaks(
+        self, base_fields: List[BaseField], message_break_after: List[str]
+    ) -> List[BaseField]:
+        """Insert message separators after specified field names."""
+        if not message_break_after:
+            return base_fields
+
+        breaks = set(message_break_after)
+        result: List[BaseField] = []
+
+        for field in base_fields:
+            result.append(field)
+            if field.name in breaks:
+                result.append(MessageSeparator())
+
+        return result
+
+    def _iter_content_fields(self) -> List[BaseField]:
+        """Return fields excluding separators."""
+        return [f for f in self.fields if not isinstance(f, MessageSeparator)]

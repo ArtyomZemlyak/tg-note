@@ -119,10 +119,16 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
                 user_id, message_id, question_text, timestamp
             )
 
-            # Query knowledge base
-            await self.bot.edit_message_text(
-                "🔍 Ищу информацию в базе знаний...", chat_id=chat_id, message_id=processing_msg_id
+            # Prepare placeholders for multi-part response
+            message_break_after = self._get_response_message_breaks(user_id)
+            placeholder_count = max(1, len(message_break_after) + 1)
+            processing_message_ids = await self._prepare_processing_placeholders(
+                chat_id=chat_id,
+                processing_msg_id=processing_msg_id,
+                count=placeholder_count,
+                text="Анализирую контент",
             )
+            primary_processing_id = processing_message_ids[0]
 
             self.logger.info(
                 f"[ASK_SERVICE] Querying KB for user {user_id}, question: {question_text[:50]}..."
@@ -134,11 +140,13 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
 
             response_timestamp = int(time.time())
             self.user_context_manager.add_assistant_message_to_context(
-                user_id, processing_msg_id, processed_content.get("markdown"), response_timestamp
+                user_id, primary_processing_id, processed_content.get("markdown"), response_timestamp
             )
 
             # Send success notification
-            await self._send_result(processing_msg_id, chat_id, processed_content, kb_path, user_id)
+            await self._send_result(
+                processing_message_ids, chat_id, processed_content, kb_path, user_id
+            )
 
         except Exception as e:
             self.logger.error(f"Error in question processing: {e}", exc_info=True)

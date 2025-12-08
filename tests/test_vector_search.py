@@ -286,5 +286,90 @@ async def test_manager_deletion_support():
         assert await vector_store.get_count() == 0
 
 
+@pytest.mark.asyncio
+async def test_update_documents_aborts_when_delete_not_supported():
+    """Update should halt when vector store cannot delete"""
+    from src.mcp.vector_search.manager import VectorSearchManager
+    from src.mcp.vector_search.vector_stores import BaseVectorStore
+
+    class NonDeletingVectorStore(BaseVectorStore):
+        """Vector store without deletion support for update flow tests"""
+
+        def __init__(self):
+            self.documents = []
+
+        async def add_documents(self, embeddings, documents, ids=None):
+            self.documents.extend(documents)
+
+        async def search(self, query_embedding, top_k=5, filter_dict=None):
+            return []
+
+        async def clear(self):
+            self.documents = []
+
+        async def get_count(self):
+            return len(self.documents)
+
+        async def save(self, path):
+            return None
+
+        async def load(self, path):
+            return None
+
+        def supports_delete_by_filter(self) -> bool:
+            return False
+
+        async def delete_by_filter(self, filter_dict):
+            raise RuntimeError("Delete should not be called")
+
+    class MockEmbedder:
+        def __init__(self):
+            self.model_name = "mock"
+            self._dimension = 384
+
+        async def embed_texts(self, texts):
+            return [[0.0 for _ in range(self._dimension)] for _ in texts]
+
+        async def embed_query(self, query):
+            return [0.0 for _ in range(self._dimension)]
+
+        def get_dimension(self):
+            return self._dimension
+
+        def get_model_hash(self):
+            return "mock_hash"
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        embedder = MockEmbedder()
+        vector_store = NonDeletingVectorStore()
+        chunker = DocumentChunker(strategy=ChunkingStrategy.FIXED_SIZE, chunk_size=100)
+
+        manager = VectorSearchManager(
+            embedder=embedder,
+            vector_store=vector_store,
+            chunker=chunker,
+            index_path=Path(tmpdir) / "index",
+        )
+
+        await manager.initialize()
+
+        update_stats = await manager.update_documents(
+            [
+                {
+                    "id": "file1.md",
+                    "content": "# File 1\n\nContent",
+                    "metadata": {"file_path": "file1.md"},
+                }
+            ]
+        )
+
+        assert update_stats["success"] is False
+        assert update_stats["documents_updated"] == 0
+        assert update_stats["chunks_created"] == 0
+        assert update_stats["documents_deleted"] == 0
+        assert "Vector store does not support deletions" in update_stats["errors"][0]
+        assert vector_store.documents == []
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
