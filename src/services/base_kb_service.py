@@ -361,7 +361,12 @@ class BaseKBService:
             return None
 
     async def _safe_edit_message(
-        self, text: str, chat_id: int, message_id: int, parse_mode: Optional[str] = None
+        self,
+        text: str,
+        chat_id: int,
+        message_id: int,
+        parse_mode: Optional[str] = None,
+        disable_web_page_preview: Optional[bool] = None,
     ) -> bool:
         """
         Safely edit a message with timeout handling.
@@ -371,13 +376,19 @@ class BaseKBService:
             chat_id: Chat ID
             message_id: Message ID to edit
             parse_mode: Parse mode (e.g., 'Markdown')
+            disable_web_page_preview: Disable link previews when editing messages
 
         Returns:
             True if edit succeeded, False if we should send a new message instead
         """
         try:
             await safe_edit_message_text(
-                self.bot, text, chat_id=chat_id, message_id=message_id, parse_mode=parse_mode
+                self.bot,
+                text,
+                chat_id=chat_id,
+                message_id=message_id,
+                parse_mode=parse_mode,
+                disable_web_page_preview=disable_web_page_preview,
             )
             return True
         except asyncio.TimeoutError as e:
