@@ -354,6 +354,8 @@ class NoteCreationService(BaseKBService, INoteCreationService):
             "response_format": response_format_json,
         }
 
+        prompt_name = "note_mode.md"
+
         # Try to get from prompt provider (file-first exports files for qwen CLI)
         if self._prompt_provider is not None:
             try:
@@ -362,7 +364,7 @@ class NoteCreationService(BaseKBService, INoteCreationService):
                 # AICODE-NOTE: Pass direct file path (note_mode_v2.md) - source_base = config/prompts/
                 # This allows relative links like qwen_code_cli/instruction.md to resolve correctly
                 return self._prompt_provider.render_prompt(
-                    "note_mode_v2.md",
+                    prompt_name,
                     vars=vars_dict,
                     render_mode="file_first",
                 )
@@ -371,10 +373,10 @@ class NoteCreationService(BaseKBService, INoteCreationService):
 
         # Fallback to direct render with export (for backward compatibility)
         prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
-        export_dir = Path(__file__).parent.parent.parent / "data" / "prompts" / "note_mode"
+        export_dir = Path(__file__).parent.parent.parent / "data" / "prompts" / prompt_name.split(".")[0]
         # AICODE-NOTE: Direct file path - source_base = config/prompts/ (parent of file)
         return render(
-            str(prompts_dir / "note_mode_v2.md"),
+            str(prompts_dir / prompt_name),
             vars=vars_dict,
             render_mode="file_first",
             export_to=str(export_dir),

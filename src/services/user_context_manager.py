@@ -203,8 +203,12 @@ class UserContextManager(IUserContextManager):
         self.user_modes[user_id] = mode
         self.logger.info(f"User {user_id} switched to {mode} mode")
 
-        # AICODE-NOTE: Prompts are now exported automatically in render_prompt()
-        # No separate export step needed
+        # AICODE-NOTE: Clear exported prompts to avoid stale files between modes
+        if self._prompt_service is not None:
+            try:
+                self._prompt_service.clear_exports()
+            except Exception as exc:
+                self.logger.warning(f"Failed to clear prompt exports on mode switch: {exc}")
 
     def get_conversation_context(self, user_id: int) -> str:
         """

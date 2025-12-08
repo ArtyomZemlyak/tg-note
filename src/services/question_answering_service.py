@@ -280,9 +280,7 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
             try:
                 # AICODE-NOTE: Use render_mode="file_first" to export files for qwen CLI
                 # Direct file path - source_base = config/prompts/ (parent of file)
-                return self._prompt_provider.render_prompt(
-                    "ask_mode_v2.md", render_mode="file_first"
-                )
+                return self._prompt_provider.render_prompt("ask_mode.md", render_mode="file_first")
             except Exception as e:
                 self.logger.warning(f"Failed to get ask instruction from provider: {e}")
 
@@ -293,7 +291,7 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
             prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
             export_dir = Path(__file__).parent.parent.parent / "data" / "prompts" / "ask_mode"
             return render(
-                str(prompts_dir / "ask_mode_v2.md"),
+                str(prompts_dir / "ask_mode.md"),
                 render_mode="file_first",
                 export_to=str(export_dir),
                 overwrite=True,
@@ -326,7 +324,7 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
                 # AICODE-NOTE: Use render_mode="file_first" to export files for qwen CLI
                 # Direct file path - source_base = config/prompts/ (parent of file)
                 return self._prompt_provider.render_prompt(
-                    "kb_query_v3.md", vars=vars_dict, render_mode="file_first"
+                    "kb_query.md", vars=vars_dict, render_mode="file_first"
                 )
             except Exception as e:
                 self.logger.warning(f"Failed to get query prompt from provider: {e}")
@@ -337,7 +335,7 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
         prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
         export_dir = Path(__file__).parent.parent.parent / "data" / "prompts" / "kb_query"
         return render(
-            str(prompts_dir / "kb_query_v3.md"),
+            str(prompts_dir / "kb_query.md"),
             vars=vars_dict,
             render_mode="file_first",
             export_to=str(export_dir),

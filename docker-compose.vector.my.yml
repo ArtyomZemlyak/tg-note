@@ -178,9 +178,9 @@ services:
       # Persist Qwen CLI auth and settings between restarts
       - /home/artem/.qwen:/root/.qwen
       - /tmp:/tmp
-    depends_on:
-      mcp-hub:
-        condition: service_healthy
+    # depends_on:
+    #   mcp-hub:
+    #     condition: service_healthy
     networks:
       - tg-note-network
 

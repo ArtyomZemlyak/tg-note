@@ -6,6 +6,7 @@ Prompts can reference each other using file paths, and promptic handles resoluti
 Dynamic content (like response_format) is inserted via vars parameter.
 """
 
+import shutil
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -46,6 +47,20 @@ class PromptService:
             f"PromptService initialized with prompts_dir={self.prompts_dir}, export_dir={self.export_dir}"
         )
 
+    def clear_exports(self) -> None:
+        """
+        Clear exported prompt files (used when switching user modes).
+
+        Removes the export directory contents and recreates an empty folder.
+        """
+        try:
+            if self.export_dir.exists():
+                shutil.rmtree(self.export_dir)
+            self.export_dir.mkdir(parents=True, exist_ok=True)
+            self.logger.info(f"Cleared exported prompts in {self.export_dir}")
+        except Exception as exc:
+            self.logger.warning(f"Failed to clear exported prompts: {exc}")
+
     def render_prompt(
         self,
         prompt_path: str,
@@ -79,18 +94,12 @@ class PromptService:
         """
         full_path = self.prompts_dir / prompt_path
 
-        # AICODE-NOTE: For .md files, source_base = parent dir (config/prompts/)
-        # This allows relative links like qwen_code_cli/instruction.md to resolve correctly
-        # For files with extension - don't use version (file is specified directly)
-        is_direct_file = prompt_path.endswith(".md")
-
         # Export target name: remove extension and version suffix for cleaner names
         export_name = prompt_path.replace("/", "_").replace(".md", "")
         export_target = self.export_dir / export_name
 
         self.logger.debug(
-            f"Rendering prompt: {prompt_path} (is_direct_file={is_direct_file}, "
-            f"version={version if not is_direct_file else 'N/A'}, "
+            f"Rendering prompt: {prompt_path} (version={version}, "
             f"render_mode={render_mode}, export_to={export_target}, "
             f"vars={list(vars.keys()) if vars else []})"
         )
@@ -98,8 +107,6 @@ class PromptService:
         try:
             # Use promptic to render and export the prompt
             # AICODE-NOTE: export_to exports files for qwen CLI filesystem access
-            # For direct files (.md) - don't pass version, promptic uses file as-is
-            # For directories - pass version for resolution
             render_kwargs = {
                 "path": str(full_path),
                 "target_format": "markdown",
@@ -107,9 +114,10 @@ class PromptService:
                 "vars": vars,
                 "export_to": str(export_target),
                 "overwrite": True,
+                # AICODE-NOTE: Always pass version; promptic ignores it for concrete files
+                # and uses it for directories or unresolved hints.
+                "version": version,
             }
-            if not is_direct_file:
-                render_kwargs["version"] = version
 
             result = render(**render_kwargs)
 

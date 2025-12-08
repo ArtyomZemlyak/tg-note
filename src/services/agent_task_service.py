@@ -296,7 +296,7 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
                 # AICODE-NOTE: Use render_mode="file_first" to export files for qwen CLI
                 # Direct file path - source_base = config/prompts/ (parent of file)
                 return self._prompt_provider.render_prompt(
-                    "agent_mode_v4.md",
+                    "agent_mode.md",
                     vars=vars_dict,
                     render_mode="file_first",
                 )
@@ -309,7 +309,7 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
         prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
         export_dir = Path(__file__).parent.parent.parent / "data" / "prompts" / "agent_mode"
         return render(
-            str(prompts_dir / "agent_mode_v4.md"),
+            str(prompts_dir / "agent_mode.md"),
             vars=vars_dict,
             render_mode="file_first",
             export_to=str(export_dir),
