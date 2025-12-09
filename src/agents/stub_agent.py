@@ -61,7 +61,7 @@ class StubAgent(BaseAgent):
         metadata = {
             "processed_at": datetime.now().isoformat(),
             "agent": "StubAgent",
-            "version": "0.2.0",
+            "version": "0.2.1",
         }
 
         # Determine KB structure (simple heuristic for stub)

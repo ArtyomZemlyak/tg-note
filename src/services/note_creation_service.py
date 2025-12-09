@@ -381,7 +381,9 @@ class NoteCreationService(BaseKBService, INoteCreationService):
 
         # Fallback to direct render with export (for backward compatibility)
         prompts_dir = Path(__file__).parent.parent.parent / "config" / "prompts"
-        export_dir = Path(__file__).parent.parent.parent / "data" / "prompts" / prompt_name.split(".")[0]
+        export_dir = (
+            Path(__file__).parent.parent.parent / "data" / "prompts" / prompt_name.split(".")[0]
+        )
         # AICODE-NOTE: Direct file path - source_base = config/prompts/ (parent of file)
         return render(
             str(prompts_dir / prompt_name),
