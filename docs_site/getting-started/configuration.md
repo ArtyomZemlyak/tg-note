@@ -1,6 +1,8 @@
 # Configuration Guide
 
-Complete guide to configuring tg-note.
+Complete guide to configuring tg-note. For the full, authoritative list of
+settings (including advanced MCP/vector options), see
+[Reference → Configuration Options](../reference/configuration.md).
 
 ---
 
@@ -29,6 +31,7 @@ Main configuration file for non-sensitive settings.
 ```yaml
 # Knowledge Base Settings
 KB_PATH: ./knowledge_base
+KB_TOPICS_ONLY: true
 KB_GIT_ENABLED: true
 KB_GIT_AUTO_PUSH: true
 KB_GIT_REMOTE: origin
@@ -42,6 +45,8 @@ AGENT_ENABLE_WEB_SEARCH: true
 AGENT_ENABLE_GIT: true
 AGENT_ENABLE_GITHUB: true
 AGENT_ENABLE_SHELL: false
+AGENT_ENABLE_MCP: false
+AGENT_ENABLE_MCP_MEMORY: false
 
 # Processing Settings
 MESSAGE_GROUP_TIMEOUT: 30
@@ -92,6 +97,13 @@ GITLAB_USERNAME=your_username
 - **Description:** Path to your knowledge base directory
 - **Example:** `/path/to/my-kb`
 
+#### KB_TOPICS_ONLY
+
+- **Type:** Boolean
+- **Default:** `true`
+- **Description:** Restrict agents to the `topics/` subfolder for safer edits
+- **Example:** `true` or `false`
+
 #### KB_GIT_ENABLED
 
 - **Type:** Boolean
@@ -128,9 +140,9 @@ GITLAB_USERNAME=your_username
 
 - **Type:** String
 - **Default:** `stub`
-- **Options:** `stub`, `autonomous`, `qwen_code_cli`
+- **Options:** `stub`, `autonomous`, `qwen_code_cli`, `qwen_code` (alias)
 - **Description:** Agent implementation to use
-- **Recommendation:** Use `qwen_code_cli` for production, or `autonomous` for OpenAI-compatible APIs
+- **Recommendation:** Use `qwen_code_cli` for production, `autonomous` for OpenAI-compatible APIs
 
 #### AGENT_MODEL
 
@@ -202,6 +214,20 @@ GITLAB_USERNAME=your_username
 - **Default:** `true`
 - **Description:** Enable folder operations (create, delete, move folders)
 - **Example:** `true` or `false`
+
+#### AGENT_ENABLE_MCP
+
+- **Type:** Boolean
+- **Default:** `false`
+- **Description:** Enable MCP tools (vector search, KB ops) via MCP Hub
+- **Example:** `true`
+
+#### AGENT_ENABLE_MCP_MEMORY
+
+- **Type:** Boolean
+- **Default:** `false`
+- **Description:** Enable MCP memory agent tool for semantic recall
+- **Example:** `true`
 
 ---
 
@@ -398,15 +424,15 @@ GITLAB_USERNAME=your_username
 
 - **Type:** String
 - **Default:** `fixed_size_overlap`
-- **Options:** `fixed_size_overlap`, `recursive`
-- **Description:** Text chunking strategy
-- **Example:** `fixed_size_overlap`
+- **Options:** `fixed_size_overlap`, `semantic`
+- **Description:** Text chunking strategy (semantic respects headers)
+- **Example:** `semantic`
 
 #### VECTOR_CHUNK_SIZE
 
 - **Type:** Integer
 - **Default:** `512`
-- **Description:** Size of text chunks for vectorization
+- **Description:** Size of text chunks for vectorization (characters)
 - **Example:** `1024`
 
 #### VECTOR_CHUNK_OVERLAP
@@ -415,6 +441,13 @@ GITLAB_USERNAME=your_username
 - **Default:** `50`
 - **Description:** Overlap between chunks
 - **Example:** `100`
+
+#### VECTOR_RESPECT_HEADERS
+
+- **Type:** Boolean
+- **Default:** `true`
+- **Description:** Keep Markdown headers intact when chunking (semantic strategy)
+- **Example:** `true`
 
 #### VECTOR_SEARCH_TOP_K
 

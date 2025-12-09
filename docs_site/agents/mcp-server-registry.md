@@ -221,21 +221,16 @@ if mem_agent_client and mem_agent_client.is_connected:
 ## Bot Integration
 
 Users can add MCP servers through the Telegram bot by uploading JSON files.
+Current bot commands:
 
-### Future Bot Command (TODO)
+- `/addmcpserver` — prompt to upload JSON (or paste inline JSON)
+- `/listmcpservers` — list servers with inline buttons to enable/disable/remove
+- `/enablemcp <name>` / `/disablemcp <name>` — toggle a server
+- `/removemcp <name>` — delete a server configuration
+- `/mcpstatus` — quick summary of enabled/disabled servers
 
-```
-/mcp add <server-name>
-```
-
-Then upload a JSON file with the server configuration.
-
-```
-/mcp list
-/mcp enable <server-name>
-/mcp disable <server-name>
-/mcp remove <server-name>
-```
+All configurations are stored under `data/mcp_servers/<name>.json` and picked up
+on the next bot restart (or immediately after command execution when supported).
 
 ## Configuration in Settings
 

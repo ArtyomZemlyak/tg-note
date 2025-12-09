@@ -172,13 +172,16 @@ link_parts = self._filter_and_format_links(
 
 #### Message Handling
 
-**`_safe_edit_message(text, chat_id, message_id, parse_mode) -> bool`**
+**`_safe_edit_message(text, chat_id, message_id, parse_mode, disable_web_page_preview=None) -> bool`**
 
 Safely edit a message with timeout handling.
 
 ```python
 success = await self._safe_edit_message(
-    "Processing...", chat_id=chat_id, message_id=msg_id
+    "Processing...",
+    chat_id=chat_id,
+    message_id=msg_id,
+    disable_web_page_preview=True,
 )
 ```
 
