@@ -17,4 +17,3 @@
 
 # Формат ответа
 [Формат ответа](response_formatter/instruction.md)
-

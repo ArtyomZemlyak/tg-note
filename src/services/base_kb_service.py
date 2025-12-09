@@ -465,9 +465,7 @@ class BaseKBService:
 
         message_break_after = self._get_response_message_breaks(user_id)
 
-        response_formatter = ResponseFormatter(
-            github_base, message_break_after=message_break_after
-        )
+        response_formatter = ResponseFormatter(github_base, message_break_after=message_break_after)
 
         parsed_result = result.get("parsed_result")
         if not parsed_result:
@@ -567,7 +565,6 @@ class BaseKBService:
         if isinstance(value, list):
             return value
         return [value]
-
 
     async def _validate_and_fix_markdown_links(
         self, kb_path: Path

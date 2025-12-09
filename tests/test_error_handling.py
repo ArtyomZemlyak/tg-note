@@ -11,6 +11,7 @@ import pytest
 from src.agents.base_agent import KBStructure
 from src.agents.qwen_code_cli_agent import QwenCodeCLIAgent
 from src.knowledge_base.manager import KnowledgeBaseManager
+
 # PromptRegistry removed - using promptic directly now
 
 

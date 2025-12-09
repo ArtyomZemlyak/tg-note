@@ -193,7 +193,9 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
         await self._auto_commit_and_push(git_ops, user_id, commit_message)
 
         # Send result to user
-        await self._send_result(processing_message_ids, chat_id, processed_content, kb_path, user_id)
+        await self._send_result(
+            processing_message_ids, chat_id, processed_content, kb_path, user_id
+        )
 
     async def _execute_with_agent(
         self, kb_path: Path, content: dict, user_id: int, chat_id: int, processing_msg_id: int
