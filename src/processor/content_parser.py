@@ -263,8 +263,12 @@ class ContentParser:
                     # If kb_topics_only=False: agent works in KB root, so path is media/
                     media_path = "../media/" if self.kb_topics_only else "media/"
 
-                    media_list_text = f"\n\nМедиафайлы:\nлежат в {media_path}\n" + "\n".join(
-                        media_filenames
+                    media_checklist = "\n".join(f"- [ ] {name}" for name in media_filenames)
+                    media_list_text = (
+                        "\n\nМедиафайлы:\n"
+                        f"лежат в {media_path}\n"
+                        "Отметь чекбокс после чтения .md/.json и вставки медиа в БЗ:\n"
+                        f"{media_checklist}"
                     )
                     result["text"] = result.get("text", "") + media_list_text
 

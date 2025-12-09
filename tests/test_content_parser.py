@@ -2,6 +2,9 @@
 Tests for ContentParser
 """
 
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 
 from src.processor.content_parser import ContentParser
@@ -110,7 +113,6 @@ def test_generate_hash():
 async def test_parse_group_with_files_kb_path_parameter():
     """Test that parse_group_with_files accepts kb_path parameter"""
     from pathlib import Path
-    from unittest.mock import MagicMock
 
     parser = ContentParser()
 
@@ -138,6 +140,62 @@ async def test_parse_group_with_files_kb_path_parameter():
     assert result is not None
     assert "text" in result
     assert "Test message with image" in result["text"]
+
+
+@pytest.mark.asyncio
+async def test_media_list_contains_checkboxes(tmp_path):
+    """Saved media list is formatted as a checkbox checklist."""
+
+    parser = ContentParser()
+
+    class StubFileProcessor:
+        def is_available(self) -> bool:
+            return True
+
+        async def download_and_process_telegram_file(
+            self,
+            bot,
+            file_info,
+            original_filename=None,
+            kb_media_dir=None,
+            file_id=None,
+            file_unique_id=None,
+            message_date=None,
+        ):
+            return {
+                "text": "image ocr",
+                "metadata": {},
+                "format": "image",
+                "file_name": "image.jpg",
+                "saved_path": str(tmp_path / "media" / "img_123.jpg"),
+                "saved_filename": "img_123.jpg",
+            }
+
+    parser.file_processor = StubFileProcessor()
+
+    mock_bot = MagicMock()
+    mock_bot.get_file = AsyncMock(return_value=SimpleNamespace(file_id="f1", file_path="path"))
+
+    messages = [
+        {
+            "message_id": 1,
+            "text": "Message with image",
+            "timestamp": 123,
+            "content_type": "photo",
+            "photo": [SimpleNamespace(file_id="f1", file_unique_id="unique1")],
+        }
+    ]
+
+    class MockGroup:
+        def __init__(self, msgs):
+            self.messages = msgs
+
+    result = await parser.parse_group_with_files(
+        MockGroup(messages), bot=mock_bot, kb_path=tmp_path
+    )
+
+    assert "- [ ] img_123.jpg" in result["text"]
+    assert "лежат в ../media/" in result["text"]
 
 
 def test_image_path_format_in_file_contents():
