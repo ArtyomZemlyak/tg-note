@@ -99,12 +99,12 @@ Usage:
 ```
 
 Shows main menu with options:
-- **📚 База знаний** - Manage your knowledge base
-- **🔄 Режим работы** - Switch between modes (note/ask/agent)
-- **⚙️ Настройки** - Configure bot settings
-- **🔧 MCP серверы** - Manage MCP integrations
-- **💬 Контекст** - Manage conversation context
-- **❓ Помощь** - Get help
+- **📚 Knowledge Base** - Manage your knowledge base
+- **🔄 Work Mode** - Switch between modes (note/ask/agent)
+- **⚙️ Settings** - Configure bot settings
+- **🔧 MCP Servers** - Manage MCP integrations
+- **💬 Context** - Manage conversation context
+- **❓ Help** - Get help
 
 ### /help
 Show detailed help text with all available commands.

@@ -453,7 +453,7 @@ AGENT_INSTRUCTION: |
   Use clear, academic language.
 ```
 
-### Source Citations (Ссылки на источники)
+### Source Citations
 
 **NEW REQUIREMENT (v3+):** The autonomous agent now ALWAYS includes source references in created documents:
 
@@ -465,7 +465,7 @@ AGENT_INSTRUCTION: |
   - Lists all sources with URLs and brief descriptions
   - Example:
     ```markdown
-    ## Источники
+    ## Sources
 
     1. [Source Name](URL) - brief description why this source is important
     2. [Another Source](URL) - brief description
@@ -475,12 +475,12 @@ AGENT_INSTRUCTION: |
 
 This ensures all knowledge base entries maintain proper attribution and traceability.
 
-### Connections (Связи)
+### Connections
 
-- The agent now renders the section as “Связанные сущности”, подчёркивая, что можно ссылаться не только на файлы, но и на папки или конкретные фрагменты.
-- Связи автоматически фильтруют артефакты текущего запуска: новые файлы и папки из списка `created/files_created/folders_created` не попадут в выдачу.
-- Для групповых связей поддерживается `granularity: summary`, позволяя объединять несколько файлов или папку с общим описанием. Для точечных связей используйте `granularity: detailed` и указывайте конкретные секции (через `file` + `anchor`).
-- Каждый пункт обязан содержать содержательное описание (1–2 предложения), объясняющее природу связи: сходство, зависимость, часть-целое, альтернатива, последовательность, пересечение тегов и т.д.
+- The agent renders the section as “Related entities,” highlighting that you can reference files, folders, or specific fragments.
+- Connections automatically filter out artifacts from the current run: newly created files/folders from `created/files_created/folders_created` are excluded.
+- For grouped connections use `granularity: summary` to combine several files or a folder with one summary. For precise links use `granularity: detailed` and specify exact sections via `file` + `anchor`.
+- Every entry must include a meaningful description (1–2 sentences) explaining the relationship: similarity, dependency, part-of, alternative, sequence, tag overlap, etc.
 
 ---
 

@@ -1,8 +1,61 @@
-# Docker Compose с векторным поиском
+# Docker Compose with Vector Search
 
-Эта конфигурация добавляет возможности семантического поиска в базу знаний с использованием Qdrant (векторная БД) и Infinity (сервис эмбеддингов).
+This stack adds semantic search capabilities to the knowledge base using Qdrant (vector database) and Infinity (embedding service).
 
-## Архитектура
+## Recommended configuration (tested setup)
+
+This is the most frequently tested, day-to-day setup. It is based on `docker-compose.vector.my.yml`, `config.yaml`, and `.env` from the repository.
+
+**Why we recommend it**
+
+- Full stack enabled: bot, MCP Hub, Docling MCP, Qdrant, Infinity.
+- Vector search enabled by default with Infinity + Qdrant.
+- Timeouts/logging tuned for long OCR/vectorization flows.
+- GPU paths for Docling and Infinity are already wired (you can disable for CPU-only).
+
+**How it differs from the base `docker-compose.yml`**
+
+- No vLLM/SGLang — Qwen Code CLI is used inside the bot container.
+- Infinity runs `BAAI/bge-m3`, caches via `~/.cache/huggingface`, has healthcheck + GPU flags (drop `privileged`/`runtime` for CPU).
+- Docling MCP mounts shared `config.yaml` and cache/model dirs; GPU flags are on (remove `privileged/deploy` for CPU).
+- MCP Hub mounts logs/memory/MCP registry, reads `config.yaml`, and waits on Qdrant/Infinity/Docling healthchecks.
+- Bot mounts `./data`, `./logs`, `./knowledge_base`, `./config.yaml`, and Qwen CLI cache (`~/.qwen`).
+
+**Key `config.yaml` changes vs `config.example.yaml`**
+
+- KB Git branch: `KB_GIT_BRANCH: test`.
+- Faster grouping: `MESSAGE_GROUP_TIMEOUT: 5`.
+- Verbose logs: `LOG_LEVEL: DEBUG`.
+- Docling: backend `tesseract`, RapidOCR disabled, `layout` preset `layout_heron`, added `MEDIA_PROCESSING_DOCLING.mcp.timeout: 300`.
+- Agent: `AGENT_TYPE: qwen_code_cli`, `AGENT_TIMEOUT: 900`.
+- MCP enabled: `AGENT_ENABLE_MCP: true`, `AGENT_ENABLE_MCP_MEMORY: true`, `MCP_TIMEOUT: 120`.
+- Vector search enabled: `VECTOR_SEARCH_ENABLED: true`, embedding provider `infinity` (`VECTOR_INFINITY_API_URL: http://infinity:7997`), vector store `qdrant` (`VECTOR_QDRANT_URL: http://qdrant:6333`), chunk size `VECTOR_CHUNK_SIZE: 1024`.
+
+**Environment variables (.env)**
+
+Set tokens and base params (example values, no secrets):
+
+```env
+TELEGRAM_BOT_TOKEN=<required>
+ALLOWED_USER_IDS=<list or empty>
+
+QDRANT_PORT=6333
+QDRANT_GRPC_PORT=6334
+INFINITY_MODEL=BAAI/bge-m3
+INFINITY_BATCH_SIZE=32
+MCP_PORT=8765
+```
+
+**Run the tested stack**
+
+```bash
+docker compose -f docker-compose.vector.my.yml up -d --build
+docker compose -f docker-compose.vector.my.yml logs -f
+```
+
+Use this as your baseline; if you need CPU-only, drop `privileged/runtime/deploy` from Infinity and Docling.
+
+## Architecture
 
 ```
 ┌─────────────────┐
@@ -23,82 +76,82 @@
 └─────────────────┘
 ```
 
-## Компоненты
+## Components
 
 ### 1. Qdrant
-**Векторная база данных** для хранения и поиска векторных представлений текста.
+**Vector database** for storing and searching text embeddings.
 
 - **Image**: `qdrant/qdrant:latest`
-- **Порты**: 6333 (HTTP API), 6334 (gRPC API)
-- **Хранилище**: `./data/qdrant_storage`
-- **Функции**:
-  - Хранение векторных эмбеддингов
-  - Быстрый поиск по семантическому сходству
-  - Фильтрация по метаданным
-  - Поддержка коллекций (по одной на каждую базу знаний)
+- **Ports**: 6333 (HTTP API), 6334 (gRPC API)
+- **Storage**: `./data/qdrant_storage`
+- **Features**:
+  - Stores embeddings
+  - Fast semantic similarity search
+  - Metadata filtering
+  - Collections (one per knowledge base)
 
 ### 2. Infinity
-**Сервис генерации эмбеддингов** на основе трансформерных моделей.
+**Embedding service** based on transformer models.
 
 - **Image**: `michaelf34/infinity:latest`
-- **Порт**: 7997
-- **Хранилище**: `./data/infinity_cache` (кеш моделей)
-- **Функции**:
-  - Преобразование текста в векторные представления
-  - Поддержка различных моделей HuggingFace
-  - Батчинг для ускорения обработки
-  - Опциональная поддержка GPU
+- **Port**: 7997
+- **Storage**: `./data/infinity_cache` (models cache)
+- **Features**:
+  - Text-to-vector embeddings
+  - Multiple HuggingFace models
+  - Batching for speed
+  - Optional GPU support
 
 ### 3. MCP Hub
-**Центральный шлюз** с инструментами векторного поиска.
+**Central gateway** with vector-search tools.
 
-- **Инструменты**:
-  - `vector_search` - семантический поиск по базе знаний
-  - `reindex_vector` - переиндексация базы знаний (триггерится бот контейнером)
-- **Логика**:
-  - Получает запросы от бота
-  - Создает эмбеддинги через Infinity
-  - Выполняет поиск в Qdrant
-  - Возвращает релевантные результаты
+- **Tools**:
+  - `vector_search` — semantic search over the KB
+  - `reindex_vector` — reindex KB (triggered by the bot container)
+- **Flow**:
+  - Receives requests from the bot
+  - Creates embeddings via Infinity
+  - Searches in Qdrant
+  - Returns relevant chunks
 
 ### 4. Telegram Bot
-**Telegram бот** управляет процессом векторизации.
+**Telegram bot** orchestrates vectorization.
 
-- **Логика**:
-  - Решает, когда запускать индексацию
-  - Определяет момент обновления индекса
-  - Выполняет поиск через MCP инструменты
-  - Каждая база знаний -> отдельная коллекция в Qdrant
+- **Flow**:
+  - Decides when to index
+  - Triggers reindex
+  - Performs searches via MCP tools
+  - Each KB → its own Qdrant collection
 
-## Быстрый старт
+## Quick start
 
-### 1. Подготовка
+### 1. Prepare
 
 ```bash
-# Создайте директории для данных
+# Create data directories
 mkdir -p data/qdrant_storage data/infinity_cache data/vector_index
 
-# Скопируйте файл конфигурации
+# Copy config
 cp config.example.yaml config.yaml
 ```
 
-### 2. Настройка переменных окружения
+### 2. Set environment variables
 
-Создайте или обновите `.env` файл:
+Create or update `.env`:
 
 ```env
-# Telegram Bot
+# Telegram bot
 TELEGRAM_BOT_TOKEN=your_bot_token_here
 ALLOWED_USER_IDS=123456789
 
-# Qdrant настройки
+# Qdrant
 QDRANT_PORT=6333
 QDRANT_GRPC_PORT=6334
 QDRANT_COLLECTION=knowledge_base
 
-# Infinity настройки
+# Infinity
 INFINITY_PORT=7997
-# Выберите модель для эмбеддингов (см. раздел "Модели")
+# Choose an embedding model (see "Models")
 INFINITY_MODEL=BAAI/bge-small-en-v1.5
 INFINITY_BATCH_SIZE=32
 
@@ -106,146 +159,146 @@ INFINITY_BATCH_SIZE=32
 MCP_PORT=8765
 ```
 
-### 3. Настройка config.yaml
+### 3. Configure `config.yaml`
 
-Включите векторный поиск в `config.yaml`:
+Enable vector search in `config.yaml`:
 
 ```yaml
-# Векторный поиск
+# Vector search
 VECTOR_SEARCH_ENABLED: true
 
-# Провайдер эмбеддингов
+# Embedding provider
 VECTOR_EMBEDDING_PROVIDER: infinity
 VECTOR_EMBEDDING_MODEL: BAAI/bge-small-en-v1.5
 VECTOR_INFINITY_API_URL: http://infinity:7997
 
-# Векторное хранилище
+# Vector store
 VECTOR_STORE_PROVIDER: qdrant
 VECTOR_QDRANT_URL: http://qdrant:6333
 VECTOR_QDRANT_COLLECTION: knowledge_base
 
-# Настройки чанкинга
+# Chunking
 VECTOR_CHUNKING_STRATEGY: fixed_size_overlap
 VECTOR_CHUNK_SIZE: 512
 VECTOR_CHUNK_OVERLAP: 50
 
-# Настройки поиска
+# Search
 VECTOR_SEARCH_TOP_K: 5
 ```
 
-### 4. Запуск
+### 4. Run
 
 ```bash
-# Запустить все сервисы (включая Qdrant и Infinity)
-# IMPORTANT: vLLM и SGLang используют один порт - закомментируйте один из них в docker-compose.yml!
+# Start all services (including Qdrant and Infinity)
+# IMPORTANT: vLLM and SGLang use the same port — comment one out in docker-compose.yml!
 docker-compose up -d
 
-# Проверить логи
+# Check logs
 docker-compose logs -f
 
-# Проверить статус
+# Check status
 docker-compose ps
 ```
 
-### 5. Проверка работоспособности
+### 5. Health checks
 
 ```bash
-# Проверить Qdrant
+# Qdrant
 curl http://localhost:6333/healthz
 
-# Проверить Infinity
+# Infinity
 curl http://localhost:7997/health
 
-# Проверить MCP Hub
+# MCP Hub
 curl http://localhost:8765/health
 ```
 
-**Важно**: При использовании external embedding providers (infinity или openai), локальная установка `sentence-transformers` **не требуется**, так как эмбеддинги генерируются внешним сервисом. Требуется только установка vector store backend (faiss-cpu или qdrant-client).
+**Note**: When using external embedding providers (Infinity or OpenAI), installing `sentence-transformers` locally is **not required** because embeddings are generated by the service. You only need the vector store backend (`faiss-cpu` or `qdrant-client`).
 
-## Модели эмбеддингов
+## Embedding models
 
-### Рекомендуемые модели для Infinity
+### Recommended models for Infinity
 
-#### Английский язык
+#### English
 
-| Модель | Размер | Качество | Скорость | Использование |
-|--------|--------|----------|----------|---------------|
-| `BAAI/bge-small-en-v1.5` | 384 dim | Хорошее | ⚡⚡⚡ | По умолчанию, быстро |
-| `BAAI/bge-base-en-v1.5` | 768 dim | Отличное | ⚡⚡ | Сбалансированный выбор |
-| `BAAI/bge-large-en-v1.5` | 1024 dim | Превосходное | ⚡ | Максимальное качество |
-| `sentence-transformers/all-MiniLM-L6-v2` | 384 dim | Хорошее | ⚡⚡⚡ | Легковесная альтернатива |
+| Model | Dim | Quality | Speed | Use case |
+|-------|-----|---------|-------|----------|
+| `BAAI/bge-small-en-v1.5` | 384 | Good | ⚡⚡⚡ | Default, fast |
+| `BAAI/bge-base-en-v1.5` | 768 | Excellent | ⚡⚡ | Balanced |
+| `BAAI/bge-large-en-v1.5` | 1024 | Best quality | ⚡ | Max quality |
+| `sentence-transformers/all-MiniLM-L6-v2` | 384 | Good | ⚡⚡⚡ | Lightweight alternative |
 
-#### Мультиязычные модели
+#### Multilingual
 
-| Модель | Размер | Языки | Рекомендации |
-|--------|--------|-------|--------------|
-| `BAAI/bge-m3` | 1024 dim | 100+ | Лучший выбор для мультиязычности |
-| `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` | 384 dim | 50+ | Компактная альтернатива |
+| Model | Dim | Languages | Recommendation |
+|-------|-----|-----------|----------------|
+| `BAAI/bge-m3` | 1024 | 100+ | Best multilingual choice |
+| `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` | 384 | 50+ | Compact alternative |
 
-#### Русский язык
+#### Russian
 
-| Модель | Размер | Описание |
-|--------|--------|----------|
-| `BAAI/bge-m3` | 1024 dim | Отлично работает с русским |
-| `intfloat/multilingual-e5-large` | 1024 dim | Хорошее качество для русского |
+| Model | Dim | Notes |
+|-------|-----|-------|
+| `BAAI/bge-m3` | 1024 | Works great for Russian |
+| `intfloat/multilingual-e5-large` | 1024 | Strong quality for Russian |
 
-### Смена модели
+### Switching models
 
-Изменить модель можно в `.env`:
+Change the model in `.env`:
 
 ```env
 INFINITY_MODEL=BAAI/bge-m3
 ```
 
-После изменения модели:
+After updating the model:
 
 ```bash
-# Перезапустить Infinity для загрузки новой модели
+# Restart Infinity to load the new model
 docker-compose restart infinity
 
-# Переиндексировать базу знаний (через бота или MCP API)
+# Reindex the knowledge base (via bot or MCP API)
 ```
 
-### Автоопределение размерности и переиндексация
+### Auto-detect vector dimension and reindex
 
-- Размерность эмбеддингов теперь определяется автоматически на старте для `Infinity` и `OpenAI`.
-- Если вы сменили модель и изменилась размерность векторов, система обнаружит это и выполнит полную переиндексацию при следующем запуске.
-- Для `Qdrant`: если существующая коллекция создана с другой размерностью, она будет автоматически пересоздана с корректным размером вектора.
+- Embedding dimensionality is auto-detected at startup for `Infinity` and `OpenAI`.
+- If you change models and the dimension changes, the system will trigger a full reindex on next start.
+- For `Qdrant`: if an existing collection has a different dimension, it will be recreated with the correct size.
 
-## Использование
+## Usage
 
-### Через Telegram бота
+### Via Telegram bot
 
-Бот автоматически управляет векторным поиском:
+The bot manages vector search automatically:
 
-1. **Автоматическая индексация**: при добавлении новых документов
-2. **Семантический поиск**: бот использует векторный поиск для ответов на вопросы
-3. **Переиндексация**: бот решает, когда нужно обновить индекс
+1. **Auto indexing**: when new documents arrive
+2. **Semantic search**: bot uses vector search to answer questions
+3. **Reindex**: bot decides when to refresh the index
 
-### Через MCP API
+### Via MCP API
 
-#### Векторный поиск
+#### Vector search
 
 ```bash
-# Поиск по семантическому сходству
+# Semantic similarity search
 curl -X POST http://localhost:8765/tools/vector_search \
   -H "Content-Type: application/json" \
   -d '{
-    "query": "как работают нейронные сети",
+    "query": "how do neural networks work",
     "top_k": 5
   }'
 ```
 
-Ответ:
+Response:
 ```json
 {
   "success": true,
-  "query": "как работают нейронные сети",
+  "query": "how do neural networks work",
   "top_k": 5,
   "results": [
     {
       "file_path": "topics/ml/neural-networks.md",
-      "text": "Нейронные сети - это...",
+      "text": "Neural networks are...",
       "score": 0.89,
       "chunk_index": 0
     }
@@ -254,10 +307,10 @@ curl -X POST http://localhost:8765/tools/vector_search \
 }
 ```
 
-#### Переиндексация
+#### Reindex
 
 ```bash
-# Переиндексировать базу знаний
+# Reindex the knowledge base
 curl -X POST http://localhost:8765/tools/reindex_vector \
   -H "Content-Type: application/json" \
   -d '{
@@ -265,7 +318,7 @@ curl -X POST http://localhost:8765/tools/reindex_vector \
   }'
 ```
 
-Ответ:
+Response:
 ```json
 {
   "success": true,
@@ -276,65 +329,65 @@ curl -X POST http://localhost:8765/tools/reindex_vector \
 }
 ```
 
-## Управление данными
+## Data management
 
-### Хранилище данных
+### Data layout
 
 ```
 ./data/
-├── qdrant_storage/     # Векторная база данных Qdrant
-├── infinity_cache/     # Кеш моделей Infinity
-└── vector_index/       # Метаданные индекса (для FAISS)
+├── qdrant_storage/     # Qdrant vector DB
+├── infinity_cache/     # Infinity model cache
+└── vector_index/       # Index metadata (for FAISS)
 ```
 
-### Очистка данных
+### Cleaning data
 
 ```bash
-# Остановить сервисы
+# Stop services
 docker-compose down
 
-# Удалить векторные данные
+# Remove vector data
 rm -rf data/qdrant_storage/*
 rm -rf data/vector_index/*
 
-# Кеш моделей можно оставить для ускорения следующего запуска
+# You may keep model cache for faster restart
 # rm -rf data/infinity_cache/*
 
-# Запустить заново
+# Start again
 docker-compose up -d
 ```
 
-### Резервное копирование
+### Backup
 
 ```bash
-# Остановить Qdrant для консистентного бэкапа
+# Stop Qdrant for consistent backup
 docker-compose stop qdrant
 
-# Создать бэкап
+# Create backup
 tar -czf qdrant_backup_$(date +%Y%m%d).tar.gz data/qdrant_storage/
 
-# Запустить Qdrant
+# Start Qdrant
 docker-compose start qdrant
 ```
 
-## Производительность
+## Performance
 
-### Настройка батчинга Infinity
+### Infinity batching
 
 ```env
-# Больше = быстрее, но больше памяти
-INFINITY_BATCH_SIZE=32  # По умолчанию
+# Larger = faster, more memory
+INFINITY_BATCH_SIZE=32  # Default
 
-# Для больших моделей или ограниченной памяти
+# For large models or limited memory
 INFINITY_BATCH_SIZE=16
 
-# Для мощного железа
+# For powerful hardware
 INFINITY_BATCH_SIZE=64
 ```
 
-### GPU ускорение
+### GPU acceleration
 
-Раскомментируйте в `docker-compose.yml` (секция infinity):
+Uncomment in `docker-compose.yml` (infinity section):
 
 ```yaml
 infinity:
@@ -348,61 +401,61 @@ infinity:
             capabilities: [gpu]
 ```
 
-Требования:
+Requirements:
 - NVIDIA GPU
-- nvidia-docker установлен
-- CUDA драйверы
+- nvidia-docker installed
+- CUDA drivers
 
-### Оптимизация размера чанков
+### Chunk size tuning
 
-В `config.yaml`:
+In `config.yaml`:
 
 ```yaml
-# Меньше чанки = точнее поиск, но медленнее индексация
+# Smaller chunks = more precise search, slower indexing
 VECTOR_CHUNK_SIZE: 256
 
-# Больше чанки = быстрее индексация, но менее точный поиск
+# Larger chunks = faster indexing, less precise search
 VECTOR_CHUNK_SIZE: 1024
 
-# Сбалансированный вариант (рекомендуется)
+# Balanced (recommended)
 VECTOR_CHUNK_SIZE: 512
 ```
 
-## Мониторинг
+## Monitoring
 
-### Просмотр логов
+### View logs
 
 ```bash
-# Все сервисы
+# All services
 docker-compose logs -f
 
-# Только Qdrant
+# Qdrant
 docker-compose logs -f qdrant
 
-# Только Infinity
+# Infinity
 docker-compose logs -f infinity
 
-# Только MCP Hub
+# MCP Hub
 docker-compose logs -f mcp-hub
 ```
 
-### Проверка статуса Qdrant
+### Qdrant status
 
 ```bash
-# Получить информацию о коллекциях
+# List collections
 curl http://localhost:6333/collections
 
-# Информация о конкретной коллекции
+# Specific collection
 curl http://localhost:6333/collections/knowledge_base
 ```
 
-### Проверка Infinity
+### Infinity checks
 
 ```bash
-# Проверить доступные модели
+# List models
 curl http://localhost:7997/models
 
-# Протестировать эмбеддинг
+# Test embeddings
 curl -X POST http://localhost:7997/embeddings \
   -H "Content-Type: application/json" \
   -d '{
@@ -413,103 +466,103 @@ curl -X POST http://localhost:7997/embeddings \
 
 ## Troubleshooting
 
-### Infinity не запускается
+### Infinity does not start
 
-**Проблема**: `Model download failed`
+**Issue**: `Model download failed`
 
-**Решение**:
+**Fix**:
 ```bash
-# Проверить логи
+# Check logs
 docker-compose logs infinity
 
-# Очистить кеш и перезапустить
+# Clear cache and restart
 rm -rf data/infinity_cache/*
 docker-compose restart infinity
 ```
 
-### Qdrant занимает много места
+### Qdrant uses too much space
 
-**Решение**:
+**Fix**:
 ```bash
-# Проверить размер
+# Check size
 du -sh data/qdrant_storage/
 
-# Оптимизировать (запустить из контейнера Qdrant)
+# Optimize (run inside Qdrant container)
 docker exec tg-note-qdrant curl -X POST http://localhost:6333/collections/knowledge_base/optimize
 ```
 
-### Медленная индексация
+### Slow indexing
 
-**Возможные причины**:
-1. Большая модель эмбеддингов
-2. Много файлов
-3. Маленький батч размер
+**Possible causes**:
+1. Large embedding model
+2. Many files
+3. Small batch size
 
-**Решения**:
+**Fixes**:
 ```bash
-# 1. Использовать меньшую модель
+# 1. Use a smaller model
 INFINITY_MODEL=BAAI/bge-small-en-v1.5
 
-# 2. Увеличить батч размер
+# 2. Increase batch size
 INFINITY_BATCH_SIZE=64
 
-# 3. Использовать GPU (см. раздел "GPU ускорение")
+# 3. Use GPU (see "GPU acceleration")
 ```
 
 ### Vector search not available
 
-**Проблема**: Ошибка "Vector search is not available"
+**Issue**: Error "Vector search is not available"
 
-**Решение**:
-1. Проверить `VECTOR_SEARCH_ENABLED=true` в config.yaml
-2. Проверить правильность настройки `VECTOR_EMBEDDING_PROVIDER`:
-   - Для `infinity` или `openai`: НЕ требуется установка `sentence-transformers`
-   - Для `sentence_transformers`: требуется `pip install sentence-transformers`
-3. Убедиться, что установлен хотя бы один vector store:
-   - `pip install faiss-cpu` ИЛИ `pip install qdrant-client`
-4. Убедиться, что Qdrant и Infinity запущены
-5. Проверить сетевое подключение между контейнерами
+**Fix**:
+1. Ensure `VECTOR_SEARCH_ENABLED=true` in config.yaml
+2. Verify `VECTOR_EMBEDDING_PROVIDER`:
+   - For `infinity` or `openai`: do **not** install `sentence-transformers`
+   - For `sentence_transformers`: install `pip install sentence-transformers`
+3. Install at least one vector store backend:
+   - `pip install faiss-cpu` OR `pip install qdrant-client`
+4. Ensure Qdrant and Infinity are running
+5. Check container networking
 
 ```bash
-# Проверить сеть
+# Inspect network
 docker network inspect tg-note-network
 
-# Проверить, что все контейнеры в одной сети
+# Ensure all containers share the network
 docker-compose ps
 ```
 
-## Переход с простой конфигурации
+## Migrating from the simple stack
 
-Если вы использовали простую конфигурацию без векторного поиска:
+If you used a simple stack without vector search:
 
 ```bash
-# 1. Остановить текущие сервисы
+# 1. Stop current services
 docker-compose down
 
-# 2. Обновить config.yaml (включить VECTOR_SEARCH_ENABLED)
+# 2. Update config.yaml (enable VECTOR_SEARCH_ENABLED)
 
-# 3. Убедиться, что секции qdrant и infinity не закомментированы в docker-compose.yml
+# 3. Ensure qdrant and infinity sections are active in docker-compose.yml
 
-# 4. Запустить все сервисы
+# 4. Start all services
 docker-compose up -d
 
-# 5. Индексировать существующую базу знаний
-# (через бота или вызвать reindex_vector API — не из агента)
+# 5. Reindex the existing knowledge base
+# (via bot or call reindex_vector API — not from an agent)
 ```
 
-## Интеграция с существующей базой знаний
+## Integrating with an existing knowledge base
 
-При первом запуске с векторным поиском:
+On first start with vector search:
 
-1. Все существующие документы будут автоматически проиндексированы
-2. Индекс сохраняется в Qdrant
-3. При добавлении новых документов индекс обновляется автоматически
+1. All existing documents are indexed automatically.
+2. Index is stored in Qdrant.
+3. New documents are indexed automatically.
 
-## Безопасность
+## Security
 
 ### Qdrant API Key
 
-Для продакшена рекомендуется включить аутентификацию:
+For production enable authentication:
 
 ```yaml
 qdrant:
@@ -517,14 +570,15 @@ qdrant:
     - QDRANT__SERVICE__API_KEY=your-secret-key
 ```
 
-И обновить в `.env`:
+And update `.env`:
+
 ```env
 VECTOR_QDRANT_API_KEY=your-secret-key
 ```
 
 ### Infinity API Key
 
-Если нужна аутентификация для Infinity:
+If you need authentication for Infinity:
 
 ```yaml
 infinity:
@@ -532,12 +586,13 @@ infinity:
     - INFINITY_API_KEY=your-secret-key
 ```
 
-И в `.env`:
+And in `.env`:
+
 ```env
 VECTOR_INFINITY_API_KEY=your-secret-key
 ```
 
-## Дополнительные ресурсы
+## Additional resources
 
 - [Qdrant Documentation](https://qdrant.tech/documentation/)
 - [Infinity GitHub](https://github.com/michaelfeil/infinity)
@@ -546,10 +601,10 @@ VECTOR_INFINITY_API_KEY=your-secret-key
 
 ## AICODE-NOTE
 
-Логика работы:
-- **Bot** управляет процессом: решает когда индексировать, когда искать
-- **MCP Hub** предоставляет инструменты: vector_search (reindex_vector доступен для бота)
-- **Qdrant** хранит векторы: отдельная коллекция для каждой базы знаний
-- **Infinity** генерирует эмбеддинги: преобразует текст в векторы
+Flow logic:
+- **Bot** orchestrates: decides when to index and when to search
+- **MCP Hub** exposes tools: `vector_search` (and `reindex_vector` for the bot)
+- **Qdrant** stores vectors: separate collection per knowledge base
+- **Infinity** generates embeddings: turns text into vectors
 
-Каждая база знаний пользователя получает свою коллекцию в Qdrant, что обеспечивает изоляцию данных.
+Each user knowledge base gets its own Qdrant collection for isolation.

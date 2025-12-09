@@ -126,12 +126,12 @@ Open Telegram, find your bot, and send:
 
 Bot will greet you with an interactive menu showing:
 
-- **📚 База знаний (Knowledge Base)** - Create or manage your KB
-- **🔄 Режим работы (Work Mode)** - Switch between note-taking, Q&A, and agent modes
-- **⚙️ Настройки (Settings)** - Configure bot behavior
-- **🔧 MCP серверы (MCP Servers)** - Manage MCP integrations
-- **💬 Контекст (Context)** - Manage conversation context
-- **❓ Помощь (Help)** - Get help and documentation
+- **📚 Knowledge Base** - Create or manage your KB
+- **🔄 Work Mode** - Switch between note-taking, Q&A, and agent modes
+- **⚙️ Settings** - Configure bot behavior
+- **🔧 MCP Servers** - Manage MCP integrations
+- **💬 Context** - Manage conversation context
+- **❓ Help** - Get help and documentation
 
 ---
 
@@ -139,10 +139,10 @@ Bot will greet you with an interactive menu showing:
 
 ### Quick Setup: Click the Button
 
-1. In the `/start` menu, click **➕ Создать БЗ (Create KB)**
+1. In the `/start` menu, click **➕ Create KB**
 2. Choose your KB type:
-   - **📁 Локальная БЗ** - Create a local knowledge base
-   - **🌐 GitHub репозиторий** - Connect a GitHub repository
+   - **📁 Local KB** - Create a local knowledge base
+   - **🌐 GitHub repository** - Connect a GitHub repository
 3. Follow the prompts:
    - For local KB: Enter a name (e.g., `my-notes`)
    - For GitHub: Enter repository URL (e.g., `https://github.com/yourusername/my-kb`)

@@ -11,20 +11,20 @@ When you send images to the tg-note bot, they are:
 2. **Processed via OCR** to extract text content
 3. **Referenced by the AI agent** when creating markdown notes
 
-This means your notes can include the actual images, not just text descriptions!
+Your notes include the actual images, not just text descriptions.
 
 ---
 
-## How It Works
+## How it works
 
-### 1. Send Image to Bot
+### 1. Send image to bot
 
 ```
 You: [Send screenshot of API docs]
 Bot: 🔄 Processing message...
 ```
 
-### 2. Image Processing Pipeline
+### 2. Image processing pipeline
 
 ```
 ┌──────────────────┐
@@ -35,8 +35,8 @@ Bot: 🔄 Processing message...
 ┌──────────────────────────────────────────┐
 │ FileProcessor                            │
 │ • Generate unique name                   │
-│ • Save to: KB/media/img_1705334567.jpg  │
-│ • Extract text via Docling OCR          │
+│ • Save to: KB/media/img_1705334567.jpg   │
+│ • Extract text via Docling OCR           │
 └────────┬─────────────────────────────────┘
          │
          ▼
@@ -44,7 +44,7 @@ Bot: 🔄 Processing message...
 │ ContentParser                            │
 │ • Merge OCR text with message            │
 │ • Include image path in prompt           │
-│ • Format: "сохранено как: media/..."   │
+│ • Format: "saved as: media/..."          │
 └────────┬─────────────────────────────────┘
          │
          ▼
@@ -52,26 +52,26 @@ Bot: 🔄 Processing message...
 │ AI Agent (Qwen CLI)                      │
 │ • Reads: text + image path info          │
 │ • Creates markdown note                  │
-│ • Embeds: ![description](path/to/img)   │
+│ • Embeds: ![description](path/to/img)    │
 └────────┬─────────────────────────────────┘
          │
          ▼
 ┌──────────────────────────────────────────┐
 │ Knowledge Base                           │
 │ • Note saved with image reference        │
-│ • Image file persisted in media/        │
+│ • Image file persisted in media/         │
 └──────────────────────────────────────────┘
 ```
 
-### 3. Result in Knowledge Base
+### 3. Result in knowledge base
 
 **File structure:**
 ```
 knowledge_bases/my-notes/
 ├── media/
-│   └── img_1705334567_abc123.jpg    ← Your image
+│   └── img_1705334567_abc123.jpg    ← your image
 └── topics/
-    └── api-docs-screenshot.md       ← Note with reference
+    └── api-docs-screenshot.md       ← note with reference
 ```
 
 **Generated markdown (`api-docs-screenshot.md`):**
@@ -95,29 +95,27 @@ The screenshot clearly shows the step-by-step authentication process...
 
 ---
 
-## Agent Intelligence
+## Agent intelligence
 
-The AI agent is specially instructed to:
+The AI agent is instructed to:
 
-### 1. Detect Saved Images
+### 1. Detect saved images
 
 When processing content, the agent sees:
 ```
---- Содержимое файла: image.jpg (сохранено как: media/img_1705334567_abc123_error_traceback.jpg) ---
+--- File content: image.jpg (saved as: media/img_1705334567_abc123_error_traceback.jpg) ---
 [OCR extracted text here]
 ```
 
-### 2. Use Relative Paths Correctly
+### 2. Use relative paths correctly
 
-The agent knows markdown file structure:
+| Note location            | Image reference                         |
+|--------------------------|-----------------------------------------|
+| `KB/index.md`            | `![alt](media/img_xxx_slug.jpg)`        |
+| `KB/topics/note.md`      | `![alt](../media/img_xxx_slug.jpg)`     |
+| `KB/topics/sub/note.md`  | `![alt](../../media/img_xxx_slug.jpg)`  |
 
-| Note Location | Image Reference |
-|--------------|-----------------|
-| `KB/index.md` | `![alt](media/img_xxx_slug.jpg)` |
-| `KB/topics/note.md` | `![alt](../media/img_xxx_slug.jpg)` |
-| `KB/topics/sub/note.md` | `![alt](../../media/img_xxx_slug.jpg)` |
-
-### 3. Add Meaningful Descriptions
+### 3. Add meaningful descriptions
 
 **Bad:**
 ```markdown
@@ -134,18 +132,17 @@ The agent knows markdown file structure:
 ![OAuth2 authentication flow showing 3 steps: 1) Request token 2) Validate credentials 3) Return JWT](media/img_123_example.jpg)
 ```
 
-### 4. Place Images Logically
+### 4. Place images logically
 
-The agent places images:
 - After relevant section headers
-- Near text they illustrate
+- Near the text they illustrate
 - Not at the very beginning (intro text first)
 
 ---
 
-## Filename Format
+## Filename format
 
-Images are saved with unique, traceable names:
+Images are saved with unique, traceable names.
 
 ### Format
 ```
@@ -159,28 +156,27 @@ img_1705334567_agacagia_error_traceback.jpg
 
 ### Components
 
-| Part | Source | Purpose |
-|------|--------|---------|
-| `img_` | Fixed prefix | Identifies as bot-saved image |
-| `1705334567` | Unix timestamp | When message received |
-| `agacagia` | Telegram `file_unique_id` (sanitized) | Stable identifier across bots |
-| `error_traceback` | OCR-derived slug (first few keywords) | Human-readable context |
-| `.jpg` | Original extension | Preserves format |
+| Part               | Source                               | Purpose                      |
+|--------------------|--------------------------------------|------------------------------|
+| `img_`             | Fixed prefix                         | Identifies bot-saved image   |
+| `1705334567`       | Unix timestamp                       | When message received        |
+| `agacagia`         | Telegram `file_unique_id` (sanitized)| Stable identifier            |
+| `error_traceback`  | OCR-derived slug (first keywords)    | Human-readable context       |
+| `.jpg`             | Original extension                   | Preserves format             |
 
 ### Benefits
-
-1. **Chronological sorting**: Filename starts with timestamp
-2. **Collision-free**: Timestamp + file_id ensures uniqueness
-3. **Traceable**: Can identify when/from which message
-4. **Format-preserving**: Original extension maintained
+1. **Chronological sorting**: filename starts with timestamp
+2. **Collision-free**: timestamp + file_id ensures uniqueness
+3. **Traceable**: you can identify when/from which message
+4. **Format-preserving**: original extension kept
 
 ---
 
-## Multiple Images
+## Multiple images
 
-Send multiple images in one message or quickly in sequence:
+Send multiple images in one message or quickly in sequence.
 
-### Example: Architecture Diagram Series
+### Example: architecture diagram series
 
 ```
 You: [Send 3 screenshots: diagram1.png, diagram2.png, diagram3.png]
@@ -199,317 +195,36 @@ Complete architecture overview from multiple diagrams.
 
 ## Data Flow Diagram
 
-![Data flow between frontend, API, and database layers](../media/img_1705334580_def456.png)
+![Data flow with API Gateway, services, and DB](../media/img_1705334570_def456.png)
 
 ## Deployment Diagram
 
-![Kubernetes cluster deployment structure with 3 environments](../media/img_1705334592_ghi789.png)
-
-## Analysis
-
-The architecture follows a microservices pattern...
+![Kubernetes deployment with dev/stage/prod namespaces](../media/img_1705334572_ghi789.png)
 ```
 
 ---
 
-## OCR Text Integration
+## FAQ
 
-Images with text are processed via OCR:
+### Do images bloat the repo?
 
-### What Agent Receives
+Images are stored under `media/`. For large volumes, consider Git LFS or periodic cleanup/archival. The bot does not downscale images automatically.
 
-**From image:**
-```
-API_KEY=your_key_here
-BASE_URL=https://api.example.com
-TIMEOUT=30
-```
+### How are captions chosen?
 
-**Agent combines:**
-1. Your message text: "Here's the config file screenshot"
-2. OCR extracted text: "API_KEY=..., BASE_URL=..., ..."
-3. Image path: "media/img_xxx.jpg"
+Captions are derived from OCR + message context. Improve quality by adding a brief caption in Telegram when sending the image.
 
-**Agent creates:**
-```markdown
-# Configuration File Screenshot
+### What about PDFs or DOCX with images?
 
-Screenshot of production configuration.
+Docling extracts text and embeds references for attached media where applicable.
 
-![Production config.env file](../media/img_1705334567_abc123.jpg)
+### Can I disable image embedding?
 
-## Configuration Values
-
-From the screenshot:
-```env
-API_KEY=your_key_here
-BASE_URL=https://api.example.com
-TIMEOUT=30
-```
-
-## Notes
-- Update API_KEY before deploying
-- Timeout increased to 30s for large requests
-```
+Not yet; current flow always stores images. You can manually remove media files and references if needed.
 
 ---
 
-## Storage Management
-
-### Disk Space
-
-Images accumulate over time:
-- **Average screenshot**: 50-500 KB
-- **1000 images**: ~200 MB
-- **Monitor**: Check `media/` folder size
-
-### Cleanup Options
-
-#### Option 1: Manual Cleanup
-```bash
-# List all images sorted by date
-ls -lt knowledge_bases/my-notes/media/
-
-# Remove specific image
-rm knowledge_bases/my-notes/media/img_1705334567_abc123.jpg
-
-# Remove images older than 30 days
-find knowledge_bases/my-notes/media/ -name "img_*.jpg" -mtime +30 -delete
-```
-
-#### Option 2: Exclude from Git
-
-Add to KB `.gitignore`:
-```gitignore
-# Don't commit images to git
-media/
-```
-
-Or keep git but track only specific formats:
-```gitignore
-# Exclude large images
-media/*.png
-media/*.tiff
-
-# Keep small JPEGs
-!media/*.jpg
-```
-
-#### Option 3: Automatic Cleanup (Future)
-
-Future feature ideas:
-- Auto-delete images not referenced in any markdown
-- Compress old images automatically
-- Archive to external storage
-
----
-
-## Advanced Use Cases
-
-### 1. Diagram Collections
-
-Create diagram libraries:
-```markdown
-# Architecture Diagrams
-
-## Component Diagram
-![](../media/img_comp_2024.png)
-
-## Sequence Diagram
-![](../media/img_seq_2024.png)
-
-## Deployment Diagram
-![](../media/img_deploy_2024.png)
-```
-
-### 2. Meeting Whiteboards
-
-Capture whiteboard photos:
-```
-You: [Photo of whiteboard with meeting notes]
-     "Team brainstorming session 2024-01-15"
-Bot: ✅ Saved successfully!
-```
-
-**Result:**
-```markdown
-# Team Brainstorming - 2024-01-15
-
-![Whiteboard photo from team meeting](../media/img_1705334567_abc123.jpg)
-
-## Ideas Discussed
-[OCR extracted key points]
-...
-```
-
-### 3. Document Scanning
-
-Archive paper documents:
-```
-You: [Photo of signed contract]
-     "Client agreement signed 2024-01-15"
-```
-
-### 4. Social Media Content
-
-Save infographics, posts:
-```
-You: [Screenshot of competitor's product page]
-     "Competitor analysis - new features"
-```
-
----
-
-## Best Practices
-
-### ✅ DO
-
-1. **Add context in captions**: Help agent understand image purpose
-2. **Use good lighting**: Better OCR extraction
-3. **Crop relevant parts**: Focus on important content
-4. **Send related images together**: Agent can group logically
-
-### ❌ DON'T
-
-1. **Send personal/sensitive images**: KB may be synced to git
-2. **Send extremely large images**: >5MB not optimal
-3. **Send too many at once**: Bot processes sequentially
-4. **Forget about storage**: Monitor disk space
-
-### 💡 TIPS
-
-1. **Describe image content**: "Dashboard screenshot showing metrics spike"
-2. **Send in context**: Pair with explanatory text
-3. **Review generated notes**: Check if image placement makes sense
-4. **Use `.gitignore`**: If images shouldn't be in git
-
----
-
-## Configuration
-
-Image saving is automatic when:
-
-```yaml
-# config.yaml
-MEDIA_PROCESSING_ENABLED: true
-MEDIA_PROCESSING_DOCLING:
-  enabled: true
-  image_ocr_enabled: true
-  formats:
-    - jpg
-    - jpeg
-    - png
-    - tiff
-```
-
----
-
-## Troubleshooting
-
-### Images not saved?
-
-**Check:**
-1. Media processing enabled? `MEDIA_PROCESSING_ENABLED: true`
-2. Image formats enabled? Check `formats` list
-3. KB path accessible? Verify write permissions
-4. Logs show errors? Set `LOG_LEVEL: DEBUG`
-
-### Agent doesn't embed images?
-
-**Check:**
-1. Using qwen-cli agent? (Other agents may not have this feature yet)
-2. Prompt template version: Should be v2 (`template.ru.v2.md`)
-3. Content parser passing kb_path? Check service logs
-
-### Images not displaying?
-
-**Check:**
-1. Relative path correct? `../media/` from `topics/`
-2. Image file exists? Verify in `media/` folder
-3. Filename matches? Check exact name in markdown
-
----
-
-## Examples
-
-### Example 1: Code Screenshot
-
-**You send:**
-```
-[Screenshot of Python code]
-"FastAPI async endpoint implementation"
-```
-
-**Agent creates:**
-```markdown
-# FastAPI Async Endpoint Implementation
-
-![FastAPI async function showing database query pattern](../media/img_1705334567_abc123.jpg)
-
-## Code Analysis
-
-The screenshot shows an async endpoint using SQLAlchemy async session...
-
-## Key Points
-- Proper async/await usage
-- Transaction management
-- Error handling pattern
-```
-
-### Example 2: Chart/Graph
-
-**You send:**
-```
-[Graph screenshot]
-"Q4 2024 revenue growth"
-```
-
-**Agent creates:**
-```markdown
-# Q4 2024 Revenue Analysis
-
-![Line graph showing 45% revenue increase in Q4 2024](../media/img_1705334567_abc123.jpg)
-
-## Insights
-
-- Strong growth: +45% compared to Q3
-- Peak in December (holiday season)
-- Consistent upward trend
-```
-
-### Example 3: Error Message
-
-**You send:**
-```
-[Screenshot of error]
-"Production error - need to investigate"
-```
-
-**Agent creates:**
-```markdown
-# Production Error Investigation - 2024-01-15
-
-![Error traceback showing ConnectionTimeout in Redis client](../media/img_1705334567_abc123.jpg)
-
-## Error Details
-
-```
-ConnectionTimeout: Could not connect to Redis at redis:6379
-  at redis.client.connect()
-  at app.services.cache.init()
-```
-
-## Next Steps
-
-- Check Redis container status
-- Verify network connectivity
-- Review connection timeout settings
-```
-
----
-
-## See Also
-
-- [File Format Recognition](file-format-recognition.md) - Full file processing documentation
-- [Qwen CLI Agent](../agents/qwen-code-cli.md) - Agent configuration and prompts
-- [Knowledge Base Structure](../getting-started/kb-structure.md) - KB organization
+## AICODE-NOTE
+- Images are saved with unique, timestamped filenames and OCR-derived slugs.
+- Metadata lives alongside images (see Media Metadata System).
+- Agents embed images with meaningful alt text and proper relative paths.

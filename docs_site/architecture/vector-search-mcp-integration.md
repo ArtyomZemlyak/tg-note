@@ -1,31 +1,30 @@
 # Vector Search MCP Integration
 
-Эта страница описывает архитектуру интеграции векторного поиска с MCP (Model Context Protocol).
+This page describes the architecture for integrating vector search with MCP (Model Context Protocol).
 
-## Обзор
+## Overview
 
-Векторный поиск полностью интегрирован с MCP Hub с четким разделением ответственности:
+Vector search is fully integrated with MCP Hub with a clear split of responsibilities.
 
-### Разделение ответственности
+### Responsibility split
 
-**MCP HUB** предоставляет функциональность (WHAT):
-- **Поиск** - semantic search в базе знаний
-- **CRUD операции** - добавление, удаление, обновление документов в векторной БД
-- **Полная реиндексация** - при необходимости
+**MCP Hub (WHAT it does):**
+- **Search** — semantic search in the knowledge base
+- **CRUD** — add, delete, update documents in the vector DB
+- **Full reindex** — when needed
 
-**BOT** принимает решения (WHEN):
-- **Мониторинг изменений** - отслеживает изменения в базах знаний
-- **Принятие решений** - решает когда вызывать MCP Hub для обновления индекса
-- **Реактивность** - реагирует на события изменения файлов
+**Bot (WHEN to do it):**
+- **Change monitoring** — tracks KB changes
+- **Decision making** — decides when to call MCP Hub to update the index
+- **Reactivity** — reacts to file change events
 
-### Преимущества архитектуры
+### Architecture benefits
+1. **Centralized control** — all vector DB operations are done by MCP Hub
+2. **No duplication** — bot does not duplicate MCP Hub logic
+3. **Incremental updates** — bot calls add/update/delete for specific files
+4. **Unified access** — agents use vector search via standard MCP tools
 
-1. **Централизованное управление** - Все операции с векторной БД выполняются MCP Hub
-2. **Отсутствие дублирования** - BOT не дублирует функциональность MCP Hub
-3. **Инкрементальные обновления** - BOT вызывает add/update/delete для конкретных файлов
-4. **Унифицированный доступ** - Агенты используют векторный поиск через стандартные MCP тулзы
-
-## Архитектура
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -33,18 +32,18 @@
 │                                                             │
 │  ┌──────────────────────────────────────────────────────┐  │
 │  │  main.py (Startup)                                   │  │
-│  │  1. Проверка MCP Hub health                          │  │
-│  │  2. Инициализация Vector Search Manager              │  │
-│  │  3. Запуск мониторинга изменений                     │  │
+│  │  1. MCP Hub health check                             │  │
+│  │  2. Init Vector Search Manager                       │  │
+│  │  3. Start change monitoring                          │  │
 │  └──────────────────────────────────────────────────────┘  │
 │                           │                                 │
 │                           ▼                                 │
 │  ┌──────────────────────────────────────────────────────┐  │
 │  │  BotVectorSearchManager                              │  │
-│  │  - Проверка доступности тулз через API               │  │
-│  │  - Сканирование файлов KB                            │  │
-│  │  - Обнаружение изменений (diff)                      │  │
-│  │  - Триггер реиндексации через MCP                    │  │
+│  │  - Checks tool availability via API                  │  │
+│  │  - Scans KB files                                    │  │
+│  │  - Detects changes (diff)                            │  │
+│  │  - Triggers reindex via MCP                          │  │
 │  └──────────────────────────────────────────────────────┘  │
 │                           │                                 │
 │                           │ HTTP API                        │
@@ -56,8 +55,8 @@
 │                                                             │
 │  ┌──────────────────────────────────────────────────────┐  │
 │  │  MCP Hub Server                                      │  │
-│  │  /health - Список доступных тулз                     │  │
-│  │  /registry/servers - MCP серверы                     │  │
+│  │  /health - list available tools                      │  │
+│  │  /registry/servers - MCP servers                     │  │
 │  └──────────────────────────────────────────────────────┘  │
 │                           │                                 │
 │                           ▼                                 │
@@ -66,7 +65,7 @@
 │  │  Search:                                             │  │
 │  │  - vector_search(query, top_k)                       │  │
 │  │                                                      │  │
-│  │  CRUD Operations (called by BOT):                    │  │
+│  │  CRUD (called by bot):                               │  │
 │  │  - add_vector_documents(file_paths)                  │  │
 │  │  - delete_vector_documents(file_paths)               │  │
 │  │  - update_vector_documents(file_paths)               │  │
@@ -90,56 +89,51 @@
 │  ┌──────────────────────────────────────────────────────┐  │
 │  │  Tool Manager                                        │  │
 │  │  - kb_vector_search                                  │  │
-│  │  - (reindex managed by bot only)                     │  │
+│  │  - (reindex is bot-only)                             │  │
 │  └──────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Компоненты
+## Components
 
 ### 1. Bot Container
 
 #### BotVectorSearchManager (`src/bot/vector_search_manager.py`)
 
-**AICODE-NOTE: BOT's responsibility - WHEN to update vector search**
+**AICODE-NOTE: Bot decides WHEN to update vector search**
 
-Принимает решения о необходимости обновления векторной БД:
+Responsibilities (when to act):
+- Check vector search availability via MCP Hub `/health`
+- Scan KB files to detect changes
+- Compute file hashes to track modifications
+- Decide when to call MCP Hub to update the index
+- Persist/load tracking state (file hashes)
 
-**Ответственности (WHEN - Когда делать):**
+**Does NOT do** (MCP Hub does this):
+- Create embeddings
+- Manage the vector DB
+- Perform indexing/reindexing
+- CRUD on documents
 
-- Проверка доступности векторного поиска через MCP Hub API
-- Сканирование файлов в базах знаний для обнаружения изменений
-- Вычисление хешей файлов для tracking изменений
-- **Принятие решений**: когда вызывать MCP Hub для обновления индекса
-- Сохранение/загрузка состояния отслеживания (file hashes)
+Key methods:
+- `check_vector_search_availability()` — verifies MCP Hub tools
+- `perform_initial_indexing()` — kicks off initial indexing via MCP Hub
+- `check_and_reindex_changes()` — **main loop**: detect changes and call MCP Hub
+  - New files → `add_vector_documents`
+  - Modified files → `update_vector_documents`
+  - Deleted files → `delete_vector_documents`
+- `start_monitoring()` — background monitoring (every 5 minutes)
+- `trigger_reindex()` — manual reindex trigger
+- `shutdown()` — graceful shutdown
 
-**НЕ выполняет** (это делает MCP Hub):
-- Эмбеддинги текстов
-- Управление векторной БД
-- Индексацию/переиндексацию
-- CRUD операции с документами
+Important traits:
+- **Event-driven:** subscribes to KB file change events (create/modify/delete)
+- **Batching:** groups changes within 2 seconds into one operation
+- **Concurrency safety:** async lock to prevent concurrent runs
+- **Incremental updates:** uses add/update/delete instead of full reindex
+- **Graceful stop:** `shutdown()` cancels pending tasks
 
-**Основные методы:**
-
-- `check_vector_search_availability()` - Проверяет доступность MCP Hub tools через `/health`
-- `perform_initial_indexing()` - Запускает начальную индексацию через MCP Hub
-- `check_and_reindex_changes()` - **Главный метод**: обнаруживает изменения и вызывает MCP Hub
-  - Для новых файлов → `add_vector_documents`
-  - Для измененных файлов → `update_vector_documents`
-  - Для удаленных файлов → `delete_vector_documents`
-- `start_monitoring()` - Запускает фоновый мониторинг (каждые 5 минут)
-- `trigger_reindex()` - Вручную запускает проверку и реиндексацию
-- `shutdown()` - Корректно завершает работу менеджера
-
-**Важные особенности:**
-
-- **Событийная система:** Подписывается на события изменения KB (создание, изменение, удаление файлов)
-- **Батчинг изменений:** Множественные изменения в течение 2 секунд объединяются в одну операцию
-- **Защита от конкурентности:** Использует async lock для предотвращения одновременных операций
-- **Инкрементальные обновления:** Вызывает конкретные MCP операции (add/update/delete) вместо полной реиндексации
-- **Корректное завершение:** Метод `shutdown()` отменяет pending задачи
-
-#### Инициализация в main.py
+#### Initialization in main.py
 
 ```python
 # main.py
@@ -157,105 +151,98 @@ if settings.VECTOR_SEARCH_ENABLED:
 
 #### MCP Hub Server (`src/mcp/mcp_hub_server.py`)
 
-Предоставляет векторный поиск как MCP тулзы:
+Provides vector search as MCP tools.
 
-**Доступные тулзы:**
+Available tools:
 
-**Для Агентов (Search):**
-1. **`vector_search`** - Семантический поиск в базе знаний
-   - `query` (string) - Поисковый запрос
-   - `top_k` (int) - Количество результатов (default: 5)
-   - `user_id` (int, optional) - ID пользователя
+**For agents (search):**
+1. **`vector_search`** — semantic search in the KB
+   - `query` (string)
+   - `top_k` (int, default 5)
+   - `user_id` (optional)
 
-**Для BOT (CRUD Operations):**
-2. **`add_vector_documents`** - Добавить документы в индекс
-   - `file_paths` (list[string]) - Список путей к файлам относительно KB root
-   - `user_id` (int, optional) - ID пользователя
+**For bot (CRUD):**
+2. **`add_vector_documents`** — add documents to the index
+   - `file_paths` (list[str]) relative to KB root
+   - `user_id` (optional)
 
-3. **`delete_vector_documents`** - Удалить документы из индекса
-   - `file_paths` (list[string]) - Список путей к файлам
-   - `user_id` (int, optional) - ID пользователя
+3. **`delete_vector_documents`** — remove documents from the index
+   - `file_paths` (list[str])
+   - `user_id` (optional)
 
-4. **`update_vector_documents`** - Обновить документы в индексе
-   - `file_paths` (list[string]) - Список путей к файлам
-   - `user_id` (int, optional) - ID пользователя
+4. **`update_vector_documents`** — update documents in the index
+   - `file_paths` (list[str])
+   - `user_id` (optional)
 
-5. **`reindex_vector`** - Полная переиндексация (fallback)
-   - `force` (bool) - Принудительная переиндексация (default: false)
-   - `user_id` (int, optional) - ID пользователя
+5. **`reindex_vector`** — full reindex (fallback)
+   - `force` (bool, default false)
+   - `user_id` (optional)
 
-**Проверка доступности:**
+Availability check:
 
 ```python
 def check_vector_search_availability() -> bool:
-    """Проверяет конфигурацию и зависимости"""
-    # 1. Проверка VECTOR_SEARCH_ENABLED
-    # 2. Проверка embedding provider зависимостей
-    # 3. Проверка vector store backend
+    """Checks configuration and dependencies"""
+    # 1. VECTOR_SEARCH_ENABLED
+    # 2. Embedding provider dependencies
+    # 3. Vector store backend
     return available
 ```
 
-**Инициализация:**
+Initialization:
 
 ```python
 async def get_vector_search_manager() -> Optional[VectorSearchManager]:
-    """Создает и инициализирует VectorSearchManager"""
-    # Создание из настроек
+    """Create and initialize VectorSearchManager"""
     manager = VectorSearchFactory.create_from_settings(...)
-
-    # Инициализация (загрузка существующего индекса)
-    await manager.initialize()
-
+    await manager.initialize()  # load existing index
     return manager
 ```
 
 #### VectorSearchManager (`src/mcp/vector_search/manager.py`)
 
-**AICODE-NOTE: MCP HUB's responsibility - WHAT operations to provide**
+**AICODE-NOTE: MCP Hub owns WHAT operations are provided**
 
-Основной менеджер векторного поиска, предоставляющий функциональность:
+Core manager that exposes vector search functionality.
 
-**Компоненты:**
+Components:
+- **Embedder** — builds embeddings (sentence-transformers/openai/infinity)
+- **VectorStore** — stores vectors (FAISS/Qdrant)
+- **Chunker** — splits documents into chunks
+- **Index Metadata** — tracks indexed files and hashes
 
-- **Embedder** - Создание векторных представлений (sentence-transformers/openai/infinity)
-- **VectorStore** - Хранение векторов (FAISS/Qdrant)
-- **Chunker** - Разбиение документов на чанки
-- **Index Metadata** - Отслеживание индексированных файлов и хэшей
-
-**Основные методы:**
+Key methods:
 
 **Search:**
-- `search(query, top_k)` - Семантический поиск
+- `search(query, top_k)` — semantic search
 
-**Индексация данных:**
-- `add_documents(documents)` - Добавление/обновление документов (контент передает вызывающий код)
-- `delete_documents(document_ids)` - Удаление документов
-- `update_documents(documents)` - Обновление документов (delete + add)
-- `initialize()` - Инициализация и загрузка существующего индекса
-- `clear_index()` - Очистка индекса
+**Indexing:**
+- `add_documents(documents)` — add/update documents (caller provides content)
+- `delete_documents(document_ids)` — delete documents
+- `update_documents(documents)` — delete + add
+- `initialize()` — load existing index
+- `clear_index()` — drop index
 
-**Metadata Management:**
-- `get_stats()` - Статистика индекса
-- `_save_metadata()` / `_load_metadata()` - Управление метаданными и хэшами контента
+**Metadata management:**
+- `get_stats()` — index stats
+- `_save_metadata()` / `_load_metadata()` — persist metadata and content hashes
 
-**Инкрементальная индексация:**
+**Incremental indexing:**
+- Stores document content hashes in `metadata.json` under `.vector_index/`
+- Compares hashes to detect changes
+- Indexes only new/changed documents
+- Triggers full reindex if configuration changes (embedder/chunker/vector store)
 
-- Хранит хэши контента документов в `metadata.json` в `.vector_index/`
-- При индексации проверяет изменения по хэшам
-- Индексирует только новые/измененные документы
-- Полная реиндексация при изменении конфигурации (embedder, chunker, vector store)
-
-**Обработка удаленных документов:**
-
-- **Qdrant (поддерживает удаление):** Удаляет векторы по фильтру `document_id` через `delete_by_filter`
-- **FAISS (не поддерживает удаление):** Возвращает ошибку из `delete_documents`, требуется полная реиндексация
-- **Метаданные:** Обновляются только после успешных операций
+**Handling deletions:**
+- **Qdrant:** deletes by `document_id` filter via `delete_by_filter`
+- **FAISS:** delete not supported; `delete_documents` returns an error → full reindex required
+- **Metadata:** updated only after successful ops
 
 ### 3. Agent
 
 #### Tool Registry (`src/agents/tools/registry.py`)
 
-Регистрирует MCP тулзы векторного поиска:
+Registers MCP vector-search tools:
 
 ```python
 if enable_vector_search:
@@ -268,7 +255,7 @@ if enable_vector_search:
 
 #### Agent Factory (`src/agents/agent_factory.py`)
 
-Передает флаг векторного поиска из настроек:
+Passes the vector-search flag from settings:
 
 ```python
 config = {
@@ -284,77 +271,77 @@ agent = AutonomousAgent(
 )
 ```
 
-## Последовательность работы
+## Execution flow
 
-### Startup Sequence
+### Startup sequence
 
-1. **Bot Container Startup**
+1. **Bot container startup**
    ```
-   1. main.py запускается
-   2. Запуск MCP Hub Server
-   3. Ожидание MCP Hub health check
-   4. Проверка доступности векторного поиска
-   5. Инициализация BotVectorSearchManager
-   6. Сканирование баз знаний
-   7. Запуск фонового мониторинга
-   ```
-
-2. **MCP Hub Initialization**
-   ```
-   1. mcp_hub_server.py запускается
-   2. Проверка VECTOR_SEARCH_ENABLED
-   3. Проверка зависимостей
-   4. Регистрация vector search тулз
-   5. /health возвращает доступные тулзы
+   1. main.py starts
+   2. MCP Hub server starts
+   3. Wait for MCP Hub health check
+   4. Check vector search availability
+   5. Initialize BotVectorSearchManager
+   6. Scan knowledge bases
+   7. Start background monitoring
    ```
 
-### Agent Vector Search Flow
+2. **MCP Hub initialization**
+   ```
+   1. mcp_hub_server.py starts
+   2. Check VECTOR_SEARCH_ENABLED
+   3. Check dependencies
+   4. Register vector-search tools
+   5. /health returns available tools
+   ```
 
-1. **Agent вызывает kb_vector_search**
+### Agent vector-search flow
+
+1. **Agent calls `kb_vector_search`**
    ```
    Agent → ToolManager → VectorSearchMCPTool → MCP Client → MCP Hub
    ```
 
-2. **MCP Hub обрабатывает запрос**
+2. **MCP Hub processes request**
    ```
    MCP Hub → vector_search tool → VectorSearchManager → Embedder/VectorStore
    ```
 
-3. **Возврат результатов**
+3. **Results returned**
    ```
    Results → MCP Hub → MCP Client → VectorSearchMCPTool → Agent
    ```
 
-### Change Detection and Incremental Updates
+### Change detection and incremental updates
 
-**AICODE-NOTE: Новая архитектура - BOT решает КОГДА, MCP Hub делает ЧТО**
+**AICODE-NOTE: New architecture — Bot decides WHEN, MCP Hub does WHAT**
 
-1. **Событийный мониторинг** (основной механизм - BOT)
+1. **Event-based monitoring (primary, in bot)**
    ```
-   KB событие (create/modify/delete)
+   KB event (create/modify/delete)
    → BotVectorSearchManager._handle_kb_change_event()
-   → Батчинг изменений (2 секунды)
+   → Batch changes (2 seconds)
    → check_and_reindex_changes()
-   → Сканирование файлов и построение payload документов
-   → Вычисление хешей
-   → Сравнение с предыдущими хешами
-   → Обнаружение: added, modified, deleted
-   → Вызов соответствующих MCP Hub операций:
-      - Added files → add_vector_documents (documents payload)
-      - Modified files → update_vector_documents (documents payload)
-      - Deleted files → delete_vector_documents (document IDs)
+   → Scan files and build document payloads
+   → Compute hashes
+   → Compare with previous hashes
+   → Detect added / modified / deleted
+   → Call corresponding MCP Hub operations:
+      - Added → add_vector_documents (documents payload)
+      - Modified → update_vector_documents (documents payload)
+      - Deleted → delete_vector_documents (document IDs)
    ```
 
-2. **Фоновый мониторинг** (fallback, каждые 5 минут - BOT)
+2. **Background monitoring (fallback, every 5 minutes — bot)**
    ```
    BotVectorSearchManager.start_monitoring()
-   → Периодическая проверка изменений
-   → Для случаев, не покрытых событиями (NFS, внешние изменения)
+   → Periodic change check
+   → Covers cases not caught by events (NFS, external changes)
    ```
 
-3. **Обработка CRUD операций в MCP Hub**
+3. **CRUD handling in MCP Hub**
    ```
-   MCP Hub получает запрос от BOT:
+   MCP Hub receives a bot request:
 
    add_vector_documents(documents):
    → VectorSearchManager.add_documents()
@@ -366,15 +353,15 @@ agent = AutonomousAgent(
    → VectorSearchManager.update_documents()
    ```
 
-4. **Преимущества инкрементальных обновлений:**
-   - Быстрее полной реиндексации (обрабатываются только измененные файлы)
-   - Меньше нагрузка на embedder
-   - Меньше использование памяти
-   - Лучшая отзывчивость системы
+4. **Benefits of incremental updates:**
+   - Faster than full reindex (only changed files)
+   - Less load on embedder
+   - Lower memory usage
+   - Better responsiveness
 
-## Конфигурация
+## Configuration
 
-### Environment Variables
+### Environment variables
 
 ```bash
 # Vector Search Enable
@@ -424,25 +411,22 @@ vector_search:
     top_k: 5
 ```
 
-## Зависимости
+## Dependencies
 
 ### Required
+- `loguru` — logging
+- `aiohttp` — HTTP client for bot ↔ MCP Hub
+- `pathlib` — path handling
 
-- `loguru` - Логирование
-- `aiohttp` - HTTP клиент для bot ↔ MCP Hub
-- `pathlib` - Работа с путями
+### Optional (vector search)
+- `sentence-transformers` — for sentence_transformers provider
+- `faiss-cpu` — for FAISS vector store
+- `qdrant-client` — for Qdrant vector store
+- `openai` — for OpenAI embeddings
 
-### Optional (для векторного поиска)
-
-- `sentence-transformers` - Для sentence_transformers provider
-- `faiss-cpu` - Для FAISS vector store
-- `qdrant-client` - Для Qdrant vector store
-- `openai` - Для OpenAI embeddings
-
-## Мониторинг и Логирование
+## Monitoring and logging
 
 ### Bot Container
-
 ```
 🔍 Checking vector search availability at http://mcp-hub:8765/health
 ✅ Vector search tools are available: vector_search
@@ -455,54 +439,19 @@ vector_search:
 ```
 
 ### MCP Hub
-
 ```
-🔍 Vector search is available and properly configured
-🚀 INITIALIZING VECTOR SEARCH MANAGER
-📁 KB Root: /app/knowledge_base
-🔄 Initializing vector search manager...
-✅ Vector search manager initialized successfully
-🔍 VECTOR_SEARCH called
-  Query: neural networks architecture
-  Top K: 5
-✅ Vector search successful: found 5 results
+🛠️ Starting MCP Hub server...
+✅ Vector search enabled: True
+✅ Embedding provider: sentence_transformers (all-MiniLM-L6-v2)
+✅ Vector store: faiss
+✅ Chunking: fixed_size_overlap (size=512, overlap=50)
+✅ Registered tools: vector_search, add_vector_documents, delete_vector_documents, update_vector_documents, reindex_vector
+✅ MCP Hub health: OK
 ```
 
-## Troubleshooting
+## AICODE-NOTE
+- Bot = decision-maker (WHEN)
+- MCP Hub = executor (WHAT)
+- Agent = consumer (uses tools)
 
-### Vector Search Not Available
-
-**Проблема:** MCP Hub не предоставляет vector search тулзы
-
-**Решение:**
-1. Проверьте `VECTOR_SEARCH_ENABLED=true`
-2. Проверьте зависимости:
-   ```bash
-   pip install sentence-transformers faiss-cpu
-   ```
-3. Проверьте логи MCP Hub на ошибки инициализации
-
-### No Changes Detected
-
-**Проблема:** Изменения в KB не обнаруживаются
-
-**Решение:**
-1. Проверьте права доступа к `data/vector_search_hashes.json`
-2. Проверьте логи мониторинга
-3. Вручную удалите файл хешей для полной переиндексации
-
-### Indexing Slow
-
-**Проблема:** Индексация занимает много времени
-
-**Решение:**
-1. Уменьшите `VECTOR_CHUNK_SIZE`
-2. Используйте менее ресурсоемкую модель embeddings
-3. Проверьте количество файлов в KB
-
-## См. также
-
-- [Vector Search Quickstart](../getting-started/vector-search-quickstart.md)
-- [MCP Architecture](./mcp-architecture.md)
-- [Agent Architecture](./agent-architecture.md)
-- [Deployment Guide](../deployment/overview.md)
+This split keeps vector search centralized, avoids duplication, and allows incremental updates driven by bot-detected changes.

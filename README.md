@@ -809,6 +809,8 @@ tg-note offers multiple deployment options to suit different needs and infrastru
 
 The project provides comprehensive Docker support with multiple deployment configurations:
 
+- Prefer the tested vector-search stack used in day-to-day runs: see the [recommended compose example](docs_site/deployment/docker-vector-search.md#recommended-configuration-tested-setup) based on `docker-compose.vector.my.yml` with Infinity + Qdrant + Docling + MCP Hub.
+
 #### Quick Start
 
 **Prerequisites:**

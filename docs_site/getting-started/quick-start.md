@@ -102,6 +102,9 @@ LOG_FILE: ./logs/bot.log
 ALLOWED_USER_IDS: ""
 ```
 
+!!! tip "Need a ready-to-use deployment?"
+    Use the tested vector-search + Docling stack: `docker-compose.vector.my.yml` with your `config.yaml`. Details and the diff from the base stack are in the [recommended configuration](../deployment/docker-vector-search.md#recommended-configuration-tested-setup).
+
 ---
 
 ## Running the Bot

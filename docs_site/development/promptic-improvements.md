@@ -195,7 +195,7 @@ class TestAgentPrompts(PromptTestCase):
 
     def test_note_mode_prompt_renders(self):
         prompt = self.render("note_mode", vars={"text": "Test"})
-        self.assertContains(prompt, "# Инструкция")
+        self.assertContains(prompt, "# Instruction")
         self.assertContains(prompt, "Test")
         self.assertNoUnresolvedVars(prompt)
 

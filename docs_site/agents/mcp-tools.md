@@ -22,10 +22,10 @@ The MCP Hub provides built-in tools that are dynamically available based on conf
 - Tools: `vector_search`
 - Requirements:
   - Configuration: `VECTOR_SEARCH_ENABLED: true` (default: false)
-  - Dependencies (зависит от `VECTOR_EMBEDDING_PROVIDER`):
-    - Для `sentence_transformers`: `pip install sentence-transformers`
-    - Для `openai` или `infinity`: локальные зависимости эмбеддинга НЕ требуются
-    - Для всех: хотя бы один vector store: `pip install faiss-cpu` ИЛИ `pip install qdrant-client`
+  - Dependencies (depends on `VECTOR_EMBEDDING_PROVIDER`):
+    - For `sentence_transformers`: `pip install sentence-transformers`
+    - For `openai` or `infinity`: no local embedding deps required
+    - For all providers: at least one vector store backend: `pip install faiss-cpu` OR `pip install qdrant-client`
 - Total: 2 tools when enabled
 
 **Possible Configurations:**

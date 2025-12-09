@@ -6,25 +6,25 @@ System for managing media descriptions and preventing duplicates.
 
 ## Overview
 
-The Media Metadata System solves several problems with image handling:
+The Media Metadata System solves several issues with image handling:
 
-1. **Large prompts**: OCR text from images was included in full in agent prompts
-2. **Duplicates**: Same images were inserted multiple times with different descriptions
-3. **GitHub rendering**: Image descriptions in `[alt text]` are not visible in GitHub
-4. **Confusion**: Agents sometimes mixed up which image was which
+1. **Large prompts:** OCR text was inlined into prompts
+2. **Duplicates:** Same images inserted multiple times with different descriptions
+3. **GitHub rendering:** Alt text is invisible; need visible descriptions
+4. **Disambiguation:** Agents sometimes mixed up which image was which
 
 ### Solution
 
-For each saved media asset (e.g., `img_1234567890_abc12345_coconut_chain.jpg`), the system creates two companion files:
+For each saved media asset (e.g., `img_1234567890_abc12345_coconut_chain.jpg`), two companion files are created:
 
-- `img_1234567890_abc12345_coconut_chain.md` - Human-readable description with OCR text
-- `img_1234567890_abc12345_coconut_chain.json` - Machine-readable settings and metadata
+- `img_1234567890_abc12345_coconut_chain.md` — human-readable description with OCR text
+- `img_1234567890_abc12345_coconut_chain.json` — machine-readable settings and metadata
 
 ---
 
-## How It Works
+## How it works
 
-### 1. Image Saved to KB
+### 1. Image saved to KB
 
 When a Telegram image is processed:
 
@@ -45,21 +45,21 @@ MediaMetadata.create_metadata_files(
 )
 ```
 
-### 1.1 Filename Structure
+### 1.1 Filename structure
 
-Every saved image filename now follows the pattern:
+Every saved image filename follows:
 
 ```
 img_<timestamp>_<telegram-id>_<ocr-slug>.jpg
 ```
 
-- `timestamp` — message timestamp (preserves chronological order)
+- `timestamp` — message timestamp (chronological order)
 - `telegram-id` — stable `file_unique_id` (or `file_id`/hash fallback) to guarantee uniqueness
-- `ocr-slug` — lower-case, underscore-separated keywords extracted from the first OCR sentence
+- `ocr-slug` — lower-case, underscore-separated keywords from the first OCR sentence
 
-This makes filenames both unique **and** meaningful for agents (e.g., `img_1763208338_agacagia_coconut_vs_reasoning.jpg`).
+This makes filenames both unique **and** meaningful (e.g., `img_1763208338_agacagia_coconut_vs_reasoning.jpg`).
 
-### 2. Metadata Files Created
+### 2. Metadata files created
 
 **img_1234567890_abc12345_coconut_chain.md:**
 ```markdown
@@ -94,24 +94,24 @@ When referencing this image in markdown:
 }
 ```
 
-### 3. Prompt Generation
+### 3. Prompt generation
 
 When ContentParser builds the prompt for the agent:
 
 **Old approach (problem):**
 ```
---- Содержимое файла: image.jpg (сохранено как: ../media/img_123_example.jpg) ---
+--- File content: image.jpg (saved as: ../media/img_123_example.jpg) ---
 [10KB of OCR text here]
 ```
 
 **New approach (solution):**
 ```
---- Изображение: image.jpg (сохранено как: ../media/img_123_example.jpg) ---
-Описание: [Brief 500 char summary of OCR]
-Полное описание доступно в: ../media/img_123_example.md
+--- Image: image.jpg (saved as: ../media/img_123_example.jpg) ---
+Description: [Brief 500 char summary of OCR]
+Full description available at: ../media/img_123_example.md
 ```
 
-### 4. Duplicate Detection
+### 4. Duplicate detection
 
 ContentParser tracks used images:
 
@@ -126,27 +126,27 @@ for file_data in file_contents:
 
 ---
 
-## Agent Instructions
+## Agent instructions
 
-The agent receives updated instructions in `template.ru.v2.md`:
+The agent receives updated instructions in `template.ru.v2.md`.
 
-### 1. Add Descriptions Twice
+### 1. Add descriptions twice
 
-**Problem:** GitHub doesn't render alt-text `[...]` in markdown images.
+**Problem:** GitHub does not render alt-text `[...]` for images.
 
-**Solution:** Add description both in alt-text AND as text below:
+**Solution:** Add description both in alt-text **and** as visible text below:
 
 ```markdown
 ![Brief description](../media/img_123_example.jpg)
 
-**Описание:** Full detailed description visible in GitHub...
+**Description:** Full detailed description visible in GitHub...
 ```
 
-### 2. No Duplicates
+### 2. No duplicates
 
 **Problem:** Same image inserted multiple times with different descriptions.
 
-**Solution:** Insert each unique image path ONLY ONCE:
+**Solution:** Insert each unique image path **once**:
 
 ```markdown
 <!-- BAD - duplicate! -->
@@ -156,16 +156,16 @@ The agent receives updated instructions in `template.ru.v2.md`:
 <!-- GOOD - single comprehensive description -->
 ![Complete description](../media/img_123_example.jpg)
 
-**Описание:** Image shows both:
+**Description:** Image shows both:
 - Aspect 1: ...
 - Aspect 2: ...
 ```
 
-### 3. No Broken Path Comments
+### 3. No "broken path" comments
 
 **Problem:** Agent added `<!-- TODO: Broken image path -->` even for valid paths.
 
-**Solution:** Paths are validated before saving. Don't add such comments:
+**Solution:** Paths are validated before saving. Do **not** add those comments:
 
 ```markdown
 <!-- BAD -->
@@ -175,172 +175,62 @@ The agent receives updated instructions in `template.ru.v2.md`:
 ![Diagram](../media/img_123_example.jpg)
 ```
 
-### 4. Read Metadata Files
+### 4. Read metadata files
 
 Agent can read `.md` files for full context:
 
 ```
-Prompt says: "Полное описание доступно в: ../media/img_123_example.md"
+Prompt says: "Full description available at: ../media/img_123_example.md"
 Agent can: read_file("KB/media/img_123_example.md")
 Result: Full OCR text and usage instructions
 ```
 
 ---
 
-## API Reference
+## API reference
 
-### MediaMetadata Class
+### MediaMetadata class
 
 #### `create_metadata_files()`
-
 Create `.md` and `.json` companion files for an image.
 
 ```python
 MediaMetadata.create_metadata_files(
     image_path=Path("media/img_123_example.jpg"),
-    ocr_text="Extracted text from image",
-    file_id="telegram_file_id",
-    timestamp=1234567890,
-    original_filename="user_photo.jpg",
-    file_hash="sha256_hash"
+    ocr_text="...",
+    file_id="abc",
+    timestamp=1700000000,
+    original_filename="image.jpg",
+    file_hash="...",
 )
 ```
 
-**Creates:**
-- `media/img_123_example.md` - Description with OCR text
-- `media/img_123_example.json` - Settings and metadata
+#### `get_image_description_summary()`
+Generate a short summary (first ~500 chars) from OCR text for the prompt.
 
-#### `read_metadata()`
+#### `load_metadata()` / `save_metadata()`
+Read/write `.json` metadata files.
 
-Read metadata for an image.
+### Prompt integration (ContentParser)
 
-```python
-metadata = MediaMetadata.read_metadata("img_123_example.jpg", media_dir)
-# Returns: {
-#   "description": "...",  # Content of .md file
-#   "settings": {...}      # Content of .json file
-# }
-```
-
-#### `get_media_description_summary()`
-
-Get brief summary for agent prompt (max 500 chars).
-
-```python
-summary = MediaMetadata.get_media_description_summary("img_123_example.jpg", media_dir)
-# Returns: "Brief OCR text..." (truncated to 500 chars)
-```
+1. Save media files and metadata via MediaMetadata
+2. When building prompt:
+   - Insert minimal filenames list (see Image Prompt Format doc)
+   - Provide link to `.md` with full description
+3. Avoid duplicates by tracking seen filenames
 
 ---
 
-## Benefits
+## Why this matters
 
-### 1. Shorter Prompts
-
-**Before:** 50KB prompt with full OCR text
-**After:** 5KB prompt with brief summaries
-
-### 2. No Duplicates
-
-ContentParser tracks and skips duplicate images automatically.
-
-### 3. Better GitHub Rendering
-
-Text descriptions below images are visible in GitHub.
-
-### 4. Agent Context
-
-Agent can read full `.md` files when needed for detailed context.
-
-### 5. Traceability
-
-`.json` files store metadata for debugging:
-- When image was received
-- Original filename
-- Telegram file_id
-- File hash (for deduplication)
+- **Smaller prompts:** OCR stays in `.md` files, not inline
+- **Better UX on GitHub:** Visible descriptions below images
+- **Fewer mistakes:** Clear mapping between filename and description; duplicates avoided
+- **Traceability:** `.json` keeps hashes and IDs for troubleshooting
 
 ---
 
-## File Structure Example
-
-```
-knowledge_bases/my-notes/
-├── media/
-│   ├── img_1234567890_abc12345_coconut_chain.jpg      # Image file
-│   ├── img_1234567890_abc12345_coconut_chain.md       # Description (human-readable)
-│   ├── img_1234567890_abc12345_coconut_chain.json     # Settings (machine-readable)
-│   ├── img_1234567891_def67890_reasoning_map.jpg
-│   ├── img_1234567891_def67890_reasoning_map.md
-│   └── img_1234567891_def67890_reasoning_map.json
-└── topics/
-    └── architecture/
-        └── system-design.md              # References images
-```
-
-**In system-design.md:**
-```markdown
-# System Design
-
-Our architecture consists of three layers:
-
-![System architecture diagram showing frontend, API, and database layers](../../media/img_1234567890_abc12345_coconut_chain.jpg)
-
-**Описание:** The diagram illustrates:
-- Frontend layer with React components
-- API layer with FastAPI endpoints
-- Database layer with PostgreSQL and Redis
-```
-
----
-
-## Testing
-
-Run tests:
-
-```bash
-pytest tests/test_media_metadata.py -v
-```
-
-**Test coverage:**
-- Metadata file creation
-- Reading metadata
-- Summary generation
-- Multiple images
-- Missing OCR handling
-
----
-
-## Migration
-
-Existing images without metadata files will continue to work:
-- ContentParser falls back to old format
-- No breaking changes
-
-To add metadata to existing images:
-
-```python
-from pathlib import Path
-from src.processor.media_metadata import MediaMetadata
-
-    media_dir = Path("knowledge_bases/my-notes/media")
-    for img in media_dir.glob("img_*.jpg"):
-        if not Path(str(img.with_suffix("")) + ".md").exists():
-            # Create metadata with empty OCR
-            MediaMetadata.create_metadata_files(
-                image_path=img,
-                ocr_text="",
-                file_id="",
-                timestamp=0,
-                original_filename=img.name,
-                file_hash=""
-            )
-```
-
----
-
-## See Also
-
-- [Image Embedding](image-embedding.md) - Original image handling system
-- [File Format Recognition](../user-guide/file-format-recognition.md) - Docling OCR integration
-- [Qwen CLI Agent](../agents/qwen-code-cli.md) - Agent that uses media metadata
+## AICODE-NOTE
+- Companion files (`.md` + `.json`) are created for every media asset.
+- Prompts stay short; agents read metadata when needed.
+- Duplicate insertion is prevented via in-memory tracking.

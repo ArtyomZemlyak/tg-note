@@ -1,62 +1,62 @@
 # Image Prompt Format
 
-How images are now presented to the agent in the prompt.
+How images are presented to the agent in the prompt.
 
 ---
 
-## New Format (Simplified)
+## New format (simplified)
 
-### Before (Old, Verbose)
+### Before (old, verbose)
 
 ```
-Пользователь: Вот диаграммы архитектуры
+User: Here are the architecture diagrams
 
---- Изображение: image.jpg (сохранено как: ../media/img_1234567890_abc12345_coconut_chain.jpg) ---
-Описание: Diagram showing three main components: Frontend (React), API (FastAPI), and Database (PostgreSQL). The frontend communicates with the API via REST endpoints. The API connects to the database using SQLAlchemy ORM. There's also a Redis cache layer between the API and database for performance optimization. The architecture follows microservices pattern with...
-Полное описание доступно в: ../media/img_1234567890_abc12345_coconut_chain.md
+--- Image: image.jpg (saved as: ../media/img_1234567890_abc12345_coconut_chain.jpg) ---
+Description: Diagram showing three main components: Frontend (React), API (FastAPI), and Database (PostgreSQL). The frontend communicates with the API via REST endpoints. The API connects to the database using SQLAlchemy ORM. There's also a Redis cache layer between the API and database for performance optimization. The architecture follows microservices pattern with...
+Full description: ../media/img_1234567890_abc12345_coconut_chain.md
 
---- Изображение: image2.jpg (сохранено как: ../media/img_1234567891_def67890_kubernetes.jpg) ---
-Описание: Deployment diagram showing Kubernetes cluster with three environments: development, staging, and production. Each environment has separate namespaces. The production namespace contains 5 replicas of the API service, 3 replicas of the worker service, and...
-Полное описание доступно в: ../media/img_1234567891_def67890_kubernetes.md
+--- Image: image2.jpg (saved as: ../media/img_1234567891_def67890_kubernetes.jpg) ---
+Description: Deployment diagram showing Kubernetes cluster with three environments: development, staging, and production. Each environment has separate namespaces. The production namespace contains 5 replicas of the API service, 3 replicas of the worker service, and...
+Full description: ../media/img_1234567891_def67890_kubernetes.md
 ```
 
 **Problems:**
 - Very long prompt (hundreds of chars per image)
-- Duplicate descriptions (in OCR + in summary)
-- Agent might not read .md files
+- Duplicate descriptions (OCR + summary)
+- Agent might ignore the `.md` files
 
-### After (New, Clean)
+### After (new, clean)
 
 ```
-Пользователь: Вот диаграммы архитектуры
+User: Here are the architecture diagrams
 
-Медиафайлы:
-лежат в media/
+Media files:
+located in media/
 img_1234567890_abc12345_coconut_chain.jpg
 img_1234567891_def67890_kubernetes.jpg
 ```
 
 **Benefits:**
-- Minimal prompt size (just filenames!)
-- Agent MUST read .md files to understand images
-- No duplicates in prompt
+- Minimal prompt size (just filenames)
+- Agent MUST read `.md` files to understand images
+- No duplicates in the prompt
 - Clean and simple
 
 ---
 
-## How Agent Uses Images
+## How the agent uses images
 
-### Step 1: See Media List
+### Step 1: See media list
 
 Agent receives:
 ```
-Медиафайлы:
-лежат в media/
+Media files:
+located in media/
 img_1234567890_abc12345_coconut_chain.jpg
 img_1234567891_def67890_kubernetes.jpg
 ```
 
-### Step 2: Read Metadata Files
+### Step 2: Read metadata files
 
 Agent can read descriptions:
 
@@ -98,12 +98,13 @@ Example:
 ```markdown
 ![System architecture diagram](../media/img_1234567890_abc12345_coconut_chain.jpg)
 
-**Описание:** Diagram shows microservices architecture with...
+**Description:** Diagram shows microservices architecture with...
+```
 ```
 
-### Step 3: Insert in Markdown
+### Step 3: Insert into markdown
 
-Agent creates note:
+Agent creates a note:
 
 ```markdown
 # System Architecture - 2024-01-15
@@ -112,11 +113,11 @@ Our new architecture consists of three main layers.
 
 ![Microservices architecture with API Gateway and multiple services](../media/img_1234567890_abc12345_coconut_chain.jpg)
 
-**Описание:** The diagram illustrates a microservices architecture where:
+**Description:** The diagram illustrates a microservices architecture where:
 - Frontend communicates through API Gateway
 - Three core services: Auth, User, and Payment
 - PostgreSQL handles persistent storage
-- Redis provides caching layer
+- Redis provides caching
 
 ## Deployment Strategy
 
@@ -124,7 +125,7 @@ The deployment uses Kubernetes for orchestration.
 
 ![Kubernetes deployment diagram with three environments](../media/img_1234567891_def67890_kubernetes.jpg)
 
-**Описание:** Deployment structure showing:
+**Description:** Deployment structure showing:
 - Separate namespaces for dev/staging/prod
 - Production runs 5 API replicas
 - Automatic scaling based on CPU usage
@@ -132,66 +133,64 @@ The deployment uses Kubernetes for orchestration.
 
 ---
 
-## Prompt Size Comparison
+## Prompt size comparison
 
 ### Example: 3 images with OCR text
 
 **Old format:**
 ```
 Image 1: 500 chars description
-Image 2: 450 chars description  
+Image 2: 450 chars description
 Image 3: 600 chars description
 Total: ~1550 chars
 ```
 
 **New format:**
 ```
-Медиафайлы:
-лежат в media/
+Media files:
+located in media/
 img_001.jpg
 img_002.jpg
 img_003.jpg
 Total: ~60 chars
 ```
 
-**Savings: 96% reduction in prompt size!**
+**Savings: ~96% reduction in prompt size.**
 
 ---
 
-## Agent Instructions
+## Agent instructions
 
-From `template.ru.v2.md`:
+From `template.ru.v2.md` (now interpreted in English):
 
 ```markdown
-## Формат списка изображений
+## Image list format
 
-Если во "Входящей информации" есть раздел "Медиафайлы:",
-значит к сообщению прикреплены изображения:
+If the "Incoming information" section contains "Media files:",
+it means images are attached to the message:
 
-Медиафайлы:
-лежат в media/
+Media files:
+located in media/
 img_1234567890_abc12345_coconut_chain.jpg
 
-**Что делать:**
-1. Для каждого изображения (например, `img_123_slug.jpg`)
-   существует файл описания `img_123_slug.md` в той же папке `media/`
-2. Ты можешь прочитать этот файл чтобы узнать что на изображении
-   (там есть OCR текст)
-3. Используй изображения в создаваемых markdown файлах
+**What to do:**
+1. For each image (e.g., `img_123_slug.jpg`) there is a description file `img_123_slug.md` in the same `media/` folder.
+2. Read that file to understand the image (OCR text is there).
+3. Use the images in generated markdown files.
 ```
 
 ---
 
-## Implementation Details
+## Implementation details
 
-### ContentParser Changes
+### ContentParser changes
 
 ```python
 # Old approach
 for file_data in file_contents:
     if "saved_filename" in file_data:
         summary = MediaMetadata.get_image_description_summary(...)
-        file_texts.append(f"Описание: {summary}\n...")
+        file_texts.append(f"Description: {summary}\n...")
 
 # New approach
 image_filenames = []
@@ -199,114 +198,22 @@ for file_data in file_contents:
     if "saved_filename" in file_data:
         image_filenames.append(file_data["saved_filename"])
 
-# Simple list output
+# Add short block if images exist
 if image_filenames:
-    result["text"] += "\n\nМедиафайлы:\nлежат в media/\n"
-    result["text"] += "\n".join(image_filenames)
+    file_texts.append("""
+Media files:
+stored in media/
+{joined_filenames}
+""")
 ```
 
-### Duplicate Prevention
+### Why keep a short filename block?
 
-```python
-seen_images = set()
-for file_data in file_contents:
-    saved_filename = file_data["saved_filename"]
-
-    # Skip duplicates
-    if saved_filename in seen_images:
-        logger.info(f"Skipping duplicate: {saved_filename}")
-        continue
-
-    seen_images.add(saved_filename)
-    image_filenames.append(saved_filename)
-```
+The prompt includes only a minimal filename list (`Media files: stored in media/ ...`). If you change the wording, keep it concise so the agent always reads the accompanying `.md` files for details.
 
 ---
 
-## Benefits Summary
-
-| Aspect | Old | New | Improvement |
-|--------|-----|-----|-------------|
-| Prompt size | ~500 chars/image | ~20 chars/image | 96% smaller |
-| Agent action | Passive (reads summary) | Active (must read .md) | Forces engagement |
-| Duplicates | Possible in different descriptions | Prevented by `seen_images` | 100% prevented |
-| GitHub rendering | Alt-text invisible | Text below image visible | Better UX |
-| Maintenance | Descriptions in prompt | Descriptions in files | Easier to update |
-
----
-
-## Migration Path
-
-1. **No breaking changes**: Existing images without .md files still work
-2. **Gradual adoption**: New images get .md files automatically
-3. **Backward compatible**: Agent falls back to old format if .md missing
-
----
-
-## Examples
-
-### Single Image
-
-**Prompt:**
-```
-Пользователь: Вот скриншот ошибки
-
-Медиафайлы:
-лежат в media/
-img_1705334567_abc123.jpg
-```
-
-**Agent reads:** `../media/img_1705334567_abc123_error_traceback.md`
-
-**Agent creates:**
-```markdown
-# Production Error - 2024-01-15
-
-![Error traceback showing ConnectionTimeout](../media/img_1705334567_abc123_error_traceback.jpg)
-
-**Описание:** Screenshot shows Redis connection timeout error in production...
-```
-
-### Multiple Images
-
-**Prompt:**
-```
-Пользователь: Три диаграммы для документации
-
-Медиафайлы:
-лежат в media/
-img_001_overview.jpg
-img_002_data_flow.jpg
-img_003_deployment.jpg
-```
-
-**Agent creates:**
-```markdown
-# Architecture Documentation
-
-## Overview
-
-![System overview diagram](../media/img_001_overview.jpg)
-
-**Описание:** High-level view of the system...
-
-## Data Flow
-
-![Data flow between components](../media/img_002_data_flow.jpg)
-
-**Описание:** Shows how data moves through the system...
-
-## Deployment
-
-![Kubernetes deployment structure](../media/img_003_deployment.jpg)
-
-**Описание:** Production deployment configuration...
-```
-
----
-
-## See Also
-
-- [Media Metadata System](media-metadata-system.md) - How .md and .json files work
-- [Image Embedding](image-embedding.md) - Original image handling system
-- [Qwen CLI Agent](../agents/qwen-code-cli.md) - Agent configuration
+## AICODE-NOTE
+- Goal: minimize prompt size and force the agent to read `.md` descriptions for images.
+- Only filenames go into the prompt; full OCR/summary lives in the `.md` files.
+- Works with existing media processing pipeline and markdown generation.

@@ -1,47 +1,47 @@
 # Link Validation Before Git Commit
 
-Автоматическая проверка и исправление ссылок в markdown файлах перед git commit.
+Automatic validation and fixing of links in markdown files before each git commit.
 
 ---
 
 ## Overview
 
-Перед каждым git commit система автоматически:
-1. **Проверяет** пути к изображениям и внутренние ссылки в markdown
-2. **Исправляет** неправильные пути (вычисляет корректные `../`)
-3. **Добавляет** `<!-- TODO -->` комментарии если не может исправить автоматически
+Before every git commit the system automatically:
+1. **Validates** image paths and internal markdown links
+2. **Fixes** incorrect paths (computes correct `../` prefixes)
+3. **Adds** `<!-- TODO -->` comments when auto-fix is impossible
 
-Это предотвращает попадание битых ссылок в базу знаний.
+This prevents broken links from landing in the knowledge base.
 
 ---
 
-## Что проверяется
+## What is validated
 
-### 1. Пути к изображениям
+### 1. Image paths
 
 ```markdown
-![Chart](media/chart.jpg)  <!-- ❌ Неправильно из topics/ -->
+![Chart](media/chart.jpg)  <!-- ❌ wrong when used from topics/ -->
 ```
 
 **Auto-fix →**
 
 ```markdown
-![Chart](../media/chart.jpg)  <!-- ✅ Исправлено -->
+![Chart](../media/chart.jpg)  <!-- ✅ fixed -->
 ```
 
-### 2. Внутренние ссылки на страницы
+### 2. Internal page links
 
 ```markdown
-[Page 1](page1.md)  <!-- ❌ Файл в другой папке -->
+[Page 1](page1.md)  <!-- ❌ file is in another folder -->
 ```
 
 **Auto-fix →**
 
 ```markdown
-[Page 1](topics/page1.md)  <!-- ✅ Исправлено -->
+[Page 1](topics/page1.md)  <!-- ✅ fixed -->
 ```
 
-### 3. TODO комментарии если не удалось исправить
+### 3. TODO comments when unresolved
 
 ```markdown
 ![Missing](media/missing.jpg) <!-- TODO: Broken image path -->
@@ -50,73 +50,73 @@
 
 ---
 
-## Как это работает
+## How it works
 
-### Автоматически при commit
+### Automatically on commit
 
 ```
-Agent создает/редактирует markdown
+Agent creates/edits markdown
        ↓
-Changes staged в git
+Changes staged in git
        ↓
-_auto_commit_and_push() вызывается
+_auto_commit_and_push() is called
        ↓
-📋 Валидация и авто-фикс ссылок  ← ЗДЕСЬ!
+📋 Link validation and auto-fix  ← HERE
        ↓
 Git commit
        ↓
 Git push
 ```
 
-### Код интеграции
+### Integration code
 
 ```python
 # base_kb_service.py - line ~213
 async def _auto_commit_and_push(...):
-    # ПЕРЕД коммитом:
+    # BEFORE commit:
     validation_result = await self._validate_and_fix_markdown_links(kb_path)
 
     if validation_result.has_changes():
         logger.info(f"Fixed {validation_result.images_fixed} images")
 
-    # ЗАТЕМ коммит
+    # THEN commit
     git_ops.auto_commit_and_push(...)
 ```
 
 ---
 
-## Auto-fix стратегии
+## Auto-fix strategies
 
-### 1. Вычисление `../` уровней
+### 1. Calculating `../` levels
 
 ```python
-# Файл: KB/topics/subfolder/note.md
-# Изображение: KB/media/chart.jpg
+# File: KB/topics/subfolder/note.md
+# Image: KB/media/chart.jpg
 
-# Нужно подняться на 2 уровня:
+# Need to go up 2 levels:
 ../../media/chart.jpg
 ```
 
-Fixer автоматически вычисляет количество `../`.
+The fixer computes the correct number of `../` segments automatically.
 
-### 2. Поиск файла по имени
+### 2. Search file by name
 
-Если путь неправильный, но файл существует:
+If the path is wrong but the file exists:
 
 ```markdown
-<!-- Текущий путь -->
+<!-- Current path -->
 ![Chart](wrong/path/chart.jpg)
 
-<!-- Fixer находит файл -->
+<!-- Fixer finds the file -->
 KB/media/chart.jpg exists!
 
-<!-- Вычисляет правильный путь -->
+<!-- Computes correct path -->
 ![Chart](../media/chart.jpg)
 ```
 
-### 3. TODO если не найден
+### 3. TODO when not found
 
-Файл не существует → добавляется TODO:
+File does not exist → add TODO:
 
 ```markdown
 ![Chart](media/missing.jpg) <!-- TODO: Broken image path -->
@@ -124,19 +124,19 @@ KB/media/chart.jpg exists!
 
 ---
 
-## Что НЕ проверяется
+## What is NOT validated
 
-❌ HTTP/HTTPS URLs (внешние ссылки)  
-❌ Якоря (#section) внутри той же страницы  
-❌ mailto: ссылки  
-❌ Содержимое изображений  
-❌ Размеры изображений  
+❌ HTTP/HTTPS URLs (external)  
+❌ Anchors (#section) in the same page  
+❌ `mailto:` links  
+❌ Image content  
+❌ Image sizes  
 
 ---
 
-## Логирование
+## Logging
 
-### Успешное исправление
+### Successful fix
 
 ```
 [INFO] Validating and fixing links in 3 changed markdown files...
@@ -144,7 +144,7 @@ KB/media/chart.jpg exists!
 [INFO] ✓ Fixed links: Files fixed: 2, Images fixed: 3, Links fixed: 1
 ```
 
-### Не удалось исправить
+### Could not fix
 
 ```
 [WARNING] Can't fix link: missing.md in note.md
@@ -152,42 +152,42 @@ KB/media/chart.jpg exists!
            TODO comments added: 1 images, 2 links
 ```
 
-### В Telegram
+### Telegram UX
 
-Пользователь увидит:
+User sees:
 
 ```
-📤 Сохраняю изменения в git...
-⚠️ Некоторые ссылки требуют ручного исправления
+📤 Saving changes to git...
+⚠️ Some links need manual fixing
 ```
 
 ---
 
-## Производительность
+## Performance
 
-### Оптимизация: проверка только измененных файлов
+### Optimization: only changed files
 
 ```python
-# Не проверяем ВСЕ markdown файлы в KB
-# Проверяем только измененные согласно git status
+# Do NOT scan every markdown file in the KB
+# Only check files reported by git status
 
 changed_files = git_ops.repo.index.diff(None)  # Modified
 + git_ops.repo.untracked_files  # New files
 ```
 
-**Результат:** Быстрая проверка даже в больших KB (1000+ файлов).
+**Result:** fast validation even for large KBs (1000+ files).
 
 ---
 
-## Тестирование
+## Testing
 
-### Запуск тестов
+### Run tests
 
 ```bash
-# Тесты валидатора markdown ссылок
+# Markdown link validator tests
 python3 -m pytest tests/test_markdown_link_fixer.py -v
 
-# Все 11 тестов должны пройти:
+# All 11 tests should pass:
 # ✓ fix_incorrect_image_path
 # ✓ fix_missing_image_add_todo
 # ✓ fix_markdown_link_path
@@ -198,158 +198,33 @@ python3 -m pytest tests/test_markdown_link_fixer.py -v
 # ✓ dry_run_mode
 # ✓ validate_kb_with_changed_files
 # ✓ case_insensitive_extension
-# ✓ no_duplicate_todo_comments
 ```
 
-### Тестовые сценарии
+### Add new tests
 
-| Тест | Что проверяет |
-|------|---------------|
-| `fix_incorrect_image_path` | Исправление `media/x.jpg` → `../media/x.jpg` |
-| `fix_missing_image_add_todo` | Добавление TODO для отсутствующего файла |
-| `fix_markdown_link_from_root_to_topics` | Исправление ссылок между директориями |
-| `skip_http_urls` | Игнорирование внешних URL |
-| `preserve_anchor_in_links` | Сохранение `#anchor` при исправлении |
-| `dry_run_mode` | Тестирование без записи изменений |
+1. Add cases to `tests/test_markdown_link_fixer.py`
+2. Cover edge cases: nested folders, anchors, mixed images+links
 
 ---
 
-## Архитектура
+## Edge cases and notes
 
-```
-src/processor/
-├── markdown_link_fixer.py
-│   ├── MarkdownLinkFixer          # Основной класс
-│   │   ├── validate_and_fix_file()       # Исправить один файл
-│   │   ├── validate_and_fix_kb()         # Исправить KB
-│   │   ├── _fix_image_paths()            # Исправление ![](path)
-│   │   ├── _fix_markdown_links()         # Исправление [](path.md)
-│   │   ├── _try_fix_image_path()         # Auto-fix логика
-│   │   └── _try_fix_markdown_link()      # Auto-fix логика
-│   └── LinkValidationResult        # Результат валидации
-│
-src/services/
-└── base_kb_service.py
-    ├── _auto_commit_and_push()            # ← Вызывает валидацию
-    ├── _validate_and_fix_markdown_links() # Основной метод
-    └── _get_changed_markdown_files()      # Получить измененные файлы
-```
+- Relative paths are computed against the markdown file location.
+- If multiple files have the same name, the fixer chooses the closest path (shortest `../`).
+- If a file is missing, we add TODO instead of failing the commit.
+- External URLs are ignored deliberately.
+- Anchors within the same page are ignored; cross-page anchors are treated as links to the page only.
 
 ---
 
-## Примеры
+## Implementation references
 
-### Пример 1: Агент создал файл с неправильными путями
-
-**Агент создает:**
-
-```markdown
-<!-- KB/topics/guide.md -->
-# Guide
-
-![Chart](media/chart.jpg)
-![Diagram](../media/diagram.png)
-
-See also:
-- [Page 1](page1.md)
-- [Page 2](../topics/page2.md)
-```
-
-**Перед коммитом автоматически исправляется:**
-
-```markdown
-<!-- KB/topics/guide.md -->
-# Guide
-
-![Chart](../media/chart.jpg)         ← Исправлено
-![Diagram](../media/diagram.png)     ← Уже правильно
-
-See also:
-- [Page 1](page1.md)                  ← TODO добавлен
-- [Page 2](page2.md)                  ← Исправлено
-```
-
-**Лог:**
-
-```
-[INFO] Validating and fixing links in 1 changed markdown files...
-[DEBUG] Fixed image: media/chart.jpg → ../media/chart.jpg
-[DEBUG] Fixed link: ../topics/page2.md → page2.md
-[WARNING] Can't fix link: page1.md in guide.md
-[INFO] ✓ Fixed links: Files fixed: 1, Images fixed: 1, Links fixed: 1
-[WARNING] ⚠️ Some links could not be fixed automatically.
-           TODO comments added: 0 images, 1 links
-```
-
-### Пример 2: Все пути правильные
-
-**Файл уже корректный:**
-
-```markdown
-<!-- KB/topics/note.md -->
-![Chart](../media/chart.jpg)  ← Правильно
-[Link](page1.md)  ← Существует в той же папке
-```
-
-**Результат:**
-
-```
-[DEBUG] No markdown files changed, skipping link validation
-```
-
-Коммит происходит без изменений.
+- `src/knowledge_base/markdown_link_fixer.py`
+- `tests/test_markdown_link_fixer.py`
 
 ---
 
-## Конфигурация
-
-### Отключить валидацию (не рекомендуется)
-
-Если нужно отключить, закомментируйте в `base_kb_service.py`:
-
-```python
-async def _auto_commit_and_push(...):
-    # Закомментировать:
-    # validation_result = await self._validate_and_fix_markdown_links(kb_path)
-
-    # Коммит без валидации
-    git_ops.auto_commit_and_push(...)
-```
-
----
-
-## Troubleshooting
-
-### Слишком много TODO комментариев
-
-**Проблема:** Fixer не может найти файлы и добавляет TODO.
-
-**Решение:**
-1. Проверьте структуру KB - файлы должны быть в `media/` и `topics/`
-2. Проверьте имена файлов - они должны совпадать с ссылками
-3. Вручную исправьте первый файл, затем используйте его как образец
-
-### Fixer исправляет правильные пути
-
-**Проблема:** Пути работали, но fixer их меняет.
-
-**Решение:**
-1. Проверьте что файлы действительно существуют
-2. Используйте относительные пути от текущего файла
-3. Проверьте что изображения в `KB/media/`, а не где-то еще
-
-### Очень медленная валидация
-
-**Проблема:** Валидация занимает много времени.
-
-**Причина:** Git не включен и проверяются ВСЕ markdown файлы.
-
-**Решение:** Включите git, чтобы проверялись только измененные файлы.
-
----
-
-## См. также
-
-- [Image Validation](image-validation.md) - Валидация путей к изображениям перед отправкой в Docling
-- [Git Operations](../reference/git-operations.md) - Git операции
-- [Agent Tools](../agents/tools.md) - Инструменты агента
+## AICODE-NOTE
+- Purpose: keep KB links healthy before commit.
+- Auto-fix when possible; otherwise leave a clear TODO.
+- Scope-limited to changed files to remain fast.

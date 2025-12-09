@@ -72,10 +72,13 @@ site/
 
 # Logs
 logs/*.log
+logs/*.zip
+logs/docling/
+logs/mcp_hub.*.zip
 *.log
 
 # Knowledge Base (if managed separately)
-# knowledge_base/
+knowledge_base/
 
 # Testing
 .pytest_cache/

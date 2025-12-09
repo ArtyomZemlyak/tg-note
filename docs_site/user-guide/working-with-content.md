@@ -123,8 +123,8 @@ knowledge_base/
 
 ## Connections and Summaries
 
-- После обработки появляется секция «Связанные сущности», где можно увидеть файлы, папки и конкретные фрагменты, связанные с результатом.
-- Новые материалы из текущего запуска автоматически исключаются, поэтому раздел показывает только уже существующие элементы базы знаний.
-- Поддерживаются агрегированные связи (`granularity: summary`) — одна запись может ссылаться сразу на несколько файлов или целую папку. Для точечных ссылок используйте `granularity: detailed` и добавляйте `file` + `anchor`.
-- Каждая запись сопровождается чётким описанием связи (1–2 предложения), чтобы быстро понять, зачем этот объект важен.
-- В секции с изменениями по-прежнему отображаются GitHub-ссылки, если база знаний подключена к репозиторию.
+- After processing you will see a **Related entities** section showing files, folders, and specific fragments connected to the result.
+- New artifacts from the current run are filtered out, so the section shows only existing KB elements.
+- Aggregated links are supported (`granularity: summary`) — one entry can reference several files or a whole folder. For precise links use `granularity: detailed` and include `file` + `anchor`.
+- Each entry must include a clear description of the relationship (1–2 sentences) to explain why the object matters.
+- The changes section still shows GitHub links when the KB is connected to a repository.
