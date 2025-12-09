@@ -11,6 +11,7 @@ import pytest
 from src.agents.base_agent import KBStructure
 from src.agents.qwen_code_cli_agent import QwenCodeCLIAgent
 from src.knowledge_base.manager import KnowledgeBaseManager
+
 # PromptRegistry removed - using promptic directly now
 
 
@@ -292,7 +293,9 @@ class TestIntegratedErrorHandling:
     @pytest.mark.asyncio
     async def test_end_to_end_with_minimal_cli_output(self, agent, kb_manager):
         """Test full workflow when CLI returns minimal output"""
-        content = {"text": "Test about machine learning"}
+        text = "Test about machine learning"
+        prompt = f"{QwenCodeCLIAgent.get_default_instruction()}\n\n" f"## Text Content\n{text}\n"
+        content = {"text": text, "prompt": prompt}
 
         # Mock CLI to return minimal result with valid markdown content
         # ResponseFormatter needs content that will produce non-empty HTML
@@ -332,7 +335,9 @@ Some content about ML
     @pytest.mark.asyncio
     async def test_end_to_end_with_empty_cli_output(self, agent, kb_manager):
         """Test full workflow when CLI returns empty - should use fallback"""
-        content = {"text": "Test about AI and neural networks"}
+        text = "Test about AI and neural networks"
+        prompt = f"{QwenCodeCLIAgent.get_default_instruction()}\n\n" f"## Text Content\n{text}\n"
+        content = {"text": text, "prompt": prompt}
 
         # Mock CLI to return empty, which triggers fallback
         # The fallback processing produces markdown that ResponseFormatter can parse

@@ -140,7 +140,10 @@ class QuestionAnsweringService(BaseKBService, IQuestionAnsweringService):
 
             response_timestamp = int(time.time())
             self.user_context_manager.add_assistant_message_to_context(
-                user_id, primary_processing_id, processed_content.get("markdown"), response_timestamp
+                user_id,
+                primary_processing_id,
+                processed_content.get("markdown"),
+                response_timestamp,
             )
 
             # Send success notification

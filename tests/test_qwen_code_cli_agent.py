@@ -32,12 +32,19 @@ class TestQwenCodeCLIAgent:
     @pytest.fixture
     def sample_content(self):
         """Sample content for testing"""
-        return {
-            "text": "This is a test about machine learning and AI. "
-            "Neural networks are powerful tools for deep learning.",
-            "urls": ["https://example.com/article"],
-            "metadata": {},
-        }
+        text = (
+            "This is a test about machine learning and AI. "
+            "Neural networks are powerful tools for deep learning."
+        )
+        urls = ["https://example.com/article"]
+        prompt = (
+            f"{QwenCodeCLIAgent.get_default_instruction()}\n\n"
+            f"## Text Content\n{text}\n"
+            f"## URLs\n- {urls[0]}\n"
+            "```"
+        )
+
+        return {"text": text, "urls": urls, "metadata": {}, "prompt": prompt}
 
     def test_initialization(self, agent):
         """Test agent initialization"""
@@ -93,18 +100,18 @@ class TestQwenCodeCLIAgent:
         assert agent.instruction in prompt
 
     def test_promptic_returns_latest_version(self):
-        """Promptic returns latest version (v4) when version='latest' is specified"""
+        """Promptic returns latest version (v5) when version='latest' is specified"""
         prompts_dir = Path(__file__).parent.parent / "config" / "prompts"
-        text = render(str(prompts_dir / "qwen_code_cli"), version="latest")
-        assert isinstance(text, str) and len(text) > 0
-        # Verify it's actually the v4 version by checking content length
-        # v4 is the longest version with most complete instructions
-        v4_text = (prompts_dir / "qwen_code_cli" / "instruction_v4.md").read_text()
-        assert text == v4_text, "render with 'latest' should return v4 version"
+        latest = render(str(prompts_dir / "qwen_code_cli"), version="latest")
+        v5_text = render(str(prompts_dir / "qwen_code_cli"), version="v5")
+        assert isinstance(latest, str) and len(latest) > 0
+        assert latest == v5_text, "render with 'latest' should return v5 version"
+        assert "Работа с медиафайлами" in latest
 
     def test_prepare_prompt_no_urls(self, agent):
         """Test prompt preparation without URLs"""
-        content = {"text": "Simple text"}
+        prompt_text = f"{agent.instruction}\n\n## Text Content\nSimple text\n"
+        content = {"text": "Simple text", "prompt": prompt_text}
         prompt = agent._prepare_prompt(content)
 
         assert "Simple text" in prompt

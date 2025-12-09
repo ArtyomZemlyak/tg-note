@@ -63,23 +63,27 @@ class TestPrompticVersioning:
         """Test versioning with actual project prompts directory."""
         prompts_dir = Path(__file__).parent.parent / "config" / "prompts"
 
-        # Test qwen_code_cli - should have v4 as latest
-        qwen_content = render(str(prompts_dir / "qwen_code_cli"), version="latest")
-        v4_file = prompts_dir / "qwen_code_cli" / "instruction_v4.md"
-        assert v4_file.exists(), "instruction_v4.md should exist"
-        assert qwen_content == v4_file.read_text()
+        # Test qwen_code_cli - latest should resolve to v5
+        qwen_content_latest = render(str(prompts_dir / "qwen_code_cli"), version="latest")
+        qwen_content_v5 = render(str(prompts_dir / "qwen_code_cli"), version="v5")
+        v5_file = prompts_dir / "qwen_code_cli" / "instruction_v5.md"
+        assert v5_file.exists(), "instruction_v5.md should exist"
+        assert qwen_content_latest == qwen_content_v5
+        assert "Работа с медиафайлами" in qwen_content_latest
 
-        # Test autonomous_agent - should have v3 as latest
-        auto_content = render(str(prompts_dir / "autonomous_agent"), version="latest")
+        # Test autonomous_agent - latest should resolve to v3
+        auto_latest = render(str(prompts_dir / "autonomous_agent"), version="latest")
+        auto_v3 = render(str(prompts_dir / "autonomous_agent"), version="v3")
         v3_file = prompts_dir / "autonomous_agent" / "instruction_v3.md"
         assert v3_file.exists(), "instruction_v3.md should exist"
-        assert auto_content == v3_file.read_text()
+        assert auto_latest == auto_v3
 
-        # Test content_processing - should have v2 as latest
-        content_proc = render(str(prompts_dir / "content_processing"), version="latest")
+        # Test content_processing - latest should resolve to v2
+        content_latest = render(str(prompts_dir / "content_processing"), version="latest")
+        content_v2 = render(str(prompts_dir / "content_processing"), version="v2")
         v2_file = prompts_dir / "content_processing" / "template_v2.md"
         assert v2_file.exists(), "template_v2.md should exist"
-        assert content_proc == v2_file.read_text()
+        assert content_latest == content_v2
 
     def test_naming_convention_underscore_v_required(self, tmp_path):
         """Promptic requires _vX naming convention (not .vX)."""
