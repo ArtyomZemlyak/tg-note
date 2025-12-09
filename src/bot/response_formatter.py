@@ -136,7 +136,7 @@ class SummaryField(BaseField):
     def __init__(self):
         super().__init__(
             "summary",
-            "Краткое описание о чем была работа (если идет разбор информации), или что было сделано (если была задача специальная)."
+            "Краткое описание о чем была работа (если идет разбор информации), или что было сделано (если была задача специальная).",
         )
 
 
@@ -146,7 +146,7 @@ class AnswerField(BaseField):
     def __init__(self):
         super().__init__(
             "answer",
-            'Ответ на вопрос пользователя, если это был вопросный запрос. Поле "answer" заполняй только если пользователь задал вопрос. '
+            'Ответ на вопрос пользователя, если это был вопросный запрос. Поле "answer" заполняй только если пользователь задал вопрос. ',
         )
 
 
@@ -859,10 +859,9 @@ class ResponseFormatter:
             str: Formatted prompt text
         """
         import json
+
         # Generate the values for placeholders
-        example = {
-            field.name: field.generate_example() for field in self._iter_content_fields()
-        }
+        example = {field.name: field.generate_example() for field in self._iter_content_fields()}
 
         prompt_text = json.dumps(example, ensure_ascii=False, indent=2)
 
