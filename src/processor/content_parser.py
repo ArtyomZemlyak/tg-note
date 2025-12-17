@@ -180,11 +180,27 @@ class ContentParser:
                     save_path = Path(temp_dir) / filename
 
                 save_path.write_bytes(response.content)
-                self.logger.info(f"PDF downloaded successfully: {save_path}")
+                file_size_mb = len(response.content) / (1024 * 1024)
+                self.logger.info(
+                    f"PDF downloaded successfully: {save_path} ({file_size_mb:.2f} MB)"
+                )
                 return save_path
 
+        except httpx.TimeoutException as e:
+            self.logger.error(
+                f"Timeout downloading PDF from {url} after 90 seconds: {e}", exc_info=True
+            )
+            return None
+        except httpx.HTTPStatusError as e:
+            self.logger.error(
+                f"HTTP error downloading PDF from {url}: {e.response.status_code} {e.response.reason_phrase}",
+                exc_info=True,
+            )
+            return None
         except Exception as e:
-            self.logger.error(f"Error downloading PDF from {url}: {e}", exc_info=True)
+            self.logger.error(
+                f"Error downloading PDF from {url}: {type(e).__name__}: {e}", exc_info=True
+            )
             return None
 
     @staticmethod
