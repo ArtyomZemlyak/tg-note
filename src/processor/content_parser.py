@@ -144,20 +144,6 @@ class ContentParser:
                 if msg.get("document"):
                     document = msg.get("document")
                     try:
-                        # AICODE-NOTE: Log document attributes for diagnostics
-                        # This helps debug why PDFs/documents are not being processed
-                        doc_file_name = getattr(document, "file_name", None)
-                        doc_mime_type = getattr(document, "mime_type", None)
-                        doc_file_size = getattr(document, "file_size", None)
-
-                        self.logger.info(
-                            f"[Document Processing] Received document from Telegram: "
-                            f"file_id={document.file_id}, "
-                            f"file_name={doc_file_name}, "
-                            f"mime_type={doc_mime_type}, "
-                            f"file_size={doc_file_size} bytes"
-                        )
-
                         file_info = await bot.get_file(document.file_id)
                         file_result = await self.file_processor.download_and_process_telegram_file(
                             bot=bot,
@@ -165,7 +151,6 @@ class ContentParser:
                             original_filename=(
                                 document.file_name if hasattr(document, "file_name") else None
                             ),
-                            mime_type=(getattr(document, "mime_type", None)),
                             kb_media_dir=kb_media_dir,
                             file_id=document.file_id,
                             file_unique_id=getattr(document, "file_unique_id", None),
@@ -249,10 +234,10 @@ class ContentParser:
                 # Track unique media assets to prevent duplicates in prompt
                 seen_media_files = set()
                 media_filenames = []
-                document_texts = []
+                unsaved_document_texts = []
 
                 for file_data in file_contents:
-                    # AICODE-NOTE: For saved media files, just collect filenames
+                    # AICODE-NOTE: For saved media files (images AND documents), just collect filenames
                     # Assets are saved to {kb_path}/media/, agent will read .md files
                     if "saved_path" in file_data and "saved_filename" in file_data:
                         saved_filename = file_data["saved_filename"]
@@ -266,8 +251,8 @@ class ContentParser:
                         seen_media_files.add(saved_filename)
                         media_filenames.append(saved_filename)
                     else:
-                        # Non-image files: use full content as before
-                        document_texts.append(
+                        # Unsaved files (not processed or failed to save): include full content
+                        unsaved_document_texts.append(
                             f"\n\n--- Содержимое файла: {file_data['file_name']} ---\n{file_data['content']}"
                         )
 
@@ -280,19 +265,19 @@ class ContentParser:
 
                     media_checklist = "\n".join(f"- [ ] {name}" for name in media_filenames)
                     media_list_text = (
-                        "\n\nМедиафайлы:\n"
+                        "\n\nМедиафайлы и документы:\n"
                         f"лежат в {media_path}\n"
-                        "Отметь чекбокс после чтения .md/.json и вставки медиа в БЗ:\n"
+                        "Отметь чекбокс после чтения .md/.json и вставки медиа/документа в БЗ:\n"
                         f"{media_checklist}"
                     )
                     result["text"] = result.get("text", "") + media_list_text
 
-                # Add document contents if any
-                if document_texts:
-                    result["text"] = result.get("text", "") + "\n\n".join(document_texts)
+                # Add unsaved document contents if any
+                if unsaved_document_texts:
+                    result["text"] = result.get("text", "") + "\n\n".join(unsaved_document_texts)
 
                 # Regenerate hash with file contents
-                if media_filenames or document_texts:
+                if media_filenames or unsaved_document_texts:
                     result["content_hash"] = self.generate_content_hash(result["text"])
 
         # Add metadata about unsupported media
