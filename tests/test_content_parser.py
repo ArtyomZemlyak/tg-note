@@ -276,6 +276,11 @@ def test_extract_arxiv_id():
     # Test with www subdomain (also works)
     assert parser.extract_arxiv_id("https://www.arxiv.org/abs/2011.10798") == "2011.10798"
 
+    # Test with trailing punctuation (common in text)
+    assert parser.extract_arxiv_id("https://arxiv.org/abs/2011.10798)") == "2011.10798"
+    assert parser.extract_arxiv_id("https://arxiv.org/abs/2011.10798.") == "2011.10798"
+    assert parser.extract_arxiv_id("https://arxiv.org/abs/2011.10798,") == "2011.10798"
+
     # Test non-arXiv URLs
     assert parser.extract_arxiv_id("https://example.com") is None
     assert parser.extract_arxiv_id("https://google.com/arxiv") is None

@@ -69,8 +69,18 @@ class ContentParser:
         """
         # AICODE-NOTE: Improved URL regex to capture full paths including /abs/1234.5678
         # Matches http(s)://domain.com/path?query#fragment
+        # Strip trailing punctuation that's not part of URL (., ), comma, etc.)
         url_pattern = r"https?://[^\s<>\"{}|\\^`\[\]]+"
-        return re.findall(url_pattern, text)
+        urls = re.findall(url_pattern, text)
+
+        # Clean up trailing punctuation
+        cleaned_urls = []
+        for url in urls:
+            # Remove trailing punctuation that's likely not part of the URL
+            url = re.sub(r"[.,;:!?\)]+$", "", url)
+            cleaned_urls.append(url)
+
+        return cleaned_urls
 
     @staticmethod
     def extract_arxiv_id(url: str) -> Optional[str]:
@@ -84,12 +94,15 @@ class ContentParser:
         - https://arxiv.org/pdf/2011.10798.pdf
 
         Args:
-            url: arXiv URL
+            url: arXiv URL (may contain trailing punctuation)
 
         Returns:
             arXiv ID (e.g., "2011.10798") or None if not an arXiv URL
         """
-        # AICODE-NOTE: Match arXiv URLs with various formats
+        # AICODE-NOTE: Clean URL first to remove trailing punctuation
+        url = re.sub(r"[.,;:!?\)]+$", "", url)
+
+        # Match arXiv URLs with various formats
         pattern = r"arxiv\.org/(?:abs|pdf|html)/(\d{4}\.\d{4,5})"
         match = re.search(pattern, url)
         if match:
@@ -145,7 +158,8 @@ class ContentParser:
         try:
             self.logger.info(f"Downloading PDF from URL: {url}")
 
-            async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
+            # AICODE-NOTE: Increase timeout for large PDFs (arXiv papers can be 10-20MB)
+            async with httpx.AsyncClient(follow_redirects=True, timeout=90.0) as client:
                 response = await client.get(url)
                 response.raise_for_status()
 
