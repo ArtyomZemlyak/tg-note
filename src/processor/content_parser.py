@@ -92,6 +92,7 @@ class ContentParser:
         - https://arxiv.org/pdf/2011.10798
         - https://arxiv.org/html/2011.10798
         - https://arxiv.org/pdf/2011.10798.pdf
+        - https://export.arxiv.org/pdf/2011.10798.pdf (alternative domain)
 
         Args:
             url: arXiv URL (may contain trailing punctuation)
@@ -102,25 +103,40 @@ class ContentParser:
         # AICODE-NOTE: Clean URL first to remove trailing punctuation
         url = re.sub(r"[.,;:!?\)]+$", "", url)
 
-        # Match arXiv URLs with various formats
-        pattern = r"arxiv\.org/(?:abs|pdf|html)/(\d{4}\.\d{4,5})"
+        # Match arXiv URLs with various formats (both arxiv.org and export.arxiv.org)
+        pattern = r"(?:export\.)?arxiv\.org/(?:abs|pdf|html)/(\d{4}\.\d{4,5})"
         match = re.search(pattern, url)
         if match:
             return match.group(1)
         return None
 
     @staticmethod
-    def arxiv_id_to_pdf_url(arxiv_id: str) -> str:
+    def arxiv_id_to_pdf_url(arxiv_id: str, use_export: bool = False) -> str:
         """
         Convert arXiv ID to PDF download URL.
 
         Args:
             arxiv_id: arXiv ID (e.g., "2011.10798")
+            use_export: If True, use export.arxiv.org domain (fallback for connection issues)
 
         Returns:
             PDF URL (e.g., "https://arxiv.org/pdf/2011.10798.pdf")
         """
-        return f"https://arxiv.org/pdf/{arxiv_id}.pdf"
+        domain = "export.arxiv.org" if use_export else "arxiv.org"
+        return f"https://{domain}/pdf/{arxiv_id}.pdf"
+
+    @staticmethod
+    def convert_to_export_url(url: str) -> str:
+        """
+        Convert arxiv.org URL to export.arxiv.org URL (fallback for connection issues).
+
+        Args:
+            url: Original URL (e.g., "https://arxiv.org/pdf/2011.10798.pdf")
+
+        Returns:
+            URL with export.arxiv.org domain
+        """
+        return url.replace("arxiv.org", "export.arxiv.org")
 
     @staticmethod
     def extract_arxiv_urls(urls: List[str]) -> List[Tuple[str, str]]:
@@ -146,6 +162,7 @@ class ContentParser:
     ) -> Optional[Path]:
         """
         Download PDF from URL to temporary or KB media directory.
+        Automatically retries with export.arxiv.org if arxiv.org fails.
 
         Args:
             url: PDF URL to download
@@ -155,53 +172,82 @@ class ContentParser:
         Returns:
             Path to downloaded file or None if download failed
         """
-        try:
-            self.logger.info(f"Downloading PDF from URL: {url}")
+        # AICODE-NOTE: Try original URL first, then fallback to export.arxiv.org
+        urls_to_try = [url]
 
-            # AICODE-NOTE: Increase timeout for large PDFs (arXiv papers can be 10-20MB)
-            async with httpx.AsyncClient(follow_redirects=True, timeout=90.0) as client:
-                response = await client.get(url)
-                response.raise_for_status()
+        # Add fallback URL if this is an arxiv.org URL (not already export.arxiv.org)
+        if "arxiv.org" in url and "export.arxiv.org" not in url:
+            fallback_url = self.convert_to_export_url(url)
+            urls_to_try.append(fallback_url)
 
-                if not filename:
-                    # Generate filename from URL
-                    filename = Path(url).name
-                    if not filename.endswith(".pdf"):
-                        filename = f"{filename}.pdf"
-
-                # Determine save location
-                if kb_media_dir:
-                    kb_media_dir = Path(kb_media_dir)
-                    kb_media_dir.mkdir(parents=True, exist_ok=True)
-                    save_path = kb_media_dir / filename
-                else:
-                    # Save to temp directory
-                    temp_dir = tempfile.mkdtemp(prefix="tg_note_url_")
-                    save_path = Path(temp_dir) / filename
-
-                save_path.write_bytes(response.content)
-                file_size_mb = len(response.content) / (1024 * 1024)
+        last_error = None
+        for attempt_num, current_url in enumerate(urls_to_try, 1):
+            try:
                 self.logger.info(
-                    f"PDF downloaded successfully: {save_path} ({file_size_mb:.2f} MB)"
+                    f"Downloading PDF from URL (attempt {attempt_num}/{len(urls_to_try)}): {current_url}"
                 )
-                return save_path
 
-        except httpx.TimeoutException as e:
-            self.logger.error(
-                f"Timeout downloading PDF from {url} after 90 seconds: {e}", exc_info=True
-            )
-            return None
-        except httpx.HTTPStatusError as e:
-            self.logger.error(
-                f"HTTP error downloading PDF from {url}: {e.response.status_code} {e.response.reason_phrase}",
-                exc_info=True,
-            )
-            return None
-        except Exception as e:
-            self.logger.error(
-                f"Error downloading PDF from {url}: {type(e).__name__}: {e}", exc_info=True
-            )
-            return None
+                # AICODE-NOTE: Increase timeout for large PDFs (arXiv papers can be 10-20MB)
+                async with httpx.AsyncClient(follow_redirects=True, timeout=90.0) as client:
+                    response = await client.get(current_url)
+                    response.raise_for_status()
+
+                    if not filename:
+                        # Generate filename from URL
+                        filename = Path(url).name
+                        if not filename.endswith(".pdf"):
+                            filename = f"{filename}.pdf"
+
+                    # Determine save location
+                    if kb_media_dir:
+                        kb_media_dir = Path(kb_media_dir)
+                        kb_media_dir.mkdir(parents=True, exist_ok=True)
+                        save_path = kb_media_dir / filename
+                    else:
+                        # Save to temp directory
+                        temp_dir = tempfile.mkdtemp(prefix="tg_note_url_")
+                        save_path = Path(temp_dir) / filename
+
+                    save_path.write_bytes(response.content)
+                    file_size_mb = len(response.content) / (1024 * 1024)
+                    self.logger.info(
+                        f"PDF downloaded successfully: {save_path} ({file_size_mb:.2f} MB)"
+                    )
+                    return save_path
+
+            except httpx.TimeoutException as e:
+                last_error = e
+                self.logger.warning(
+                    f"Timeout downloading PDF from {current_url} after 90 seconds: {e}"
+                )
+                if attempt_num < len(urls_to_try):
+                    self.logger.info(f"Retrying with alternative URL...")
+                continue
+
+            except httpx.HTTPStatusError as e:
+                last_error = e
+                self.logger.warning(
+                    f"HTTP error downloading PDF from {current_url}: {e.response.status_code} {e.response.reason_phrase}"
+                )
+                if attempt_num < len(urls_to_try):
+                    self.logger.info(f"Retrying with alternative URL...")
+                continue
+
+            except Exception as e:
+                last_error = e
+                self.logger.warning(
+                    f"Error downloading PDF from {current_url}: {type(e).__name__}: {e}"
+                )
+                if attempt_num < len(urls_to_try):
+                    self.logger.info(f"Retrying with alternative URL...")
+                continue
+
+        # All attempts failed
+        self.logger.error(
+            f"Failed to download PDF after {len(urls_to_try)} attempts. Last error: {last_error}",
+            exc_info=True,
+        )
+        return None
 
     @staticmethod
     def generate_content_hash(content: str) -> str:

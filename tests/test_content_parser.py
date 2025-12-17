@@ -270,6 +270,11 @@ def test_extract_arxiv_id():
     assert parser.extract_arxiv_id("https://arxiv.org/html/2011.10798") == "2011.10798"
     assert parser.extract_arxiv_id("https://arxiv.org/pdf/2011.10798.pdf") == "2011.10798"
 
+    # Test export.arxiv.org domain (fallback for connection issues)
+    assert parser.extract_arxiv_id("https://export.arxiv.org/abs/2011.10798") == "2011.10798"
+    assert parser.extract_arxiv_id("https://export.arxiv.org/pdf/2011.10798") == "2011.10798"
+    assert parser.extract_arxiv_id("https://export.arxiv.org/pdf/2011.10798.pdf") == "2011.10798"
+
     # Test with http instead of https
     assert parser.extract_arxiv_id("http://arxiv.org/abs/1234.56789") == "1234.56789"
 
@@ -290,8 +295,19 @@ def test_arxiv_id_to_pdf_url():
     """Test conversion of arXiv ID to PDF URL"""
     parser = ContentParser()
 
+    # Test default domain (arxiv.org)
     assert parser.arxiv_id_to_pdf_url("2011.10798") == "https://arxiv.org/pdf/2011.10798.pdf"
     assert parser.arxiv_id_to_pdf_url("1234.56789") == "https://arxiv.org/pdf/1234.56789.pdf"
+
+    # Test export domain (fallback for connection issues)
+    assert (
+        parser.arxiv_id_to_pdf_url("2011.10798", use_export=True)
+        == "https://export.arxiv.org/pdf/2011.10798.pdf"
+    )
+    assert (
+        parser.arxiv_id_to_pdf_url("1234.56789", use_export=True)
+        == "https://export.arxiv.org/pdf/1234.56789.pdf"
+    )
 
 
 def test_extract_arxiv_urls():
@@ -304,11 +320,12 @@ def test_extract_arxiv_urls():
         "https://arxiv.org/html/1234.56789",
         "https://google.com",
         "https://arxiv.org/pdf/9999.12345.pdf",
+        "https://export.arxiv.org/pdf/2504.19413.pdf",  # export domain
     ]
 
     arxiv_urls = parser.extract_arxiv_urls(urls)
 
-    assert len(arxiv_urls) == 3
+    assert len(arxiv_urls) == 4
     assert arxiv_urls[0] == (
         "https://arxiv.org/abs/2011.10798",
         "https://arxiv.org/pdf/2011.10798.pdf",
@@ -320,6 +337,31 @@ def test_extract_arxiv_urls():
     assert arxiv_urls[2] == (
         "https://arxiv.org/pdf/9999.12345.pdf",
         "https://arxiv.org/pdf/9999.12345.pdf",
+    )
+    assert arxiv_urls[3] == (
+        "https://export.arxiv.org/pdf/2504.19413.pdf",
+        "https://arxiv.org/pdf/2504.19413.pdf",  # normalizes to arxiv.org by default
+    )
+
+
+def test_convert_to_export_url():
+    """Test conversion of arxiv.org URLs to export.arxiv.org"""
+    parser = ContentParser()
+
+    # Test basic conversion
+    assert (
+        parser.convert_to_export_url("https://arxiv.org/pdf/2011.10798.pdf")
+        == "https://export.arxiv.org/pdf/2011.10798.pdf"
+    )
+    assert (
+        parser.convert_to_export_url("https://arxiv.org/abs/2011.10798")
+        == "https://export.arxiv.org/abs/2011.10798"
+    )
+
+    # Test idempotency (already export.arxiv.org)
+    assert (
+        parser.convert_to_export_url("https://export.arxiv.org/pdf/2011.10798.pdf")
+        == "https://export.export.arxiv.org/pdf/2011.10798.pdf"  # simple string replace
     )
 
 
