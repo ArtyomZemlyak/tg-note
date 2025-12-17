@@ -330,6 +330,239 @@ async def test_download_and_process_telegram_file_accepts_kb_media_dir():
     assert True
 
 
+@pytest.mark.asyncio
+async def test_download_and_process_telegram_file_infers_pdf_extension_from_mime_type(
+    monkeypatch, tmp_path
+):
+    """Telegram documents without extensions should still be processed when MIME type is available."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    processor = FileProcessor()
+
+    # Force availability and stub processing so we can validate inferred filename.
+    monkeypatch.setattr(processor, "is_available", lambda: True)
+
+    async def fake_process_file(path: Path):
+        assert path.suffix == ".pdf"
+        return {"text": "ok", "metadata": {}, "format": "pdf", "file_name": path.name}
+
+    monkeypatch.setattr(processor, "process_file", fake_process_file)
+
+    mock_bot = MagicMock()
+    mock_bot.download_file = AsyncMock(return_value=b"%PDF-1.7\n%...")
+
+    mock_file_info = MagicMock()
+    mock_file_info.file_path = "documents/file_123"  # No extension
+
+    result = await processor.download_and_process_telegram_file(
+        bot=mock_bot,
+        file_info=mock_file_info,
+        original_filename=None,
+        mime_type="application/pdf",
+        kb_media_dir=None,
+        file_id="file-id",
+        file_unique_id="unique-id",
+        message_date=1234567890,
+    )
+
+    assert result is not None
+    assert result["format"] == "pdf"
+
+
+@pytest.mark.asyncio
+async def test_download_and_process_telegram_file_detects_pdf_without_mime_type(
+    monkeypatch, tmp_path
+):
+    """PDF documents without filename and MIME type should be detected via magic bytes."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    processor = FileProcessor()
+
+    # Force availability
+    monkeypatch.setattr(processor, "is_available", lambda: True)
+
+    async def fake_process_file(path: Path):
+        assert path.suffix == ".pdf", f"Expected .pdf but got {path.suffix}"
+        return {"text": "PDF content", "metadata": {}, "format": "pdf", "file_name": path.name}
+
+    monkeypatch.setattr(processor, "process_file", fake_process_file)
+
+    mock_bot = MagicMock()
+    # Simulate PDF file with magic bytes
+    mock_bot.download_file = AsyncMock(return_value=b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n")
+
+    mock_file_info = MagicMock()
+    mock_file_info.file_path = "documents/file_456"  # No extension
+
+    result = await processor.download_and_process_telegram_file(
+        bot=mock_bot,
+        file_info=mock_file_info,
+        original_filename=None,  # No filename
+        mime_type=None,  # No MIME type
+        kb_media_dir=None,
+        file_id="file-id-2",
+        file_unique_id="unique-id-2",
+        message_date=1234567890,
+    )
+
+    assert result is not None
+    assert result["format"] == "pdf"
+
+
+@pytest.mark.asyncio
+async def test_download_and_process_telegram_file_detects_pdf_with_leading_whitespace(
+    monkeypatch, tmp_path
+):
+    """PDF with leading whitespace should still be detected."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    processor = FileProcessor()
+
+    monkeypatch.setattr(processor, "is_available", lambda: True)
+
+    async def fake_process_file(path: Path):
+        assert path.suffix == ".pdf"
+        return {"text": "PDF content", "metadata": {}, "format": "pdf", "file_name": path.name}
+
+    monkeypatch.setattr(processor, "process_file", fake_process_file)
+
+    mock_bot = MagicMock()
+    # PDF with leading whitespace/BOM
+    mock_bot.download_file = AsyncMock(return_value=b"  \t\n%PDF-1.7\n%content")
+
+    mock_file_info = MagicMock()
+    mock_file_info.file_path = "documents/file_789"
+
+    result = await processor.download_and_process_telegram_file(
+        bot=mock_bot,
+        file_info=mock_file_info,
+        original_filename="document",  # No extension
+        mime_type=None,
+        kb_media_dir=None,
+        file_id="file-id-3",
+        file_unique_id="unique-id-3",
+        message_date=1234567890,
+    )
+
+    assert result is not None
+    assert result["format"] == "pdf"
+
+
+@pytest.mark.asyncio
+async def test_download_and_process_telegram_file_detects_pdf_fuzzy_match(monkeypatch, tmp_path):
+    """PDF with header/wrapper should be detected via fuzzy match in first 1KB."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    processor = FileProcessor()
+
+    monkeypatch.setattr(processor, "is_available", lambda: True)
+
+    async def fake_process_file(path: Path):
+        assert path.suffix == ".pdf"
+        return {"text": "PDF content", "metadata": {}, "format": "pdf", "file_name": path.name}
+
+    monkeypatch.setattr(processor, "process_file", fake_process_file)
+
+    mock_bot = MagicMock()
+    # PDF with some header before magic bytes
+    pdf_content = b"HEADER_DATA\x00\x00" + b"%PDF-1.4\n%content"
+    mock_bot.download_file = AsyncMock(return_value=pdf_content)
+
+    mock_file_info = MagicMock()
+    mock_file_info.file_path = "documents/wrapped_pdf"
+
+    result = await processor.download_and_process_telegram_file(
+        bot=mock_bot,
+        file_info=mock_file_info,
+        original_filename=None,
+        mime_type=None,
+        kb_media_dir=None,
+        file_id="file-id-4",
+        file_unique_id="unique-id-4",
+        message_date=1234567890,
+    )
+
+    assert result is not None
+    assert result["format"] == "pdf"
+
+
+def test_detect_file_type_from_content_pdf_variants():
+    """Test _detect_file_type_from_content with various PDF formats."""
+    processor = FileProcessor()
+
+    # Standard PDF
+    assert processor._detect_file_type_from_content(b"%PDF-1.7\nContent") == "pdf"
+
+    # PDF with leading whitespace
+    assert processor._detect_file_type_from_content(b"  %PDF-1.4\nContent") == "pdf"
+
+    # PDF with BOM
+    assert processor._detect_file_type_from_content(b"\xef\xbb\xbf%PDF-1.5\nContent") == "pdf"
+
+    # PDF with wrapper (fuzzy match)
+    assert processor._detect_file_type_from_content(b"HEADER\x00%PDF-1.3\nContent") == "pdf"
+
+
+def test_detect_file_type_from_content_with_mime_type():
+    """Test that MIME type takes precedence in detection."""
+    processor = FileProcessor()
+
+    # MIME type should be used first
+    result = processor._detect_file_type_from_content(b"Some content", mime_type="application/pdf")
+    assert result == "pdf"
+
+    # Test other MIME types
+    result = processor._detect_file_type_from_content(
+        b"Content",
+        mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+    assert result == "docx"
+
+
+def test_detect_file_type_from_content_office_formats():
+    """Test detection of Office document formats (DOCX, XLSX, PPTX)."""
+    processor = FileProcessor()
+
+    # DOCX (ZIP with word/ marker)
+    docx_content = b"PK\x03\x04" + b"[Content_Types].xml" + b"word/document.xml"
+    assert processor._detect_file_type_from_content(docx_content) == "docx"
+
+    # XLSX (ZIP with xl/ marker)
+    xlsx_content = b"PK\x03\x04" + b"[Content_Types].xml" + b"xl/workbook.xml"
+    assert processor._detect_file_type_from_content(xlsx_content) == "xlsx"
+
+    # PPTX (ZIP with ppt/ marker)
+    pptx_content = b"PK\x03\x04" + b"[Content_Types].xml" + b"ppt/presentation.xml"
+    assert processor._detect_file_type_from_content(pptx_content) == "pptx"
+
+
+def test_detect_file_type_from_content_text_formats():
+    """Test detection of text-based formats."""
+    processor = FileProcessor()
+
+    # HTML
+    assert processor._detect_file_type_from_content(b"<html><body>Content</body></html>") == "html"
+    assert processor._detect_file_type_from_content(b"<!DOCTYPE html><html>") == "html"
+
+    # Plain text
+    assert processor._detect_file_type_from_content(b"Just some plain text content") == "txt"
+
+    # Markdown
+    md_content = b"# Heading\n\n## Subheading\n\n```code```\n\n[link](url)"
+    assert processor._detect_file_type_from_content(md_content) == "md"
+
+
+def test_detect_file_type_from_content_returns_none_for_unknown():
+    """Test that unknown file types return None."""
+    processor = FileProcessor()
+
+    # Binary data that doesn't match any known format
+    assert processor._detect_file_type_from_content(b"\x00\x01\x02\x03\x04\x05") is None
+
+    # Too short content
+    assert processor._detect_file_type_from_content(b"short") is None
+
+
 def test_compute_file_hash(file_processor):
     """Test that file hash computation works correctly"""
     test_content = b"test file content"

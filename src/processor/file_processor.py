@@ -1015,11 +1015,106 @@ class FileProcessor:
                 return new_candidate
             counter += 1
 
+    def _detect_file_type_from_content(
+        self, content: bytes, mime_type: Optional[str] = None
+    ) -> Optional[str]:
+        """
+        Detect file type from content using magic bytes and MIME type.
+
+        This function provides robust file type detection for documents received from Telegram,
+        where file_name and mime_type may be missing or incorrect.
+
+        Args:
+            content: File content as bytes
+            mime_type: MIME type from Telegram (optional)
+
+        Returns:
+            File extension (e.g., 'pdf', 'docx', 'txt') or None if type cannot be determined
+        """
+        # AICODE-NOTE: Try MIME type first (most reliable when available)
+        if mime_type:
+            import mimetypes
+
+            ext = mimetypes.guess_extension(mime_type, strict=False)
+            if ext:
+                detected = ext.lstrip(".")
+                self.logger.debug(f"File type detected from MIME type '{mime_type}': {detected}")
+                return detected
+
+        # AICODE-NOTE: Check magic bytes with tolerance for whitespace/BOM
+        # Some PDFs may have leading whitespace or byte order marks
+        # Minimum 8 bytes needed for basic format detection (e.g., "%PDF-1.4")
+        if len(content) < 8:
+            return None
+
+        # Strip common leading bytes that may precede actual file signature
+        stripped = content.lstrip(b" \t\n\r\x00\xef\xbb\xbf\xfe\xff")
+
+        # PDF detection (multiple patterns for robustness)
+        if stripped.startswith(b"%PDF"):
+            self.logger.debug("File type detected from magic bytes: pdf (strict match)")
+            return "pdf"
+
+        # Check for %PDF anywhere in first 1KB (handles files with headers/wrappers)
+        if b"%PDF-" in content[:1024]:
+            self.logger.debug("File type detected from magic bytes: pdf (fuzzy match in first 1KB)")
+            return "pdf"
+
+        # DOCX/PPTX/XLSX detection (ZIP-based Office formats)
+        if content.startswith(b"PK\x03\x04"):
+            # Check for Office-specific markers inside ZIP
+            first_chunk = content[:8192]  # Check first 8KB
+            if b"[Content_Types].xml" in first_chunk:
+                if b"word/" in first_chunk:
+                    self.logger.debug("File type detected from ZIP structure: docx")
+                    return "docx"
+                if b"ppt/" in first_chunk:
+                    self.logger.debug("File type detected from ZIP structure: pptx")
+                    return "pptx"
+                if b"xl/" in first_chunk:
+                    self.logger.debug("File type detected from ZIP structure: xlsx")
+                    return "xlsx"
+
+        # HTML detection (common for web page captures)
+        if (
+            b"<html" in content[:1024].lower()
+            or b"<!doctype html" in content[:1024].lower()
+            or b"<HTML" in content[:1024]
+        ):
+            self.logger.debug("File type detected from content: html")
+            return "html"
+
+        # Markdown detection (heuristic - check for common patterns)
+        try:
+            text_sample = content[:2048].decode("utf-8", errors="ignore")
+            # Look for markdown patterns
+            md_patterns = ["# ", "## ", "### ", "```", "](", "[", "**", "__"]
+            if sum(pattern in text_sample for pattern in md_patterns) >= 2:
+                self.logger.debug("File type detected from content patterns: md")
+                return "md"
+        except Exception:
+            pass
+
+        # Plain text detection (UTF-8 with/without BOM)
+        try:
+            content[:2048].decode("utf-8")
+            self.logger.debug("File type detected as plain text: txt")
+            return "txt"
+        except UnicodeDecodeError:
+            pass
+
+        self.logger.debug(
+            f"Could not detect file type from content. "
+            f"First 20 bytes (hex): {content[:20].hex()}"
+        )
+        return None
+
     async def download_and_process_telegram_file(
         self,
         bot,
         file_info,
         original_filename: Optional[str] = None,
+        mime_type: Optional[str] = None,
         kb_media_dir: Optional[Path] = None,
         file_id: Optional[str] = None,
         file_unique_id: Optional[str] = None,
@@ -1056,6 +1151,15 @@ class FileProcessor:
         temp_file = None
 
         try:
+            # AICODE-NOTE: Log initial file information for diagnostics
+            self.logger.info(
+                f"[File Processing] Starting download and processing: "
+                f"original_filename={original_filename}, "
+                f"file_info.file_path={getattr(file_info, 'file_path', None)}, "
+                f"mime_type={mime_type}, "
+                f"file_id={file_id}"
+            )
+
             # Determine file extension
             file_extension = ""
             if original_filename:
@@ -1064,13 +1168,63 @@ class FileProcessor:
                 file_extension = Path(file_info.file_path).suffix
 
             extension = file_extension.lower().lstrip(".")
+
+            # AICODE-NOTE: Log extension detection result
+            if extension:
+                self.logger.info(
+                    f"[File Processing] Extension detected from filename: .{extension}"
+                )
+            else:
+                self.logger.info(
+                    f"[File Processing] No extension found in filename, "
+                    f"will attempt content-based detection"
+                )
+
             if extension and not self.settings.is_format_enabled(extension, "docling"):
                 self.logger.info(
-                    "Skipping Telegram file %s because format %s is disabled for Docling",
-                    original_filename or file_info.file_path,
-                    extension,
+                    f"[File Processing] Skipping file {original_filename or file_info.file_path} "
+                    f"because format '{extension}' is disabled for Docling"
                 )
                 return None
+
+            # Download file first (used for both processing and fallback format detection)
+            downloaded_file = await bot.download_file(file_info.file_path)
+
+            # AICODE-NOTE: Telegram documents can arrive without a filename/extension (or with a name
+            # lacking an extension). Images are passed as "image.jpg" explicitly, so they always
+            # work — but documents would fail format detection later (saved as "telegram_file").
+            # Use robust content-based detection with MIME type and magic bytes fallback.
+            if not extension:
+                detected_ext = self._detect_file_type_from_content(downloaded_file, mime_type)
+                if detected_ext:
+                    file_extension = f".{detected_ext}"
+                    extension = detected_ext
+                    self.logger.info(
+                        f"File type detected via content analysis: {extension} "
+                        f"(original_filename={original_filename}, mime_type={mime_type})"
+                    )
+
+            if extension and not self.settings.is_format_enabled(extension, "docling"):
+                self.logger.info(
+                    f"[File Processing] Skipping file {original_filename or file_info.file_path} "
+                    f"because detected format '{extension}' is disabled for Docling"
+                )
+                return None
+
+            # AICODE-NOTE: Log final extension determination before processing
+            if not extension:
+                self.logger.warning(
+                    f"[File Processing] Could not determine file extension! "
+                    f"File will not be processed. "
+                    f"original_filename={original_filename}, "
+                    f"mime_type={mime_type}, "
+                    f"file_path={getattr(file_info, 'file_path', None)}, "
+                    f"first_20_bytes={downloaded_file[:20].hex()}"
+                )
+            else:
+                self.logger.info(
+                    f"[File Processing] Final extension: .{extension}, proceeding to Docling"
+                )
 
             # Check if this is an image that should be saved to KB
             is_image = extension in ["jpg", "jpeg", "png", "gif", "tiff", "bmp", "webp"]
@@ -1078,9 +1232,6 @@ class FileProcessor:
             timestamp = message_date or int(time.time())
             existing_file: Optional[Path] = None
             unique_identifier_for_slug: Optional[str] = None
-
-            # Download file first to check for duplicates
-            downloaded_file = await bot.download_file(file_info.file_path)
 
             if save_to_kb:
                 # AICODE-NOTE: Save media assets to KB for later reference in markdown files

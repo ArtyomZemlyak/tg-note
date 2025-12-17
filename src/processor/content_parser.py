@@ -144,6 +144,20 @@ class ContentParser:
                 if msg.get("document"):
                     document = msg.get("document")
                     try:
+                        # AICODE-NOTE: Log document attributes for diagnostics
+                        # This helps debug why PDFs/documents are not being processed
+                        doc_file_name = getattr(document, "file_name", None)
+                        doc_mime_type = getattr(document, "mime_type", None)
+                        doc_file_size = getattr(document, "file_size", None)
+
+                        self.logger.info(
+                            f"[Document Processing] Received document from Telegram: "
+                            f"file_id={document.file_id}, "
+                            f"file_name={doc_file_name}, "
+                            f"mime_type={doc_mime_type}, "
+                            f"file_size={doc_file_size} bytes"
+                        )
+
                         file_info = await bot.get_file(document.file_id)
                         file_result = await self.file_processor.download_and_process_telegram_file(
                             bot=bot,
@@ -151,6 +165,7 @@ class ContentParser:
                             original_filename=(
                                 document.file_name if hasattr(document, "file_name") else None
                             ),
+                            mime_type=(getattr(document, "mime_type", None)),
                             kb_media_dir=kb_media_dir,
                             file_id=document.file_id,
                             file_unique_id=getattr(document, "file_unique_id", None),
