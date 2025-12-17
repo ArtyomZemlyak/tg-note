@@ -38,6 +38,7 @@ dependencies = [
     # Utilities
     "aiohttp>=3.9.1,<4.0.0",
     "requests>=2.32.2,<3.0.0",
+    "httpx>=0.27.0,<1.0.0",
     # Prompt management
     "promptic @ git+https://github.com/ArtyomZemlyak/promptic.git@v0.1.6",
     # Logging

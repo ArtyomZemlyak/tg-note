@@ -233,3 +233,102 @@ def test_image_path_format_in_file_contents():
     assert "../media/img_1234567890_" in file_texts[0]
     # Ensure it doesn't use the incorrect absolute path
     assert "(сохранено как: media/" not in file_texts[0]
+
+
+def test_extract_arxiv_id():
+    """Test arXiv ID extraction from various URL formats"""
+    parser = ContentParser()
+
+    # Test various arXiv URL formats
+    assert parser.extract_arxiv_id("https://arxiv.org/abs/2011.10798") == "2011.10798"
+    assert parser.extract_arxiv_id("https://arxiv.org/pdf/2011.10798") == "2011.10798"
+    assert parser.extract_arxiv_id("https://arxiv.org/html/2011.10798") == "2011.10798"
+    assert parser.extract_arxiv_id("https://arxiv.org/pdf/2011.10798.pdf") == "2011.10798"
+
+    # Test with http instead of https
+    assert parser.extract_arxiv_id("http://arxiv.org/abs/1234.56789") == "1234.56789"
+
+    # Test with www subdomain (also works)
+    assert parser.extract_arxiv_id("https://www.arxiv.org/abs/2011.10798") == "2011.10798"
+
+    # Test non-arXiv URLs
+    assert parser.extract_arxiv_id("https://example.com") is None
+    assert parser.extract_arxiv_id("https://google.com/arxiv") is None
+
+
+def test_arxiv_id_to_pdf_url():
+    """Test conversion of arXiv ID to PDF URL"""
+    parser = ContentParser()
+
+    assert parser.arxiv_id_to_pdf_url("2011.10798") == "https://arxiv.org/pdf/2011.10798.pdf"
+    assert parser.arxiv_id_to_pdf_url("1234.56789") == "https://arxiv.org/pdf/1234.56789.pdf"
+
+
+def test_extract_arxiv_urls():
+    """Test extraction of arXiv URLs from a list of URLs"""
+    parser = ContentParser()
+
+    urls = [
+        "https://arxiv.org/abs/2011.10798",
+        "https://example.com",
+        "https://arxiv.org/html/1234.56789",
+        "https://google.com",
+        "https://arxiv.org/pdf/9999.12345.pdf",
+    ]
+
+    arxiv_urls = parser.extract_arxiv_urls(urls)
+
+    assert len(arxiv_urls) == 3
+    assert arxiv_urls[0] == (
+        "https://arxiv.org/abs/2011.10798",
+        "https://arxiv.org/pdf/2011.10798.pdf",
+    )
+    assert arxiv_urls[1] == (
+        "https://arxiv.org/html/1234.56789",
+        "https://arxiv.org/pdf/1234.56789.pdf",
+    )
+    assert arxiv_urls[2] == (
+        "https://arxiv.org/pdf/9999.12345.pdf",
+        "https://arxiv.org/pdf/9999.12345.pdf",
+    )
+
+
+@pytest.mark.asyncio
+async def test_download_pdf_from_url_creates_file(tmp_path, monkeypatch):
+    """Test that PDF download creates a file"""
+    from pathlib import Path
+
+    parser = ContentParser()
+
+    # Mock httpx response
+    class MockResponse:
+        def __init__(self):
+            self.content = b"PDF file content"
+
+        def raise_for_status(self):
+            pass
+
+    class MockClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+        async def get(self, url):
+            return MockResponse()
+
+    # Patch httpx.AsyncClient
+    import httpx
+
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kwargs: MockClient())
+
+    # Download to temp directory
+    result = await parser.download_pdf_from_url(
+        "https://example.com/test.pdf", filename="test.pdf", kb_media_dir=tmp_path
+    )
+
+    assert result is not None
+    assert result.exists()
+    assert result.read_bytes() == b"PDF file content"
+    assert result.name == "test.pdf"

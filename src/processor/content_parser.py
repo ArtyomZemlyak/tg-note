@@ -5,9 +5,12 @@ Extracts and parses content from messages
 
 import hashlib
 import re
+import tempfile
+import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
+import httpx
 from loguru import logger
 
 from src.processor.file_processor import FileProcessor
@@ -66,6 +69,107 @@ class ContentParser:
         """
         url_pattern = r"https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+"
         return re.findall(url_pattern, text)
+
+    @staticmethod
+    def extract_arxiv_id(url: str) -> Optional[str]:
+        """
+        Extract arXiv ID from URL.
+
+        Supports formats:
+        - https://arxiv.org/abs/2011.10798
+        - https://arxiv.org/pdf/2011.10798
+        - https://arxiv.org/html/2011.10798
+        - https://arxiv.org/pdf/2011.10798.pdf
+
+        Args:
+            url: arXiv URL
+
+        Returns:
+            arXiv ID (e.g., "2011.10798") or None if not an arXiv URL
+        """
+        # AICODE-NOTE: Match arXiv URLs with various formats
+        pattern = r"arxiv\.org/(?:abs|pdf|html)/(\d{4}\.\d{4,5})"
+        match = re.search(pattern, url)
+        if match:
+            return match.group(1)
+        return None
+
+    @staticmethod
+    def arxiv_id_to_pdf_url(arxiv_id: str) -> str:
+        """
+        Convert arXiv ID to PDF download URL.
+
+        Args:
+            arxiv_id: arXiv ID (e.g., "2011.10798")
+
+        Returns:
+            PDF URL (e.g., "https://arxiv.org/pdf/2011.10798.pdf")
+        """
+        return f"https://arxiv.org/pdf/{arxiv_id}.pdf"
+
+    @staticmethod
+    def extract_arxiv_urls(urls: List[str]) -> List[Tuple[str, str]]:
+        """
+        Extract and normalize arXiv URLs from a list of URLs.
+
+        Args:
+            urls: List of URLs to check
+
+        Returns:
+            List of tuples (original_url, pdf_url) for arXiv papers
+        """
+        arxiv_urls = []
+        for url in urls:
+            arxiv_id = ContentParser.extract_arxiv_id(url)
+            if arxiv_id:
+                pdf_url = ContentParser.arxiv_id_to_pdf_url(arxiv_id)
+                arxiv_urls.append((url, pdf_url))
+        return arxiv_urls
+
+    async def download_pdf_from_url(
+        self, url: str, filename: Optional[str] = None, kb_media_dir: Optional[Path] = None
+    ) -> Optional[Path]:
+        """
+        Download PDF from URL to temporary or KB media directory.
+
+        Args:
+            url: PDF URL to download
+            filename: Optional filename (if not provided, will be generated)
+            kb_media_dir: If provided, save to KB media directory
+
+        Returns:
+            Path to downloaded file or None if download failed
+        """
+        try:
+            self.logger.info(f"Downloading PDF from URL: {url}")
+
+            async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
+                response = await client.get(url)
+                response.raise_for_status()
+
+                if not filename:
+                    # Generate filename from URL
+                    filename = Path(url).name
+                    if not filename.endswith(".pdf"):
+                        filename = f"{filename}.pdf"
+
+                # Determine save location
+                if kb_media_dir:
+                    kb_media_dir = Path(kb_media_dir)
+                    kb_media_dir.mkdir(parents=True, exist_ok=True)
+                    save_path = kb_media_dir / filename
+                else:
+                    # Save to temp directory
+                    temp_dir = tempfile.mkdtemp(prefix="tg_note_url_")
+                    save_path = Path(temp_dir) / filename
+
+                save_path.write_bytes(response.content)
+                self.logger.info(f"PDF downloaded successfully: {save_path}")
+                return save_path
+
+        except Exception as e:
+            self.logger.error(f"Error downloading PDF from {url}: {e}", exc_info=True)
+            return None
 
     @staticmethod
     def generate_content_hash(content: str) -> str:
@@ -225,6 +329,133 @@ class ContentParser:
                             f"Message contains {content_type} media (not yet supported for processing). "
                             f"Text/caption will still be extracted."
                         )
+
+            # AICODE-NOTE: Process arXiv URLs found in message text
+            # Extract and download PDFs from arXiv links
+            if result.get("urls"):
+                arxiv_urls = self.extract_arxiv_urls(result["urls"])
+                if arxiv_urls:
+                    self.logger.info(f"Found {len(arxiv_urls)} arXiv URL(s) in message text")
+
+                    for original_url, pdf_url in arxiv_urls:
+                        try:
+                            # Extract arXiv ID for filename
+                            arxiv_id = self.extract_arxiv_id(original_url)
+                            if not arxiv_id:
+                                continue
+
+                            # Generate timestamp for filename (use first message timestamp if available)
+                            timestamp = int(time.time())
+                            if group.messages:
+                                first_msg = group.messages[0]
+                                timestamp = (
+                                    first_msg.get("timestamp") or first_msg.get("date") or timestamp
+                                )
+
+                            # Download PDF
+                            downloaded_path = await self.download_pdf_from_url(
+                                pdf_url, filename=f"arxiv_{arxiv_id}.pdf", kb_media_dir=None
+                            )
+
+                            if not downloaded_path:
+                                self.logger.warning(f"Failed to download arXiv PDF: {original_url}")
+                                continue
+
+                            # Process downloaded PDF through docling
+                            try:
+                                file_result = await self.file_processor.process_file(
+                                    downloaded_path
+                                )
+
+                                if file_result:
+                                    # Save to KB media directory if available
+                                    if kb_media_dir:
+                                        kb_media_dir_abs = Path(kb_media_dir).resolve()
+                                        kb_media_dir_abs.mkdir(parents=True, exist_ok=True)
+
+                                        # Generate unique filename with doc_ prefix
+                                        file_hash = self.file_processor._compute_file_hash(
+                                            downloaded_path.read_bytes()
+                                        )
+                                        identifier = self.file_processor._extract_unique_identifier(
+                                            file_unique_id=None,
+                                            file_id=None,
+                                            file_hash=file_hash,
+                                        )
+                                        final_filename = (
+                                            f"doc_{timestamp}_{identifier}_arxiv_{arxiv_id}.pdf"
+                                        )
+                                        final_path = kb_media_dir_abs / final_filename
+                                        final_path = self.file_processor._ensure_unique_path(
+                                            final_path
+                                        )
+
+                                        # Copy file to KB media directory
+                                        import shutil
+
+                                        shutil.copy2(downloaded_path, final_path)
+                                        self.logger.info(f"Saved arXiv PDF to KB: {final_path}")
+
+                                        # Create metadata files
+                                        try:
+                                            from src.processor.media_metadata import MediaMetadata
+
+                                            MediaMetadata.create_metadata_files(
+                                                image_path=final_path,
+                                                ocr_text=file_result.get("text", ""),
+                                                file_id=arxiv_id,
+                                                timestamp=timestamp,
+                                                original_filename=f"arxiv_{arxiv_id}.pdf",
+                                                file_hash=file_hash,
+                                                processing_metadata=file_result.get("metadata"),
+                                            )
+                                        except Exception as metadata_error:
+                                            self.logger.warning(
+                                                f"Failed to create metadata for arXiv PDF: {metadata_error}"
+                                            )
+
+                                        file_data = {
+                                            "type": "arxiv_document",
+                                            "content": file_result["text"],
+                                            "metadata": file_result["metadata"],
+                                            "format": "pdf",
+                                            "file_name": final_filename,
+                                            "saved_path": str(final_path),
+                                            "saved_filename": final_filename,
+                                            "arxiv_url": original_url,
+                                            "arxiv_id": arxiv_id,
+                                        }
+                                    else:
+                                        # No KB directory - just include the content
+                                        file_data = {
+                                            "type": "arxiv_document",
+                                            "content": file_result["text"],
+                                            "metadata": file_result["metadata"],
+                                            "format": "pdf",
+                                            "file_name": f"arxiv_{arxiv_id}.pdf",
+                                            "arxiv_url": original_url,
+                                            "arxiv_id": arxiv_id,
+                                        }
+
+                                    file_contents.append(file_data)
+                                    self.logger.info(
+                                        f"Successfully processed arXiv paper: {arxiv_id} from {original_url}"
+                                    )
+
+                            finally:
+                                # Cleanup temporary download if not saved to KB
+                                if not kb_media_dir and downloaded_path.exists():
+                                    try:
+                                        downloaded_path.unlink()
+                                        if downloaded_path.parent.name.startswith("tg_note_url_"):
+                                            downloaded_path.parent.rmdir()
+                                    except Exception as cleanup_error:
+                                        self.logger.debug(f"Cleanup error: {cleanup_error}")
+
+                        except Exception as e:
+                            self.logger.error(
+                                f"Error processing arXiv URL {original_url}: {e}", exc_info=True
+                            )
 
             # Add file contents to result
             if file_contents:
