@@ -31,6 +31,31 @@ def test_extract_urls():
     assert "http://test.org" in urls
 
 
+def test_extract_urls_with_paths():
+    """Test URL extraction with full paths (arXiv, GitHub, etc.)"""
+    parser = ContentParser()
+    text = "Read https://arxiv.org/abs/2011.10798 and https://github.com/user/repo/issues/123"
+    urls = parser.extract_urls(text)
+
+    assert len(urls) == 2
+    assert "https://arxiv.org/abs/2011.10798" in urls
+    assert "https://github.com/user/repo/issues/123" in urls
+
+
+def test_extract_urls_complex():
+    """Test URL extraction with query params and fragments"""
+    parser = ContentParser()
+    text = (
+        "Check https://example.com/path?param=value&other=123#section "
+        "and https://arxiv.org/pdf/2011.10798.pdf"
+    )
+    urls = parser.extract_urls(text)
+
+    assert len(urls) == 2
+    assert "https://example.com/path?param=value&other=123#section" in urls
+    assert "https://arxiv.org/pdf/2011.10798.pdf" in urls
+
+
 def test_generate_content_hash():
     """Test content hash generation"""
     parser = ContentParser()
