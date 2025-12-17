@@ -31,6 +31,11 @@ class ContentParser:
         self.kb_topics_only = kb_topics_only
         self.logger = logger
 
+        # AICODE-NOTE: Cache for domain availability checks to avoid long timeouts
+        # Format: {domain: (is_available, timestamp)}
+        self._domain_availability_cache: Dict[str, Tuple[bool, float]] = {}
+        self._cache_ttl = 300  # 5 minutes TTL for availability cache
+
         if self.file_processor.is_available():
             self.logger.info(
                 f"File processor initialized. Supported formats: {', '.join(self.file_processor.get_supported_formats())}"
@@ -138,6 +143,51 @@ class ContentParser:
         """
         return url.replace("arxiv.org", "export.arxiv.org")
 
+    async def check_domain_availability(self, domain: str, timeout: float = 5.0) -> bool:
+        """
+        Quick check if a domain is available for downloads.
+        Uses cached result if available and not expired.
+
+        Args:
+            domain: Domain to check (e.g., "arxiv.org")
+            timeout: Timeout for the check in seconds (default: 5s)
+
+        Returns:
+            True if domain is available, False otherwise
+        """
+        current_time = time.time()
+
+        # Check cache first
+        if domain in self._domain_availability_cache:
+            is_available, timestamp = self._domain_availability_cache[domain]
+            if current_time - timestamp < self._cache_ttl:
+                self.logger.debug(
+                    f"Using cached availability for {domain}: {is_available} "
+                    f"(age: {current_time - timestamp:.1f}s)"
+                )
+                return is_available
+
+        # Perform quick HEAD request to check availability
+        try:
+            self.logger.info(f"Checking availability of {domain} (timeout: {timeout}s)...")
+            async with httpx.AsyncClient(follow_redirects=True, timeout=timeout) as client:
+                # Try a simple HEAD request to the main page
+                response = await client.head(f"https://{domain}")
+                is_available = response.status_code < 500  # 2xx, 3xx, 4xx are OK
+
+            self._domain_availability_cache[domain] = (is_available, current_time)
+            self.logger.info(f"Domain {domain} availability: {is_available}")
+            return is_available
+
+        except (httpx.TimeoutException, httpx.ConnectError) as e:
+            self.logger.warning(f"Domain {domain} is not available: {type(e).__name__}")
+            self._domain_availability_cache[domain] = (False, current_time)
+            return False
+        except Exception as e:
+            self.logger.warning(f"Error checking {domain} availability: {type(e).__name__}: {e}")
+            # Don't cache errors, allow retry next time
+            return False
+
     @staticmethod
     def extract_arxiv_urls(urls: List[str]) -> List[Tuple[str, str]]:
         """
@@ -172,13 +222,24 @@ class ContentParser:
         Returns:
             Path to downloaded file or None if download failed
         """
-        # AICODE-NOTE: Try original URL first, then fallback to export.arxiv.org
-        urls_to_try = [url]
+        # AICODE-NOTE: Smart URL selection based on domain availability
+        urls_to_try = []
 
-        # Add fallback URL if this is an arxiv.org URL (not already export.arxiv.org)
+        # If this is an arxiv.org URL, check availability and decide order
         if "arxiv.org" in url and "export.arxiv.org" not in url:
-            fallback_url = self.convert_to_export_url(url)
-            urls_to_try.append(fallback_url)
+            # Quick availability check (5 seconds timeout)
+            arxiv_available = await self.check_domain_availability("arxiv.org", timeout=5.0)
+
+            if arxiv_available:
+                # arxiv.org is available, try it first
+                urls_to_try = [url, self.convert_to_export_url(url)]
+            else:
+                # arxiv.org is not available, use export.arxiv.org directly
+                self.logger.info("arxiv.org is not available, using export.arxiv.org directly")
+                urls_to_try = [self.convert_to_export_url(url)]
+        else:
+            # Not an arxiv.org URL, use as-is
+            urls_to_try = [url]
 
         last_error = None
         for attempt_num, current_url in enumerate(urls_to_try, 1):

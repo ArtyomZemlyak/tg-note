@@ -366,6 +366,32 @@ def test_convert_to_export_url():
 
 
 @pytest.mark.asyncio
+async def test_check_domain_availability():
+    """Test domain availability check with caching"""
+    parser = ContentParser()
+
+    # Test with a known working domain (export.arxiv.org)
+    is_available = await parser.check_domain_availability("export.arxiv.org", timeout=10.0)
+    assert isinstance(is_available, bool)
+
+    # Second call should use cache (check logs for "Using cached availability")
+    is_available_cached = await parser.check_domain_availability("export.arxiv.org", timeout=10.0)
+    assert is_available_cached == is_available
+
+    # Test cache contains the result
+    assert "export.arxiv.org" in parser._domain_availability_cache
+    cached_value, timestamp = parser._domain_availability_cache["export.arxiv.org"]
+    assert isinstance(cached_value, bool)
+    assert isinstance(timestamp, float)
+
+    # Test with invalid domain (should return False)
+    is_available_invalid = await parser.check_domain_availability(
+        "this-domain-does-not-exist-12345.org", timeout=3.0
+    )
+    assert is_available_invalid is False
+
+
+@pytest.mark.asyncio
 async def test_download_pdf_from_url_creates_file(tmp_path, monkeypatch):
     """Test that PDF download creates a file"""
     from pathlib import Path
