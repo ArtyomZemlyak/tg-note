@@ -100,6 +100,13 @@ nav:
   - Git Credentials: user-guide/git-credentials.md
   - Secure Git Credentials: user-guide/secure-git-credentials.md
 
+- Features:
+  - Progress Tracking: features/progress-tracking.md
+  - Media Metadata System: features/media-metadata-system.md
+  - Image Instructions System: features/image-instructions-system.md
+  - Image Embedding: features/image-embedding.md
+  - Image Prompt Format: features/image-prompt-format.md
+
 - Agent System:
   - Overview: agents/overview.md
   - Qwen Code CLI: agents/qwen-code-cli.md

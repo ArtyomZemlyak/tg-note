@@ -1206,6 +1206,13 @@ class Settings(BaseSettings):
             "Order follows formatter fields; empty list disables manual splits."
         ),
     )
+    ENABLE_PROGRESS_TRACKING: bool = Field(
+        default=True,
+        description=(
+            "Enable real-time progress tracking for agent tasks. "
+            "Shows checkbox completion status in Telegram messages while agent works."
+        ),
+    )
     PROCESSED_LOG_PATH: Path = Field(
         default=Path("./data/processed.json"), description="Path to processed messages log"
     )

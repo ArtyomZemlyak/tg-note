@@ -171,31 +171,52 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
         )
         primary_processing_id = processing_message_ids[0]
 
-        # Execute task with agent
-        self.logger.info(f"[AGENT_SERVICE] Executing task for user {user_id}: {task_text[:50]}...")
-
-        processed_content = await self._execute_with_agent(
-            kb_path, content, user_id, chat_id, primary_processing_id
+        # AICODE-NOTE: Start progress monitoring for checkbox tracking
+        # Export directory is data/prompts/agent_mode where promptic exports rendered files
+        export_dir = Path(__file__).parent.parent.parent / "data" / "prompts" / "agent_mode"
+        progress_monitor = await self._start_progress_monitoring(
+            export_dir=export_dir,
+            chat_id=chat_id,
+            message_id=primary_processing_id,
+            user_id=user_id,
         )
 
-        # Save assistant response to context
-        import time
+        try:
+            # Execute task with agent
+            self.logger.info(
+                f"[AGENT_SERVICE] Executing task for user {user_id}: {task_text[:50]}..."
+            )
 
-        response_timestamp = int(time.time())
-        # Build a simple summary of the response for context
-        self.user_context_manager.add_assistant_message_to_context(
-            user_id, primary_processing_id, processed_content.get("markdown"), response_timestamp
-        )
+            processed_content = await self._execute_with_agent(
+                kb_path, content, user_id, chat_id, primary_processing_id
+            )
 
-        # AICODE-NOTE: Use base class method for auto-commit and push
-        task_summary = task_text[:50] + "..." if len(task_text) > 50 else task_text
-        commit_message = f"Agent task: {task_summary}"
-        await self._auto_commit_and_push(git_ops, user_id, commit_message)
+            # Save assistant response to context
+            import time
 
-        # Send result to user
-        await self._send_result(
-            processing_message_ids, chat_id, processed_content, kb_path, user_id
-        )
+            response_timestamp = int(time.time())
+            # Build a simple summary of the response for context
+            self.user_context_manager.add_assistant_message_to_context(
+                user_id,
+                primary_processing_id,
+                processed_content.get("markdown"),
+                response_timestamp,
+            )
+
+            # AICODE-NOTE: Use base class method for auto-commit and push
+            task_summary = task_text[:50] + "..." if len(task_text) > 50 else task_text
+            commit_message = f"Agent task: {task_summary}"
+            await self._auto_commit_and_push(git_ops, user_id, commit_message)
+
+            # Send result to user
+            await self._send_result(
+                processing_message_ids, chat_id, processed_content, kb_path, user_id
+            )
+
+        finally:
+            # AICODE-NOTE: Always stop progress monitoring when done
+            if progress_monitor:
+                await progress_monitor.stop_monitoring()
 
     async def _execute_with_agent(
         self, kb_path: Path, content: dict, user_id: int, chat_id: int, processing_msg_id: int

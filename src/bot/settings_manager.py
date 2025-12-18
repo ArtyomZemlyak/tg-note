@@ -47,6 +47,7 @@ class SettingsInspector:
         "AGENT_": "agent",
         "KB_": "knowledge_base",
         "MESSAGE_": "processing",
+        "ENABLE_": "processing",
         "PROCESSED_": "processing",
         "LOG_": "logging",
         "VECTOR_": "vector_search",

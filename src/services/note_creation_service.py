@@ -185,49 +185,67 @@ class NoteCreationService(BaseKBService, INoteCreationService):
             )
             primary_processing_id = processing_message_ids[0]
 
-            self.logger.debug(f"[NOTE_SERVICE] Getting agent for user {user_id}")
-            user_agent = await self.user_context_manager.get_or_create_agent(user_id)
-
-            # AICODE-NOTE: Use base class methods to configure agent working directory
-            agent_working_dir = self._get_agent_working_dir(kb_path, user_id)
-            self._configure_agent_working_dir(user_agent, agent_working_dir)
-
-            # AICODE-NOTE: Use base class method for rate limit check
-            if not await self._check_rate_limit(user_id, chat_id, primary_processing_id):
-                return
-
-            # AICODE-NOTE: Build complete prompt for note creation
-            note_prompt = self._get_note_prompt(content)
-            note_content = {
-                "text": content.get("text", ""),
-                "urls": content.get("urls", []),
-                "prompt": note_prompt,
-            }
+            # AICODE-NOTE: Start progress monitoring for checkbox tracking
+            # Export directory is data/prompts/note_mode where promptic exports rendered files
+            export_dir = Path(__file__).parent.parent.parent / "data" / "prompts" / "note_mode"
+            progress_monitor = await self._start_progress_monitoring(
+                export_dir=export_dir,
+                chat_id=chat_id,
+                message_id=primary_processing_id,
+                user_id=user_id,
+            )
 
             try:
-                self.logger.info(f"[NOTE_SERVICE] Processing content with agent for user {user_id}")
-                processed_content = await user_agent.process(note_content)
-            except Exception as agent_error:
-                self.logger.error(f"Agent processing failed: {agent_error}", exc_info=True)
-                await self.bot.edit_message_text(
-                    f"❌ Ошибка обработки контента агентом:\n{str(agent_error)}\n\n"
-                    f"Проверьте, что агент правильно настроен.",
-                    chat_id=chat_id,
-                    message_id=processing_msg_id,
-                )
-                return
+                self.logger.debug(f"[NOTE_SERVICE] Getting agent for user {user_id}")
+                user_agent = await self.user_context_manager.get_or_create_agent(user_id)
 
-            # Save to knowledge base
-            await self._save_to_kb(
-                kb_manager,
-                git_ops,
-                kb_path,
-                agent_working_dir,
-                processed_content,
-                user_id,
-                processing_msg_id,
-                chat_id,
-            )
+                # AICODE-NOTE: Use base class methods to configure agent working directory
+                agent_working_dir = self._get_agent_working_dir(kb_path, user_id)
+                self._configure_agent_working_dir(user_agent, agent_working_dir)
+
+                # AICODE-NOTE: Use base class method for rate limit check
+                if not await self._check_rate_limit(user_id, chat_id, primary_processing_id):
+                    return
+
+                # AICODE-NOTE: Build complete prompt for note creation
+                note_prompt = self._get_note_prompt(content)
+                note_content = {
+                    "text": content.get("text", ""),
+                    "urls": content.get("urls", []),
+                    "prompt": note_prompt,
+                }
+
+                try:
+                    self.logger.info(
+                        f"[NOTE_SERVICE] Processing content with agent for user {user_id}"
+                    )
+                    processed_content = await user_agent.process(note_content)
+                except Exception as agent_error:
+                    self.logger.error(f"Agent processing failed: {agent_error}", exc_info=True)
+                    await self.bot.edit_message_text(
+                        f"❌ Ошибка обработки контента агентом:\n{str(agent_error)}\n\n"
+                        f"Проверьте, что агент правильно настроен.",
+                        chat_id=chat_id,
+                        message_id=processing_msg_id,
+                    )
+                    return
+
+                # Save to knowledge base
+                await self._save_to_kb(
+                    kb_manager,
+                    git_ops,
+                    kb_path,
+                    agent_working_dir,
+                    processed_content,
+                    user_id,
+                    processing_msg_id,
+                    chat_id,
+                )
+
+            finally:
+                # AICODE-NOTE: Always stop progress monitoring when done
+                if progress_monitor:
+                    await progress_monitor.stop_monitoring()
 
             # Track processed message
             self._track_processed(group, content_hash, kb_path, processed_content)
