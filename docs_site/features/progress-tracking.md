@@ -144,6 +144,7 @@ Checkboxes inherit context from parent headers:
    - Checkbox parsing with regex
    - Progress calculation
    - Throttling and debouncing
+   - Thread-safe coroutine scheduling (v0.2.2+)
 
 2. **BaseKBService Integration** (`src/services/base_kb_service.py`)
    - `_start_progress_monitoring()` - creates and starts monitor
@@ -153,6 +154,12 @@ Checkboxes inherit context from parent headers:
 3. **Service Integration**
    - **NoteCreationService**: Monitors `data/prompts/note_mode/`
    - **AgentTaskService**: Monitors `data/prompts/agent_mode/`
+
+4. **Agent Prompt Instructions** (v0.2.2+)
+   - Explicit reminders to update checkboxes immediately after each step
+   - ✅ markers after each action item
+   - Prevents batch updates at the end
+   - Improves real-time progress visibility
 
 ### Checkbox Parsing
 
@@ -312,6 +319,34 @@ The test suite includes:
 - ✅ Multiple file handling
 - ✅ Edge cases (malformed markdown, nonexistent dirs)
 - ✅ Error handling
+
+## Best Practices
+
+### For Agent Prompt Authors
+
+When creating prompts with checkboxes:
+
+1. **Explicit Instructions**: Add clear reminders to update checkboxes immediately
+2. **Visual Markers**: Use ✅ emoji to emphasize checkbox update points
+3. **Step-by-Step**: Break down complex tasks into granular checkboxes
+4. **Context**: Include checkbox context (parent headers) for clarity
+5. **Format Consistency**: Use standard `- [ ]` and `- [x]` format
+
+Example:
+
+```markdown
+## Шаг 1: Анализ
+
+- [ ] Прочитать входящий контент
+- [ ] Определить тип источника
+- ✅ ЗАКРОЙ ЧЕКБОКС СРАЗУ после определения типа
+```
+
+### For Users
+
+- Enable progress tracking in settings for real-time updates
+- Longer tasks show more detailed progress
+- Progress updates respect Telegram rate limits (throttled to 2s)
 
 ## Future Enhancements
 
