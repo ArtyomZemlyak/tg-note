@@ -7,7 +7,7 @@ Follows DRY (Don't Repeat Yourself) principle
 import asyncio
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from loguru import logger
 
@@ -24,6 +24,7 @@ from src.processor.markdown_link_fixer import (
     LinkValidationResult,
     validate_and_fix_links_before_commit,
 )
+from src.services.progress_monitor import ProgressMonitor, ProgressSnapshot
 
 
 class BaseKBService:
@@ -441,6 +442,166 @@ class BaseKBService:
                 await self.bot.send_message(chat_id=chat_id, text=error_text)
         except Exception as e:
             self.logger.error(f"Failed to send error notification: {e}", exc_info=True)
+
+    async def _start_progress_monitoring(
+        self, export_dir: Path, chat_id: int, message_id: int, user_id: int
+    ) -> Optional[ProgressMonitor]:
+        """
+        Запустить мониторинг прогресса выполнения задач агентом
+
+        AICODE-NOTE: Создает ProgressMonitor для отслеживания изменений в файлах
+        промптов где агент закрывает чекбоксы. Обновляет telegram сообщение
+        с прогрессом в реальном времени.
+
+        Args:
+            export_dir: Директория с экспортированными промптами (data/prompts/*)
+            chat_id: Chat ID для обновления сообщений
+            message_id: ID сообщения для обновления прогресса
+            user_id: User ID для проверки настроек
+
+        Returns:
+            ProgressMonitor instance или None если мониторинг отключен
+        """
+        # Проверяем настройку пользователя
+        progress_tracking_enabled = self.settings_manager.get_setting(
+            user_id, "ENABLE_PROGRESS_TRACKING"
+        )
+        # Use True as default if setting is not configured
+        if progress_tracking_enabled is None:
+            progress_tracking_enabled = True
+
+        if not progress_tracking_enabled:
+            self.logger.debug(f"Progress tracking disabled for user {user_id}, skipping monitoring")
+            return None
+
+        try:
+            # Создаем callback для обновления telegram сообщения
+            async def update_callback(snapshot: ProgressSnapshot):
+                await self._update_progress_message(snapshot, chat_id, message_id)
+
+            # Создаем и запускаем монитор
+            monitor = ProgressMonitor(
+                export_dir=export_dir,
+                update_callback=update_callback,
+                throttle_interval=2.0,  # Обновлять не чаще раз в 2 секунды
+            )
+
+            await monitor.start_monitoring()
+
+            self.logger.info(f"Started progress monitoring for user {user_id} in {export_dir}")
+            return monitor
+
+        except Exception as e:
+            # Graceful error handling - не роняем основной процесс
+            self.logger.error(f"Failed to start progress monitoring: {e}", exc_info=True)
+            return None
+
+    async def _update_progress_message(
+        self, snapshot: ProgressSnapshot, chat_id: int, message_id: int
+    ) -> None:
+        """
+        Обновить telegram сообщение с прогрессом
+
+        Args:
+            snapshot: Snapshot прогресса с информацией о чекбоксах
+            chat_id: Chat ID
+            message_id: ID сообщения для обновления
+        """
+        try:
+            # Форматируем текст сообщения
+            progress_text = self._format_progress_text(snapshot)
+
+            # Обновляем сообщение
+            await self._safe_edit_message(
+                progress_text, chat_id=chat_id, message_id=message_id, parse_mode="HTML"
+            )
+
+            self.logger.debug(
+                f"Updated progress message: {snapshot.completed}/{snapshot.total} "
+                f"({snapshot.percentage:.1f}%)"
+            )
+
+        except Exception as e:
+            # Graceful error handling - логируем но не роняем процесс
+            self.logger.error(f"Failed to update progress message: {e}", exc_info=True)
+
+    def _format_progress_text(self, snapshot: ProgressSnapshot) -> str:
+        """
+        Форматирование snapshot прогресса в telegram-friendly текст
+
+        Формат:
+        🔄 Обрабатываю контент... (45%)
+
+        ✅ Инструкция прочитана
+        ✅ Многоэтапный поиск выполнен
+        ⏳ Создание структуры...
+        ⬜ Наполнение файлов
+        ⬜ Проверка полноты
+
+        Args:
+            snapshot: Snapshot прогресса
+
+        Returns:
+            Форматированный текст для telegram
+        """
+        # Заголовок с процентом
+        header = f"🔄 Обрабатываю контент... ({snapshot.percentage:.0f}%)"
+
+        lines = [header, ""]
+
+        # Группируем чекбоксы по контексту (заголовкам)
+        by_context: Dict[Optional[str], List] = {}
+        for cb in snapshot.checkboxes:
+            context = cb.context
+            if context not in by_context:
+                by_context[context] = []
+            by_context[context].append(cb)
+
+        # Отображаем максимум 8-10 чекбоксов для краткости
+        max_display = 10
+        displayed = 0
+
+        # Сначала показываем текущую задачу и ближайшие
+        current_task_shown = False
+
+        for context, checkboxes in by_context.items():
+            if displayed >= max_display:
+                break
+
+            # Добавляем контекст если есть
+            if context and len(by_context) > 1:
+                lines.append(f"<b>{context}</b>")
+
+            for cb in checkboxes:
+                if displayed >= max_display:
+                    break
+
+                # Определяем эмодзи
+                if cb.status == "completed":
+                    emoji = "✅"
+                elif not current_task_shown and cb.status == "pending":
+                    emoji = "⏳"  # Текущая задача
+                    current_task_shown = True
+                else:
+                    emoji = "⬜"
+
+                # Укорачиваем текст если слишком длинный
+                text = cb.text
+                if len(text) > 60:
+                    text = text[:57] + "..."
+
+                lines.append(f"{emoji} {text}")
+                displayed += 1
+
+            if context and len(by_context) > 1:
+                lines.append("")  # Пустая строка после группы
+
+        # Если есть еще чекбоксы которые не показали
+        remaining = snapshot.total - displayed
+        if remaining > 0:
+            lines.append(f"... и еще {remaining} задач")
+
+        return "\n".join(lines)
 
     async def _send_result(
         self,
