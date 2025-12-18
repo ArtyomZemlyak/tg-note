@@ -549,33 +549,25 @@ class BaseKBService:
 
         lines = [header, ""]
 
-        # Группируем чекбоксы по контексту (заголовкам)
-        by_context: Dict[Optional[str], List] = {}
+        # Группируем чекбоксы по файлам
+        by_file: Dict[str, List] = {}
         for cb in snapshot.checkboxes:
-            context = cb.context
-            if context not in by_context:
-                by_context[context] = []
-            by_context[context].append(cb)
-
-        # Отображаем максимум 8-10 чекбоксов для краткости
-        max_display = 10
-        displayed = 0
+            file_name = cb.file
+            if file_name not in by_file:
+                by_file[file_name] = []
+            by_file[file_name].append(cb)
 
         # Сначала показываем текущую задачу и ближайшие
         current_task_shown = False
 
-        for context, checkboxes in by_context.items():
-            if displayed >= max_display:
-                break
-
-            # Добавляем контекст если есть
-            if context and len(by_context) > 1:
-                lines.append(f"<b>{context}</b>")
+        for file_name, checkboxes in by_file.items():
+            # Показываем название файла только если несколько файлов
+            if len(by_file) > 1:
+                # Извлекаем короткое имя файла без пути
+                short_name = file_name.split("/")[-1].replace(".md", "")
+                lines.append(f"<b>{short_name}</b>")
 
             for cb in checkboxes:
-                if displayed >= max_display:
-                    break
-
                 # Определяем эмодзи
                 if cb.status == "completed":
                     emoji = "✅"
@@ -585,23 +577,56 @@ class BaseKBService:
                 else:
                     emoji = "⬜"
 
-                # Укорачиваем текст если слишком длинный
-                text = cb.text
-                if len(text) > 60:
-                    text = text[:57] + "..."
+                # Очищаем текст от служебных слов и символов
+                text = self._clean_checkbox_text(cb.text)
+
+                # Укорачиваем текст если слишком длинный (но не слишком агрессивно)
+                if len(text) > 50:
+                    text = text[:47] + "..."
 
                 lines.append(f"{emoji} {text}")
-                displayed += 1
 
-            if context and len(by_context) > 1:
+            if len(by_file) > 1:
                 lines.append("")  # Пустая строка после группы
 
-        # Если есть еще чекбоксы которые не показали
-        remaining = snapshot.total - displayed
-        if remaining > 0:
-            lines.append(f"... и еще {remaining} задач")
-
         return "\n".join(lines)
+
+    def _clean_checkbox_text(self, text: str) -> str:
+        """
+        Очистка текста чекбокса от служебных слов и символов
+
+        Args:
+            text: Исходный текст
+
+        Returns:
+            Очищенный текст
+        """
+        import re
+
+        # Убираем "###", "##", "#" в начале
+        text = re.sub(r"^#{1,6}\s+", "", text)
+
+        # Убираем "Шаг N:" в начале
+        text = re.sub(r"^Шаг\s+\d+:\s*", "", text)
+
+        # Убираем "Этап N:" в начале
+        text = re.sub(r"^Этап\s+\d+:\s*", "", text)
+
+        # Убираем слова в начале: КРИТИЧНО, ВАЖНО, и т.д.
+        text = re.sub(
+            r"^(КРИТИЧНО|ВАЖНО|ОБЯЗАТЕЛЬНО|ВНИМАНИЕ)[:.\s]*",
+            "",
+            text,
+            flags=re.IGNORECASE,
+        )
+
+        # Убираем markdown ссылки, оставляем только текст
+        text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
+
+        # Убираем множественные пробелы
+        text = re.sub(r"\s+", " ", text)
+
+        return text.strip()
 
     async def _send_result(
         self,
