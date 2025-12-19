@@ -13,9 +13,10 @@ import asyncio
 import os
 import subprocess
 import tempfile
+import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 from loguru import logger
 from promptic import render
@@ -263,6 +264,14 @@ class QwenCodeCLIAgent(BaseAgent):
         logger.debug(
             f"[QwenCodeCLIAgent] Starting process with content keys: {list(content.keys())}"
         )
+        # Check if log_callback is in content
+        has_log_callback = "log_callback" in content
+        log_callback_value = content.get("log_callback")
+        logger.info(
+            f"[QwenCodeCLIAgent] Content check: has_log_callback={has_log_callback}, "
+            f"log_callback is None={log_callback_value is None}, "
+            f"log_callback type={type(log_callback_value).__name__ if log_callback_value else 'None'}"
+        )
 
         if not self.validate_input(content):
             logger.error(f"[QwenCodeCLIAgent] Invalid input content: {content}")
@@ -281,7 +290,35 @@ class QwenCodeCLIAgent(BaseAgent):
 
             # Step 2: Execute qwen-code CLI
             logger.debug("[QwenCodeCLIAgent] STEP 2: Executing qwen-code CLI")
-            result_text = await self._execute_qwen_cli(prompt)
+            # Extract log_callback, error_callback and related parameters from content if provided
+            log_callback = content.get("log_callback")
+            error_callback = content.get("error_callback")
+            log_chars = content.get("log_chars", 1000)
+            update_interval = content.get("log_update_interval", 30.0)
+
+            logger.info(
+                f"[QwenCodeCLIAgent] Before _execute_qwen_cli: "
+                f"log_callback={log_callback is not None}, "
+                f"log_callback type={type(log_callback).__name__ if log_callback else 'None'}, "
+                f"log_chars={log_chars}, update_interval={update_interval}"
+            )
+
+            if log_callback:
+                logger.info(
+                    f"[QwenCodeCLIAgent] log_callback provided: log_chars={log_chars}, "
+                    f"update_interval={update_interval}s"
+                )
+            else:
+                logger.warning("[QwenCodeCLIAgent] No log_callback provided, using standard mode")
+
+            error_callback = content.get("error_callback")
+            result_text = await self._execute_qwen_cli(
+                prompt,
+                log_callback=log_callback,
+                log_chars=log_chars,
+                update_interval=update_interval,
+                error_callback=error_callback,
+            )
             logger.debug(
                 f"[QwenCodeCLIAgent] Received result length: {len(result_text)} characters"
             )
@@ -433,12 +470,26 @@ class QwenCodeCLIAgent(BaseAgent):
 
         return content["prompt"]
 
-    async def _execute_qwen_cli(self, prompt: str) -> str:
+    async def _execute_qwen_cli(
+        self,
+        prompt: str,
+        log_callback: Optional[Callable[[str], Awaitable[None]]] = None,
+        log_chars: int = 1000,
+        update_interval: float = 30.0,
+        error_callback: Optional[Callable[[str], Awaitable[None]]] = None,
+    ) -> str:
         """
         Execute qwen-code CLI with the given prompt
 
+        Supports two modes:
+        1. Standard mode (log_callback=None): Uses process.communicate() for blocking execution
+        2. Streaming mode (log_callback provided): Streams stdout/stderr and calls callback periodically
+
         Args:
             prompt: Prompt to send to qwen-code
+            log_callback: Optional async callback function to receive log snippets (last N chars)
+            log_chars: Number of characters to send in each log update (default: 1000)
+            update_interval: Interval in seconds between log updates (default: 30.0)
 
         Returns:
             CLI output as string
@@ -463,6 +514,11 @@ class QwenCodeCLIAgent(BaseAgent):
         try:
             # Prepare environment
             env = os.environ.copy()
+            # AICODE-NOTE: Disable buffering for stdout/stderr to enable real-time streaming
+            env["PYTHONUNBUFFERED"] = "1"
+            # For Node.js processes (qwen-code-cli), set NODE_NO_WARNINGS to avoid noise
+            if "NODE_NO_WARNINGS" not in env:
+                env["NODE_NO_WARNINGS"] = "1"
 
             # Log relevant environment variables (without sensitive data)
             logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] Environment variables:")
@@ -556,79 +612,35 @@ class QwenCodeCLIAgent(BaseAgent):
             )
 
             try:
-                # Send prompt and get response
-                logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] Sending prompt to stdin...")
-                stdout, stderr = await asyncio.wait_for(
-                    process.communicate(input=prompt_text.encode("utf-8")), timeout=self.timeout
-                )
-
-                execution_time = time.time() - start_time
-                logger.debug(
-                    f"[QwenCodeCLIAgent._execute_qwen_cli] Process completed in {execution_time:.2f}s"
-                )
-                logger.debug(
-                    f"[QwenCodeCLIAgent._execute_qwen_cli] Process return code: {process.returncode}"
-                )
-
-                # Log stderr output
-                stderr_text = stderr.decode().strip()
-                if stderr_text:
-                    logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] === STDERR OUTPUT ===")
-                    logger.debug(
-                        f"[QwenCodeCLIAgent._execute_qwen_cli] STDERR length: {len(stderr_text)} characters"
+                # Choose execution mode based on log_callback
+                if log_callback is not None:
+                    # Streaming mode: read stdout/stderr asynchronously and call callback periodically
+                    logger.info(
+                        f"[QwenCodeCLIAgent._execute_qwen_cli] Using streaming mode with log_callback "
+                        f"(log_chars={log_chars}, update_interval={update_interval}s)"
                     )
-                    logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli]\n{stderr_text}")
-                    logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] === END STDERR OUTPUT ===")
+                    result = await self._execute_with_streaming(
+                        process,
+                        prompt_text,
+                        start_time,
+                        log_callback,
+                        log_chars,
+                        update_interval,
+                        error_callback=error_callback,
+                    )
                 else:
-                    logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] STDERR is empty")
-
-                # Decode stdout
-                result = stdout.decode("utf-8").strip()
-
-                # Log stdout output
-                logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] === STDOUT OUTPUT ===")
-                logger.debug(
-                    f"[QwenCodeCLIAgent._execute_qwen_cli] STDOUT length: {len(result)} characters"
-                )
-                logger.debug(
-                    f"[QwenCodeCLIAgent._execute_qwen_cli] STDOUT preview (first 500 chars):\n{result[:500]}"
-                )
-                if len(result) > 500:
+                    # Standard mode: use communicate() for blocking execution
                     logger.debug(
-                        f"[QwenCodeCLIAgent._execute_qwen_cli] STDOUT preview (last 200 chars):\n{result[-200:]}"
+                        f"[QwenCodeCLIAgent._execute_qwen_cli] Using standard mode (no streaming)"
                     )
-                logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] === FULL STDOUT ===")
-                logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli]\n{result}")
-                logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] === END FULL STDOUT ===")
-
-                # Check for errors
-                if process.returncode != 0:
-                    error_msg = stderr_text
-                    logger.warning(
-                        f"[QwenCodeCLIAgent._execute_qwen_cli] Qwen CLI returned non-zero exit code {process.returncode}"
+                    # Send prompt and get response
+                    logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] Sending prompt to stdin...")
+                    stdout, stderr = await asyncio.wait_for(
+                        process.communicate(input=prompt_text.encode("utf-8")), timeout=self.timeout
                     )
-                    logger.warning(
-                        f"[QwenCodeCLIAgent._execute_qwen_cli] Qwen CLI stderr: {error_msg}"
+                    result = self._process_stdout_stderr(
+                        stdout, stderr, process, prompt, start_time
                     )
-
-                    # If we have an error message, include it in the result for debugging
-                    if error_msg and not result:
-                        logger.error(f"Qwen CLI failed with: {error_msg}")
-                        raise RuntimeError(f"Qwen CLI execution failed: {error_msg}")
-
-                if not result:
-                    logger.warning(
-                        "[QwenCodeCLIAgent._execute_qwen_cli] Empty result from qwen CLI, using fallback processing"
-                    )
-                    # Fallback to simple processing
-                    try:
-                        result = self._fallback_processing(prompt)
-                    except Exception as fallback_error:
-                        logger.error(f"Fallback processing also failed: {fallback_error}")
-                        raise RuntimeError(
-                            f"Both qwen CLI and fallback processing failed. "
-                            f"CLI error: empty result, Fallback error: {fallback_error}"
-                        )
 
                 logger.debug(
                     f"[QwenCodeCLIAgent._execute_qwen_cli] === CLI EXECUTION TRACE END ==="
@@ -656,6 +668,320 @@ class QwenCodeCLIAgent(BaseAgent):
                 )
             except Exception as e:
                 logger.warning(f"Failed to delete temp file: {e}")
+
+    def _process_stdout_stderr(
+        self,
+        stdout: bytes,
+        stderr: bytes,
+        process: asyncio.subprocess.Process,
+        prompt: str,
+        start_time: Optional[float] = None,
+    ) -> str:
+        """
+        Process stdout and stderr from subprocess execution.
+
+        Args:
+            stdout: Standard output bytes
+            stderr: Standard error bytes
+            process: Subprocess process object
+            prompt: Original prompt (for fallback processing)
+            start_time: Optional start time for execution time calculation
+
+        Returns:
+            Processed result string
+
+        Raises:
+            RuntimeError: If process failed or result is empty
+        """
+        if start_time is not None:
+            execution_time = time.time() - start_time
+            logger.debug(
+                f"[QwenCodeCLIAgent._execute_qwen_cli] Process completed in {execution_time:.2f}s"
+            )
+        logger.debug(
+            f"[QwenCodeCLIAgent._execute_qwen_cli] Process return code: {process.returncode}"
+        )
+
+        # Log stderr output
+        stderr_text = stderr.decode().strip()
+        if stderr_text:
+            logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] === STDERR OUTPUT ===")
+            logger.debug(
+                f"[QwenCodeCLIAgent._execute_qwen_cli] STDERR length: {len(stderr_text)} characters"
+            )
+            logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli]\n{stderr_text}")
+            logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] === END STDERR OUTPUT ===")
+        else:
+            logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] STDERR is empty")
+
+        # Decode stdout
+        result = stdout.decode("utf-8").strip()
+
+        # Log stdout output
+        logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] === STDOUT OUTPUT ===")
+        logger.debug(
+            f"[QwenCodeCLIAgent._execute_qwen_cli] STDOUT length: {len(result)} characters"
+        )
+        logger.debug(
+            f"[QwenCodeCLIAgent._execute_qwen_cli] STDOUT preview (first 500 chars):\n{result[:500]}"
+        )
+        if len(result) > 500:
+            logger.debug(
+                f"[QwenCodeCLIAgent._execute_qwen_cli] STDOUT preview (last 200 chars):\n{result[-200:]}"
+            )
+        logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] === FULL STDOUT ===")
+        logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli]\n{result}")
+        logger.debug(f"[QwenCodeCLIAgent._execute_qwen_cli] === END FULL STDOUT ===")
+
+        # Check for errors
+        if process.returncode != 0:
+            error_msg = stderr_text
+            logger.warning(
+                f"[QwenCodeCLIAgent._execute_qwen_cli] Qwen CLI returned non-zero exit code {process.returncode}"
+            )
+            logger.warning(f"[QwenCodeCLIAgent._execute_qwen_cli] Qwen CLI stderr: {error_msg}")
+
+            # If we have an error message, include it in the result for debugging
+            if error_msg and not result:
+                logger.error(f"Qwen CLI failed with: {error_msg}")
+                raise RuntimeError(f"Qwen CLI execution failed: {error_msg}")
+
+        if not result:
+            logger.warning(
+                "[QwenCodeCLIAgent._execute_qwen_cli] Empty result from qwen CLI, using fallback processing"
+            )
+            # Fallback to simple processing
+            try:
+                result = self._fallback_processing(prompt)
+            except Exception as fallback_error:
+                logger.error(f"Fallback processing also failed: {fallback_error}")
+                raise RuntimeError(
+                    f"Both qwen CLI and fallback processing failed. "
+                    f"CLI error: empty result, Fallback error: {fallback_error}"
+                )
+
+        return result
+
+    async def _execute_with_streaming(
+        self,
+        process: asyncio.subprocess.Process,
+        prompt_text: str,
+        start_time: float,
+        log_callback: Callable[[str], Awaitable[None]],
+        log_chars: int = 1000,
+        update_interval: float = 30.0,
+        error_callback: Optional[Callable[[str], Awaitable[None]]] = None,
+    ) -> str:
+        """
+        Execute subprocess with streaming stdout/stderr and periodic log updates.
+
+        Args:
+            process: Subprocess process object
+            prompt_text: Prompt text to send to stdin
+            start_time: Start time for execution tracking
+            log_callback: Async callback function to receive log snippets
+            log_chars: Number of characters to send in each update
+            update_interval: Interval in seconds between updates
+            error_callback: Optional async callback function to receive error messages
+
+        Returns:
+            Combined stdout and stderr output as string
+
+        Raises:
+            TimeoutError: If process exceeds timeout
+        """
+        stdout_buffer = []
+        stderr_buffer = []
+
+        async def read_stream(stream, buffer, stream_name):
+            """Read from stream and append to buffer."""
+            try:
+                logger.debug(
+                    f"[QwenCodeCLIAgent._execute_with_streaming] Starting to read {stream_name}"
+                )
+                chunk_count = 0
+                while True:
+                    chunk = await stream.read(4096)
+                    if not chunk:
+                        logger.debug(
+                            f"[QwenCodeCLIAgent._execute_with_streaming] {stream_name} closed (read {chunk_count} chunks)"
+                        )
+                        break
+                    chunk_count += 1
+                    decoded = chunk.decode("utf-8", errors="replace")
+                    buffer.append(decoded)
+                    # AICODE-NOTE: Removed per-chunk logging to reduce log spam
+            except Exception as e:
+                error_msg = f"Error reading {stream_name}: {e}"
+                logger.warning(error_msg, exc_info=True)
+                # Send error to error_callback if available
+                if error_callback:
+                    try:
+                        await error_callback(error_msg)
+                    except Exception as callback_error:
+                        logger.warning(f"Error in error_callback: {callback_error}")
+
+        async def periodic_log_updates():
+            """Periodically send log updates via callback."""
+            try:
+                update_count = 0
+                last_stderr_sent = [""]  # Track last sent stderr to avoid duplicates
+                while True:
+                    await asyncio.sleep(update_interval)
+                    update_count += 1
+
+                    # Separate stdout (logs) and stderr (errors)
+                    stdout_text = "".join(stdout_buffer)
+                    stderr_text = "".join(stderr_buffer)
+                    stdout_len = len(stdout_text)
+                    stderr_len = len(stderr_text)
+
+                    logger.debug(
+                        f"[QwenCodeCLIAgent._execute_with_streaming] Log update #{update_count}: "
+                        f"stdout={stdout_len} chars, stderr={stderr_len} chars"
+                    )
+
+                    # Send stdout to log_callback (only stdout, not stderr)
+                    if stdout_text:
+                        # Get last N characters from stdout only
+                        log_snippet = (
+                            stdout_text[-log_chars:]
+                            if len(stdout_text) > log_chars
+                            else stdout_text
+                        )
+                        logger.debug(
+                            f"[QwenCodeCLIAgent._execute_with_streaming] Sending log snippet: {len(log_snippet)} chars"
+                        )
+                        try:
+                            await log_callback(log_snippet)
+                            logger.debug(
+                                f"[QwenCodeCLIAgent._execute_with_streaming] Log callback executed successfully"
+                            )
+                        except Exception as e:
+                            logger.warning(f"Error in log_callback: {e}", exc_info=True)
+
+                    # Send stderr to error_callback (only if it changed)
+                    if stderr_text and stderr_text != last_stderr_sent[0] and error_callback:
+                        # Get new stderr content (what was added since last send)
+                        new_stderr = stderr_text[len(last_stderr_sent[0]) :]
+                        if new_stderr.strip():
+                            logger.debug(
+                                f"[QwenCodeCLIAgent._execute_with_streaming] Sending error snippet: {len(new_stderr)} chars"
+                            )
+                            try:
+                                await error_callback(new_stderr)
+                                last_stderr_sent[0] = stderr_text
+                                logger.debug(
+                                    f"[QwenCodeCLIAgent._execute_with_streaming] Error callback executed successfully"
+                                )
+                            except Exception as e:
+                                logger.warning(f"Error in error_callback: {e}", exc_info=True)
+                    elif not stdout_text and not stderr_text:
+                        logger.debug(
+                            f"[QwenCodeCLIAgent._execute_with_streaming] No logs to send yet (update #{update_count})"
+                        )
+            except asyncio.CancelledError:
+                # Task was cancelled, this is expected
+                logger.debug(
+                    f"[QwenCodeCLIAgent._execute_with_streaming] Periodic log updates cancelled"
+                )
+                pass
+
+        # Start reading streams and periodic updates
+        tasks = []
+        if process.stdout:
+            logger.debug(f"[QwenCodeCLIAgent._execute_with_streaming] Creating stdout reader task")
+            stdout_task = asyncio.create_task(read_stream(process.stdout, stdout_buffer, "stdout"))
+            tasks.append(stdout_task)
+        else:
+            logger.warning(f"[QwenCodeCLIAgent._execute_with_streaming] process.stdout is None!")
+        if process.stderr:
+            logger.debug(f"[QwenCodeCLIAgent._execute_with_streaming] Creating stderr reader task")
+            stderr_task = asyncio.create_task(read_stream(process.stderr, stderr_buffer, "stderr"))
+            tasks.append(stderr_task)
+        else:
+            logger.warning(f"[QwenCodeCLIAgent._execute_with_streaming] process.stderr is None!")
+        logger.debug(
+            f"[QwenCodeCLIAgent._execute_with_streaming] Creating periodic log update task"
+        )
+        log_update_task = asyncio.create_task(periodic_log_updates())
+        tasks.append(log_update_task)
+        logger.info(
+            f"[QwenCodeCLIAgent._execute_with_streaming] Started {len(tasks)} background tasks"
+        )
+
+        # Send initial test message to verify callback works
+        try:
+            logger.debug(
+                "[QwenCodeCLIAgent._execute_with_streaming] Sending initial test log message"
+            )
+            await log_callback("Начинаю выполнение...")
+        except Exception as e:
+            logger.warning(f"Failed to send initial test log message: {e}")
+
+        # Send prompt to stdin
+        logger.debug(f"[QwenCodeCLIAgent._execute_with_streaming] Sending prompt to stdin...")
+        if process.stdin:
+            try:
+                process.stdin.write(prompt_text.encode("utf-8"))
+                await process.stdin.drain()
+            finally:
+                process.stdin.close()
+                await process.stdin.wait_closed()
+
+        try:
+            # Wait for process to complete
+            await asyncio.wait_for(process.wait(), timeout=self.timeout)
+        except asyncio.TimeoutError:
+            process.kill()
+            await process.wait()
+            execution_time = time.time() - start_time
+            error_msg = f"Qwen CLI timeout after {execution_time:.2f}s (limit: {self.timeout}s)"
+            logger.error(error_msg)
+            # Send error to error_callback if available
+            if error_callback:
+                try:
+                    await error_callback(error_msg)
+                except Exception as callback_error:
+                    logger.warning(f"Error in error_callback: {callback_error}")
+            raise TimeoutError(f"Qwen CLI execution timeout after {self.timeout}s")
+        finally:
+            # Cancel and wait for all tasks
+            for task in tasks:
+                task.cancel()
+
+            try:
+                await asyncio.gather(*tasks, return_exceptions=True)
+            except Exception as e:
+                logger.warning(f"Error waiting for tasks: {e}")
+
+        # Combine final output
+        combined_output = "".join(stdout_buffer) + "".join(stderr_buffer)
+        result = combined_output.strip()
+
+        # Process result (check errors, fallback, etc.)
+        # Create a mock stderr bytes for compatibility with _process_stdout_stderr
+        stderr_bytes = "".join(stderr_buffer).encode("utf-8")
+        stdout_bytes = "".join(stdout_buffer).encode("utf-8")
+
+        # Check for process errors and send to error_callback if available
+        # AICODE-NOTE: Send final stderr if process failed (stderr might have been sent during execution, but send final status)
+        if process.returncode != 0:
+            stderr_text = "".join(stderr_buffer).strip()
+            if stderr_text and error_callback:
+                try:
+                    # Only send if we haven't sent this exact error already
+                    error_msg = f"Process exited with code {process.returncode}"
+                    if stderr_text:
+                        error_msg += f": {stderr_text[-500:]}"  # Last 500 chars of stderr
+                    await error_callback(error_msg)
+                except Exception as callback_error:
+                    logger.warning(f"Error in error_callback: {callback_error}")
+
+        # Use the same processing logic
+        return self._process_stdout_stderr(
+            stdout_bytes, stderr_bytes, process, prompt_text, start_time
+        )
 
     def _fallback_processing(self, prompt: str) -> str:
         """

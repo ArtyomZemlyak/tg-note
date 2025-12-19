@@ -163,6 +163,8 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
         # Prepare placeholders for multi-part response
         message_break_after = self._get_response_message_breaks(user_id)
         placeholder_count = max(1, len(message_break_after) + 1)
+        # AICODE-NOTE: Always ensure at least 3 messages (second for logs, third for errors)
+        placeholder_count = max(3, placeholder_count)
         processing_message_ids = await self._prepare_processing_placeholders(
             chat_id=chat_id,
             processing_msg_id=processing_msg_id,
@@ -188,7 +190,7 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
             )
 
             processed_content = await self._execute_with_agent(
-                kb_path, content, user_id, chat_id, primary_processing_id
+                kb_path, content, user_id, chat_id, primary_processing_id, processing_message_ids
             )
 
             # Save assistant response to context
@@ -219,7 +221,13 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
                 await progress_monitor.stop_monitoring()
 
     async def _execute_with_agent(
-        self, kb_path: Path, content: dict, user_id: int, chat_id: int, processing_msg_id: int
+        self,
+        kb_path: Path,
+        content: dict,
+        user_id: int,
+        chat_id: int,
+        processing_msg_id: int,
+        processing_message_ids: list,
     ) -> dict:
         """
         Execute task with agent.
@@ -237,6 +245,7 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
             user_id: User ID
             chat_id: Chat ID for notifications
             processing_msg_id: Message ID for status updates
+            processing_message_ids: List of all processing message IDs (for log updates)
 
         Returns:
             Agent execution result with answer, file changes, metadata
@@ -272,11 +281,109 @@ class AgentTaskService(BaseKBService, IAgentTaskService):
         else:
             task_prompt = f"{instr}\n\n# Задача от пользователя:\n{content.get('text', '')}"
 
+        # Create log_callback to update second message with logs (always enabled)
+        # AICODE-NOTE: Second message (index 1) is always created for log streaming
+        # We ensured placeholder_count >= 2, so processing_message_ids[1] should always exist
+        log_message_id = processing_message_ids[1]
+        self.logger.info(
+            f"[AGENT_SERVICE] Creating log_callback for message_id={log_message_id}, "
+            f"total messages={len(processing_message_ids)}"
+        )
+
+        # Store last sent text to avoid unnecessary updates
+        last_sent_text = [None]
+
+        async def update_log_message(log_snippet: str) -> None:
+            """Update the second processing message with log snippet."""
+            try:
+                # Format log message - escape HTML in log snippet to prevent issues
+                from html import escape
+
+                escaped_snippet = escape(log_snippet)
+                log_text = f"Анализирую контент\n\n<code>{escaped_snippet}</code>"
+
+                # Skip update if text hasn't changed
+                if last_sent_text[0] == log_text:
+                    self.logger.debug(
+                        f"[AGENT_SERVICE] Log text unchanged, skipping update ({len(log_snippet)} chars)"
+                    )
+                    return
+
+                self.logger.info(
+                    f"[AGENT_SERVICE] Updating log message with {len(log_snippet)} chars"
+                )
+                success = await self._safe_edit_message(
+                    log_text, chat_id=chat_id, message_id=log_message_id, parse_mode="HTML"
+                )
+                if success:
+                    last_sent_text[0] = log_text
+                    self.logger.debug(f"[AGENT_SERVICE] Log message updated successfully")
+                else:
+                    self.logger.warning(
+                        f"[AGENT_SERVICE] Failed to update log message (edit returned False)"
+                    )
+            except Exception as e:
+                self.logger.warning(f"Failed to update log message: {e}", exc_info=True)
+
+        log_callback = update_log_message
+
+        # Create error_callback to update third message with errors (if third message exists)
+        error_callback = None
+        if len(processing_message_ids) > 2:
+            error_message_id = processing_message_ids[2]
+            self.logger.info(
+                f"[AGENT_SERVICE] Creating error_callback for message_id={error_message_id}"
+            )
+
+            # Store accumulated errors
+            accumulated_errors = [""]
+
+            async def update_error_message(error_msg: str) -> None:
+                """Update the third processing message with error message (accumulates errors)."""
+                try:
+                    # Append new error to accumulated errors
+                    if error_msg and error_msg not in accumulated_errors[0]:
+                        accumulated_errors[0] += (
+                            f"\n{error_msg}" if accumulated_errors[0] else error_msg
+                        )
+                        # Limit to last 2000 chars to avoid message too long
+                        if len(accumulated_errors[0]) > 2000:
+                            accumulated_errors[0] = accumulated_errors[0][-2000:]
+
+                    if not accumulated_errors[0]:
+                        return
+
+                    from html import escape
+
+                    escaped_error = escape(accumulated_errors[0])
+                    error_text = f"⚠️ Ошибки:\n\n<code>{escaped_error}</code>"
+                    success = await self._safe_edit_message(
+                        error_text, chat_id=chat_id, message_id=error_message_id, parse_mode="HTML"
+                    )
+                    if success:
+                        self.logger.debug(f"[AGENT_SERVICE] Error message updated successfully")
+                except Exception as e:
+                    self.logger.warning(f"Failed to update error message: {e}", exc_info=True)
+
+            error_callback = update_error_message
+
         task_content = {
             "text": content.get("text", ""),
             "urls": content.get("urls", []),
             "prompt": task_prompt,
+            "log_callback": log_callback,
+            "error_callback": error_callback,
+            "log_chars": 1000,  # Default: last 1000 characters
+            "log_update_interval": 30.0,  # Default: update every 30 seconds
         }
+
+        # Log what we're passing to agent
+        self.logger.info(
+            f"[AGENT_SERVICE] Passing task_content to agent: "
+            f"has_log_callback={log_callback is not None}, "
+            f"log_chars={task_content.get('log_chars')}, "
+            f"log_update_interval={task_content.get('log_update_interval')}"
+        )
 
         # AICODE-NOTE: Use base class method for rate limit check
         if not await self._check_rate_limit(user_id, chat_id, processing_msg_id):
