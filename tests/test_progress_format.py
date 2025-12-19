@@ -8,7 +8,7 @@ from src.services.progress_monitor import CheckboxItem, ProgressSnapshot
 
 
 class MockBaseKBService:
-    """Mock для тестирования _clean_checkbox_text"""
+    """Mock для тестирования методов форматирования прогресса"""
 
     def _clean_checkbox_text(self, text: str) -> str:
         """Очистка текста чекбокса от служебных слов и символов"""
@@ -38,6 +38,35 @@ class MockBaseKBService:
         text = re.sub(r"\s+", " ", text)
 
         return text.strip()
+
+    def _extract_folder_path(self, file_path: str) -> str:
+        """Извлечь путь папки из пути файла, убрав prompts и имя файла"""
+        # Разбиваем путь на части
+        parts = file_path.split("/")
+
+        # Убираем имя файла (последняя часть)
+        if parts:
+            parts = parts[:-1]
+
+        # Убираем "prompts" из начала пути, если есть
+        if parts and parts[0] == "prompts":
+            parts = parts[1:]
+
+        # Возвращаем путь папки
+        return "/".join(parts) if parts else ""
+
+    def _format_folder_path(self, folder_path: str) -> str:
+        """Форматировать путь папки для отображения"""
+        if not folder_path:
+            return ""
+
+        # Если путь короткий, показываем как есть
+        if "/" not in folder_path:
+            return folder_path
+
+        # Для длинных путей можно показать только последнюю папку или все
+        # Пока показываем все, но можно настроить
+        return folder_path
 
 
 class TestProgressTextCleaning:
@@ -126,6 +155,69 @@ class TestProgressTextCleaning:
 
         for input_text, expected in examples:
             assert service._clean_checkbox_text(input_text) == expected
+
+
+class TestFolderPathExtraction:
+    """Тесты извлечения пути папки из пути файла"""
+
+    def test_extract_simple_path(self):
+        """Тест простого пути"""
+        service = MockBaseKBService()
+
+        assert service._extract_folder_path("note_mode.md") == ""
+        assert service._extract_folder_path("instruction_v5.md") == ""
+
+    def test_extract_nested_path(self):
+        """Тест вложенного пути"""
+        service = MockBaseKBService()
+
+        assert (
+            service._extract_folder_path("note_mode/qwen_code_cli/instruction_v5.md")
+            == "note_mode/qwen_code_cli"
+        )
+        assert (
+            service._extract_folder_path("note_mode/media/instruction_v4.md") == "note_mode/media"
+        )
+
+    def test_extract_with_prompts(self):
+        """Тест пути с prompts в начале"""
+        service = MockBaseKBService()
+
+        assert service._extract_folder_path("prompts/note_mode/instruction.md") == "note_mode"
+        assert (
+            service._extract_folder_path("prompts/note_mode/qwen_code_cli/file.md")
+            == "note_mode/qwen_code_cli"
+        )
+
+    def test_extract_deep_path(self):
+        """Тест глубокого пути"""
+        service = MockBaseKBService()
+
+        assert service._extract_folder_path("a/b/c/d/file.md") == "a/b/c/d"
+        assert service._extract_folder_path("prompts/a/b/c/file.md") == "a/b/c"
+
+    def test_format_folder_path(self):
+        """Тест форматирования пути папки"""
+        service = MockBaseKBService()
+
+        assert service._format_folder_path("") == ""
+        assert service._format_folder_path("note_mode") == "note_mode"
+        assert service._format_folder_path("note_mode/qwen_code_cli") == "note_mode/qwen_code_cli"
+
+    def test_real_world_examples(self):
+        """Тест на реальных примерах из промптов"""
+        service = MockBaseKBService()
+
+        examples = [
+            ("note_mode/note_mode.md", "note_mode"),
+            ("note_mode/qwen_code_cli/instruction_v5.md", "note_mode/qwen_code_cli"),
+            ("note_mode/media/instruction_v4.md", "note_mode/media"),
+            ("note_mode/shared/search_strategy_v2.md", "note_mode/shared"),
+            ("prompts/note_mode/file.md", "note_mode"),
+        ]
+
+        for file_path, expected_folder in examples:
+            assert service._extract_folder_path(file_path) == expected_folder
 
 
 if __name__ == "__main__":

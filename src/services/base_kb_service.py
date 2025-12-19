@@ -549,23 +549,24 @@ class BaseKBService:
 
         lines = [header, ""]
 
-        # Группируем чекбоксы по файлам
-        by_file: Dict[str, List] = {}
+        # Группируем чекбоксы по папкам (иерархия)
+        by_folder: Dict[str, List] = {}
         for cb in snapshot.checkboxes:
-            file_name = cb.file
-            if file_name not in by_file:
-                by_file[file_name] = []
-            by_file[file_name].append(cb)
+            # Извлекаем путь папки из файла
+            folder_path = self._extract_folder_path(cb.file)
+            if folder_path not in by_folder:
+                by_folder[folder_path] = []
+            by_folder[folder_path].append(cb)
 
         # Сначала показываем текущую задачу и ближайшие
         current_task_shown = False
 
-        for file_name, checkboxes in by_file.items():
-            # Показываем название файла только если несколько файлов
-            if len(by_file) > 1:
-                # Извлекаем короткое имя файла без пути
-                short_name = file_name.split("/")[-1].replace(".md", "")
-                lines.append(f"<b>{short_name}</b>")
+        for folder_path, checkboxes in by_folder.items():
+            # Показываем путь папки только если несколько папок или путь не пустой
+            if len(by_folder) > 1 or folder_path:
+                # Форматируем путь папки для отображения
+                display_path = self._format_folder_path(folder_path)
+                lines.append(f"<b>{display_path}</b>")
 
             for cb in checkboxes:
                 # Определяем эмодзи
@@ -586,10 +587,55 @@ class BaseKBService:
 
                 lines.append(f"{emoji} {text}")
 
-            if len(by_file) > 1:
+            if len(by_folder) > 1 or folder_path:
                 lines.append("")  # Пустая строка после группы
 
         return "\n".join(lines)
+
+    def _extract_folder_path(self, file_path: str) -> str:
+        """
+        Извлечь путь папки из пути файла, убрав prompts и имя файла
+
+        Args:
+            file_path: Путь к файлу (например, "note_mode/qwen_code_cli/instruction_v5.md")
+
+        Returns:
+            Путь папки (например, "note_mode/qwen_code_cli")
+        """
+        # Разбиваем путь на части
+        parts = file_path.split("/")
+
+        # Убираем имя файла (последняя часть)
+        if parts:
+            parts = parts[:-1]
+
+        # Убираем "prompts" из начала пути, если есть
+        if parts and parts[0] == "prompts":
+            parts = parts[1:]
+
+        # Возвращаем путь папки
+        return "/".join(parts) if parts else ""
+
+    def _format_folder_path(self, folder_path: str) -> str:
+        """
+        Форматировать путь папки для отображения
+
+        Args:
+            folder_path: Путь папки (например, "note_mode/qwen_code_cli")
+
+        Returns:
+            Отформатированный путь для отображения
+        """
+        if not folder_path:
+            return ""
+
+        # Если путь короткий, показываем как есть
+        if "/" not in folder_path:
+            return folder_path
+
+        # Для длинных путей можно показать только последнюю папку или все
+        # Пока показываем все, но можно настроить
+        return folder_path
 
     def _clean_checkbox_text(self, text: str) -> str:
         """
