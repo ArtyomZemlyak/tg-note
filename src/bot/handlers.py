@@ -43,6 +43,7 @@ class BotHandlers:
         settings_handlers=None,
         kb_handlers=None,
         mcp_handlers=None,
+        scheduled_task_handlers=None,
     ):
         """
         Initialize bot handlers
@@ -59,6 +60,7 @@ class BotHandlers:
             settings_handlers: Settings handlers (optional)
             kb_handlers: Knowledge base handlers (optional)
             mcp_handlers: MCP handlers (optional)
+            scheduled_task_handlers: Scheduled task handlers (optional)
         """
         self.bot = bot
         self.async_bot = async_bot
@@ -71,6 +73,7 @@ class BotHandlers:
         self.settings_handlers = settings_handlers
         self.kb_handlers = kb_handlers
         self.mcp_handlers = mcp_handlers
+        self.scheduled_task_handlers = scheduled_task_handlers
         self.logger = logger
 
         # Initialize MkDocs configurator
@@ -219,6 +222,11 @@ class BotHandlers:
             InlineKeyboardButton("❓ Помощь", callback_data="start:help"),
         )
 
+        # Fourth row - Scheduled Tasks
+        keyboard.add(
+            InlineKeyboardButton("⏰ Регулярные задачи", callback_data="start:tasks"),
+        )
+
         welcome_text = (
             "🤖 <b>Добро пожаловать в tg-note!</b>\n\n"
             "Этот бот автоматически создает заметки в базе знаний из ваших сообщений и репостов.\n\n"
@@ -307,6 +315,19 @@ class BotHandlers:
                 # Set mode
                 mode = parts[2] if len(parts) > 2 else "note"
                 await self._set_mode(call, mode)
+
+            elif action == "tasks":
+                # Open scheduled tasks menu (delegate to scheduled_task_handlers)
+                await self.bot.answer_callback_query(call.id)
+                message = call.message
+                message.from_user = call.from_user
+                message.text = "/tasks"
+                if self.scheduled_task_handlers:
+                    await self.scheduled_task_handlers.handle_tasks_menu(message)
+                else:
+                    await self.bot.send_message(
+                        call.message.chat.id, "Scheduled task handlers not initialized"
+                    )
 
             elif action == "settings":
                 # Open settings menu (delegate to settings_handlers)

@@ -52,6 +52,9 @@ class IncomingMessageDTO:
     animation: Optional[Any] = None
     sticker: Optional[Any] = None
 
+    # Internal flags
+    skip_deduplication: bool = False  # Skip deduplication check (for scheduled tasks, etc.)
+
     def is_forwarded(self) -> bool:
         """Check if message is forwarded"""
         if self.forward_date is not None and self.forward_date > 0:

@@ -165,8 +165,16 @@ class NoteCreationService(BaseKBService, INoteCreationService):
             )
             content_hash = content_parser.generate_hash(content)
 
-            # Check if already processed
-            if self.tracker.is_processed(content_hash):
+            # Check if already processed (skip for scheduled tasks)
+            # AICODE-NOTE: Check if message should skip deduplication (e.g., scheduled tasks)
+            skip_deduplication = False
+            if group.messages:
+                first_message = group.messages[0]
+                # Check if message has skip_deduplication flag
+                # This flag is set for scheduled tasks to allow repeated execution
+                skip_deduplication = first_message.get("skip_deduplication", False)
+
+            if not skip_deduplication and self.tracker.is_processed(content_hash):
                 await self.bot.edit_message_text(
                     "✅ Это сообщение уже было обработано ранее",
                     chat_id=chat_id,

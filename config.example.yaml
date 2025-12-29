@@ -804,3 +804,53 @@ VECTOR_RESPECT_HEADERS: true
 # - 5-10: More comprehensive search
 # - 10-20: Exhaustive search, may include less relevant results
 VECTOR_SEARCH_TOP_K: 5
+
+# ───────────────────────────────────────────────────────────────────────────────
+# Scheduled Tasks Settings
+# ───────────────────────────────────────────────────────────────────────────────
+# Configure automatic agent tasks that run on a schedule
+
+# SCHEDULED_TASKS: List of scheduled agent tasks
+# Each task runs automatically on a schedule and executes an agent task on a knowledge base
+#
+# Task configuration:
+#   - task_id: Unique identifier (optional, auto-generated if not provided)
+#   - user_id: User ID who owns the task
+#   - kb_name: Knowledge base name to run task on
+#   - schedule: Cron expression (e.g., "0 9 * * *" for daily at 9 AM) or interval in seconds (e.g., "3600" for every hour)
+#   - prompt_path: Path to prompt file in promptic format (e.g., "agent_mode_v5.md") OR
+#   - prompt_text: Direct prompt text (use one of prompt_path or prompt_text, not both)
+#   - enabled: Whether task is enabled (optional, default: true)
+#   - chat_id: Telegram chat ID for notifications (optional, but recommended)
+#
+# Examples:
+#
+# Daily task at 9 AM using a prompt file:
+# SCHEDULED_TASKS:
+#   - user_id: 123456789
+#     kb_name: my-notes
+#     schedule: "0 9 * * *"  # Daily at 9:00 AM
+#     prompt_path: "agent_mode_v5.md"
+#     chat_id: 123456789
+#     enabled: true
+#
+# Hourly task with direct prompt text:
+# SCHEDULED_TASKS:
+#   - user_id: 123456789
+#     kb_name: my-notes
+#     schedule: "3600"  # Every hour (3600 seconds)
+#     prompt_text: "Review and summarize recent changes in the knowledge base"
+#     chat_id: 123456789
+#     enabled: true
+#
+# Weekly task on Monday at 8 AM:
+# SCHEDULED_TASKS:
+#   - user_id: 123456789
+#     kb_name: work-kb
+#     schedule: "0 8 * * 1"  # Every Monday at 8:00 AM
+#     prompt_path: "agent_mode_v5.md"
+#     chat_id: 123456789
+#     enabled: true
+#
+# Note: Tasks can also be managed via Telegram menu: /tasks
+SCHEDULED_TASKS: []

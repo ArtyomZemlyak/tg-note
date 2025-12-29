@@ -23,6 +23,9 @@ from src.services.conversation_context import ConversationContextManager
 from src.services.message_processor import MessageProcessor
 from src.services.note_creation_service import NoteCreationService
 from src.services.question_answering_service import QuestionAnsweringService
+from src.services.scheduled_task_executor import ScheduledTaskExecutor
+from src.services.scheduled_task_service import ScheduledTaskService
+from src.services.task_scheduler import TaskScheduler
 from src.services.user_context_manager import UserContextManager
 from src.tracker.processing_tracker import ProcessingTracker
 
@@ -205,6 +208,35 @@ def configure_services(container: Container) -> None:
         singleton=True,
     )
 
+    # Register scheduled task services
+    container.register(
+        "scheduled_task_service",
+        lambda c: ScheduledTaskService(),
+        singleton=True,
+    )
+
+    container.register(
+        "scheduled_task_executor",
+        lambda c: ScheduledTaskExecutor(
+            bot=c.get("bot_adapter"),
+            message_processor=c.get("message_processor"),
+            user_context_manager=c.get("user_context_manager"),
+            repo_manager=c.get("repo_manager"),
+            user_settings=c.get("user_settings"),
+            prompt_service=c.get("prompt_service"),
+        ),
+        singleton=True,
+    )
+
+    container.register(
+        "task_scheduler",
+        lambda c: TaskScheduler(
+            task_service=c.get("scheduled_task_service"),
+            execution_callback=c.get("scheduled_task_executor").execute_task,
+        ),
+        singleton=True,
+    )
+
     # Register telegram bot (facade)
     container.register(
         "telegram_bot",
@@ -219,6 +251,8 @@ def configure_services(container: Container) -> None:
             user_context_manager=c.get("user_context_manager"),
             message_processor=c.get("message_processor"),
             background_task_manager=c.get("background_task_manager"),
+            scheduled_task_service=c.get("scheduled_task_service"),
+            task_scheduler=c.get("task_scheduler"),
         ),
         singleton=True,
     )

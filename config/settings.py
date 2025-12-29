@@ -1253,6 +1253,18 @@ class Settings(BaseSettings):
         description="Deprecated Docling formats list (use MEDIA_PROCESSING_DOCLING.formats instead)",
     )
 
+    # Scheduled Tasks Settings (can be in YAML)
+    SCHEDULED_TASKS: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description=(
+            "List of scheduled agent tasks. Each task is a dictionary with keys: "
+            "task_id (optional, auto-generated if not provided), user_id, kb_name, "
+            "schedule (cron expression like '0 9 * * *' or interval in seconds like '3600'), "
+            "prompt_path (path to promptic prompt file) or prompt_text (direct prompt text), "
+            "enabled (optional, default True), chat_id (optional, Telegram chat ID for notifications)."
+        ),
+    )
+
     @classmethod
     def settings_customise_sources(
         cls,

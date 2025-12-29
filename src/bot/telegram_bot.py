@@ -15,6 +15,7 @@ from src.bot.credentials_handlers import CredentialsHandlers
 from src.bot.handlers import BotHandlers
 from src.bot.kb_handlers import KBHandlers
 from src.bot.mcp_handlers import MCPHandlers
+from src.bot.scheduled_task_handlers import ScheduledTaskHandlers
 from src.bot.settings_handlers import SettingsHandlers
 from src.bot.settings_manager import SettingsManager
 from src.core.background_task_manager import BackgroundTaskManager
@@ -23,6 +24,8 @@ from src.knowledge_base.repository import RepositoryManager
 from src.knowledge_base.user_settings import UserSettings
 from src.mcp.registry.manager import MCPServersManager
 from src.services.interfaces import IMessageProcessor, IUserContextManager
+from src.services.scheduled_task_service import ScheduledTaskService
+from src.services.task_scheduler import TaskScheduler
 from src.tracker.processing_tracker import ProcessingTracker
 
 
@@ -41,6 +44,8 @@ class TelegramBot:
         user_context_manager: IUserContextManager,
         message_processor: IMessageProcessor,
         background_task_manager: BackgroundTaskManager,
+        scheduled_task_service: ScheduledTaskService,
+        task_scheduler: TaskScheduler,
     ):
         self.bot = bot
         self.bot_adapter = bot_adapter
@@ -52,6 +57,8 @@ class TelegramBot:
         self.user_context_manager = user_context_manager
         self.message_processor = message_processor
         self.background_task_manager = background_task_manager
+        self.scheduled_task_service = scheduled_task_service
+        self.task_scheduler = task_scheduler
 
         # Initialize handlers (with cross-references for cache invalidation)
         self.handlers = BotHandlers(
@@ -66,6 +73,7 @@ class TelegramBot:
             settings_handlers=None,
             kb_handlers=None,  # Will be set after KB handlers are created
             mcp_handlers=None,  # Will be set after MCP handlers are created
+            scheduled_task_handlers=None,  # Will be set after scheduled task handlers are created
         )
         self.settings_handlers = SettingsHandlers(self.bot, self.handlers)
         # Update the settings_handlers reference in handlers
@@ -94,10 +102,19 @@ class TelegramBot:
             credentials_manager=self.credentials_manager,
         )
 
+        # Initialize Scheduled Task handlers
+        self.scheduled_task_handlers = ScheduledTaskHandlers(
+            bot=self.bot,
+            task_service=scheduled_task_service,
+            user_settings=user_settings,
+            handlers=self.handlers,
+        )
+
         # Update cross-references in handlers
         self.handlers.kb_handlers = self.kb_handlers
         self.handlers.mcp_handlers = self.mcp_handlers
         self.handlers.credentials_handlers = self.credentials_handlers
+        self.handlers.scheduled_task_handlers = self.scheduled_task_handlers
 
         # Bot state
         self.is_running = False
@@ -131,7 +148,11 @@ class TelegramBot:
             await self.kb_handlers.register_handlers_async()
             await self.credentials_handlers.register_handlers()
             await self.mcp_handlers.register_handlers_async()
+            await self.scheduled_task_handlers.register_handlers_async()
             await self.handlers.register_handlers_async()
+
+            # Load scheduled tasks from config and start scheduler
+            await self._initialize_scheduled_tasks()
 
             # Start polling
             self.is_running = True
@@ -184,7 +205,48 @@ class TelegramBot:
                 pass
 
         self._polling_task = None
+        # Stop task scheduler
+        try:
+            await self.task_scheduler.stop()
+            logger.info("Task scheduler stopped")
+        except Exception as e:
+            logger.warning(f"Error stopping task scheduler: {e}")
+
         logger.info("Telegram bot stopped")
+
+    async def _initialize_scheduled_tasks(self) -> None:
+        """Initialize scheduled tasks from config and start scheduler"""
+        try:
+            from datetime import datetime
+
+            from config import settings
+
+            # Load tasks from config
+            if hasattr(settings, "SCHEDULED_TASKS") and settings.SCHEDULED_TASKS:
+                config_dict = {"SCHEDULED_TASKS": settings.SCHEDULED_TASKS}
+                self.scheduled_task_service.load_tasks_from_config(config_dict)
+                logger.info(f"Loaded {len(settings.SCHEDULED_TASKS)} scheduled tasks from config")
+
+                # Calculate and set next_run for all loaded tasks
+                now = datetime.now()
+                tasks = self.scheduled_task_service.get_all_tasks(enabled_only=True)
+                for task in tasks:
+                    if task.next_run is None:
+                        # Calculate next_run using scheduler's logic
+                        next_run = self.task_scheduler._calculate_next_run(task, now)
+                        if next_run:
+                            task.next_run = next_run
+                            self.scheduled_task_service.update_task(task)
+                            logger.info(
+                                f"Set next_run for task {task.task_id}: {next_run.isoformat()}"
+                            )
+
+            # Start scheduler
+            self.task_scheduler.start()
+            logger.info("Task scheduler started")
+
+        except Exception as e:
+            logger.error(f"Failed to initialize scheduled tasks: {e}", exc_info=True)
 
     async def _polling_loop(self) -> None:
         """Main async polling loop"""

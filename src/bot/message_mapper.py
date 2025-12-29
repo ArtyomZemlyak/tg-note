@@ -57,7 +57,8 @@ class MessageMapper:
         """
         Convert IncomingMessageDTO to dictionary format
 
-        This is useful for legacy code that still works with dict representations
+        This is useful for legacy code that still works with dict representations.
+        Preserves skip_deduplication flag for scheduled tasks.
 
         Args:
             dto: IncomingMessageDTO object
@@ -78,6 +79,7 @@ class MessageMapper:
             "forward_sender_name": dto.forward_sender_name,
             "forward_date": dto.forward_date,
             "date": dto.timestamp,
+            "skip_deduplication": dto.skip_deduplication,  # Preserve flag for scheduled tasks
         }
 
         # Add media attachments if present
