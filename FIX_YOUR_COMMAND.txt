@@ -1,0 +1,145 @@
+═══════════════════════════════════════════════════════════════════════════════
+🔧 ИСПРАВЛЕНИЕ ВАШЕЙ КОМАНДЫ
+═══════════════════════════════════════════════════════════════════════════════
+
+ПРОБЛЕМА:
+─────────────────────────────────────────────────────────────────────────────
+Ваша команда:
+  huggingface-cli download docling-project/docling-layout-heron-101 \
+      --include "layout/*" \                    ← ❌ ВОТ ТУТ ПРОБЛЕМА!
+      --local-dir . --local-dir-use-symlinks False
+
+Результат:
+  Fetching 0 files                               ← Ничего не загружается!
+
+ПОЧЕМУ:
+─────────────────────────────────────────────────────────────────────────────
+В репозитории docling-project/docling-layout-heron-101 НЕТ папки "layout/"
+Файлы лежат в КОРНЕ репозитория:
+  ├── model.onnx
+  ├── config.json
+  └── preprocessor_config.json
+
+Паттерн "layout/*" ничего не находит → 0 файлов
+
+
+✅ РЕШЕНИЕ 1: Убрать --include (РЕКОМЕНДУЕТСЯ)
+═══════════════════════════════════════════════════════════════════════════════
+
+cd /home/artem/projects/tg-note/data/docling/models
+
+# Создать папку для модели
+mkdir -p layout
+cd layout
+
+# Загрузить БЕЗ --include
+export HF_HUB_ENABLE_HF_TRANSFER=1
+huggingface-cli download docling-project/docling-layout-heron-101 \
+    --local-dir . \
+    --local-dir-use-symlinks False
+
+# Проверить
+ls -lh
+# Должны появиться: model.onnx, config.json, etc.
+
+
+✅ РЕШЕНИЕ 2: Загрузить только нужные типы файлов
+═══════════════════════════════════════════════════════════════════════════════
+
+cd /home/artem/projects/tg-note/data/docling/models/layout
+
+export HF_HUB_ENABLE_HF_TRANSFER=1
+huggingface-cli download docling-project/docling-layout-heron-101 \
+    --include "*.onnx" \
+    --include "*.json" \
+    --local-dir . \
+    --local-dir-use-symlinks False
+
+
+✅ РЕШЕНИЕ 3: Использовать скрипт (загрузит ВСЕ модели)
+═══════════════════════════════════════════════════════════════════════════════
+
+bash download_docling_new_repos.sh /home/artem/projects/tg-note/data/docling/models
+
+
+📋 ДРУГИЕ МОДЕЛИ DOCLING (новые репозитории)
+═══════════════════════════════════════════════════════════════════════════════
+
+# Layout V2 (default, рекомендуется)
+mkdir -p models/layout
+huggingface-cli download docling-project/docling-layout-v2 \
+    --local-dir models/layout \
+    --local-dir-use-symlinks False
+
+# Layout Heron (ваша модель)
+mkdir -p models/layout
+huggingface-cli download docling-project/docling-layout-heron-101 \
+    --local-dir models/layout \
+    --local-dir-use-symlinks False
+
+# TableFormer
+mkdir -p models/tableformer
+huggingface-cli download docling-project/docling-tableformer \
+    --local-dir models/tableformer \
+    --local-dir-use-symlinks False
+
+# Code & Formula
+mkdir -p models/code_formula_detection
+huggingface-cli download docling-project/docling-code-formula-detection \
+    --local-dir models/code_formula_detection \
+    --local-dir-use-symlinks False
+
+# Picture Classifier
+mkdir -p models/picture_classifier
+huggingface-cli download docling-project/docling-document-picture-classifier \
+    --local-dir models/picture_classifier \
+    --local-dir-use-symlinks False
+
+# RapidOCR (не изменился)
+huggingface-cli download RapidAI/RapidOCR \
+    --include "RapidOcr/onnx/PP-OCRv4/*" \
+    --local-dir models \
+    --local-dir-use-symlinks False
+
+
+💡 ПРАВИЛО:
+═══════════════════════════════════════════════════════════════════════════════
+
+❌ СТАРЫЕ РЕПОЗИТОРИИ (до Docling 2.61.2):
+   DS4SD/docling-models/layout/model.onnx      ← С папкой layout/
+   
+   Команда:
+   huggingface-cli download DS4SD/docling-models \
+       --include "layout/*"                     ← ✅ Работает!
+
+✅ НОВЫЕ РЕПОЗИТОРИИ (Docling 2.61.2+):
+   docling-project/docling-layout-v2/model.onnx ← Файлы в корне!
+   
+   Команда:
+   huggingface-cli download docling-project/docling-layout-v2 \
+       --local-dir .                            ← ✅ БЕЗ --include!
+
+
+🔍 КАК ПРОВЕРИТЬ СТРУКТУРУ РЕПОЗИТОРИЯ
+═══════════════════════════════════════════════════════════════════════════════
+
+python3 -c "
+from huggingface_hub import list_repo_files
+files = list_repo_files('docling-project/docling-layout-heron-101')
+for f in files:
+    print(f)
+"
+
+Или используйте скрипт:
+bash fix_model_download.sh docling-project/docling-layout-heron-101
+
+
+📖 ПОДРОБНАЯ ИНСТРУКЦИЯ
+═══════════════════════════════════════════════════════════════════════════════
+
+Читайте: DOCLING_NEW_REPOS_GUIDE.md
+
+
+═══════════════════════════════════════════════════════════════════════════════
+ИТОГО: Уберите --include "layout/*" и всё заработает! 🎉
+═══════════════════════════════════════════════════════════════════════════════
